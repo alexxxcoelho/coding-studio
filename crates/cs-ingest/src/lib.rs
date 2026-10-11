@@ -5,11 +5,24 @@
 //! - `parse_source(path, kind, interviewer_names)` reads speaker turns.
 //! - `segment(interview_id, turns)` applies `cs_model::SEGMENTATION_RULE`.
 //! - `build_segmentation(entry, rel_path, interviewer_names)` does parse + segment + hashes.
+//!
+//! Reading never modifies a source file. Text is only trimmed, whitespace
+//! collapsed, markdown bold markers removed and HTML entities decoded, so a
+//! verbatim quoted from a unit can be found in the source word for word.
 
 use std::path::Path;
 
-use anyhow::Result;
-use cs_model::{InterviewEntry, Segmentation, SourceKind, Turn, Unit};
+use anyhow::{Context, Result};
+use cs_model::{
+    sha256_hex, CsError, InterviewEntry, Segmentation, SourceKind, Turn, Unit, SEGMENTATION_RULE,
+};
+
+mod parse;
+mod scan;
+mod segment;
+mod text;
+
+pub use segment::{split_long, split_sentences};
 
 /// Names under which the candidate appears in platform transcripts.
 pub const DEFAULT_INTERVIEWER_NAMES: &[&str] = &[
@@ -19,49 +32,175 @@ pub const DEFAULT_INTERVIEWER_NAMES: &[&str] = &[
     "Alex",
 ];
 
+/// `DEFAULT_INTERVIEWER_NAMES` as owned strings, for `parse_source`.
+pub fn default_interviewer_names() -> Vec<String> {
+    DEFAULT_INTERVIEWER_NAMES
+        .iter()
+        .map(|s| s.to_string())
+        .collect()
+}
+
 /// Normalises an interview ID from a folder name: `ECO33_RomanEppenberger` -> `ECO-33`,
 /// `ECO35-Schwarz` -> `ECO-35`, `RET-22_von-Grone` -> `RET-22`. `None` when no ID.
 pub fn parse_interview_id(folder_name: &str) -> Option<String> {
-    let _ = folder_name;
-    todo!()
+    scan::parse_interview_id(folder_name)
 }
 
 /// Classifies a file by its name and extension (path relative to the interview folder).
 pub fn classify(rel_path: &str) -> SourceKind {
-    let _ = rel_path;
-    todo!()
+    scan::classify(rel_path)
 }
 
-/// Scans `root`: every direct sub-folder with an interview ID becomes an entry.
-/// Skips `archive/`, `__pycache__/`, hidden files, scripts and media in the inventory
-/// rules described in docs; records skipped or unreadable items as warnings.
+/// Scans `root`: every direct sub-folder with an interview ID becomes an entry,
+/// sorted by ID. Files are inventoried recursively with their SHA-256, except
+/// `archive/`, `sources/`, `__pycache__/`, `generated/`, hidden files and
+/// scripts (skipped silently) and media, zip, pdf, `.budgie` and clippings
+/// (skipped with a warning). Empty or zero-filled files are reported as
+/// probably offline and never proposed as the primary transcript.
 pub fn scan_library(root: &Path) -> Result<Vec<InterviewEntry>> {
-    let _ = root;
-    todo!()
+    scan::scan_library(root)
 }
 
-/// Reads the speaker turns of a transcript file.
+/// Reads the speaker turns of a transcript file. Returns the turns and the
+/// warnings raised (skipped notes, missing markers...). Refuses non-transcript kinds.
 pub fn parse_source(
     path: &Path,
     kind: SourceKind,
     interviewer_names: &[String],
 ) -> Result<(Vec<Turn>, Vec<String>)> {
-    let _ = (path, kind, interviewer_names);
-    todo!()
+    if !kind.is_transcript() {
+        return Err(CsError::Validation(format!(
+            "{} is not a transcript ({kind:?}) and cannot be segmented",
+            path.display()
+        ))
+        .into());
+    }
+    let bytes = std::fs::read(path).with_context(|| format!("cannot read {}", path.display()))?;
+    let (content, mut warnings) = decode(&bytes);
+    let (turns, more) = match kind {
+        SourceKind::Vtt => parse::parse_vtt(&content, interviewer_names),
+        SourceKind::TimestampedText => parse::parse_timestamped_text(&content),
+        SourceKind::CleanedMarkdown => parse::parse_cleaned_markdown(&content),
+        SourceKind::BudgieMarkdown => parse::parse_budgie_markdown(&content),
+        SourceKind::WrittenResponse => parse::parse_written_response(&content),
+        _ => unreachable!("checked by is_transcript"),
+    };
+    warnings.extend(more);
+    Ok((turns, warnings))
+}
+
+/// UTF-8 decoding with BOM removal; invalid bytes are replaced and reported.
+fn decode(bytes: &[u8]) -> (String, Vec<String>) {
+    let bytes = bytes.strip_prefix(b"\xEF\xBB\xBF").unwrap_or(bytes);
+    match std::str::from_utf8(bytes) {
+        Ok(s) => (s.to_string(), Vec::new()),
+        Err(_) => (
+            String::from_utf8_lossy(bytes).into_owned(),
+            vec!["file is not valid UTF-8; invalid bytes replaced by U+FFFD".to_string()],
+        ),
+    }
 }
 
 /// Deterministic segmentation: one unit per turn, turns over `MAX_WORDS` split at sentence ends.
 pub fn segment(interview_id: &str, turns: &[Turn]) -> Vec<Unit> {
-    let _ = (interview_id, turns);
-    todo!()
+    segment::segment(interview_id, turns)
 }
 
-/// Parse + segment one source of an interview and compute hashes.
+/// Parses and segments one source of an interview, with the source hash, the
+/// rule identifier and the hash of the resulting unit list.
 pub fn build_segmentation(
     entry: &InterviewEntry,
     rel_path: &str,
     interviewer_names: &[String],
 ) -> Result<Segmentation> {
-    let _ = (entry, rel_path, interviewer_names);
-    todo!()
+    let kind = entry
+        .sources
+        .iter()
+        .find(|s| s.rel_path == rel_path)
+        .map(|s| s.kind)
+        .unwrap_or_else(|| classify(rel_path));
+    if !kind.is_transcript() {
+        return Err(CsError::Validation(format!(
+            "{rel_path} is not a transcript ({kind:?}) and cannot be segmented"
+        ))
+        .into());
+    }
+    let path = Path::new(&entry.folder_path).join(rel_path);
+    let bytes = std::fs::read(&path).with_context(|| format!("cannot read {}", path.display()))?;
+    let source_sha256 = sha256_hex(&bytes);
+    let (turns, warnings) = parse_source(&path, kind, interviewer_names)?;
+    let units = segment(&entry.interview_id, &turns);
+    if units.is_empty() {
+        return Err(CsError::Validation(format!(
+            "{rel_path} produced no unit: format not recognised or file offline"
+        ))
+        .into());
+    }
+    Ok(Segmentation {
+        interview_id: entry.interview_id.clone(),
+        source_rel_path: rel_path.to_string(),
+        source_sha256,
+        rule: SEGMENTATION_RULE.to_string(),
+        hash: Segmentation::units_hash(&units),
+        units,
+        warnings,
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn build_segmentation_hashes_and_refuses_non_transcripts() {
+        let dir = tempfile::tempdir().unwrap();
+        let folder = dir.path().join("ECO-16_Yan");
+        std::fs::create_dir_all(folder.join("04_parts")).unwrap();
+        std::fs::write(
+            folder.join("01_transcript_raw.vtt"),
+            "WEBVTT\n\n00:00:01.000 --> 00:00:02.000\n<v Dos Santos Alexandre>Hello.</v>\n\n00:00:03.000 --> 00:00:04.000\n<v Youshuo Yan>Hi there.</v>\n",
+        )
+        .unwrap();
+        std::fs::write(folder.join("04_parts/b_summary.md"), "summary").unwrap();
+        let lib = scan_library(dir.path()).unwrap();
+        let entry = &lib[0];
+        let names = default_interviewer_names();
+        let seg = build_segmentation(entry, "01_transcript_raw.vtt", &names).unwrap();
+        assert_eq!(seg.units.len(), 2);
+        assert_eq!(seg.units[1].unit_id, "ECO-16-U002");
+        assert_eq!(seg.hash, Segmentation::units_hash(&seg.units));
+        assert_eq!(seg.rule, SEGMENTATION_RULE);
+        assert_eq!(
+            seg.source_sha256,
+            entry
+                .sources
+                .iter()
+                .find(|s| s.rel_path == "01_transcript_raw.vtt")
+                .unwrap()
+                .sha256
+        );
+        // Same input, same hash.
+        let again = build_segmentation(entry, "01_transcript_raw.vtt", &names).unwrap();
+        assert_eq!(again.hash, seg.hash);
+
+        let err = build_segmentation(entry, "04_parts/b_summary.md", &names).unwrap_err();
+        assert!(matches!(
+            err.downcast_ref::<CsError>(),
+            Some(CsError::Validation(_))
+        ));
+    }
+
+    #[test]
+    fn empty_source_yields_validation_error() {
+        let dir = tempfile::tempdir().unwrap();
+        let folder = dir.path().join("INT-01_X");
+        std::fs::create_dir_all(&folder).unwrap();
+        std::fs::write(folder.join("01_transcript_raw.vtt"), "WEBVTT\n").unwrap();
+        let lib = scan_library(dir.path()).unwrap();
+        let err = build_segmentation(&lib[0], "01_transcript_raw.vtt", &[]).unwrap_err();
+        assert!(matches!(
+            err.downcast_ref::<CsError>(),
+            Some(CsError::Validation(_))
+        ));
+    }
 }
