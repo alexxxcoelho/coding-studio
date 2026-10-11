@@ -12,33 +12,47 @@ The corpus consists of one folder per interview, identified by a stable code (IN
 
 One transcript per interview is designated as the primary source. It is divided into units by a fixed rule that requires no interpretation: one unit for each continuous turn of a speaker, a turn longer than 150 words being divided at sentence boundaries without reordering. Each unit receives an identifier composed of the interview code and a sequential number, together with the speaker, the time mark at which the turn begins and the text. The text is not altered beyond the removal of redundant spaces, so that every quotation can later be found word for word. Lines of the source that are not speaker turns, such as editorial notes on inaudible passages, are listed rather than silently discarded. The list of units is fixed once coding begins.
 
-### 3. Primary coding by the candidate
+### 3. Two coding phases
 
-The candidate codes every unit against the codebook, which follows the Technology, Organisation and Environment framework and adds families for outcomes, turning points and transferability, together with inductive codes created during the analysis. A unit may carry several codes; a unit to which no code applies is coded NA, which is a valid and frequent answer. For each unit the candidate may also record a sub-code, a modifier, an evidence level, the provenance of the statement and an analytical memo, and may mark the exact words that will serve as a quotation. Interview summaries and record sheets may be consulted during this step; they are never given to the secondary coder.
+The Technology, Organisation and Environment framework names three contexts that shape the adoption of an innovation, the technological, the organisational and the environmental, without prescribing a fixed list of factors within them: each study selects the factors that fit its technology and setting (Tornatzky and Fleischer 1990; Baker 2012). The coding follows that structure in two phases.
 
-### 4. Blind secondary coding by a language model
+In phase 1, every unit is coded against the three contexts only. Four categories are available: TECH for the technological context, ORG for the organisational context, ENV for the environmental and interorganisational context, and INDUCTIVE-PENDING for material that is relevant to the research question but cannot be attributed to any of the three contexts, such as a result, a turning point, a claim about transfer, or a mechanism the framework does not cover. A unit may carry several categories when it touches several contexts. A unit that is not relevant is coded NA, which is a valid and frequent answer.
 
-The secondary coding is a measurement instrument and nothing more. It may be carried out only after the primary coding of the interview is complete, and the primary coding is frozen from the moment the first answer of the model is accepted. The two codings are therefore independent by construction.
+In phase 2, only the units whose reconciled phase 1 coding is relevant are coded again, with the study-specific codes of the codebook. A unit may receive the codes of the families it was assigned in phase 1 (for example the TECH codes for a unit reconciled as TECH), together with the families that cut across the contexts: outcome, turning point, transfer, stage and context. A unit reconciled as INDUCTIVE-PENDING receives only these cross-cutting codes or an inductive code.
 
-The model receives the codebook (code, family, label and definition of each code offered to it), the rules of the task and the units, and nothing else: neither the candidate's codes, nor memos, nor summaries, nor material from other interviews. The rules are those of protocol P-04: use only the codes listed, answer NA when no code applies, code what is said in the unit rather than what may be inferred from the interview, treat the interviewer's turns as NA unless they report a fact from the field, write no commentary, and process every unit in order. The answer must be a single JSON object in a prescribed structure, which names the interview and the version of the units it refers to. Long interviews may be divided into parts, each answered separately.
+Phase 2 opens only once phase 1 is reconciled for the interview, and from that moment phase 1 is frozen.
 
-Three runs are carried out for each interview: the main model with the main wording, the same model with a reworded prompt, and a second, open-weight model with the main wording. For each run the model name and version, temperature, seed, context length, batch size, prompt version and time of execution are recorded.
+### 4. Primary coding by the candidate
 
-Each answer is kept exactly as returned. It is accepted only if it refers to the right interview and version of the units, covers every unit of its part exactly once, and uses only codes offered to the model or NA. An answer that fails any of these checks is rejected as a whole, and every problem found is reported.
+In each phase, the candidate codes every unit in scope first. For each unit the candidate may also record a sub-code, a modifier, an evidence level, the provenance of the statement and an analytical memo, and may mark the exact words that will serve as a quotation. Interview summaries and record sheets may be consulted during this step; they are never given to the secondary coder.
 
-### 5. Agreement
+### 5. Blind secondary coding by a language model
 
-Agreement is computed without the intervention of any model. For each pair of codings (the candidate against each run, and the runs against one another) two measures are reported: the share of units on which the full set of codes is identical, and, for each code, the raw agreement and Cohen's kappa computed on the presence or absence of the code in each unit, the form suited to multi-label coding. Kappa is reported as undefined when only one level is observed for a code.
+The secondary coding is a measurement instrument and nothing more. In each phase, it may be carried out only after the candidate's coding of that phase is complete, and the candidate's coding is frozen from the moment the first answer of the model is accepted. The two codings are therefore independent by construction.
 
-### 6. Arbitration
+The model receives the categories or codes it may use (code, family, label and definition), the rules of the task and the units, and nothing else: neither the candidate's codes, nor memos, nor summaries, nor material from other interviews. In phase 2, each unit is presented with the list of codes allowed for it, which follows from the reconciled phase 1 coding. The rules are those of protocol P-04: use only the codes listed, answer NA when no code applies, code what is said in the unit rather than what may be inferred from the interview, treat the interviewer's turns as NA unless they report a fact from the field, write no commentary, and process every unit in order. The answer must be a single JSON object in a prescribed structure, which names the interview, the phase and the version of the units it refers to. Long interviews may be divided into parts, each answered separately.
 
-A unit is divergent when the candidate's codes differ from those of at least one run, or when the candidate agrees with some runs while the runs disagree among themselves; the instability of the model is treated as information on the ambiguity of the unit rather than as noise to be averaged out. Every divergent unit is decided by the candidate, without sampling. The decision retains the candidate's coding, the coding of one run, or a different set of codes, and is always accompanied by a written rationale. A decision may be revised; earlier decisions remain on record.
+Three runs are carried out for each interview and phase: the main model with the main wording, the same model with a reworded prompt, and a second, open-weight model with the main wording. For each run the model name and version, temperature, seed, context length, batch size, prompt version and time of execution are recorded.
 
-The final coding of an interview is complete only when every divergence is decided. Units on which all codings agree keep the common codes; divergent units take the decided codes. Each unit of the final coding states which of the two bases applies.
+Each answer is kept exactly as returned. It is accepted only if it refers to the right interview, phase and version of the units, covers every unit of its part exactly once, and uses only codes allowed for each unit or NA. An answer that fails any of these checks is rejected as a whole, and every problem found is reported.
 
-### 7. Audit trail
+### 6. Agreement
 
-Every step above is recorded as it happens: inventory of sources, choice of the primary source, segmentation, each coding decision with its previous and new value, each prompt, each run and each answer, each arbitration and each export. The record can be extended but never edited. Each entry contains the digest of the preceding one, so that any later alteration of the record becomes detectable. For each interview, an archive gathers the units, both codings, every prompt and answer, the agreement report, the adjudication log, the final coding, the relevant part of the record and a manifest of the digests of all these files.
+Agreement is computed for each phase without the intervention of any model. For each pair of codings (the candidate against each run, and the runs against one another) two measures are reported: the share of units on which the full set of codes is identical, and, for each code, the raw agreement and Cohen's kappa computed on the presence or absence of the code in each unit, the form suited to multi-label coding. Kappa is reported as undefined when only one level is observed for a code.
+
+### 7. Arbitration
+
+A unit is divergent when the candidate's codes differ from those of at least one run, or when the candidate agrees with some runs while the runs disagree among themselves; the instability of the model is treated as information on the ambiguity of the unit rather than as noise to be averaged out. Every divergent unit is decided by the candidate, without sampling. The decision retains the candidate's coding, the coding of one run, or a different set of allowed codes, and is always accompanied by a written rationale. A decision may be revised as long as the phase is open; earlier decisions remain on record.
+
+The final coding of a phase is complete only when every divergence is decided. Units on which all codings agree keep the common codes; divergent units take the decided codes. Each unit of the final coding states which of the two bases applies.
+
+### 8. Inductive codes
+
+Inductive codes are developed by the candidate alone, in phase 2, from the units reconciled as INDUCTIVE-PENDING and from any material that the study-specific codes do not accommodate. Each inductive code is entered in an inductive log with its definition, an example, the reason for its creation and its date. The language model never creates an inductive code and is never offered one. Whether an inductive code is retained as a theme, and the threshold of recurrence applied, are decisions of the candidate recorded in the decision log of the thesis.
+
+### 9. Audit trail
+
+Every step above is recorded as it happens: inventory of sources, choice of the primary source, segmentation, each coding decision with its phase, previous and new value, each prompt, each run and each answer, each arbitration and each export. The record can be extended but never edited. Each entry contains the digest of the preceding one, so that any later alteration of the record becomes detectable. For each interview, an archive gathers the units, both codings, every prompt and answer, the agreement report, the adjudication log, the final coding, the relevant part of the record and a manifest of the digests of all these files.
 
 ## Part two: execution by Coding Studio
 
@@ -50,11 +64,11 @@ The library is built by scanning the interview folder. For each file the program
 
 ### Coding
 
-The candidate codes in a two-pane interface: the units on the left, the selected unit and the code picker on the right. The program refuses codes that are absent from the codebook or inactive, NA combined with another code, and quotations that are not an exact substring of the unit. The codebook is read from the thesis coding database, which the program opens in read-only mode; codes created during the analysis are added to the INDUCTIVE family and recorded.
+The candidate codes in a two-pane interface: the units on the left, the selected unit and the code picker on the right, which offers only the categories or codes allowed for the unit in the current phase. The program refuses any other code, NA combined with another code, and quotations that are not an exact substring of the unit. Phase 2 cannot be opened before phase 1 is reconciled, and phase 1 accepts no further run or decision once phase 2 has started. The study-specific codebook is read from the thesis coding database, which the program opens in read-only mode; the four phase 1 categories are defined in the program and their definitions are stored with every prompt. Inductive codes are created in the inductive log, which requires a definition and a reason.
 
 ### Prompts and answers
 
-The prompt is generated from the units and the codes offered to the model, in English, and is identical for identical inputs. It carries the identifiers of the interview, of the version of the units and of the codebook, so that each answer can be matched to the material it was produced from. Every generated prompt is stored with its digest. Before an answer is accepted, the program checks that the primary coding is complete; it then keeps the pasted text and its digest, extracts the JSON object, and applies the checks described in step 4. Once an answer is accepted, the primary coding of the interview can no longer be modified.
+The prompt is generated from the units and the codes offered to the model, in English, and is identical for identical inputs. It carries the identifiers of the interview, of the version of the units and of the codebook, so that each answer can be matched to the material it was produced from. Every generated prompt is stored with its digest. Before an answer is accepted, the program checks that the candidate's coding of the phase is complete; it then keeps the pasted text and its digest, extracts the JSON object, and applies the checks described in step 4. Once an answer is accepted, the candidate's coding of that phase can no longer be modified.
 
 ### Agreement, arbitration and export
 
