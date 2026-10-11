@@ -64,7 +64,7 @@ pub enum SourceKind {
     TimestampedText,
     /// `02_transcript_cleaned_diarised.md`: cleaned turns labelled INT / RESP.
     CleanedMarkdown,
-    /// Budgie Echo markdown export: `**Speaker 2** — text`.
+    /// Budgie Echo markdown export: `**Speaker 2** (em dash) text`.
     BudgieMarkdown,
     /// Written answer received by email (no speaker turns, paragraphs).
     WrittenResponse,

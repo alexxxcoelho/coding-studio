@@ -319,11 +319,12 @@ pub fn parse_cleaned_markdown(content: &str) -> Parsed {
 
 // ---------------------------------------------------------- Budgie markdown
 
-/// Budgie Echo export: `**Speaker 2** — text`, no per-turn timestamp. Every
+/// Budgie Echo export: `**Speaker 2** (em dash) text`, no per-turn timestamp. Every
 /// turn carries the last `[mm:ss]` mark seen in the file, or `--:--`.
 pub fn parse_budgie_markdown(content: &str) -> Parsed {
-    static TURN: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(r"^\*\*([^*]{1,40}?)\*\*\s*(?:—|–|-|:)\s*(.*)$").unwrap());
+    static TURN: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"^\*\*([^*]{1,40}?)\*\*\s*(?:\x{2014}|\x{2013}|-|:)\s*(.*)$").unwrap()
+    });
     static MARK: LazyLock<Regex> = LazyLock::new(|| Regex::new(&format!(r"\[({TS})\]")).unwrap());
 
     let mut turns: Vec<Turn> = Vec::new();
@@ -483,7 +484,7 @@ abc/17-0\n00:01:59.009 --> 00:02:00.000\n<v Dos Santos Alexandre>Fine.</v>\n";
 **RESP** `[01:36]` That's from my side.\n\n**we may transfer all our standards to ISO directly. So there will be no\nproblem.** Then more.\n\n\
 *[The question and the answer are both on the recording.]*\n\n\
 **INT** `[00:09+]` Great. Inline `[00:49]` mark kept.\n\n\
-**REP** `[00:00:03]` Oui.\n\n## 00:00 — Section\n\nStray paragraph after heading.\n\n\
+**REP** `[00:00:03]` Oui.\n\n## 00:00 \u{2014} Section\n\nStray paragraph after heading.\n\n\
 **[00:17] INT:** Right, so.\n\n**[00:03 to 01:20] [inaudible: 13 cues of ASR noise]**\n\n**[00:31] RESP:** Yeah, exactly.\n";
         let (turns, warnings) = parse_cleaned_markdown(md);
         let labels: Vec<_> = turns
@@ -532,7 +533,7 @@ abc/17-0\n00:01:59.009 --> 00:02:00.000\n<v Dos Santos Alexandre>Fine.</v>\n";
 
     #[test]
     fn budgie_markdown() {
-        let md = "# [00:23] [Speaker 1]: So let's first settle on wh…\n\n**Speaker 3** — So let's first settle.\n\n**Speaker 2** — French. So English and\n\n**Speaker 2** — more.\n\n**Speaker 1** — Ok.\n";
+        let md = "# [00:23] [Speaker 1]: So let's first settle on wh…\n\n**Speaker 3** \u{2014} So let's first settle.\n\n**Speaker 2** \u{2014} French. So English and\n\n**Speaker 2** \u{2014} more.\n\n**Speaker 1** \u{2014} Ok.\n";
         let (turns, warnings) = parse_budgie_markdown(md);
         assert_eq!(turns.len(), 3);
         assert_eq!(turns[1].text, "French. So English and more.");
