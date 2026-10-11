@@ -95,6 +95,9 @@ fn code(c: &str, family: &str, origin: &str, def: &str) -> Code {
         origin: origin.into(),
         active: true,
         in_prompt: origin != "legacy",
+        example: None,
+        reason: None,
+        created_at: None,
     }
 }
 
@@ -114,10 +117,45 @@ fn codebook() -> Codebook {
     }
 }
 
+fn ids(seg: &Segmentation) -> Vec<String> {
+    seg.units.iter().map(|u| u.unit_id.clone()).collect()
+}
+
+/// Phase 1 input over every unit of `seg`.
+fn p1<'a>(seg: &'a Segmentation, ids: &'a [String], cb: &'a Codebook) -> PromptInput<'a> {
+    PromptInput {
+        seg,
+        phase: 1,
+        unit_ids: ids,
+        codebook: cb,
+        allowed: None,
+    }
+}
+
+fn prompts(seg: &Segmentation, cb: &Codebook, batch: usize) -> Vec<cs_model::PromptPart> {
+    let ids = ids(seg);
+    build_prompts(&p1(seg, &ids, cb), batch)
+}
+
+fn parse1(
+    raw: &str,
+    seg: &Segmentation,
+    cb: &Codebook,
+    expected: Option<(u32, u32)>,
+) -> Result<cs_model::AiOutput, Vec<cs_model::ValidationIssue>> {
+    let ids = ids(seg);
+    parse_ai_output(raw, &p1(seg, &ids, cb), expected)
+}
+
 fn answer(seg: &Segmentation, part: u32, of: u32, codings: Value) -> String {
+    answer_phase(seg, 1, part, of, codings)
+}
+
+fn answer_phase(seg: &Segmentation, phase: u8, part: u32, of: u32, codings: Value) -> String {
     json!({
         "schema": OUTPUT_SCHEMA_ID,
         "interview_id": seg.interview_id,
+        "phase": phase,
         "segmentation_hash": seg.hash,
         "part": part,
         "of": of,
@@ -135,7 +173,7 @@ fn valid_codings() -> Value {
 }
 
 fn issues_of(raw: &str, expected: Option<(u32, u32)>) -> Vec<cs_model::ValidationIssue> {
-    parse_ai_output(raw, &sample_seg(), &codebook(), expected).expect_err("should fail")
+    parse1(raw, &sample_seg(), &codebook(), expected).expect_err("should fail")
 }
 
 fn has(issues: &[cs_model::ValidationIssue], needle: &str) -> bool {
@@ -146,8 +184,8 @@ fn has(issues: &[cs_model::ValidationIssue], needle: &str) -> bool {
 
 #[test]
 fn prompt_is_deterministic_and_has_no_dashes() {
-    let a = build_prompts(&sample_seg(), &codebook(), 0);
-    let b = build_prompts(&sample_seg(), &codebook(), 0);
+    let a = prompts(&sample_seg(), &codebook(), 0);
+    let b = prompts(&sample_seg(), &codebook(), 0);
     assert_eq!(a, b);
     assert_eq!(a.len(), 1);
     let p = &a[0];
@@ -164,7 +202,7 @@ fn prompt_is_deterministic_and_has_no_dashes() {
 
 #[test]
 fn prompt_is_blind_and_closed() {
-    let p = &build_prompts(&sample_seg(), &codebook(), 0)[0];
+    let p = &prompts(&sample_seg(), &codebook(), 0)[0];
     assert!(p.text.contains("\"code\":\"TECH-COST\""));
     assert!(
         !p.text.contains("\"code\":\"TECH\""),
@@ -182,7 +220,7 @@ fn prompt_is_blind_and_closed() {
 
 #[test]
 fn embedded_dashes_decode_back_to_the_original_text() {
-    let p = &build_prompts(&sample_seg(), &codebook(), 0)[0];
+    let p = &prompts(&sample_seg(), &codebook(), 0)[0];
     let line = p
         .text
         .lines()
@@ -196,10 +234,10 @@ fn embedded_dashes_decode_back_to_the_original_text() {
 fn part_splitting_edge_cases() {
     let cb = codebook();
     // n < batch, n == batch: one part.
-    assert_eq!(build_prompts(&seg_n(3), &cb, 5).len(), 1);
-    assert_eq!(build_prompts(&seg_n(5), &cb, 5).len(), 1);
+    assert_eq!(prompts(&seg_n(3), &cb, 5).len(), 1);
+    assert_eq!(prompts(&seg_n(5), &cb, 5).len(), 1);
     // n == batch + 1: two parts of ceil(6/2) = 3.
-    let parts = build_prompts(&seg_n(6), &cb, 5);
+    let parts = prompts(&seg_n(6), &cb, 5);
     assert_eq!(parts.len(), 2);
     assert_eq!(parts[0].unit_ids.len(), 3);
     assert_eq!(parts[1].unit_ids.len(), 3);
@@ -208,7 +246,7 @@ fn part_splitting_edge_cases() {
     for n in 1..=120u32 {
         let seg = seg_n(n);
         for batch in 0..=40usize {
-            let parts = build_prompts(&seg, &cb, batch);
+            let parts = prompts(&seg, &cb, batch);
             let all: Vec<String> = parts.iter().flat_map(|p| p.unit_ids.clone()).collect();
             let expected: Vec<String> = seg.units.iter().map(|u| u.unit_id.clone()).collect();
             assert_eq!(all, expected, "n={n} batch={batch}");
@@ -223,7 +261,7 @@ fn part_splitting_edge_cases() {
                 );
             }
             for p in &parts {
-                assert_eq!(part_unit_ids(&seg, p.part, p.of), p.unit_ids);
+                assert_eq!(part_unit_ids(&ids(&seg), p.part, p.of), p.unit_ids);
             }
         }
     }
@@ -231,7 +269,7 @@ fn part_splitting_edge_cases() {
 
 #[test]
 fn unit_lines_keep_field_order_and_schema_is_valid_json() {
-    let p = &build_prompts(&sample_seg(), &codebook(), 0)[0];
+    let p = &prompts(&sample_seg(), &codebook(), 0)[0];
     assert!(p.text.contains(
         "{\"unit_id\":\"ECO-16-U003\",\"speaker\":\"S1\",\"timestamp\":\"00:03\",\"text\":\"We had a champion in the IT team.\"}"
     ));
@@ -244,8 +282,10 @@ fn unit_lines_keep_field_order_and_schema_is_valid_json() {
 
 #[test]
 fn generic_schema_shape() {
-    let s = output_json_schema();
+    let s = output_json_schema(2);
     assert_eq!(s["properties"]["schema"]["const"], OUTPUT_SCHEMA_ID);
+    assert_eq!(s["properties"]["phase"]["const"], 2);
+    assert!(s["required"].as_array().unwrap().contains(&json!("phase")));
     assert_eq!(s["additionalProperties"], false);
 }
 
@@ -255,7 +295,7 @@ fn generic_schema_shape() {
 fn round_trip_prompt_then_answer() {
     let seg = seg_n(7);
     let cb = codebook();
-    let parts = build_prompts(&seg, &cb, 3);
+    let parts = prompts(&seg, &cb, 3);
     assert_eq!(parts.len(), 3);
     for p in &parts {
         let codings: Vec<Value> = p
@@ -264,7 +304,7 @@ fn round_trip_prompt_then_answer() {
             .map(|id| json!({"unit_id": id, "codes": ["NA"]}))
             .collect();
         let raw = answer(&seg, p.part, p.of, Value::Array(codings));
-        let out = parse_ai_output(&raw, &seg, &cb, Some((p.part, p.of))).unwrap();
+        let out = parse1(&raw, &seg, &cb, Some((p.part, p.of))).unwrap();
         assert_eq!(out.codings.len(), p.unit_ids.len());
         assert_eq!((out.part, out.of), (p.part, p.of));
     }
@@ -279,7 +319,7 @@ fn accepts_fenced_and_prose_wrapped_answers() {
         format!("Here is the coding:\n\n{body}\n\nHope it helps {{ok}}."),
         body.clone(),
     ] {
-        let out = parse_ai_output(&raw, &seg, &codebook(), Some((1, 1))).unwrap();
+        let out = parse1(&raw, &seg, &codebook(), Some((1, 1))).unwrap();
         assert_eq!(
             out.codings["ECO-16-U003"],
             set(&["ORG-CHAMPION", "TECH-COST"])
@@ -287,7 +327,7 @@ fn accepts_fenced_and_prose_wrapped_answers() {
     }
     // Prose holding braces before the object is skipped.
     let raw = format!("Answer {{see below}}:\n{body}");
-    assert!(parse_ai_output(&raw, &seg, &codebook(), None).is_ok());
+    assert!(parse1(&raw, &seg, &codebook(), None).is_ok());
 }
 
 #[test]
@@ -312,7 +352,7 @@ fn trims_whitespace_in_codes() {
             {"unit_id": "ECO-16-U003", "codes": ["ORG-CHAMPION"]},
         ]),
     );
-    let out = parse_ai_output(&raw, &seg, &codebook(), None).unwrap();
+    let out = parse1(&raw, &seg, &codebook(), None).unwrap();
     assert_eq!(out.codings["ECO-16-U001"], set(&["NA"]));
 }
 
@@ -335,6 +375,7 @@ fn reports_envelope_mismatches_all_at_once() {
     let raw = json!({
         "schema": "other/v9",
         "interview_id": "RET-22",
+        "phase": 1,
         "segmentation_hash": "f".repeat(64),
         "part": 2,
         "of": 3,
@@ -342,7 +383,7 @@ fn reports_envelope_mismatches_all_at_once() {
         "notes": "extra",
     })
     .to_string();
-    let issues = parse_ai_output(&raw, &seg, &codebook(), Some((1, 1))).unwrap_err();
+    let issues = parse1(&raw, &seg, &codebook(), Some((1, 1))).unwrap_err();
     assert!(has(&issues, "\"schema\" must be"));
     assert!(has(&issues, "expected \"ECO-16\""));
     assert!(has(&issues, "another segmentation"));
@@ -355,6 +396,7 @@ fn reports_missing_fields_and_bad_types() {
     let issues = issues_of("{\"codings\": 3, \"part\": 0}", None);
     assert!(has(&issues, "missing field \"schema\""));
     assert!(has(&issues, "missing field \"interview_id\""));
+    assert!(has(&issues, "missing field \"phase\""));
     assert!(has(&issues, "missing field \"of\""));
     assert!(has(&issues, "integer of 1 or more"));
     assert!(has(&issues, "must be an array"));
@@ -376,7 +418,7 @@ fn reports_unit_level_problems() {
             "not an object",
         ]),
     );
-    let issues = parse_ai_output(&raw, &seg, &codebook(), None).unwrap_err();
+    let issues = parse1(&raw, &seg, &codebook(), None).unwrap_err();
     assert!(has(&issues, "NA cannot be combined"));
     assert!(has(&issues, "more than once"));
     assert!(has(&issues, "empty codes array"));
@@ -404,7 +446,7 @@ fn reports_missing_units_and_units_of_another_part() {
             {"unit_id": "ECO-16-U004", "codes": ["NA"]},
         ]),
     );
-    let issues = parse_ai_output(&raw, &seg, &cb, Some((1, 2))).unwrap_err();
+    let issues = parse1(&raw, &seg, &cb, Some((1, 2))).unwrap_err();
     assert!(has(&issues, "does not belong to this part"));
     assert!(has(&issues, "1 unit(s) missing: ECO-16-U003"));
 }
@@ -476,6 +518,7 @@ fn agreement_ports_the_python_script() {
 fn arb(unit_id: &str, codes: &[&str]) -> Arbitration {
     Arbitration {
         unit_id: unit_id.into(),
+        phase: 1,
         choice: ArbitrationChoice::Custom,
         final_codes: set(codes),
         rationale: "Respondent states the cost | explicitly.".into(),
@@ -507,7 +550,7 @@ fn three_unit_case() -> (Segmentation, CodingMap, Vec<(String, CodingMap)>) {
 #[test]
 fn divergence_kinds() {
     let (seg, human, runs) = three_unit_case();
-    let d = divergences(&seg, &human, &runs);
+    let d = divergences(&ids(&seg), &human, &runs);
     assert_eq!(d.len(), 2);
     assert_eq!(d[0].unit_id, "ECO-16-U002");
     assert_eq!(d[0].kind, DivergenceKind::AiRunsUnstable);
@@ -515,11 +558,11 @@ fn divergence_kinds() {
     assert_eq!(d[1].kind, DivergenceKind::HumanVsAi);
     assert_eq!(d[1].ai["R2"], set(&["TECH-COST"]));
     // No runs: nothing to compare.
-    assert!(divergences(&seg, &human, &[]).is_empty());
+    assert!(divergences(&ids(&seg), &human, &[]).is_empty());
     // A unit missing in a run is incomplete, not divergent.
     let mut partial = runs.clone();
     partial[1].1.remove("ECO-16-U003");
-    assert_eq!(divergences(&seg, &human, &partial).len(), 1);
+    assert_eq!(divergences(&ids(&seg), &human, &partial).len(), 1);
 }
 
 #[test]
@@ -531,14 +574,14 @@ fn final_coding_requires_every_arbitration() {
         arb("ECO-16-U003", &["ORG-CHAMPION"]),
     );
     assert_eq!(
-        final_coding(&seg, &human, &runs, &arbs).unwrap_err(),
+        final_coding(&ids(&seg), &human, &runs, &arbs).unwrap_err(),
         vec!["ECO-16-U002".to_string()]
     );
     arbs.insert(
         "ECO-16-U002".to_string(),
         arb("ECO-16-U002", &["TECH-COST"]),
     );
-    let finals = final_coding(&seg, &human, &runs, &arbs).unwrap();
+    let finals = final_coding(&ids(&seg), &human, &runs, &arbs).unwrap();
     assert_eq!(finals.len(), 3);
     assert_eq!(finals[0].basis, FinalBasis::Agreed);
     assert_eq!(finals[1].basis, FinalBasis::Arbitrated);
@@ -550,7 +593,7 @@ fn final_coding_lists_uncoded_units() {
     let (seg, mut human, mut runs) = three_unit_case();
     human.remove("ECO-16-U001");
     runs[0].1.remove("ECO-16-U002");
-    let err = final_coding(&seg, &human, &runs, &BTreeMap::new()).unwrap_err();
+    let err = final_coding(&ids(&seg), &human, &runs, &BTreeMap::new()).unwrap_err();
     assert_eq!(
         err,
         vec![
@@ -604,20 +647,23 @@ fn reports_are_deterministic_and_dash_free() {
     // Template text is checked on units without dashes.
     let mut clean = seg.clone();
     clean.units[1].text = "The tags cost too much, so we stopped.".into();
-    let md = render_agreement_md(&clean, &reports);
-    assert_eq!(md, render_agreement_md(&clean, &reports));
+    let md = render_agreement_md(&clean, 1, &order, &reports);
+    assert_eq!(md, render_agreement_md(&clean, 1, &order, &reports));
+    assert!(md.starts_with("# Inter-coder agreement report, ECO-16, Phase 1, TOE contexts"));
+    assert!(md.contains("| Units in scope for this phase | 3 |"));
     assert!(!md.contains('\u{2014}') && !md.contains('\u{2013}'));
     assert!(md.contains("## human against R1"));
     assert!(md.contains("| Exact agreement on the full code set | 2 (66.7 %) |"));
     assert!(md.contains("undefined") || md.contains("0."));
 
-    let d = divergences(&clean, &human, &runs);
+    let d = divergences(&order, &human, &runs);
     let mut arbs = BTreeMap::new();
     arbs.insert(
         "ECO-16-U003".to_string(),
         arb("ECO-16-U003", &["ORG-CHAMPION"]),
     );
-    let adj = render_adjudication_md(&clean, &d, &arbs);
+    let adj = render_adjudication_md(&clean, 2, &d, &arbs);
+    assert!(adj.starts_with("# Adjudication log, ECO-16, Phase 2, study-specific codes"));
     assert!(!adj.contains('\u{2014}') && !adj.contains('\u{2013}'));
     assert!(adj.contains("| Divergences | 2 |"));
     assert!(adj.contains("| Arbitrated | 1 |"));
@@ -627,9 +673,239 @@ fn reports_are_deterministic_and_dash_free() {
     assert!(adj.contains("| AI R2 | TECH-COST |"));
 }
 
+// ------------------------------------------------------------------- phases
+
+fn no_dash(text: &str) -> bool {
+    !text.contains('\u{2014}') && !text.contains('\u{2013}')
+}
+
+#[test]
+fn phase1_prompt_uses_the_toe_contexts() {
+    let seg = sample_seg();
+    let cb = cs_model::phase::phase1_codebook();
+    let parts = prompts(&seg, &cb, 0);
+    assert_eq!(parts, prompts(&seg, &cb, 0), "deterministic");
+    let p = &parts[0];
+    assert_eq!(p.phase, 1);
+    assert_eq!(p.codebook_hash, cb.prompt_hash());
+    assert!(no_dash(&p.text));
+    assert!(p.text.contains("Phase 1 of 2: TOE contexts"));
+    assert!(p.text.contains("- \"phase\": 1"));
+    for code in ["TECH", "ORG", "ENV", "INDUCTIVE-PENDING"] {
+        assert!(p.text.contains(&format!("{{\"code\":\"{code}\"")), "{code}");
+    }
+    assert!(p
+        .text
+        .contains("These 4 codes and NA are the only valid values."));
+    assert!(!p.text.contains("allowed_codes"));
+
+    // A round trip with several contexts on one unit.
+    let raw = answer(
+        &seg,
+        1,
+        1,
+        json!([
+            {"unit_id": "ECO-16-U001", "codes": ["NA"]},
+            {"unit_id": "ECO-16-U002", "codes": ["TECH", "ENV"]},
+            {"unit_id": "ECO-16-U003", "codes": ["INDUCTIVE-PENDING"]},
+        ]),
+    );
+    let out = parse1(&raw, &seg, &cb, Some((1, 1))).unwrap();
+    assert_eq!(out.phase, 1);
+    assert_eq!(out.codings["ECO-16-U002"], set(&["ENV", "TECH"]));
+    // A phase 2 code is refused in phase 1.
+    let raw = answer(
+        &seg,
+        1,
+        1,
+        json!([
+            {"unit_id": "ECO-16-U001", "codes": ["NA"]},
+            {"unit_id": "ECO-16-U002", "codes": ["TECH-COST"]},
+            {"unit_id": "ECO-16-U003", "codes": ["ORG"]},
+        ]),
+    );
+    let issues = parse1(&raw, &seg, &cb, None).unwrap_err();
+    assert!(has(&issues, "\"TECH-COST\" is not in the codebook"));
+}
+
+/// Thesis-like codebook and the phase 2 scope of `sample_seg`: U001 was NA in
+/// phase 1, U002 TECH, U003 ORG.
+fn phase2_case() -> (
+    Segmentation,
+    Codebook,
+    Vec<String>,
+    BTreeMap<String, Vec<String>>,
+) {
+    let mut cb = codebook();
+    cb.codes.push(code(
+        "OUT-REALISED",
+        "OUTCOME",
+        "codebook",
+        "Realised outcome.",
+    ));
+    let scope = vec!["ECO-16-U002".to_string(), "ECO-16-U003".to_string()];
+    let allowed: BTreeMap<String, Vec<String>> = [
+        ("ECO-16-U002", vec!["TECH-COST", "OUT-REALISED"]),
+        ("ECO-16-U003", vec!["ORG-CHAMPION", "OUT-REALISED"]),
+    ]
+    .into_iter()
+    .map(|(u, c)| (u.to_string(), c.into_iter().map(String::from).collect()))
+    .collect();
+    (sample_seg(), cb, scope, allowed)
+}
+
+fn p2<'a>(
+    seg: &'a Segmentation,
+    scope: &'a [String],
+    cb: &'a Codebook,
+    allowed: &'a BTreeMap<String, Vec<String>>,
+) -> PromptInput<'a> {
+    PromptInput {
+        seg,
+        phase: 2,
+        unit_ids: scope,
+        codebook: cb,
+        allowed: Some(allowed),
+    }
+}
+
+#[test]
+fn phase2_prompt_lists_allowed_codes_per_unit() {
+    let (seg, cb, scope, allowed) = phase2_case();
+    let input = p2(&seg, &scope, &cb, &allowed);
+    let parts = build_prompts(&input, 0);
+    assert_eq!(parts, build_prompts(&input, 0), "deterministic");
+    let p = &parts[0];
+    assert_eq!(p.phase, 2);
+    assert_eq!(p.unit_ids, scope);
+    assert!(no_dash(&p.text));
+    assert!(p.text.contains("Phase 2 of 2: study-specific codes"));
+    assert!(p.text.contains("### TECH"));
+    assert!(p.text.contains("### OUTCOME"));
+    assert!(
+        !p.text.contains("\"code\":\"TECH\""),
+        "legacy code never listed"
+    );
+    assert!(
+        !p.text.contains("ECO-16-U001"),
+        "unit out of scope not shown"
+    );
+    assert!(p.text.contains(
+        "\"text\":\"We had a champion in the IT team.\",\"allowed_codes\":[\"ORG-CHAMPION\",\"OUT-REALISED\"]}"
+    ));
+    // The embedded schema fixes the phase and lists every valid code once.
+    let schema_text = p.text.split("JSON Schema:\n\n").nth(1).unwrap();
+    let schema: Value = serde_json::from_str(schema_text).unwrap();
+    assert_eq!(schema["properties"]["phase"]["const"], 2);
+    assert_eq!(
+        schema["properties"]["codings"]["items"]["properties"]["codes"]["items"]["enum"],
+        json!(["TECH-COST", "ORG-CHAMPION", "OUT-REALISED", "NA"])
+    );
+    // The hash binds the allowed lists: changing one changes it.
+    let mut other = allowed.clone();
+    other.get_mut("ECO-16-U003").unwrap().pop();
+    let p_other = &build_prompts(&p2(&seg, &scope, &cb, &other), 0)[0];
+    assert_ne!(p.codebook_hash, p_other.codebook_hash);
+}
+
+#[test]
+fn phase2_round_trip_and_rejections() {
+    let (seg, cb, scope, allowed) = phase2_case();
+    let input = p2(&seg, &scope, &cb, &allowed);
+    let ok = answer_phase(
+        &seg,
+        2,
+        1,
+        1,
+        json!([
+            {"unit_id": "ECO-16-U002", "codes": ["TECH-COST", "OUT-REALISED"]},
+            {"unit_id": "ECO-16-U003", "codes": ["NA"]},
+        ]),
+    );
+    let out = parse_ai_output(&ok, &input, Some((1, 1))).unwrap();
+    assert_eq!(out.phase, 2);
+    assert_eq!(out.codings.len(), 2);
+
+    let bad = answer_phase(
+        &seg,
+        2,
+        1,
+        1,
+        json!([
+            {"unit_id": "ECO-16-U001", "codes": ["NA"]},
+            {"unit_id": "ECO-16-U002", "codes": ["ORG-CHAMPION"]},
+            {"unit_id": "ECO-16-U003", "codes": ["TECH", "MADE-UP"]},
+        ]),
+    );
+    let issues = parse_ai_output(&bad, &input, Some((1, 1))).unwrap_err();
+    assert!(has(&issues, "not in the scope of phase 2"));
+    assert!(has(
+        &issues,
+        "\"ORG-CHAMPION\" is not among the allowed codes of this unit"
+    ));
+    assert!(has(
+        &issues,
+        "\"TECH\" is not among the allowed codes of this unit"
+    ));
+    assert!(has(&issues, "\"MADE-UP\" is not in the codebook"));
+}
+
+#[test]
+fn phase_mismatch_is_rejected() {
+    let (seg, cb, scope, allowed) = phase2_case();
+    let raw = answer_phase(
+        &seg,
+        1,
+        1,
+        1,
+        json!([
+            {"unit_id": "ECO-16-U002", "codes": ["NA"]},
+            {"unit_id": "ECO-16-U003", "codes": ["NA"]},
+        ]),
+    );
+    let issues = parse_ai_output(&raw, &p2(&seg, &scope, &cb, &allowed), None).unwrap_err();
+    assert!(has(&issues, "answer is for phase 1, expected phase 2"));
+    // And the other way round.
+    let raw = answer_phase(&seg, 2, 1, 1, valid_codings());
+    let issues = parse1(&raw, &seg, &codebook(), None).unwrap_err();
+    assert!(has(&issues, "answer is for phase 2, expected phase 1"));
+}
+
+#[test]
+fn phase2_parts_split_the_scope_only() {
+    let seg = seg_n(10);
+    let cb = codebook();
+    let scope: Vec<String> = seg
+        .units
+        .iter()
+        .filter(|u| u.seq % 2 == 0)
+        .map(|u| u.unit_id.clone())
+        .collect();
+    let allowed: BTreeMap<String, Vec<String>> = scope
+        .iter()
+        .map(|u| (u.clone(), vec!["TECH-COST".to_string()]))
+        .collect();
+    let input = p2(&seg, &scope, &cb, &allowed);
+    let parts = build_prompts(&input, 2);
+    assert_eq!(parts.len(), 3);
+    let all: Vec<String> = parts.iter().flat_map(|p| p.unit_ids.clone()).collect();
+    assert_eq!(all, scope);
+    for p in &parts {
+        assert_eq!(part_unit_ids(&scope, p.part, p.of), p.unit_ids);
+        let codings: Vec<Value> = p
+            .unit_ids
+            .iter()
+            .map(|id| json!({"unit_id": id, "codes": ["TECH-COST"]}))
+            .collect();
+        let raw = answer_phase(&seg, 2, p.part, p.of, Value::Array(codings));
+        assert!(parse_ai_output(&raw, &input, Some((p.part, p.of))).is_ok());
+    }
+}
+
 #[test]
 #[ignore = "prints a sample prompt; run with --ignored --nocapture"]
 fn print_sample_prompt() {
-    let p = &build_prompts(&sample_seg(), &codebook(), 0)[0];
+    let (seg, cb, scope, allowed) = phase2_case();
+    let p = &build_prompts(&p2(&seg, &scope, &cb, &allowed), 0)[0];
     println!("{}", p.text);
 }

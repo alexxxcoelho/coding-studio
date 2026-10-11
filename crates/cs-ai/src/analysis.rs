@@ -1,11 +1,9 @@
-//! Agreement, divergences and final coding. Deterministic arithmetic only.
+//! Agreement and Cohen's kappa. Deterministic arithmetic only. Divergences
+//! and final coding live in `cs_model::reconcile`, shared with the store.
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeSet;
 
-use cs_model::{
-    AgreementReport, Arbitration, CodeAgreement, CodeSet, CodingMap, Divergence, DivergenceKind,
-    FinalBasis, FinalCoding, Segmentation,
-};
+use cs_model::{AgreementReport, CodeAgreement, CodingMap};
 
 /// Cohen's kappa on two boolean vectors of equal length; `None` when undefined
 /// (a single level observed, `pe == 1`). Same formula as
@@ -71,105 +69,5 @@ pub(crate) fn agreement(
             .filter(|u| a[**u] != b[**u])
             .map(|u| (*u).clone())
             .collect(),
-    }
-}
-
-fn coded<'a>(map: &'a CodingMap, unit_id: &str) -> Option<&'a CodeSet> {
-    map.get(unit_id).filter(|s| !s.is_empty())
-}
-
-/// Classifies one unit; `None` when human and every run agree. Callers make
-/// sure the unit is coded on every side.
-fn classify(human: &CodeSet, runs: &[(&String, &CodeSet)]) -> Option<DivergenceKind> {
-    let human_matches_some = runs.iter().any(|(_, s)| *s == human);
-    let human_matches_all = runs.iter().all(|(_, s)| *s == human);
-    if human_matches_all {
-        None
-    } else if human_matches_some {
-        // Human sides with at least one run, so the runs disagree among themselves.
-        Some(DivergenceKind::AiRunsUnstable)
-    } else {
-        Some(DivergenceKind::HumanVsAi)
-    }
-}
-
-pub(crate) fn divergences(
-    seg: &Segmentation,
-    human: &CodingMap,
-    runs: &[(String, CodingMap)],
-) -> Vec<Divergence> {
-    if runs.is_empty() {
-        return Vec::new();
-    }
-    let mut out = Vec::new();
-    for unit in &seg.units {
-        let Some(h) = coded(human, &unit.unit_id) else {
-            continue;
-        };
-        let sets: Option<Vec<(&String, &CodeSet)>> = runs
-            .iter()
-            .map(|(label, map)| coded(map, &unit.unit_id).map(|s| (label, s)))
-            .collect();
-        let Some(sets) = sets else {
-            continue;
-        };
-        if let Some(kind) = classify(h, &sets) {
-            out.push(Divergence {
-                unit_id: unit.unit_id.clone(),
-                kind,
-                human: h.clone(),
-                ai: sets
-                    .into_iter()
-                    .map(|(l, s)| (l.clone(), s.clone()))
-                    .collect(),
-            });
-        }
-    }
-    out
-}
-
-pub(crate) fn final_coding(
-    seg: &Segmentation,
-    human: &CodingMap,
-    runs: &[(String, CodingMap)],
-    arbitrations: &BTreeMap<String, Arbitration>,
-) -> Result<Vec<FinalCoding>, Vec<String>> {
-    let mut finals = Vec::new();
-    let mut pending = Vec::new();
-    for unit in &seg.units {
-        let id = &unit.unit_id;
-        let Some(h) = coded(human, id) else {
-            pending.push(id.clone());
-            continue;
-        };
-        let sets: Option<Vec<(&String, &CodeSet)>> = runs
-            .iter()
-            .map(|(label, map)| coded(map, id).map(|s| (label, s)))
-            .collect();
-        let Some(sets) = sets else {
-            // A run has not coded this unit yet: the comparison is incomplete.
-            pending.push(id.clone());
-            continue;
-        };
-        match classify(h, &sets) {
-            None => finals.push(FinalCoding {
-                unit_id: id.clone(),
-                codes: h.clone(),
-                basis: FinalBasis::Agreed,
-            }),
-            Some(_) => match arbitrations.get(id) {
-                Some(arb) => finals.push(FinalCoding {
-                    unit_id: id.clone(),
-                    codes: arb.final_codes.clone(),
-                    basis: FinalBasis::Arbitrated,
-                }),
-                None => pending.push(id.clone()),
-            },
-        }
-    }
-    if pending.is_empty() {
-        Ok(finals)
-    } else {
-        Err(pending)
     }
 }

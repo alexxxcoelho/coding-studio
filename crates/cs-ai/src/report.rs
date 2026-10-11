@@ -8,7 +8,7 @@ use cs_model::{
     DivergenceKind, FinalBasis, FinalCoding, Segmentation, Unit,
 };
 
-use crate::prompt::speaker_label;
+use crate::prompt::{phase_title, speaker_label};
 
 /// RFC 4180 field: quoted when it holds a comma, a quote or a line break.
 pub(crate) fn csv_field(s: &str) -> String {
@@ -90,10 +90,20 @@ fn pct(n: usize, d: usize) -> String {
     }
 }
 
-pub(crate) fn render_agreement_md(seg: &Segmentation, reports: &[AgreementReport]) -> String {
+pub(crate) fn render_agreement_md(
+    seg: &Segmentation,
+    phase: u8,
+    unit_order: &[String],
+    reports: &[AgreementReport],
+) -> String {
     let units: BTreeMap<&str, &Unit> = seg.units.iter().map(|u| (u.unit_id.as_str(), u)).collect();
     let mut t = String::new();
-    let _ = writeln!(t, "# Inter-coder agreement report, {}", seg.interview_id);
+    let _ = writeln!(
+        t,
+        "# Inter-coder agreement report, {}, {}",
+        seg.interview_id,
+        phase_title(phase)
+    );
     let _ = writeln!(t);
     let _ = writeln!(
         t,
@@ -106,8 +116,14 @@ multi-label coding (O'Connor and Joffe, 2020); undefined when a single level is 
     let _ = writeln!(t, "|---|---|");
     let _ = writeln!(t, "| Interview | {} |", cell(&seg.interview_id));
     let _ = writeln!(t, "| Source | {} |", cell(&seg.source_rel_path));
+    let _ = writeln!(t, "| Phase | {} |", phase_title(phase));
     let _ = writeln!(t, "| Segmentation hash | `{}` |", seg.hash);
     let _ = writeln!(t, "| Units in the segmentation | {} |", seg.units.len());
+    let _ = writeln!(
+        t,
+        "| Units in scope for this phase | {} |",
+        unit_order.len()
+    );
     if reports.is_empty() {
         let _ = writeln!(t);
         let _ = writeln!(t, "No comparison available yet.");
@@ -122,7 +138,7 @@ multi-label coding (O'Connor and Joffe, 2020); undefined when a single level is 
         let _ = writeln!(
             t,
             "| Units not compared | {} |",
-            seg.units.len().saturating_sub(r.n_units)
+            unit_order.len().saturating_sub(r.n_units)
         );
         let _ = writeln!(
             t,
@@ -195,6 +211,7 @@ fn describe_choice(choice: &ArbitrationChoice) -> String {
 
 pub(crate) fn render_adjudication_md(
     seg: &Segmentation,
+    phase: u8,
     divergences: &[Divergence],
     arbitrations: &BTreeMap<String, Arbitration>,
 ) -> String {
@@ -204,7 +221,12 @@ pub(crate) fn render_adjudication_md(
         .filter(|d| arbitrations.contains_key(&d.unit_id))
         .count();
     let mut t = String::new();
-    let _ = writeln!(t, "# Adjudication log, {}", seg.interview_id);
+    let _ = writeln!(
+        t,
+        "# Adjudication log, {}, {}",
+        seg.interview_id,
+        phase_title(phase)
+    );
     let _ = writeln!(t);
     let _ = writeln!(
         t,
@@ -214,6 +236,7 @@ among themselves, with the decision of the candidate and its rationale."
     let _ = writeln!(t);
     let _ = writeln!(t, "| Item | Value |");
     let _ = writeln!(t, "|---|---|");
+    let _ = writeln!(t, "| Phase | {} |", phase_title(phase));
     let _ = writeln!(t, "| Segmentation hash | `{}` |", seg.hash);
     let _ = writeln!(t, "| Divergences | {} |", divergences.len());
     let _ = writeln!(t, "| Arbitrated | {n_arbitrated} |");
