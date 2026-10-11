@@ -7,6 +7,10 @@
 --   2. Every write is paired with one audit event in the same transaction.
 --      The audit log is append-only and hash-chained (see cs_model::AuditEvent).
 --   3. The thesis coding.db is never written: the codebook is copied here.
+--   4. Coding happens in two phases (cs_model::phase): phase 1 against the
+--      TOE contexts, phase 2 with study-specific codes on the relevant units.
+--      Every coding, prompt, run and arbitration row carries its phase.
+-- Schema version 2 (PRAGMA user_version), set by cs-store on open.
 -- ===========================================================================
 
 CREATE TABLE IF NOT EXISTS settings (
@@ -45,7 +49,10 @@ CREATE TABLE IF NOT EXISTS codes (
     active      INTEGER NOT NULL DEFAULT 1,
     in_prompt   INTEGER NOT NULL DEFAULT 1,
     ord         INTEGER NOT NULL,
-    local       INTEGER NOT NULL DEFAULT 0     -- 1 = created in Coding Studio (add_code)
+    local       INTEGER NOT NULL DEFAULT 0,    -- 1 = created in Coding Studio (add_code)
+    example     TEXT,                          -- inductive log: example segment or quote
+    reason      TEXT,                          -- inductive log: why the code was created
+    created_at  TEXT                           -- inductive log: creation time
 );
 
 -- -------------------------------------------------------------- segmentation
@@ -73,9 +80,10 @@ CREATE TABLE IF NOT EXISTS units (
 );
 
 -- -------------------------------------------------------------- human coding
--- Current state, one row per unit. Every change is in audit_log (before/after).
+-- Current state, one row per unit and phase. Every change is in audit_log (before/after).
 CREATE TABLE IF NOT EXISTS human_codings (
     interview_id  TEXT NOT NULL REFERENCES interviews(interview_id),
+    phase         INTEGER NOT NULL,
     unit_id       TEXT NOT NULL,
     codes         TEXT NOT NULL,     -- JSON array
     subcode       TEXT,
@@ -85,13 +93,14 @@ CREATE TABLE IF NOT EXISTS human_codings (
     memo          TEXT,
     excerpt       TEXT,
     updated_at    TEXT NOT NULL,
-    PRIMARY KEY (interview_id, unit_id)
+    PRIMARY KEY (interview_id, phase, unit_id)
 );
 
 -- ------------------------------------------------------------ prompts, AI runs
 CREATE TABLE IF NOT EXISTS prompts (
     prompt_id          INTEGER PRIMARY KEY AUTOINCREMENT,
     interview_id       TEXT NOT NULL REFERENCES interviews(interview_id),
+    phase              INTEGER NOT NULL,
     part               INTEGER NOT NULL,
     of                 INTEGER NOT NULL,
     unit_ids           TEXT NOT NULL,    -- JSON array
@@ -106,6 +115,7 @@ CREATE TABLE IF NOT EXISTS prompts (
 CREATE TABLE IF NOT EXISTS ai_runs (
     run_id             INTEGER PRIMARY KEY AUTOINCREMENT,
     interview_id       TEXT NOT NULL REFERENCES interviews(interview_id),
+    phase              INTEGER NOT NULL,
     run_label          TEXT NOT NULL,
     model_name         TEXT NOT NULL,
     model_version      TEXT NOT NULL,
@@ -117,7 +127,7 @@ CREATE TABLE IF NOT EXISTS ai_runs (
     executed_at        TEXT NOT NULL,
     notes              TEXT,
     created_at         TEXT NOT NULL,
-    UNIQUE (interview_id, run_label)
+    UNIQUE (interview_id, phase, run_label)
 );
 
 CREATE TABLE IF NOT EXISTS ai_outputs (
@@ -134,10 +144,11 @@ CREATE TABLE IF NOT EXISTS ai_outputs (
 );
 
 -- --------------------------------------------------------------- arbitration
--- Append-only: the current decision for a unit is the latest arb_id.
+-- Append-only: the current decision for a unit and phase is the latest arb_id.
 CREATE TABLE IF NOT EXISTS arbitrations (
     arb_id        INTEGER PRIMARY KEY AUTOINCREMENT,
     interview_id  TEXT NOT NULL REFERENCES interviews(interview_id),
+    phase         INTEGER NOT NULL,
     unit_id       TEXT NOT NULL,
     choice        TEXT NOT NULL,    -- JSON of cs_model::ArbitrationChoice
     final_codes   TEXT NOT NULL,    -- JSON array
@@ -160,7 +171,8 @@ CREATE TABLE IF NOT EXISTS audit_log (
 );
 
 CREATE INDEX IF NOT EXISTS idx_audit_interview ON audit_log(interview_id);
-CREATE INDEX IF NOT EXISTS idx_arbitrations_unit ON arbitrations(interview_id, unit_id);
+CREATE INDEX IF NOT EXISTS idx_arbitrations_unit ON arbitrations(interview_id, phase, unit_id);
+CREATE INDEX IF NOT EXISTS idx_runs_phase ON ai_runs(interview_id, phase);
 CREATE INDEX IF NOT EXISTS idx_outputs_run ON ai_outputs(run_id);
 
 -- ------------------------------------------------------- append-only guards

@@ -35,6 +35,7 @@ fn default_codes() -> Vec<(&'static str, &'static str, &'static str, i64)> {
         ("ORG-SKILLS", "ORG", "codebook", 1),
         ("ENV-PARTNER", "ENV", "codebook", 1),
         ("TECH", "TECH", "legacy", 1),
+        ("OUT-REALISED", "OUTCOME", "codebook", 1),
     ]
 }
 
@@ -125,18 +126,24 @@ fn hc(unit: &str, codes: &[&str]) -> HumanCoding {
     }
 }
 
+/// Phase 1: U001 NA, U002 TECH, U003 ORG.
 fn code_all(s: &Store) {
-    s.set_human_coding(ID, &hc("ECO-16-U001", &["NA"]), ACTOR)
+    s.set_human_coding(ID, 1, &hc("ECO-16-U001", &["NA"]), ACTOR)
         .unwrap();
-    s.set_human_coding(ID, &hc("ECO-16-U002", &["TECH-ADV"]), ACTOR)
+    s.set_human_coding(ID, 1, &hc("ECO-16-U002", &["TECH"]), ACTOR)
         .unwrap();
-    s.set_human_coding(ID, &hc("ECO-16-U003", &["ORG-SKILLS"]), ACTOR)
+    s.set_human_coding(ID, 1, &hc("ECO-16-U003", &["ORG"]), ACTOR)
         .unwrap();
 }
 
 fn output(s: &Store, part: u32, of: u32, codings: &[(&str, &[&str])]) -> AiOutput {
+    output_in(s, 1, part, of, codings)
+}
+
+fn output_in(s: &Store, phase: u8, part: u32, of: u32, codings: &[(&str, &[&str])]) -> AiOutput {
     AiOutput {
         interview_id: ID.into(),
+        phase,
         segmentation_hash: s.segmentation(ID).unwrap().unwrap().hash,
         part,
         of,
@@ -157,6 +164,57 @@ fn meta(label: &str) -> AiRunMeta {
         executed_at: "2026-10-10T10:00:00Z".into(),
         ..Default::default()
     }
+}
+
+fn arb(phase: u8, unit: &str, choice: ArbitrationChoice, codes: &[&str]) -> Arbitration {
+    Arbitration {
+        unit_id: unit.into(),
+        phase,
+        choice,
+        final_codes: set(codes),
+        rationale: "Decided on re-listening.".into(),
+        decided_by: String::new(),
+        decided_at: String::new(),
+    }
+}
+
+fn inductive(code: &str) -> Code {
+    Code {
+        code: code.into(),
+        family: String::new(),
+        label: "Business case construction".into(),
+        definition: "How the business case is built and by whom.".into(),
+        origin: String::new(),
+        active: true,
+        in_prompt: true,
+        example: Some("we built the case on shrink".into()),
+        reason: Some("Recurs across retailers, outside TOE.".into()),
+        created_at: None,
+    }
+}
+
+/// Phase 1 coded, one blind run (U003 diverges: ENV), U003 arbitrated to ORG.
+/// Phase 2 scope is then U002 (TECH) and U003 (ORG).
+fn reconcile_phase1(s: &Store) {
+    code_all(s);
+    let run = s.create_ai_run(ID, 1, &meta("R1"), ACTOR).unwrap();
+    let out = output(
+        s,
+        1,
+        1,
+        &[
+            ("ECO-16-U001", &["NA"]),
+            ("ECO-16-U002", &["TECH"]),
+            ("ECO-16-U003", &["ENV"]),
+        ],
+    );
+    s.record_ai_output(run, "raw", &out, ACTOR).unwrap();
+    s.record_arbitration(
+        ID,
+        &arb(1, "ECO-16-U003", ArbitrationChoice::Human, &["ORG"]),
+        ACTOR,
+    )
+    .unwrap();
 }
 
 fn kind(err: &anyhow::Error) -> &'static str {
@@ -194,6 +252,29 @@ fn open_file_database_uses_delete_journal_and_reopens() {
     let s = Store::open(&path).unwrap();
     assert_eq!(s.setting("library_root").unwrap().as_deref(), Some("/x"));
     assert!(s.verify_chain().unwrap().ok);
+}
+
+#[test]
+fn database_of_an_earlier_version_is_refused() {
+    let dir = TempDir::new().unwrap();
+    let path = dir.path().join("old.db");
+    {
+        let c = Connection::open(&path).unwrap();
+        c.execute_batch("CREATE TABLE interviews (interview_id TEXT PRIMARY KEY);")
+            .unwrap();
+    }
+    let e = Store::open(&path).err().expect("old database refused");
+    assert_eq!(kind(&e), "validation");
+    assert!(e.to_string().contains("earlier version"), "{e}");
+
+    let fresh = dir.path().join("new.db");
+    drop(Store::open(&fresh).unwrap());
+    let s = Store::open(&fresh).unwrap();
+    let v: i64 = s
+        .connection()
+        .query_row("PRAGMA user_version", [], |r| r.get(0))
+        .unwrap();
+    assert_eq!(v, SCHEMA_VERSION);
 }
 
 #[test]
@@ -267,25 +348,13 @@ fn codebook_import_defaults_and_keeps_choices() {
     let cb = s
         .import_codebook(&coding_db(&dir, &default_codes()), ACTOR)
         .unwrap();
-    assert_eq!(cb.codes.len(), 4);
+    assert_eq!(cb.codes.len(), 5);
     assert_eq!(cb.codes[0].code, "TECH-ADV"); // upstream order kept
     assert!(!cb.get("TECH").unwrap().in_prompt); // legacy not offered to AI
     assert!(cb.get("TECH-ADV").unwrap().in_prompt);
 
     s.set_code_in_prompt("ENV-PARTNER", false, ACTOR).unwrap();
-    s.add_code(
-        &Code {
-            code: "BUSINESS-CASE".into(),
-            family: "whatever".into(),
-            label: "Business case".into(),
-            definition: "d".into(),
-            origin: "x".into(),
-            active: true,
-            in_prompt: true,
-        },
-        ACTOR,
-    )
-    .unwrap();
+    s.add_code(&inductive("BUSINESS-CASE"), ACTOR).unwrap();
 
     // Upstream drops ORG-SKILLS and adds TECH-COST.
     let path = coding_db(
@@ -294,6 +363,7 @@ fn codebook_import_defaults_and_keeps_choices() {
             ("TECH-ADV", "TECH", "codebook", 1),
             ("ENV-PARTNER", "ENV", "codebook", 1),
             ("TECH", "TECH", "legacy", 1),
+            ("OUT-REALISED", "OUTCOME", "codebook", 1),
             ("TECH-COST", "TECH", "codebook", 1),
         ],
     );
@@ -301,6 +371,15 @@ fn codebook_import_defaults_and_keeps_choices() {
     assert!(!cb.get("ENV-PARTNER").unwrap().in_prompt, "choice kept");
     let bc = cb.get("BUSINESS-CASE").unwrap();
     assert!(bc.active && bc.family == "INDUCTIVE" && bc.origin == "inductive");
+    assert_eq!(
+        bc.reason.as_deref(),
+        Some("Recurs across retailers, outside TOE.")
+    );
+    assert_eq!(bc.example.as_deref(), Some("we built the case on shrink"));
+    assert!(
+        bc.created_at.is_some(),
+        "inductive log keeps the creation time"
+    );
     assert!(
         !cb.get("ORG-SKILLS").unwrap().active,
         "deactivated, not deleted"
@@ -316,22 +395,23 @@ fn codebook_import_defaults_and_keeps_choices() {
 }
 
 #[test]
-fn add_code_rejects_duplicates_and_bad_names() {
+fn add_code_rejects_duplicates_bad_names_and_an_incomplete_log() {
     let (s, _d) = ready();
-    let mut c = Code {
-        code: "TECH-ADV".into(),
-        family: String::new(),
-        label: String::new(),
-        definition: String::new(),
-        origin: String::new(),
-        active: true,
-        in_prompt: false,
-    };
+    for name in ["TECH-ADV", "NA", "TWO WORDS", "ENV", "INDUCTIVE-PENDING"] {
+        let e = s.add_code(&inductive(name), ACTOR).unwrap_err();
+        assert_eq!(kind(&e), "validation", "{name}");
+    }
+    let mut c = inductive("NEW-CODE");
+    c.definition = "  ".into();
     assert_eq!(kind(&s.add_code(&c, ACTOR).unwrap_err()), "validation");
-    c.code = "NA".into();
-    assert_eq!(kind(&s.add_code(&c, ACTOR).unwrap_err()), "validation");
-    c.code = "TWO WORDS".into();
-    assert_eq!(kind(&s.add_code(&c, ACTOR).unwrap_err()), "validation");
+    let mut c = inductive("NEW-CODE");
+    c.reason = Some(" ".into());
+    assert!(s
+        .add_code(&c, ACTOR)
+        .unwrap_err()
+        .to_string()
+        .contains("reason"));
+    s.add_code(&inductive("NEW-CODE"), ACTOR).unwrap();
     assert_eq!(
         kind(&s.set_code_in_prompt("NOPE", true, ACTOR).unwrap_err()),
         "not_found"
@@ -394,7 +474,7 @@ fn resegmentation_allowed_before_coding_refused_after() {
     s.save_segmentation(&segmentation(&["One.", "Two."]), ACTOR)
         .unwrap();
     assert_eq!(s.segmentation(ID).unwrap().unwrap().units.len(), 2);
-    s.set_human_coding(ID, &hc("ECO-16-U001", &["NA"]), ACTOR)
+    s.set_human_coding(ID, 1, &hc("ECO-16-U001", &["NA"]), ACTOR)
         .unwrap();
     let e = s
         .save_segmentation(&segmentation(&["A.", "B.", "C."]), ACTOR)
@@ -425,34 +505,33 @@ fn segmentation_with_wrong_hash_or_unknown_interview_is_refused() {
 fn human_coding_validation() {
     let (s, _d) = ready();
     let cases: Vec<HumanCoding> = vec![
-        hc("ECO-16-U002", &[]),                 // empty
-        hc("ECO-16-U002", &["NA", "TECH-ADV"]), // NA mixed
-        hc("ECO-16-U002", &["UNKNOWN"]),        // unknown code
-        hc("ECO-16-U999", &["TECH-ADV"]),       // unknown unit
+        hc("ECO-16-U002", &[]),             // empty
+        hc("ECO-16-U002", &["NA", "TECH"]), // NA mixed
+        hc("ECO-16-U002", &["UNKNOWN"]),    // unknown code
+        hc("ECO-16-U002", &["TECH-ADV"]),   // phase 2 code in phase 1
+        hc("ECO-16-U999", &["TECH"]),       // unknown unit
         HumanCoding {
             excerpt: Some("paid back within two years".into()),
-            ..hc("ECO-16-U002", &["TECH-ADV"])
+            ..hc("ECO-16-U002", &["TECH"])
         },
     ];
     for c in cases {
-        let e = s.set_human_coding(ID, &c, ACTOR).unwrap_err();
+        let e = s.set_human_coding(ID, 1, &c, ACTOR).unwrap_err();
         assert_eq!(kind(&e), "validation", "{c:?}: {e}");
     }
-    assert!(s.human_codings(ID).unwrap().is_empty());
-}
-
-#[test]
-fn inactive_code_is_refused() {
-    let (s, d) = ready();
-    s.import_codebook(
-        &coding_db(&d, &[("TECH-ADV", "TECH", "codebook", 1)]),
+    let e = s
+        .set_human_coding(ID, 3, &hc("ECO-16-U002", &["TECH"]), ACTOR)
+        .unwrap_err();
+    assert_eq!(kind(&e), "validation");
+    assert!(s.human_codings(ID, 1).unwrap().is_empty());
+    // Every phase 1 category is accepted, alone or combined.
+    s.set_human_coding(
+        ID,
+        1,
+        &hc("ECO-16-U002", &["TECH", "ENV", "INDUCTIVE-PENDING"]),
         ACTOR,
     )
     .unwrap();
-    let e = s
-        .set_human_coding(ID, &hc("ECO-16-U003", &["ORG-SKILLS"]), ACTOR)
-        .unwrap_err();
-    assert!(e.to_string().contains("inactive"));
 }
 
 #[test]
@@ -460,7 +539,7 @@ fn human_coding_trims_and_logs_before_after() {
     let (s, _d) = ready();
     let c = HumanCoding {
         unit_id: "ECO-16-U002".into(),
-        codes: set(&[" TECH-ADV "]),
+        codes: set(&[" TECH "]),
         subcode: Some("  payback ".into()),
         modifier: Some("   ".into()),
         ev_level: Some("EV1".into()),
@@ -468,41 +547,42 @@ fn human_coding_trims_and_logs_before_after() {
         memo: Some("first-hand".into()),
         excerpt: Some(" paid back within a year".into()),
     };
-    s.set_human_coding(ID, &c, ACTOR).unwrap();
-    let got = s.human_codings(ID).unwrap()["ECO-16-U002"].clone();
-    assert_eq!(got.codes, set(&["TECH-ADV"]));
+    s.set_human_coding(ID, 1, &c, ACTOR).unwrap();
+    let got = s.human_codings(ID, 1).unwrap()["ECO-16-U002"].clone();
+    assert_eq!(got.codes, set(&["TECH"]));
     assert_eq!(got.subcode.as_deref(), Some("payback"));
     assert_eq!(got.modifier, None);
     assert_eq!(got.excerpt.as_deref(), Some("paid back within a year"));
 
     let n = actions(&s).len();
-    s.set_human_coding(ID, &c, ACTOR).unwrap();
+    s.set_human_coding(ID, 1, &c, ACTOR).unwrap();
     assert_eq!(actions(&s).len(), n, "unchanged: no log");
 
-    s.set_human_coding(ID, &hc("ECO-16-U002", &["TECH-ADV", "ORG-SKILLS"]), ACTOR)
+    s.set_human_coding(ID, 1, &hc("ECO-16-U002", &["TECH", "ORG"]), ACTOR)
         .unwrap();
     let ev = s.audit_events(Some(ID)).unwrap().last().unwrap().clone();
     assert_eq!(ev.action, "coding.set");
     assert_eq!(ev.target.as_deref(), Some("ECO-16-U002"));
-    assert_eq!(ev.detail["before"]["codes"], json!(["TECH-ADV"]));
-    assert_eq!(
-        ev.detail["after"]["codes"],
-        json!(["ORG-SKILLS", "TECH-ADV"])
-    );
+    assert_eq!(ev.detail["phase"], 1);
+    assert_eq!(ev.detail["before"]["codes"], json!(["TECH"]));
+    assert_eq!(ev.detail["after"]["codes"], json!(["ORG", "TECH"]));
 }
 
 #[test]
 fn guard_reports_missing_units() {
     let (s, _d) = ready();
-    let g = s.guard(ID).unwrap();
+    let g = s.guard(ID, 1).unwrap();
     assert!(!g.complete);
     assert_eq!(g.n_units, 3);
     assert_eq!(g.missing.len(), 3);
     code_all(&s);
-    let g = s.guard(ID).unwrap();
-    assert!(g.complete && g.missing.is_empty());
-    let none = s.guard("RET-01").unwrap();
+    let g = s.guard(ID, 1).unwrap();
+    assert!(g.complete && g.missing.is_empty() && g.phase == 1);
+    let none = s.guard("RET-01", 1).unwrap();
     assert!(!none.complete && none.n_units == 0);
+    // Phase 2 has no scope until phase 1 is reconciled.
+    let g2 = s.guard(ID, 2).unwrap();
+    assert!(!g2.complete && g2.n_units == 0);
 }
 
 // ------------------------------------------------------------ prompts, runs
@@ -514,6 +594,7 @@ fn prompts_are_recorded_and_checked() {
     let text = "PROMPT TEXT".to_string();
     let mut p = PromptPart {
         interview_id: ID.into(),
+        phase: 1,
         part: 1,
         of: 1,
         unit_ids: seg.units.iter().map(|u| u.unit_id.clone()).collect(),
@@ -524,10 +605,18 @@ fn prompts_are_recorded_and_checked() {
         text,
     };
     s.record_prompt(&p, ACTOR).unwrap();
-    assert_eq!(s.prompts(ID).unwrap(), vec![p.clone()]);
+    assert_eq!(s.prompts(ID, 1).unwrap(), vec![p.clone()]);
+    assert!(s.prompts(ID, 2).unwrap().is_empty());
     let ev = s.audit_events(Some(ID)).unwrap().last().unwrap().clone();
     assert_eq!(ev.action, "prompt.generate");
     assert_eq!(ev.detail["n_units"], 3);
+    assert_eq!(ev.detail["phase"], 1);
+    let mut wrong_phase = p.clone();
+    wrong_phase.phase = 0;
+    assert_eq!(
+        kind(&s.record_prompt(&wrong_phase, ACTOR).unwrap_err()),
+        "validation"
+    );
     p.sha256 = "tampered".into();
     assert_eq!(kind(&s.record_prompt(&p, ACTOR).unwrap_err()), "validation");
 }
@@ -535,57 +624,65 @@ fn prompts_are_recorded_and_checked() {
 #[test]
 fn ai_run_labels_are_unique_and_required() {
     let (s, _d) = ready();
-    s.create_ai_run(ID, &meta("R1"), ACTOR).unwrap();
+    s.create_ai_run(ID, 1, &meta("R1"), ACTOR).unwrap();
     assert_eq!(
-        kind(&s.create_ai_run(ID, &meta("R1"), ACTOR).unwrap_err()),
+        kind(&s.create_ai_run(ID, 1, &meta("R1"), ACTOR).unwrap_err()),
         "validation"
     );
     assert_eq!(
-        kind(&s.create_ai_run(ID, &meta(" "), ACTOR).unwrap_err()),
+        kind(&s.create_ai_run(ID, 1, &meta(" "), ACTOR).unwrap_err()),
         "validation"
     );
     let mut m = meta("R2");
     m.model_name = String::new();
     assert_eq!(
-        kind(&s.create_ai_run(ID, &m, ACTOR).unwrap_err()),
+        kind(&s.create_ai_run(ID, 1, &m, ACTOR).unwrap_err()),
         "validation"
     );
     assert_eq!(
-        kind(&s.create_ai_run("X-9", &meta("R2"), ACTOR).unwrap_err()),
+        kind(&s.create_ai_run("X-9", 1, &meta("R2"), ACTOR).unwrap_err()),
         "not_found"
+    );
+    // Phase 2 runs wait for a reconciled phase 1.
+    assert_eq!(
+        kind(&s.create_ai_run(ID, 2, &meta("R1"), ACTOR).unwrap_err()),
+        "guard"
     );
 }
 
 #[test]
 fn blind_guard_blocks_ai_import_until_human_coding_complete() {
     let (s, _d) = ready();
-    let run = s.create_ai_run(ID, &meta("R1"), ACTOR).unwrap();
-    s.set_human_coding(ID, &hc("ECO-16-U001", &["NA"]), ACTOR)
+    let run = s.create_ai_run(ID, 1, &meta("R1"), ACTOR).unwrap();
+    s.set_human_coding(ID, 1, &hc("ECO-16-U001", &["NA"]), ACTOR)
         .unwrap();
     let out = output(&s, 1, 1, &[("ECO-16-U001", &["NA"])]);
     let e = s.record_ai_output(run, "{}", &out, ACTOR).unwrap_err();
     assert_eq!(kind(&e), "guard");
-    assert!(e.to_string().contains("2 units not yet coded"), "{e}");
+    assert!(
+        e.to_string().contains("2 units of phase 1 not yet coded"),
+        "{e}"
+    );
 }
 
 #[test]
 fn human_coding_locked_after_ai_import() {
     let (s, _d) = ready();
     code_all(&s);
-    let run = s.create_ai_run(ID, &meta("R1"), ACTOR).unwrap();
+    let run = s.create_ai_run(ID, 1, &meta("R1"), ACTOR).unwrap();
     let out = output(
         &s,
         1,
         1,
         &[
             ("ECO-16-U001", &["NA"]),
-            ("ECO-16-U002", &["TECH-ADV"]),
-            ("ECO-16-U003", &["ENV-PARTNER"]),
+            ("ECO-16-U002", &["TECH"]),
+            ("ECO-16-U003", &["ENV"]),
         ],
     );
     s.record_ai_output(run, "raw answer", &out, ACTOR).unwrap();
     let e = s
-        .set_human_coding(ID, &hc("ECO-16-U003", &["TECH-ADV"]), ACTOR)
+        .set_human_coding(ID, 1, &hc("ECO-16-U003", &["TECH"]), ACTOR)
         .unwrap_err();
     assert_eq!(kind(&e), "guard");
     assert!(e.to_string().contains("locked"));
@@ -599,8 +696,20 @@ fn human_coding_locked_after_ai_import() {
 fn ai_output_checks_and_multi_part_merge() {
     let (s, _d) = ready();
     code_all(&s);
-    let run = s.create_ai_run(ID, &meta("R1"), ACTOR).unwrap();
+    let run = s.create_ai_run(ID, 1, &meta("R1"), ACTOR).unwrap();
 
+    // Wrong phase.
+    let bad = output_in(&s, 2, 1, 2, &[("ECO-16-U001", &["NA"])]);
+    assert_eq!(
+        kind(&s.record_ai_output(run, "x", &bad, ACTOR).unwrap_err()),
+        "validation"
+    );
+    // A code the AI was not offered in phase 1.
+    let bad = output(&s, 1, 2, &[("ECO-16-U002", &["TECH-ADV"])]);
+    assert_eq!(
+        kind(&s.record_ai_output(run, "x", &bad, ACTOR).unwrap_err()),
+        "validation"
+    );
     // Wrong segmentation hash.
     let mut bad = output(&s, 1, 2, &[("ECO-16-U001", &["NA"])]);
     bad.segmentation_hash = "other".into();
@@ -631,11 +740,11 @@ fn ai_output_checks_and_multi_part_merge() {
         &s,
         1,
         2,
-        &[("ECO-16-U001", &["NA"]), ("ECO-16-U002", &["TECH-ADV"])],
+        &[("ECO-16-U001", &["NA"]), ("ECO-16-U002", &["TECH"])],
     );
     s.record_ai_output(run, "part one raw\n", &p1, ACTOR)
         .unwrap();
-    let r = &s.ai_runs(ID).unwrap()[0];
+    let r = &s.ai_runs(ID, 1).unwrap()[0];
     assert!(!r.complete);
     assert_eq!(r.parts_expected, Some(2));
 
@@ -660,10 +769,10 @@ fn ai_output_checks_and_multi_part_merge() {
         "validation"
     );
 
-    let p2 = output(&s, 2, 2, &[("ECO-16-U003", &["ORG-SKILLS"])]);
+    let p2 = output(&s, 2, 2, &[("ECO-16-U003", &["ORG"])]);
     s.record_ai_output(run, "part two raw", &p2, ACTOR).unwrap();
-    let r = &s.ai_runs(ID).unwrap()[0];
-    assert!(r.complete);
+    let r = &s.ai_runs(ID, 1).unwrap()[0];
+    assert!(r.complete && r.phase == 1);
     assert_eq!(r.parts_received, vec![1, 2]);
     assert_eq!(r.codings.len(), 3);
     assert_eq!(r.meta.model_name, "model-a");
@@ -683,45 +792,48 @@ fn ai_output_checks_and_multi_part_merge() {
 fn arbitration_history_and_validation() {
     let (s, _d) = ready();
     code_all(&s);
-    let run = s.create_ai_run(ID, &meta("R1"), ACTOR).unwrap();
+    let run = s.create_ai_run(ID, 1, &meta("R1"), ACTOR).unwrap();
     let out = output(
         &s,
         1,
         1,
         &[
             ("ECO-16-U001", &["NA"]),
-            ("ECO-16-U002", &["TECH-ADV"]),
-            ("ECO-16-U003", &["ENV-PARTNER"]),
+            ("ECO-16-U002", &["TECH"]),
+            ("ECO-16-U003", &["ENV"]),
         ],
     );
     s.record_ai_output(run, "raw", &out, ACTOR).unwrap();
 
     let summary = &s.summaries().unwrap()[0];
     assert_eq!(summary.n_units, 3);
-    assert!(summary.human_complete);
-    assert_eq!(summary.n_ai_runs_complete, 1);
-    assert_eq!(summary.n_divergences, 1);
-    assert_eq!(summary.n_arbitrated, 0);
+    let p1 = &summary.phase1;
+    assert_eq!(p1.n_units, 3);
+    assert!(p1.human_complete);
+    assert_eq!(p1.n_ai_runs_complete, 1);
+    assert_eq!(p1.n_divergences, 1);
+    assert_eq!(p1.n_arbitrated, 0);
+    assert!(!p1.reconciled);
+    assert_eq!(summary.phase2.n_units, 0);
 
     let mut arb = Arbitration {
-        unit_id: "ECO-16-U003".into(),
-        choice: ArbitrationChoice::Human,
-        final_codes: set(&["ORG-SKILLS"]),
         rationale: "  ".into(),
-        decided_by: String::new(),
-        decided_at: String::new(),
+        ..arb(1, "ECO-16-U003", ArbitrationChoice::Human, &["ORG"])
     };
     assert_eq!(
         kind(&s.record_arbitration(ID, &arb, ACTOR).unwrap_err()),
         "validation"
     );
     arb.rationale = "Skills gap stated first-hand.".into();
-    arb.final_codes = set(&["NOPE"]);
-    assert_eq!(
-        kind(&s.record_arbitration(ID, &arb, ACTOR).unwrap_err()),
-        "validation"
-    );
-    arb.final_codes = set(&["ORG-SKILLS"]);
+    for codes in [&["NOPE"][..], &["ORG-SKILLS"][..]] {
+        arb.final_codes = set(codes);
+        assert_eq!(
+            kind(&s.record_arbitration(ID, &arb, ACTOR).unwrap_err()),
+            "validation",
+            "{codes:?}"
+        );
+    }
+    arb.final_codes = set(&["ORG"]);
     arb.choice = ArbitrationChoice::Ai {
         run_label: "R9".into(),
     };
@@ -734,25 +846,30 @@ fn arbitration_history_and_validation() {
 
     let second = Arbitration {
         choice: ArbitrationChoice::Custom,
-        final_codes: set(&["ORG-SKILLS", "ENV-PARTNER"]),
+        final_codes: set(&["ORG", "ENV"]),
         rationale: "Both readings hold on re-listening at 00:02.".into(),
         ..arb.clone()
     };
     s.record_arbitration(ID, &second, ACTOR).unwrap();
 
-    let current = s.arbitrations(ID).unwrap();
+    let current = s.arbitrations(ID, 1).unwrap();
     assert_eq!(current.len(), 1);
     let c = &current["ECO-16-U003"];
     assert_eq!(c.choice, ArbitrationChoice::Custom);
     assert_eq!(c.decided_by, ACTOR);
+    assert_eq!(c.phase, 1);
     assert!(!c.decided_at.is_empty());
-    let hist = s.arbitration_history(ID).unwrap();
+    let hist = s.arbitration_history(ID, 1).unwrap();
     assert_eq!(hist.len(), 2);
     assert_eq!(hist[0].choice, ArbitrationChoice::Human);
+    assert!(s.arbitration_history(ID, 2).unwrap().is_empty());
     let ev = s.audit_events(Some(ID)).unwrap().last().unwrap().clone();
     assert_eq!(ev.action, "arbitration.record");
+    assert_eq!(ev.detail["phase"], 1);
     assert_eq!(ev.detail["previous"]["choice"]["type"], "human");
-    assert_eq!(s.summaries().unwrap()[0].n_arbitrated, 1);
+    let p1 = &s.summaries().unwrap()[0].phase1;
+    assert_eq!(p1.n_arbitrated, 1);
+    assert!(p1.reconciled);
 }
 
 // --------------------------------------------------------------------- audit
@@ -761,7 +878,7 @@ fn arbitration_history_and_validation() {
 fn append_only_tables_refuse_update_and_delete() {
     let (s, _d) = ready();
     code_all(&s);
-    let run = s.create_ai_run(ID, &meta("R1"), ACTOR).unwrap();
+    let run = s.create_ai_run(ID, 1, &meta("R1"), ACTOR).unwrap();
     let out = output(
         &s,
         1,
@@ -775,14 +892,7 @@ fn append_only_tables_refuse_update_and_delete() {
     s.record_ai_output(run, "raw", &out, ACTOR).unwrap();
     s.record_arbitration(
         ID,
-        &Arbitration {
-            unit_id: "ECO-16-U002".into(),
-            choice: ArbitrationChoice::Human,
-            final_codes: set(&["TECH-ADV"]),
-            rationale: "r".into(),
-            decided_by: String::new(),
-            decided_at: String::new(),
-        },
+        &arb(1, "ECO-16-U002", ArbitrationChoice::Human, &["TECH"]),
         ACTOR,
     )
     .unwrap();
@@ -790,6 +900,7 @@ fn append_only_tables_refuse_update_and_delete() {
     s.record_prompt(
         &PromptPart {
             interview_id: ID.into(),
+            phase: 1,
             part: 1,
             of: 1,
             unit_ids: vec![],
@@ -866,7 +977,287 @@ fn write_and_audit_are_atomic() {
     // A failing domain write leaves neither a row nor an event.
     let (s, _d) = ready();
     let n = actions(&s).len();
-    let _ = s.set_human_coding(ID, &hc("ECO-16-U002", &["UNKNOWN"]), ACTOR);
+    let _ = s.set_human_coding(ID, 1, &hc("ECO-16-U002", &["UNKNOWN"]), ACTOR);
     assert_eq!(actions(&s).len(), n);
-    assert!(s.human_codings(ID).unwrap().is_empty());
+    assert!(s.human_codings(ID, 1).unwrap().is_empty());
+}
+
+// ------------------------------------------------------------------ phases
+
+#[test]
+fn phase2_waits_for_a_reconciled_phase1() {
+    let (s, _d) = ready();
+    code_all(&s);
+    assert!(s.phase_units(ID, 2).unwrap().is_empty());
+    // No run yet: phase 1 is not reconciled, every unit is pending.
+    assert_eq!(s.final_codings(ID, 1).unwrap().unwrap_err().len(), 3);
+    assert!(!s.is_reconciled(ID, 1).unwrap());
+    let run = s.create_ai_run(ID, 1, &meta("R1"), ACTOR).unwrap();
+    let out = output(
+        &s,
+        1,
+        1,
+        &[
+            ("ECO-16-U001", &["NA"]),
+            ("ECO-16-U002", &["TECH"]),
+            ("ECO-16-U003", &["ENV"]),
+        ],
+    );
+    s.record_ai_output(run, "raw", &out, ACTOR).unwrap();
+    assert_eq!(
+        s.final_codings(ID, 1).unwrap().unwrap_err(),
+        vec!["ECO-16-U003".to_string()]
+    );
+    let e = s
+        .set_human_coding(ID, 2, &hc("ECO-16-U002", &["TECH-ADV"]), ACTOR)
+        .unwrap_err();
+    assert_eq!(kind(&e), "guard");
+    assert!(e.to_string().contains("phase 1 is reconciled"), "{e}");
+    assert_eq!(
+        kind(&s.allowed_codes(ID, 2, "ECO-16-U002", false).unwrap_err()),
+        "guard"
+    );
+    assert_eq!(
+        kind(&s.create_ai_run(ID, 2, &meta("R1"), ACTOR).unwrap_err()),
+        "guard"
+    );
+}
+
+#[test]
+fn allowed_codes_follow_the_reconciled_contexts() {
+    let (s, _d) = ready();
+    s.add_code(&inductive("BUSINESS-CASE"), ACTOR).unwrap();
+    let p1: Vec<String> = s
+        .allowed_codes(ID, 1, "ECO-16-U001", true)
+        .unwrap()
+        .into_iter()
+        .map(|c| c.code)
+        .collect();
+    assert_eq!(p1, ["TECH", "ORG", "ENV", "INDUCTIVE-PENDING"]);
+
+    reconcile_phase1(&s);
+    assert_eq!(
+        s.phase_units(ID, 2).unwrap(),
+        vec!["ECO-16-U002".to_string(), "ECO-16-U003".to_string()]
+    );
+    let names = |unit: &str, for_ai: bool| -> Vec<String> {
+        s.allowed_codes(ID, 2, unit, for_ai)
+            .unwrap()
+            .into_iter()
+            .map(|c| c.code)
+            .collect()
+    };
+    // Legacy TECH excluded; ORG codes not reachable from a TECH unit.
+    assert_eq!(
+        names("ECO-16-U002", false),
+        ["TECH-ADV", "OUT-REALISED", "BUSINESS-CASE"]
+    );
+    assert_eq!(names("ECO-16-U002", true), ["TECH-ADV", "OUT-REALISED"]);
+    assert_eq!(names("ECO-16-U003", true), ["ORG-SKILLS", "OUT-REALISED"]);
+    // NA in phase 1: out of phase 2 scope.
+    assert_eq!(
+        kind(&s.allowed_codes(ID, 2, "ECO-16-U001", false).unwrap_err()),
+        "validation"
+    );
+}
+
+#[test]
+fn full_two_phase_path() {
+    let (s, d) = ready();
+    s.add_code(&inductive("BUSINESS-CASE"), ACTOR).unwrap();
+    reconcile_phase1(&s);
+    assert!(s.is_reconciled(ID, 1).unwrap());
+    let f1 = s.final_codings(ID, 1).unwrap().unwrap();
+    assert_eq!(f1[2].codes, set(&["ORG"]));
+
+    // A second phase 1 run declared before phase 2 starts.
+    let late_p1 = s.create_ai_run(ID, 1, &meta("R2"), ACTOR).unwrap();
+
+    // Phase 2, the candidate first.
+    let e = s
+        .set_human_coding(ID, 2, &hc("ECO-16-U001", &["NA"]), ACTOR)
+        .unwrap_err();
+    assert_eq!(kind(&e), "guard", "NA unit out of scope");
+    let e = s
+        .set_human_coding(ID, 2, &hc("ECO-16-U002", &["ORG-SKILLS"]), ACTOR)
+        .unwrap_err();
+    assert_eq!(kind(&e), "validation", "ORG code on a TECH unit");
+    let e = s
+        .set_human_coding(ID, 2, &hc("ECO-16-U002", &["TECH"]), ACTOR)
+        .unwrap_err();
+    assert_eq!(kind(&e), "validation", "phase 1 category in phase 2");
+    // Inactive codes are refused: upstream drops OUT-REALISED.
+    s.import_codebook(
+        &coding_db(
+            &d,
+            &[
+                ("TECH-ADV", "TECH", "codebook", 1),
+                ("ORG-SKILLS", "ORG", "codebook", 1),
+                ("ENV-PARTNER", "ENV", "codebook", 1),
+                ("TECH", "TECH", "legacy", 1),
+            ],
+        ),
+        ACTOR,
+    )
+    .unwrap();
+    let e = s
+        .set_human_coding(ID, 2, &hc("ECO-16-U002", &["OUT-REALISED"]), ACTOR)
+        .unwrap_err();
+    assert_eq!(kind(&e), "validation", "inactive code");
+
+    s.set_human_coding(ID, 2, &hc("ECO-16-U002", &["TECH-ADV"]), ACTOR)
+        .unwrap();
+    assert!(s.phase2_started(ID).unwrap());
+
+    // Phase 1 is now frozen.
+    for e in [
+        s.create_ai_run(ID, 1, &meta("R3"), ACTOR).unwrap_err(),
+        s.record_arbitration(
+            ID,
+            &arb(1, "ECO-16-U003", ArbitrationChoice::Custom, &["ORG", "ENV"]),
+            ACTOR,
+        )
+        .unwrap_err(),
+        s.record_ai_output(
+            late_p1,
+            "raw",
+            &output(
+                &s,
+                1,
+                1,
+                &[
+                    ("ECO-16-U001", &["NA"]),
+                    ("ECO-16-U002", &["TECH"]),
+                    ("ECO-16-U003", &["ORG"]),
+                ],
+            ),
+            ACTOR,
+        )
+        .unwrap_err(),
+    ] {
+        assert_eq!(kind(&e), "guard");
+        assert!(e.to_string().contains("phase 1 is frozen"), "{e}");
+    }
+
+    // Blind guard of phase 2.
+    let run = s.create_ai_run(ID, 2, &meta("R1"), ACTOR).unwrap();
+    let ai_ok = output_in(
+        &s,
+        2,
+        1,
+        1,
+        &[
+            ("ECO-16-U002", &["TECH-ADV"]),
+            ("ECO-16-U003", &["ORG-SKILLS"]),
+        ],
+    );
+    let e = s.record_ai_output(run, "raw", &ai_ok, ACTOR).unwrap_err();
+    assert_eq!(kind(&e), "guard");
+    assert!(e.to_string().contains("1 units of phase 2"), "{e}");
+
+    s.set_human_coding(
+        ID,
+        2,
+        &hc("ECO-16-U003", &["ORG-SKILLS", "BUSINESS-CASE"]),
+        ACTOR,
+    )
+    .unwrap();
+    assert!(s.guard(ID, 2).unwrap().complete);
+
+    // The AI is never offered inductive codes; units outside scope refused.
+    let with_inductive = output_in(
+        &s,
+        2,
+        1,
+        1,
+        &[
+            ("ECO-16-U002", &["TECH-ADV"]),
+            ("ECO-16-U003", &["BUSINESS-CASE"]),
+        ],
+    );
+    assert_eq!(
+        kind(
+            &s.record_ai_output(run, "raw", &with_inductive, ACTOR)
+                .unwrap_err()
+        ),
+        "validation"
+    );
+    let out_of_scope = output_in(&s, 2, 1, 1, &[("ECO-16-U001", &["NA"])]);
+    assert_eq!(
+        kind(
+            &s.record_ai_output(run, "raw", &out_of_scope, ACTOR)
+                .unwrap_err()
+        ),
+        "validation"
+    );
+    s.record_ai_output(run, "phase 2 raw", &ai_ok, ACTOR)
+        .unwrap();
+    let runs = s.ai_runs(ID, 2).unwrap();
+    assert_eq!(runs.len(), 1);
+    assert!(runs[0].complete && runs[0].phase == 2);
+    assert_eq!(s.ai_runs(ID, 1).unwrap().len(), 2, "phase 1 runs untouched");
+
+    // The candidate's phase 2 coding is now locked.
+    let e = s
+        .set_human_coding(ID, 2, &hc("ECO-16-U002", &["NA"]), ACTOR)
+        .unwrap_err();
+    assert_eq!(kind(&e), "guard");
+
+    // U003 diverges (the candidate added an inductive code).
+    let sum = s.phase_summary(ID, 2).unwrap();
+    assert_eq!(sum.n_units, 2);
+    assert!(sum.human_complete);
+    assert_eq!(sum.n_ai_runs_complete, 1);
+    assert_eq!(sum.n_divergences, 1);
+    assert!(!sum.reconciled);
+    assert_eq!(
+        s.final_codings(ID, 2).unwrap().unwrap_err(),
+        vec!["ECO-16-U003".to_string()]
+    );
+
+    assert_eq!(
+        kind(
+            &s.record_arbitration(
+                ID,
+                &arb(2, "ECO-16-U001", ArbitrationChoice::Human, &["NA"]),
+                ACTOR
+            )
+            .unwrap_err()
+        ),
+        "validation",
+        "out of phase 2 scope"
+    );
+    s.record_arbitration(
+        ID,
+        &arb(
+            2,
+            "ECO-16-U003",
+            ArbitrationChoice::Custom,
+            &["ORG-SKILLS", "BUSINESS-CASE"],
+        ),
+        ACTOR,
+    )
+    .unwrap();
+    assert!(s.is_reconciled(ID, 2).unwrap());
+    let f2 = s.final_codings(ID, 2).unwrap().unwrap();
+    assert_eq!(f2.len(), 2);
+    assert_eq!(f2[1].codes, set(&["BUSINESS-CASE", "ORG-SKILLS"]));
+    assert_eq!(s.arbitrations(ID, 1).unwrap().len(), 1);
+    assert_eq!(s.arbitrations(ID, 2).unwrap().len(), 1);
+    let ev = s.audit_events(Some(ID)).unwrap().last().unwrap().clone();
+    assert_eq!(ev.detail["phase"], 2);
+
+    let summary = &s.summaries().unwrap()[0];
+    assert!(summary.phase1.reconciled && summary.phase2.reconciled);
+    assert_eq!(summary.phase2.n_arbitrated, 1);
+
+    // Segmentation stays locked; the chain still verifies.
+    assert_eq!(
+        kind(
+            &s.save_segmentation(&segmentation(&["new"]), ACTOR)
+                .unwrap_err()
+        ),
+        "guard"
+    );
+    assert!(s.verify_chain().unwrap().ok);
 }

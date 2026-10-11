@@ -1,10 +1,19 @@
 //! SQLite persistence and the append-only, hash-chained audit trail.
 //!
 //! Every write method takes the `actor` and records one audit event in the same
-//! transaction as the change. Protocol locks are enforced here, not in the UI:
-//! - AI output import refused while human coding is incomplete (blind guard, P-04).
-//! - Human coding frozen once any AI output exists for the interview.
-//! - Re-segmentation refused once any coding exists for the interview.
+//! transaction as the change. Coding happens in two phases (`cs_model::phase`):
+//! phase 1 codes every unit against the TOE contexts, phase 2 codes the units
+//! whose reconciled phase 1 set is relevant with study-specific codes. Protocol
+//! locks are enforced here, not in the UI, separately for each phase:
+//! - AI output import refused while the candidate's coding of the phase is
+//!   incomplete (blind guard, P-04).
+//! - The candidate's coding of a phase is frozen once any AI output of that
+//!   phase exists; changes then go through arbitration.
+//! - Phase 2 coding refused until phase 1 is reconciled (at least one complete
+//!   AI run and every divergence arbitrated), and only on relevant units.
+//! - Once phase 2 coding has started, phase 1 is frozen: no new run, AI output
+//!   or arbitration in phase 1.
+//! - Re-segmentation refused once any coding of either phase exists.
 //!
 //! Protocol refusals are returned as `cs_model::CsError::Guard`, bad input as
 //! `CsError::Validation`, unknown ids as `CsError::NotFound` (wrapped in anyhow).
@@ -13,10 +22,13 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 
 use anyhow::{Context, Result};
+use cs_model::phase::{is_relevant, phase1_codebook, phase2_allowed};
+use cs_model::reconcile;
 use cs_model::{
     check_code_set, sha256_hex, AiOutput, AiRun, AiRunMeta, Arbitration, ArbitrationChoice,
-    AuditEvent, ChainCheck, Code, CodeSet, Codebook, CodingMap, CsError, HumanCoding,
-    InterviewEntry, InterviewSummary, PromptPart, Segmentation, SourceFile, SpeakerRole, Unit, NA,
+    AuditEvent, ChainCheck, Code, CodeSet, Codebook, CodingMap, CsError, FinalCoding, HumanCoding,
+    InterviewEntry, InterviewSummary, PhaseSummary, PromptPart, Segmentation, SourceFile,
+    SpeakerRole, Unit, NA, PHASE_1, PHASE_2,
 };
 use rusqlite::{params, Connection, OpenFlags, OptionalExtension};
 use serde::{de::DeserializeOwned, Serialize};
@@ -24,6 +36,9 @@ use serde_json::{json, Value};
 
 /// Schema applied on every open (idempotent).
 pub const SCHEMA: &str = include_str!("schema.sql");
+
+/// Schema version stored in `PRAGMA user_version`. Version 1 had no phases.
+pub const SCHEMA_VERSION: i64 = 2;
 
 /// `prev_hash` of the first audit event.
 pub const GENESIS_HASH: &str = "0000000000000000000000000000000000000000000000000000000000000000";
@@ -38,10 +53,12 @@ pub struct Store {
     conn: Connection,
 }
 
-/// Result of the blind-coding guard.
+/// Result of the blind-coding guard of one phase.
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 pub struct GuardStatus {
+    pub phase: u8,
     pub complete: bool,
+    /// Units in scope for the phase (see `Store::phase_units`).
     pub n_units: usize,
     pub missing: Vec<String>,
 }
@@ -64,6 +81,16 @@ fn guard_err(msg: impl Into<String>) -> anyhow::Error {
 fn not_found(msg: impl Into<String>) -> anyhow::Error {
     anyhow::Error::new(CsError::NotFound(msg.into()))
 }
+
+fn check_phase(phase: u8) -> Result<()> {
+    if phase == PHASE_1 || phase == PHASE_2 {
+        Ok(())
+    } else {
+        Err(validation(format!("unknown phase {phase}; use 1 or 2")))
+    }
+}
+
+const PHASE1_FROZEN: &str = "phase 2 has started; phase 1 is frozen";
 
 /// Serialises a unit-like enum (`SourceKind`, `SpeakerRole`) to its snake_case name.
 fn enum_str<T: Serialize>(value: &T) -> String {
@@ -178,6 +205,32 @@ fn row_to_event(r: &rusqlite::Row<'_>) -> rusqlite::Result<(AuditEvent, String)>
 
 const EVENT_COLUMNS: &str = "seq, ts, actor, action, interview_id, target, detail, prev_hash, hash";
 
+/// (run_label, codings) of the complete runs, the input of `cs_model::reconcile`.
+fn complete_maps(runs: &[AiRun]) -> Vec<(String, CodingMap)> {
+    runs.iter()
+        .filter(|r| r.complete)
+        .map(|r| (r.meta.run_label.clone(), r.codings.clone()))
+        .collect()
+}
+
+const CODE_COLUMNS: &str =
+    "code, family, label, definition, origin, active, in_prompt, example, reason, created_at";
+
+fn row_to_code(r: &rusqlite::Row<'_>) -> rusqlite::Result<Code> {
+    Ok(Code {
+        code: r.get(0)?,
+        family: r.get(1)?,
+        label: r.get(2)?,
+        definition: r.get(3)?,
+        origin: r.get(4)?,
+        active: r.get::<_, i64>(5)? != 0,
+        in_prompt: r.get::<_, i64>(6)? != 0,
+        example: r.get(7)?,
+        reason: r.get(8)?,
+        created_at: r.get(9)?,
+    })
+}
+
 impl Store {
     /// Opens (or creates) the database, applies the schema, `journal_mode = DELETE`
     /// (safe on synced folders), `foreign_keys = ON`.
@@ -200,7 +253,19 @@ impl Store {
     fn init(conn: Connection) -> Result<Store> {
         let _mode: String = conn.query_row("PRAGMA journal_mode = DELETE", [], |r| r.get(0))?;
         conn.execute_batch("PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 5000;")?;
+        let version: i64 = conn.query_row("PRAGMA user_version", [], |r| r.get(0))?;
+        let n_tables: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'",
+            [],
+            |r| r.get(0),
+        )?;
+        if n_tables > 0 && version < SCHEMA_VERSION {
+            return Err(validation(
+                "this database was created by an earlier version of Coding Studio; start a new database",
+            ));
+        }
         conn.execute_batch(SCHEMA)?;
+        conn.execute_batch(&format!("PRAGMA user_version = {SCHEMA_VERSION};"))?;
         Ok(Store { conn })
     }
 
@@ -468,7 +533,8 @@ impl Store {
         Ok(())
     }
 
-    /// One summary per interview, sorted by interview_id.
+    /// One summary per interview, sorted by interview_id, with the progress of
+    /// each coding phase.
     pub fn summaries(&self) -> Result<Vec<InterviewSummary>> {
         let ids: Vec<String> = {
             let mut stmt = self
@@ -480,56 +546,50 @@ impl Store {
         let mut out = Vec::with_capacity(ids.len());
         for id in ids {
             let entry = self.interview(&id)?.expect("listed interview exists");
-            let seg = self.segmentation(&id)?;
-            let units: Vec<String> = seg
-                .as_ref()
-                .map(|s| s.units.iter().map(|u| u.unit_id.clone()).collect())
+            let n_units = self
+                .segmentation(&id)?
+                .map(|s| s.units.len())
                 .unwrap_or_default();
-            let human = self.human_coding_map(&id)?;
-            let n_human_coded = units
-                .iter()
-                .filter(|u| human.get(*u).is_some_and(|c| !c.is_empty()))
-                .count();
-            let runs = self.ai_runs(&id)?;
-            let complete_runs: Vec<&AiRun> = runs.iter().filter(|r| r.complete).collect();
-            // A unit diverges when any complete run gives a set different from the
-            // human set. This also covers runs disagreeing among themselves, since
-            // at most one of two different sets can equal the human set.
-            let empty = CodeSet::new();
-            let n_divergences = if complete_runs.is_empty() {
-                0
-            } else {
-                units
-                    .iter()
-                    .filter(|u| {
-                        let h = human.get(*u).unwrap_or(&empty);
-                        complete_runs
-                            .iter()
-                            .any(|r| r.codings.get(*u).unwrap_or(&empty) != h)
-                    })
-                    .count()
-            };
-            let n_arbitrated: i64 = self.conn.query_row(
-                "SELECT COUNT(DISTINCT unit_id) FROM arbitrations WHERE interview_id = ?1",
-                [&id],
-                |r| r.get(0),
-            )?;
             out.push(InterviewSummary {
                 interview_id: id.clone(),
                 folder_name: entry.folder_name.clone(),
                 n_sources: entry.sources.len(),
                 primary_source: entry.primary_source.clone(),
-                n_units: units.len(),
-                n_human_coded,
-                human_complete: !units.is_empty() && n_human_coded == units.len(),
-                n_ai_runs: runs.len(),
-                n_ai_runs_complete: complete_runs.len(),
-                n_divergences,
-                n_arbitrated: n_arbitrated as usize,
+                n_units,
                 n_warnings: entry.warnings.len(),
+                phase1: self.phase_summary(&id, PHASE_1)?,
+                phase2: self.phase_summary(&id, PHASE_2)?,
             });
         }
         Ok(out)
+    }
+
+    /// Progress of one phase. Divergences are counted with
+    /// `cs_model::reconcile::divergences` over the complete runs only.
+    pub fn phase_summary(&self, interview_id: &str, phase: u8) -> Result<PhaseSummary> {
+        check_phase(phase)?;
+        let units = self.phase_units(interview_id, phase)?;
+        let human = self.human_coding_map(interview_id, phase)?;
+        let n_human_coded = units
+            .iter()
+            .filter(|u| human.get(*u).is_some_and(|c| !c.is_empty()))
+            .count();
+        let runs = self.ai_runs(interview_id, phase)?;
+        let complete = complete_maps(&runs);
+        let divergences = reconcile::divergences(&units, &human, &complete);
+        let arbs = self.arbitrations(interview_id, phase)?;
+        let n_arbitrated = units.iter().filter(|u| arbs.contains_key(*u)).count();
+        Ok(PhaseSummary {
+            phase,
+            n_units: units.len(),
+            n_human_coded,
+            human_complete: !units.is_empty() && n_human_coded == units.len(),
+            n_ai_runs: runs.len(),
+            n_ai_runs_complete: complete.len(),
+            n_divergences: divergences.len(),
+            n_arbitrated,
+            reconciled: self.is_reconciled(interview_id, phase)?,
+        })
     }
 
     // ------------------------------------------------------------ codebook
@@ -649,20 +709,10 @@ impl Store {
     }
 
     pub fn codebook(&self) -> Result<Codebook> {
-        let mut stmt = self.conn.prepare(
-            "SELECT code, family, label, definition, origin, active, in_prompt FROM codes ORDER BY ord, code",
-        )?;
-        let rows = stmt.query_map([], |r| {
-            Ok(Code {
-                code: r.get(0)?,
-                family: r.get(1)?,
-                label: r.get(2)?,
-                definition: r.get(3)?,
-                origin: r.get(4)?,
-                active: r.get::<_, i64>(5)? != 0,
-                in_prompt: r.get::<_, i64>(6)? != 0,
-            })
-        })?;
+        let mut stmt = self.conn.prepare(&format!(
+            "SELECT {CODE_COLUMNS} FROM codes ORDER BY ord, code"
+        ))?;
+        let rows = stmt.query_map([], row_to_code)?;
         let codes = rows.collect::<rusqlite::Result<_>>()?;
         Ok(Codebook {
             source: self.setting(CODEBOOK_SOURCE_KEY)?.unwrap_or_default(),
@@ -670,7 +720,9 @@ impl Store {
         })
     }
 
-    /// New inductive code (family INDUCTIVE, origin inductive). Refuses duplicates.
+    /// New inductive code (family INDUCTIVE, origin inductive), with its
+    /// inductive log: definition and reason are required, example optional,
+    /// creation time set by the store. Refuses duplicates.
     pub fn add_code(&self, code: &Code, actor: &str) -> Result<()> {
         let name = code.code.trim();
         if name.is_empty() {
@@ -687,8 +739,16 @@ impl Store {
                 "a code name cannot contain spaces, commas or semicolons",
             ));
         }
-        if self.code_row(name)?.is_some() {
+        if self.code_row(name)?.is_some() || phase1_codebook().get(name).is_some() {
             return Err(validation(format!("code {name} already exists")));
+        }
+        if code.definition.trim().is_empty() {
+            return Err(validation("an inductive code needs a definition"));
+        }
+        if clean_opt(&code.reason).is_none() {
+            return Err(validation(
+                "an inductive code needs the reason it was created (inductive log)",
+            ));
         }
         let max_ord: i64 = self.conn.query_row(
             "SELECT COALESCE(MAX(ord), 0) FROM codes WHERE local = 1",
@@ -704,12 +764,26 @@ impl Store {
             origin: "inductive".to_string(),
             active: true,
             in_prompt: code.in_prompt,
+            example: clean_opt(&code.example),
+            reason: clean_opt(&code.reason),
+            created_at: Some(now()),
         };
         let tx = self.conn.unchecked_transaction()?;
         tx.execute(
-            "INSERT INTO codes (code, family, label, definition, origin, active, in_prompt, ord, local)
-             VALUES (?1, ?2, ?3, ?4, ?5, 1, ?6, ?7, 1)",
-            params![stored.code, stored.family, stored.label, stored.definition, stored.origin, stored.in_prompt as i64, ord],
+            "INSERT INTO codes (code, family, label, definition, origin, active, in_prompt, ord, local, example, reason, created_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, 1, ?6, ?7, 1, ?8, ?9, ?10)",
+            params![
+                stored.code,
+                stored.family,
+                stored.label,
+                stored.definition,
+                stored.origin,
+                stored.in_prompt as i64,
+                ord,
+                stored.example,
+                stored.reason,
+                stored.created_at
+            ],
         )?;
         append_event(
             &tx,
@@ -752,41 +826,11 @@ impl Store {
         Ok(self
             .conn
             .query_row(
-                "SELECT code, family, label, definition, origin, active, in_prompt FROM codes WHERE code = ?1",
+                &format!("SELECT {CODE_COLUMNS} FROM codes WHERE code = ?1"),
                 [code],
-                |r| {
-                    Ok(Code {
-                        code: r.get(0)?,
-                        family: r.get(1)?,
-                        label: r.get(2)?,
-                        definition: r.get(3)?,
-                        origin: r.get(4)?,
-                        active: r.get::<_, i64>(5)? != 0,
-                        in_prompt: r.get::<_, i64>(6)? != 0,
-                    })
-                },
+                row_to_code,
             )
             .optional()?)
-    }
-
-    /// Checks a code set: rules of `check_code_set`, every code known and active (or NA).
-    fn validate_codes(&self, codes: &CodeSet) -> Result<()> {
-        let mut issues = check_code_set(codes);
-        for code in codes {
-            if code == NA {
-                continue;
-            }
-            match self.code_row(code)? {
-                None => issues.push(format!("unknown code {code}")),
-                Some(c) if !c.active => issues.push(format!("code {code} is inactive")),
-                Some(_) => {}
-            }
-        }
-        if issues.is_empty() {
-            Ok(())
-        } else {
-            Err(validation(issues.join("; ")))
-        }
     }
 
     // -------------------------------------------------------- segmentation
@@ -799,6 +843,7 @@ impl Store {
         )?)
     }
 
+    /// Any candidate coding, in any phase.
     fn has_human_coding(&self, interview_id: &str) -> Result<bool> {
         let n: i64 = self.conn.query_row(
             "SELECT COUNT(*) FROM human_codings WHERE interview_id = ?1",
@@ -808,6 +853,16 @@ impl Store {
         Ok(n > 0)
     }
 
+    fn has_human_coding_in(&self, interview_id: &str, phase: u8) -> Result<bool> {
+        let n: i64 = self.conn.query_row(
+            "SELECT COUNT(*) FROM human_codings WHERE interview_id = ?1 AND phase = ?2",
+            params![interview_id, phase],
+            |r| r.get(0),
+        )?;
+        Ok(n > 0)
+    }
+
+    /// Any AI output, in any phase.
     fn has_ai_output(&self, interview_id: &str) -> Result<bool> {
         let n: i64 = self.conn.query_row(
             "SELECT COUNT(*) FROM ai_outputs o JOIN ai_runs r USING (run_id) WHERE r.interview_id = ?1",
@@ -815,6 +870,21 @@ impl Store {
             |r| r.get(0),
         )?;
         Ok(n > 0)
+    }
+
+    fn has_ai_output_in(&self, interview_id: &str, phase: u8) -> Result<bool> {
+        let n: i64 = self.conn.query_row(
+            "SELECT COUNT(*) FROM ai_outputs o JOIN ai_runs r USING (run_id)
+             WHERE r.interview_id = ?1 AND r.phase = ?2",
+            params![interview_id, phase],
+            |r| r.get(0),
+        )?;
+        Ok(n > 0)
+    }
+
+    /// Phase 2 has started as soon as the candidate has coded one unit in it.
+    pub fn phase2_started(&self, interview_id: &str) -> Result<bool> {
+        self.has_human_coding_in(interview_id, PHASE_2)
     }
 
     /// Saves a new segmentation version. Refused once coding exists; a segmentation
@@ -953,22 +1023,154 @@ impl Store {
             })
     }
 
+    // ----------------------------------------------------------- phases
+
+    /// Units in scope for a phase, in segmentation order. Phase 1: every unit.
+    /// Phase 2: the units whose reconciled phase 1 set is relevant (not NA),
+    /// empty while phase 1 is not reconciled.
+    pub fn phase_units(&self, interview_id: &str, phase: u8) -> Result<Vec<String>> {
+        check_phase(phase)?;
+        let Some(seg) = self.segmentation(interview_id)? else {
+            return Ok(Vec::new());
+        };
+        if phase == PHASE_1 {
+            return Ok(seg.units.into_iter().map(|u| u.unit_id).collect());
+        }
+        match self.final_codings(interview_id, PHASE_1)? {
+            Ok(finals) => Ok(finals
+                .into_iter()
+                .filter(|f| is_relevant(&f.codes))
+                .map(|f| f.unit_id)
+                .collect()),
+            Err(_) => Ok(Vec::new()),
+        }
+    }
+
+    /// Final coding of a phase over its units, using the complete AI runs only.
+    /// Err lists the pending units; with no complete run every unit is pending,
+    /// since a phase is only reconciled against at least one blind AI pass.
+    pub fn final_codings(
+        &self,
+        interview_id: &str,
+        phase: u8,
+    ) -> Result<std::result::Result<Vec<FinalCoding>, Vec<String>>> {
+        check_phase(phase)?;
+        let units = self.phase_units(interview_id, phase)?;
+        let runs = self.ai_runs(interview_id, phase)?;
+        let complete = complete_maps(&runs);
+        if complete.is_empty() {
+            return Ok(Err(units));
+        }
+        let human = self.human_coding_map(interview_id, phase)?;
+        let arbs = self.arbitrations(interview_id, phase)?;
+        Ok(reconcile::final_coding(&units, &human, &complete, &arbs))
+    }
+
+    /// True when the phase has at least one complete AI run and every unit in
+    /// scope has a final coding (agreed or arbitrated).
+    pub fn is_reconciled(&self, interview_id: &str, phase: u8) -> Result<bool> {
+        Ok(self.final_codings(interview_id, phase)?.is_ok())
+    }
+
+    /// Codes a unit may receive in a phase (NA is always valid besides).
+    /// Phase 1: the TOE contexts of `phase1_codebook`. Phase 2: the
+    /// study-specific codes of the unit's reconciled phase 1 families plus the
+    /// cross-cutting families; the candidate's inductive codes unless `for_ai`.
+    pub fn allowed_codes(
+        &self,
+        interview_id: &str,
+        phase: u8,
+        unit_id: &str,
+        for_ai: bool,
+    ) -> Result<Vec<Code>> {
+        check_phase(phase)?;
+        if phase == PHASE_1 {
+            return Ok(phase1_codebook().codes);
+        }
+        let finals = self
+            .final_codings(interview_id, PHASE_1)?
+            .map_err(|_| guard_err("phase 1 is not reconciled yet"))?;
+        let p1 = finals
+            .into_iter()
+            .find(|f| f.unit_id == unit_id)
+            .ok_or_else(|| validation(format!("unit {unit_id} is not in {interview_id}")))?;
+        if !is_relevant(&p1.codes) {
+            return Err(validation(format!(
+                "unit {unit_id} is out of phase 2 scope (NA in phase 1)"
+            )));
+        }
+        let book = self.codebook()?;
+        Ok(phase2_allowed(&book, &p1.codes, !for_ai)
+            .into_iter()
+            .cloned()
+            .collect())
+    }
+
+    /// Checks a code set for one unit: rules of `check_code_set`, every code in
+    /// `allowed_codes` (or NA).
+    fn validate_unit_codes(
+        &self,
+        interview_id: &str,
+        phase: u8,
+        unit_id: &str,
+        codes: &CodeSet,
+        for_ai: bool,
+    ) -> Result<()> {
+        let mut issues = check_code_set(codes);
+        let allowed: BTreeSet<String> = self
+            .allowed_codes(interview_id, phase, unit_id, for_ai)?
+            .into_iter()
+            .map(|c| c.code)
+            .collect();
+        for code in codes {
+            if code != NA && !allowed.contains(code) {
+                issues.push(format!(
+                    "code {code} is not allowed for {unit_id} in phase {phase}"
+                ));
+            }
+        }
+        if issues.is_empty() {
+            Ok(())
+        } else {
+            Err(validation(issues.join("; ")))
+        }
+    }
+
     // -------------------------------------------------------- human coding
 
-    /// Validates codes against the codebook (or NA), NA exclusivity, excerpt is a
-    /// substring of the unit text; logs before/after. No event when unchanged.
+    /// The candidate's coding of one unit in one phase. Validates the codes
+    /// against `allowed_codes`, NA exclusivity, and that the excerpt is found
+    /// word for word in the unit; logs before/after. No event when unchanged.
     pub fn set_human_coding(
         &self,
         interview_id: &str,
+        phase: u8,
         coding: &HumanCoding,
         actor: &str,
     ) -> Result<()> {
+        check_phase(phase)?;
         self.require_interview(interview_id)?;
         let unit = self.current_unit(interview_id, &coding.unit_id)?;
-        if self.has_ai_output(interview_id)? {
-            return Err(guard_err(
-                "human coding is locked: AI output already imported; changes go through arbitration",
-            ));
+        if phase == PHASE_2 {
+            if !self.is_reconciled(interview_id, PHASE_1)? {
+                return Err(guard_err(
+                    "phase 2 coding opens once phase 1 is reconciled (AI pass imported, every divergence arbitrated)",
+                ));
+            }
+            if !self
+                .phase_units(interview_id, PHASE_2)?
+                .contains(&coding.unit_id)
+            {
+                return Err(guard_err(format!(
+                    "unit {} is out of phase 2 scope (NA in phase 1)",
+                    coding.unit_id
+                )));
+            }
+        }
+        if self.has_ai_output_in(interview_id, phase)? {
+            return Err(guard_err(format!(
+                "human coding of phase {phase} is locked: AI output already imported; changes go through arbitration"
+            )));
         }
         let after = HumanCoding {
             unit_id: coding.unit_id.clone(),
@@ -980,7 +1182,7 @@ impl Store {
             memo: clean_opt(&coding.memo),
             excerpt: clean_opt(&coding.excerpt),
         };
-        self.validate_codes(&after.codes)?;
+        self.validate_unit_codes(interview_id, phase, &after.unit_id, &after.codes, false)?;
         if let Some(ex) = &after.excerpt {
             if !unit.text.contains(ex.as_str()) {
                 return Err(validation(format!(
@@ -989,20 +1191,23 @@ impl Store {
                 )));
             }
         }
-        let before = self.human_codings(interview_id)?.remove(&after.unit_id);
+        let before = self
+            .human_codings(interview_id, phase)?
+            .remove(&after.unit_id);
         if before.as_ref() == Some(&after) {
             return Ok(());
         }
         let tx = self.conn.unchecked_transaction()?;
         tx.execute(
-            "INSERT INTO human_codings (interview_id, unit_id, codes, subcode, modifier, ev_level, provenance, memo, excerpt, updated_at)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)
-             ON CONFLICT(interview_id, unit_id) DO UPDATE SET codes = excluded.codes,
+            "INSERT INTO human_codings (interview_id, phase, unit_id, codes, subcode, modifier, ev_level, provenance, memo, excerpt, updated_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)
+             ON CONFLICT(interview_id, phase, unit_id) DO UPDATE SET codes = excluded.codes,
                subcode = excluded.subcode, modifier = excluded.modifier, ev_level = excluded.ev_level,
                provenance = excluded.provenance, memo = excluded.memo, excerpt = excluded.excerpt,
                updated_at = excluded.updated_at",
             params![
                 interview_id,
+                phase,
                 after.unit_id,
                 to_json(&after.codes),
                 after.subcode,
@@ -1020,18 +1225,22 @@ impl Store {
             "coding.set",
             Some(interview_id),
             Some(&after.unit_id),
-            json!({"before": before, "after": after}),
+            json!({"phase": phase, "before": before, "after": after}),
         )?;
         tx.commit()?;
         Ok(())
     }
 
-    pub fn human_codings(&self, interview_id: &str) -> Result<BTreeMap<String, HumanCoding>> {
+    pub fn human_codings(
+        &self,
+        interview_id: &str,
+        phase: u8,
+    ) -> Result<BTreeMap<String, HumanCoding>> {
         let mut stmt = self.conn.prepare(
             "SELECT unit_id, codes, subcode, modifier, ev_level, provenance, memo, excerpt
-             FROM human_codings WHERE interview_id = ?1",
+             FROM human_codings WHERE interview_id = ?1 AND phase = ?2",
         )?;
-        let rows = stmt.query_map([interview_id], |r| {
+        let rows = stmt.query_map(params![interview_id, phase], |r| {
             Ok((
                 r.get::<_, String>(0)?,
                 r.get::<_, String>(1)?,
@@ -1063,34 +1272,29 @@ impl Store {
         Ok(out)
     }
 
-    pub fn human_coding_map(&self, interview_id: &str) -> Result<CodingMap> {
+    pub fn human_coding_map(&self, interview_id: &str, phase: u8) -> Result<CodingMap> {
         Ok(self
-            .human_codings(interview_id)?
+            .human_codings(interview_id, phase)?
             .into_iter()
             .map(|(k, v)| (k, v.codes))
             .collect())
     }
 
-    /// Blind-coding guard: complete when every unit of the current segmentation
-    /// carries at least one code (NA included).
-    pub fn guard(&self, interview_id: &str) -> Result<GuardStatus> {
-        let Some(seg) = self.segmentation(interview_id)? else {
-            return Ok(GuardStatus {
-                complete: false,
-                n_units: 0,
-                missing: Vec::new(),
-            });
-        };
-        let human = self.human_coding_map(interview_id)?;
-        let missing: Vec<String> = seg
-            .units
+    /// Blind-coding guard of a phase: complete when every unit in scope
+    /// (`phase_units`) carries at least one code (NA included).
+    pub fn guard(&self, interview_id: &str, phase: u8) -> Result<GuardStatus> {
+        check_phase(phase)?;
+        let units = self.phase_units(interview_id, phase)?;
+        let human = self.human_coding_map(interview_id, phase)?;
+        let missing: Vec<String> = units
             .iter()
-            .filter(|u| human.get(&u.unit_id).is_none_or(|c| c.is_empty()))
-            .map(|u| u.unit_id.clone())
+            .filter(|u| human.get(*u).is_none_or(|c| c.is_empty()))
+            .cloned()
             .collect();
         Ok(GuardStatus {
-            complete: !seg.units.is_empty() && missing.is_empty(),
-            n_units: seg.units.len(),
+            phase,
+            complete: !units.is_empty() && missing.is_empty(),
+            n_units: units.len(),
             missing,
         })
     }
@@ -1099,16 +1303,18 @@ impl Store {
 
     /// Records a generated prompt part (append-only).
     pub fn record_prompt(&self, part: &PromptPart, actor: &str) -> Result<()> {
+        check_phase(part.phase)?;
         self.require_interview(&part.interview_id)?;
         if sha256_hex(part.text.as_bytes()) != part.sha256 {
             return Err(validation("prompt sha256 does not match its text"));
         }
         let tx = self.conn.unchecked_transaction()?;
         tx.execute(
-            "INSERT INTO prompts (interview_id, part, of, unit_ids, segmentation_hash, codebook_hash, prompt_version, text, sha256, created_at)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+            "INSERT INTO prompts (interview_id, phase, part, of, unit_ids, segmentation_hash, codebook_hash, prompt_version, text, sha256, created_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
             params![
                 part.interview_id,
+                part.phase,
                 part.part,
                 part.of,
                 to_json(&part.unit_ids),
@@ -1125,8 +1331,12 @@ impl Store {
             actor,
             "prompt.generate",
             Some(&part.interview_id),
-            Some(&format!("part {}/{}", part.part, part.of)),
+            Some(&format!(
+                "phase {} part {}/{}",
+                part.phase, part.part, part.of
+            )),
             json!({
+                "phase": part.phase,
                 "part": part.part,
                 "of": part.of,
                 "sha256": part.sha256,
@@ -1140,30 +1350,32 @@ impl Store {
         Ok(())
     }
 
-    /// Every prompt part ever generated for the interview, oldest first.
-    pub fn prompts(&self, interview_id: &str) -> Result<Vec<PromptPart>> {
+    /// Every prompt part ever generated for the interview in a phase, oldest first.
+    pub fn prompts(&self, interview_id: &str, phase: u8) -> Result<Vec<PromptPart>> {
         let mut stmt = self.conn.prepare(
-            "SELECT interview_id, part, of, unit_ids, segmentation_hash, codebook_hash, prompt_version, text, sha256
-             FROM prompts WHERE interview_id = ?1 ORDER BY prompt_id",
+            "SELECT interview_id, phase, part, of, unit_ids, segmentation_hash, codebook_hash, prompt_version, text, sha256
+             FROM prompts WHERE interview_id = ?1 AND phase = ?2 ORDER BY prompt_id",
         )?;
-        let rows = stmt.query_map([interview_id], |r| {
+        let rows = stmt.query_map(params![interview_id, phase], |r| {
             Ok((
                 r.get::<_, String>(0)?,
-                r.get::<_, u32>(1)?,
+                r.get::<_, u8>(1)?,
                 r.get::<_, u32>(2)?,
-                r.get::<_, String>(3)?,
+                r.get::<_, u32>(3)?,
                 r.get::<_, String>(4)?,
                 r.get::<_, String>(5)?,
                 r.get::<_, String>(6)?,
                 r.get::<_, String>(7)?,
                 r.get::<_, String>(8)?,
+                r.get::<_, String>(9)?,
             ))
         })?;
         let mut out = Vec::new();
         for row in rows {
-            let (interview_id, part, of, unit_ids, sh, ch, pv, text, sha) = row?;
+            let (interview_id, phase, part, of, unit_ids, sh, ch, pv, text, sha) = row?;
             out.push(PromptPart {
                 interview_id,
+                phase,
                 part,
                 of,
                 unit_ids: from_json(&unit_ids)?,
@@ -1177,9 +1389,24 @@ impl Store {
         Ok(out)
     }
 
-    /// Declares an AI run (R1, R2...) and its parameters. Run labels are unique per interview.
-    pub fn create_ai_run(&self, interview_id: &str, meta: &AiRunMeta, actor: &str) -> Result<i64> {
+    /// Declares an AI run (R1, R2...) of a phase and its parameters. Run labels
+    /// are unique per interview and phase. Phase 1 runs are refused once phase 2
+    /// has started; phase 2 runs until phase 1 is reconciled.
+    pub fn create_ai_run(
+        &self,
+        interview_id: &str,
+        phase: u8,
+        meta: &AiRunMeta,
+        actor: &str,
+    ) -> Result<i64> {
+        check_phase(phase)?;
         self.require_interview(interview_id)?;
+        if phase == PHASE_1 && self.phase2_started(interview_id)? {
+            return Err(guard_err(PHASE1_FROZEN));
+        }
+        if phase == PHASE_2 && !self.is_reconciled(interview_id, PHASE_1)? {
+            return Err(guard_err("phase 2 runs open once phase 1 is reconciled"));
+        }
         let mut meta = meta.clone();
         meta.run_label = meta.run_label.trim().to_string();
         meta.model_name = meta.model_name.trim().to_string();
@@ -1198,23 +1425,24 @@ impl Store {
             return Err(validation("prompt id and version are required"));
         }
         let taken: i64 = self.conn.query_row(
-            "SELECT COUNT(*) FROM ai_runs WHERE interview_id = ?1 AND run_label = ?2",
-            params![interview_id, meta.run_label],
+            "SELECT COUNT(*) FROM ai_runs WHERE interview_id = ?1 AND phase = ?2 AND run_label = ?3",
+            params![interview_id, phase, meta.run_label],
             |r| r.get(0),
         )?;
         if taken > 0 {
             return Err(validation(format!(
-                "run label {} is already used for {interview_id}",
+                "run label {} is already used for {interview_id} in phase {phase}",
                 meta.run_label
             )));
         }
         let tx = self.conn.unchecked_transaction()?;
         tx.execute(
-            "INSERT INTO ai_runs (interview_id, run_label, model_name, model_version, temperature, seed,
+            "INSERT INTO ai_runs (interview_id, phase, run_label, model_name, model_version, temperature, seed,
                context_length, batch_size, prompt_id_version, executed_at, notes, created_at)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
             params![
                 interview_id,
+                phase,
                 meta.run_label,
                 meta.model_name,
                 meta.model_version,
@@ -1235,33 +1463,35 @@ impl Store {
             "ai.run.create",
             Some(interview_id),
             Some(&meta.run_label),
-            json!({"run_id": run_id, "meta": meta}),
+            json!({"run_id": run_id, "phase": phase, "meta": meta}),
         )?;
         tx.commit()?;
         Ok(run_id)
     }
 
-    fn run_row(&self, run_id: i64) -> Result<(String, AiRunMeta)> {
+    /// (interview_id, phase, meta) of a run.
+    fn run_row(&self, run_id: i64) -> Result<(String, u8, AiRunMeta)> {
         self.conn
             .query_row(
-                "SELECT interview_id, run_label, model_name, model_version, temperature, seed,
+                "SELECT interview_id, phase, run_label, model_name, model_version, temperature, seed,
                    context_length, batch_size, prompt_id_version, executed_at, notes
                  FROM ai_runs WHERE run_id = ?1",
                 [run_id],
                 |r| {
                     Ok((
                         r.get::<_, String>(0)?,
+                        r.get::<_, u8>(1)?,
                         AiRunMeta {
-                            run_label: r.get(1)?,
-                            model_name: r.get(2)?,
-                            model_version: r.get(3)?,
-                            temperature: r.get(4)?,
-                            seed: r.get(5)?,
-                            context_length: r.get(6)?,
-                            batch_size: r.get(7)?,
-                            prompt_id_version: r.get(8)?,
-                            executed_at: r.get(9)?,
-                            notes: r.get(10)?,
+                            run_label: r.get(2)?,
+                            model_name: r.get(3)?,
+                            model_version: r.get(4)?,
+                            temperature: r.get(5)?,
+                            seed: r.get(6)?,
+                            context_length: r.get(7)?,
+                            batch_size: r.get(8)?,
+                            prompt_id_version: r.get(9)?,
+                            executed_at: r.get(10)?,
+                            notes: r.get(11)?,
                         },
                     ))
                 },
@@ -1271,7 +1501,8 @@ impl Store {
     }
 
     /// Stores the raw answer verbatim (and its hash) with the parsed codings.
-    /// Refused by the blind guard; refuses a part already received for the run.
+    /// Refused by the blind guard of the run's phase; refuses a part already
+    /// received, units outside the phase scope and codes the AI was not offered.
     pub fn record_ai_output(
         &self,
         run_id: i64,
@@ -1279,14 +1510,23 @@ impl Store {
         parsed: &AiOutput,
         actor: &str,
     ) -> Result<()> {
-        let (interview_id, meta) = self.run_row(run_id)?;
+        let (interview_id, phase, meta) = self.run_row(run_id)?;
         if parsed.interview_id != interview_id {
             return Err(validation(format!(
                 "answer is for {} but run {} belongs to {interview_id}",
                 parsed.interview_id, meta.run_label
             )));
         }
-        let guard = self.guard(&interview_id)?;
+        if parsed.phase != phase {
+            return Err(validation(format!(
+                "answer is for phase {} but run {} belongs to phase {phase}",
+                parsed.phase, meta.run_label
+            )));
+        }
+        if phase == PHASE_1 && self.phase2_started(&interview_id)? {
+            return Err(guard_err(PHASE1_FROZEN));
+        }
+        let guard = self.guard(&interview_id, phase)?;
         if !guard.complete {
             let n = if guard.n_units == 0 {
                 "all".to_string()
@@ -1294,7 +1534,7 @@ impl Store {
                 guard.missing.len().to_string()
             };
             return Err(guard_err(format!(
-                "blind coding guard: {n} units not yet coded by the candidate"
+                "blind coding guard: {n} units of phase {phase} not yet coded by the candidate"
             )));
         }
         let seg = self
@@ -1333,7 +1573,10 @@ impl Store {
                 parsed.part, meta.run_label
             )));
         }
-        let unit_ids: BTreeSet<&str> = seg.units.iter().map(|u| u.unit_id.as_str()).collect();
+        let scope: BTreeSet<String> = self
+            .phase_units(&interview_id, phase)?
+            .into_iter()
+            .collect();
         let mut already: BTreeSet<String> = BTreeSet::new();
         for (_, _, p) in &previous {
             let out: AiOutput = from_json(p)?;
@@ -1342,9 +1585,11 @@ impl Store {
         if parsed.codings.is_empty() {
             return Err(validation("answer contains no unit"));
         }
-        for unit in parsed.codings.keys() {
-            if !unit_ids.contains(unit.as_str()) {
-                return Err(validation(format!("unknown unit {unit} in answer")));
+        for (unit, codes) in &parsed.codings {
+            if !scope.contains(unit) {
+                return Err(validation(format!(
+                    "unit {unit} in the answer is not in phase {phase} scope"
+                )));
             }
             if already.contains(unit) {
                 return Err(validation(format!(
@@ -1352,6 +1597,7 @@ impl Store {
                     meta.run_label
                 )));
             }
+            self.validate_unit_codes(&interview_id, phase, unit, codes, true)?;
         }
         let raw_sha = sha256_hex(raw.as_bytes());
         let tx = self.conn.unchecked_transaction()?;
@@ -1367,6 +1613,7 @@ impl Store {
             Some(&interview_id),
             Some(&meta.run_label),
             json!({
+                "phase": phase,
                 "run_id": run_id,
                 "run_label": meta.run_label,
                 "part": parsed.part,
@@ -1380,22 +1627,24 @@ impl Store {
         Ok(())
     }
 
-    /// AI runs of an interview, with codings merged across the parts received.
-    pub fn ai_runs(&self, interview_id: &str) -> Result<Vec<AiRun>> {
+    /// AI runs of an interview in a phase, with codings merged across the parts
+    /// received. `complete` = every unit in the phase scope has a coding.
+    pub fn ai_runs(&self, interview_id: &str, phase: u8) -> Result<Vec<AiRun>> {
+        check_phase(phase)?;
         let ids: Vec<i64> = {
-            let mut stmt = self
-                .conn
-                .prepare("SELECT run_id FROM ai_runs WHERE interview_id = ?1 ORDER BY run_id")?;
-            let rows = stmt.query_map([interview_id], |r| r.get(0))?;
+            let mut stmt = self.conn.prepare(
+                "SELECT run_id FROM ai_runs WHERE interview_id = ?1 AND phase = ?2 ORDER BY run_id",
+            )?;
+            let rows = stmt.query_map(params![interview_id, phase], |r| r.get(0))?;
             rows.collect::<rusqlite::Result<_>>()?
         };
-        let unit_ids: Vec<String> = self
-            .segmentation(interview_id)?
-            .map(|s| s.units.into_iter().map(|u| u.unit_id).collect())
-            .unwrap_or_default();
+        if ids.is_empty() {
+            return Ok(Vec::new());
+        }
+        let unit_ids = self.phase_units(interview_id, phase)?;
         let mut out = Vec::new();
         for run_id in ids {
-            let (_, meta) = self.run_row(run_id)?;
+            let (_, _, meta) = self.run_row(run_id)?;
             let mut stmt = self.conn.prepare(
                 "SELECT part, of, parsed FROM ai_outputs WHERE run_id = ?1 ORDER BY output_id",
             )?;
@@ -1415,6 +1664,7 @@ impl Store {
             out.push(AiRun {
                 run_id,
                 interview_id: interview_id.to_string(),
+                phase,
                 meta,
                 codings,
                 parts_received: parts,
@@ -1439,31 +1689,50 @@ impl Store {
 
     // --------------------------------------------------------- arbitration
 
-    /// Rationale must not be empty. A new decision on the same unit is appended;
+    /// Records a decision in `arb.phase`. Rationale must not be empty; final
+    /// codes must be allowed for the unit in that phase (the candidate's
+    /// inductive codes included). A new decision on the same unit is appended;
     /// the latest one is current, earlier ones stay in the history.
-    /// `decided_at` is set by the store (server clock); `decided_by` defaults to `actor`.
+    /// `decided_at` is set by the store (server clock); `decided_by` defaults to
+    /// `actor`. Phase 1 decisions are refused once phase 2 has started.
     pub fn record_arbitration(
         &self,
         interview_id: &str,
         arb: &Arbitration,
         actor: &str,
     ) -> Result<()> {
+        let phase = arb.phase;
+        check_phase(phase)?;
         self.require_interview(interview_id)?;
         self.current_unit(interview_id, &arb.unit_id)?;
+        if phase == PHASE_1 && self.phase2_started(interview_id)? {
+            return Err(guard_err(PHASE1_FROZEN));
+        }
+        if !self
+            .phase_units(interview_id, phase)?
+            .contains(&arb.unit_id)
+        {
+            return Err(validation(format!(
+                "unit {} is not in phase {phase} scope",
+                arb.unit_id
+            )));
+        }
         let rationale = arb.rationale.trim();
         if rationale.is_empty() {
             return Err(validation("a rationale is required for every arbitration"));
         }
         let final_codes = clean_codes(&arb.final_codes);
-        self.validate_codes(&final_codes)?;
+        self.validate_unit_codes(interview_id, phase, &arb.unit_id, &final_codes, false)?;
         if let ArbitrationChoice::Ai { run_label } = &arb.choice {
             let n: i64 = self.conn.query_row(
-                "SELECT COUNT(*) FROM ai_runs WHERE interview_id = ?1 AND run_label = ?2",
-                params![interview_id, run_label],
+                "SELECT COUNT(*) FROM ai_runs WHERE interview_id = ?1 AND phase = ?2 AND run_label = ?3",
+                params![interview_id, phase, run_label],
                 |r| r.get(0),
             )?;
             if n == 0 {
-                return Err(validation(format!("unknown AI run {run_label}")));
+                return Err(validation(format!(
+                    "unknown AI run {run_label} in phase {phase}"
+                )));
             }
         }
         let decided_by = if arb.decided_by.trim().is_empty() {
@@ -1473,19 +1742,21 @@ impl Store {
         };
         let stored = Arbitration {
             unit_id: arb.unit_id.clone(),
+            phase,
             choice: arb.choice.clone(),
             final_codes,
             rationale: rationale.to_string(),
             decided_by,
             decided_at: now(),
         };
-        let previous = self.arbitrations(interview_id)?.remove(&arb.unit_id);
+        let previous = self.arbitrations(interview_id, phase)?.remove(&arb.unit_id);
         let tx = self.conn.unchecked_transaction()?;
         tx.execute(
-            "INSERT INTO arbitrations (interview_id, unit_id, choice, final_codes, rationale, decided_by, decided_at)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+            "INSERT INTO arbitrations (interview_id, phase, unit_id, choice, final_codes, rationale, decided_by, decided_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
             params![
                 interview_id,
+                phase,
                 stored.unit_id,
                 to_json(&stored.choice),
                 to_json(&stored.final_codes),
@@ -1500,15 +1771,20 @@ impl Store {
             "arbitration.record",
             Some(interview_id),
             Some(&stored.unit_id),
-            json!({"arbitration": stored, "previous": previous}),
+            json!({"phase": phase, "arbitration": stored, "previous": previous}),
         )?;
         tx.commit()?;
         Ok(())
     }
 
-    fn query_arbitrations(&self, sql: &str, interview_id: &str) -> Result<Vec<Arbitration>> {
+    fn query_arbitrations(
+        &self,
+        sql: &str,
+        interview_id: &str,
+        phase: u8,
+    ) -> Result<Vec<Arbitration>> {
         let mut stmt = self.conn.prepare(sql)?;
-        let rows = stmt.query_map([interview_id], |r| {
+        let rows = stmt.query_map(params![interview_id, phase], |r| {
             Ok((
                 r.get::<_, String>(0)?,
                 r.get::<_, String>(1)?,
@@ -1523,6 +1799,7 @@ impl Store {
             let (unit_id, choice, final_codes, rationale, decided_by, decided_at) = row?;
             out.push(Arbitration {
                 unit_id,
+                phase,
                 choice: from_json(&choice)?,
                 final_codes: from_json(&final_codes)?,
                 rationale,
@@ -1533,26 +1810,33 @@ impl Store {
         Ok(out)
     }
 
-    /// Current decision per unit (the latest recorded).
-    pub fn arbitrations(&self, interview_id: &str) -> Result<BTreeMap<String, Arbitration>> {
+    /// Current decision per unit in a phase (the latest recorded).
+    pub fn arbitrations(
+        &self,
+        interview_id: &str,
+        phase: u8,
+    ) -> Result<BTreeMap<String, Arbitration>> {
         Ok(self
             .query_arbitrations(
                 "SELECT unit_id, choice, final_codes, rationale, decided_by, decided_at FROM arbitrations
-                 WHERE arb_id IN (SELECT MAX(arb_id) FROM arbitrations WHERE interview_id = ?1 GROUP BY unit_id)
+                 WHERE arb_id IN (SELECT MAX(arb_id) FROM arbitrations
+                                  WHERE interview_id = ?1 AND phase = ?2 GROUP BY unit_id)
                  ORDER BY unit_id",
                 interview_id,
+                phase,
             )?
             .into_iter()
             .map(|a| (a.unit_id.clone(), a))
             .collect())
     }
 
-    /// Every decision ever recorded, oldest first.
-    pub fn arbitration_history(&self, interview_id: &str) -> Result<Vec<Arbitration>> {
+    /// Every decision ever recorded in a phase, oldest first.
+    pub fn arbitration_history(&self, interview_id: &str, phase: u8) -> Result<Vec<Arbitration>> {
         self.query_arbitrations(
             "SELECT unit_id, choice, final_codes, rationale, decided_by, decided_at FROM arbitrations
-             WHERE interview_id = ?1 ORDER BY arb_id",
+             WHERE interview_id = ?1 AND phase = ?2 ORDER BY arb_id",
             interview_id,
+            phase,
         )
     }
 
