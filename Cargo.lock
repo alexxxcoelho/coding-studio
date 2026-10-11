@@ -303,11 +303,14 @@ dependencies = [
  "cs-ingest",
  "cs-model",
  "cs-store",
+ "http-body-util",
  "open",
+ "rusqlite",
  "serde",
  "serde_json",
  "tempfile",
  "tokio",
+ "tower",
 ]
 
 [[package]]
