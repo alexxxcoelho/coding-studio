@@ -1009,3 +1009,26 @@ async function viewAudit() {
 }
 
 route();
+
+// ------------------------------------------------------------------ theme
+// "System" follows prefers-color-scheme; "Light" and "Dark" are stored.
+function setupThemeSwitch() {
+  const box = document.getElementById('theme-switch');
+  if (!box) return;
+  const current = () => document.documentElement.dataset.theme || 'system';
+  const apply = (choice) => {
+    if (choice === 'system') delete document.documentElement.dataset.theme;
+    else document.documentElement.dataset.theme = choice;
+    try {
+      if (choice === 'system') localStorage.removeItem('cs-theme');
+      else localStorage.setItem('cs-theme', choice);
+    } catch (_) { /* storage unavailable: the choice lasts for this session */ }
+    render();
+  };
+  const render = () => {
+    box.replaceChildren(...[['system', 'System'], ['light', 'Light'], ['dark', 'Dark']].map(([key, label]) =>
+      h('button', { type: 'button', 'aria-pressed': String(current() === key), title: `${label} theme`, onclick: () => apply(key) }, label)));
+  };
+  render();
+}
+setupThemeSwitch();
