@@ -3,7 +3,12 @@ export CARGO_TARGET_DIR ?= $(HOME)/.cache/coding-studio/target
 
 THESIS ?= $(abspath ../..)
 
-.PHONY: check test lint fmt build run desktop desktop-dev
+# The React UI is edited in web/ (synced) but installed and built in a cache
+# folder, so node_modules never enters kDrive. The built files are copied to
+# crates/cs-app/web-dist and committed: `cargo build` needs no Node.
+WEB_BUILD ?= $(HOME)/.cache/coding-studio/web
+
+.PHONY: check test lint fmt build run desktop desktop-dev web web-dev web-test
 check: fmt lint test
 fmt:
 	cargo fmt --all -- --check
@@ -23,3 +28,15 @@ desktop:
 	@echo "Bundle: $(CARGO_TARGET_DIR)/release/bundle/"
 desktop-dev:
 	cargo run -p cs-desktop
+web:
+	mkdir -p "$(WEB_BUILD)"
+	rsync -a --delete --exclude node_modules --exclude dist web/ "$(WEB_BUILD)/"
+	cd "$(WEB_BUILD)" && pnpm install --frozen-lockfile && pnpm build
+	rsync -a --delete "$(WEB_BUILD)/dist/" crates/cs-app/web-dist/
+web-test:
+	mkdir -p "$(WEB_BUILD)"
+	rsync -a --delete --exclude node_modules --exclude dist web/ "$(WEB_BUILD)/"
+	cd "$(WEB_BUILD)" && pnpm install --frozen-lockfile && pnpm exec vitest run && pnpm lint
+web-dev:
+	rsync -a --delete --exclude node_modules --exclude dist web/ "$(WEB_BUILD)/"
+	cd "$(WEB_BUILD)" && pnpm install --frozen-lockfile && pnpm dev
