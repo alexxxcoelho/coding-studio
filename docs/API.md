@@ -60,6 +60,8 @@ Errors: status 400 (validation), 404 (not found), 409 (protocol guard), 500 (int
 |---|---|---|---|
 | GET | `/api/audit?interview_id=` | | `AuditEvent[]` |
 | GET | `/api/audit/verify` | | `ChainCheck` |
-| POST | `/api/interviews/{id}/export` | | `{dir, files: [{name, sha256, size}]}` |
+| POST | `/api/interviews/{id}/export` | | `{dir, files: [{name, sha256, size}], manifest_sha256, phases: [{phase, n_units, n_runs, n_complete_runs, n_divergences, reconciled, pending_units}]}` |
 
-The export package holds, per phase, `phase{p}_coding_human.csv`, `phase{p}_human_full.csv`, `phase{p}_coding_ai_<label>.csv`, raw answers, run metadata, prompts, `phase{p}_agreement.md`, `phase{p}_adjudication_log.md`, `phase{p}_coding_final.csv` when reconciled, plus `units.csv`, `inductive_log.csv`, `audit_log.jsonl`, `audit_chain.json`, `manifest.json` and `README.md`.
+The export package holds, per phase, `phase{p}_coding_human.csv`, `phase{p}_human_full.csv`, `phase{p}_coding_ai_run<id>_<label>.csv`, raw answers (`phase{p}_ai_run<id>_<label>_part<n>_raw.txt`), run metadata (`phase{p}_run<id>_<label>.json`), prompts (`phase{p}_prompt_part<n>_of<m>_<hash8>.txt`), `phase{p}_agreement.md`, `phase{p}_adjudication_log.md`, `phase{p}_coding_final.csv` when reconciled, plus `units.csv`, `inductive_log.csv`, `audit_log.jsonl`, `audit_chain.json`, `manifest.json` and `README.md`.
+
+Phase 2 prompts offer each unit `phase2_allowed(codebook, phase 1 final, without inductive codes)` minus the codes whose `in_prompt` is off; answers are checked against that same scope, rebuilt from the current state. Any path outside `/api` that is not a file of the embedded React build returns `index.html` (client-side routing); `/assets/*` is served immutable, `index.html` with `no-store`.

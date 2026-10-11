@@ -1,24 +1,27 @@
 //! Coding Studio local server: JSON API over the store, the ingest and the AI
-//! layers, plus the embedded web UI. Every route is a thin adapter; protocol
-//! rules live in `cs-store` and `cs-ai`, never here.
+//! layers, plus the embedded React build. Every route is a thin adapter;
+//! protocol rules live in `cs-store`, `cs-ai` and `cs-model`, never here.
+//! The contract is documented in `docs/API.md`.
 
 mod error;
 mod export;
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, MutexGuard};
 
 use axum::extract::{Path as UrlPath, Query, State};
-use axum::http::header;
+use axum::http::{header, StatusCode, Uri};
 use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post, put};
 use axum::{Json, Router};
+use cs_model::phase::{phase1_codebook, phase2_allowed, PHASE_1, PHASE_2};
 use cs_model::{
-    AiRunMeta, Arbitration, ArbitrationChoice, Code, CodeSet, CodingMap, CsError, HumanCoding,
-    Segmentation,
+    AiRunMeta, Arbitration, ArbitrationChoice, Code, CodeSet, Codebook, CodingMap, CsError,
+    HumanCoding, Segmentation,
 };
 use cs_store::Store;
+use include_dir::{include_dir, Dir};
 use serde::Deserialize;
 use serde_json::{json, Value};
 
@@ -26,6 +29,9 @@ pub use error::ApiError;
 
 /// Version reported by `/api/state` and written in every export manifest.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
+
+/// The React build (`make web` copies `web/dist` here).
+static WEB: Dir<'static> = include_dir!("$CARGO_MANIFEST_DIR/web-dist");
 
 type ApiResult = Result<Json<Value>, ApiError>;
 
@@ -115,12 +121,10 @@ impl AppState {
     }
 }
 
-/// Builds the router: API under `/api`, the web UI at `/`.
+/// Builds the router: API under `/api`, the React build everywhere else.
 pub fn router(state: AppState) -> Router {
+    const P: &str = "/api/interviews/{id}/phases/{phase}";
     Router::new()
-        .route("/", get(index))
-        .route("/app.js", get(app_js))
-        .route("/style.css", get(style_css))
         .route("/api/state", get(api_state))
         .route("/api/pick", post(pick))
         .route("/api/library/scan", post(scan_library))
@@ -129,27 +133,28 @@ pub fn router(state: AppState) -> Router {
         .route("/api/interviews/{id}/file", get(interview_file))
         .route("/api/interviews/{id}/primary", post(set_primary))
         .route("/api/interviews/{id}/segment", post(segment))
-        .route("/api/interviews/{id}/units", get(units))
-        .route("/api/interviews/{id}/coding/{unit_id}", put(set_coding))
+        .route("/api/interviews/{id}/export", post(export_package))
+        .route(P, get(phase_state))
+        .route(&format!("{P}/units"), get(units))
+        .route(&format!("{P}/coding/{{unit_id}}"), put(set_coding))
         .route(
-            "/api/interviews/{id}/prompts",
+            &format!("{P}/prompts"),
             post(generate_prompts).get(list_prompts),
         )
-        .route("/api/interviews/{id}/runs", post(create_run))
-        .route(
-            "/api/interviews/{id}/runs/{run_id}/outputs",
-            post(import_output),
-        )
-        .route("/api/interviews/{id}/agreement", get(agreement))
-        .route("/api/interviews/{id}/divergences", get(divergences))
-        .route("/api/interviews/{id}/arbitration/{unit_id}", put(arbitrate))
-        .route("/api/interviews/{id}/export", post(export_package))
+        .route(&format!("{P}/runs"), post(create_run).get(list_runs))
+        .route(&format!("{P}/runs/{{run_id}}/outputs"), post(import_output))
+        .route(&format!("{P}/agreement"), get(agreement))
+        .route(&format!("{P}/divergences"), get(divergences))
+        .route(&format!("{P}/arbitration/{{unit_id}}"), put(arbitrate))
+        .route(&format!("{P}/final"), get(final_coding))
         .route("/api/codebook", get(codebook))
+        .route("/api/codebook/phase1", get(codebook_phase1))
         .route("/api/codebook/import", post(import_codebook))
         .route("/api/codebook/codes", post(add_code))
         .route("/api/codebook/codes/{code}/in_prompt", put(set_in_prompt))
         .route("/api/audit", get(audit))
         .route("/api/audit/verify", get(audit_verify))
+        .fallback(static_file)
         .with_state(state)
 }
 
@@ -166,7 +171,26 @@ fn invalid(msg: impl Into<String>) -> ApiError {
     ApiError::from(anyhow::Error::new(CsError::Validation(msg.into())))
 }
 
+fn guard(msg: impl Into<String>) -> ApiError {
+    ApiError::from(anyhow::Error::new(CsError::Guard(msg.into())))
+}
+
+fn parse_phase(raw: &str) -> Result<u8, ApiError> {
+    match raw {
+        "1" => Ok(PHASE_1),
+        "2" => Ok(PHASE_2),
+        _ => Err(invalid(format!("unknown phase {raw}; use 1 or 2"))),
+    }
+}
+
+fn require_interview(store: &Store, id: &str) -> Result<cs_model::InterviewEntry, ApiError> {
+    store
+        .interview(id)?
+        .ok_or_else(|| not_found(format!("interview {id}")))
+}
+
 fn require_segmentation(store: &Store, id: &str) -> Result<Segmentation, ApiError> {
+    require_interview(store, id)?;
     store.segmentation(id)?.ok_or_else(|| {
         invalid(format!(
             "{id} has no segmentation yet; segment a transcript first"
@@ -174,46 +198,164 @@ fn require_segmentation(store: &Store, id: &str) -> Result<Segmentation, ApiErro
     })
 }
 
-/// Complete AI runs of an interview as (label, codings), in creation order.
-fn complete_runs(store: &Store, id: &str) -> Result<Vec<(String, CodingMap)>, ApiError> {
+/// Complete AI runs of a phase as (label, codings), in creation order.
+fn complete_runs(store: &Store, id: &str, phase: u8) -> Result<Vec<(String, CodingMap)>, ApiError> {
     Ok(store
-        .ai_runs(id)?
+        .ai_runs(id, phase)?
         .into_iter()
         .filter(|r| r.complete)
         .map(|r| (r.meta.run_label, r.codings))
         .collect())
 }
 
+/// Reconciled phase 1 codes per unit; empty while phase 1 is not reconciled.
+fn phase1_finals(store: &Store, id: &str) -> Result<BTreeMap<String, CodeSet>, ApiError> {
+    Ok(match store.final_codings(id, PHASE_1)? {
+        Ok(finals) => finals.into_iter().map(|f| (f.unit_id, f.codes)).collect(),
+        Err(_) => BTreeMap::new(),
+    })
+}
+
+/// Codes the candidate may use on each unit of a phase (NA aside).
+fn human_allowed(
+    store: &Store,
+    id: &str,
+    phase: u8,
+    unit_ids: &[String],
+) -> Result<BTreeMap<String, Vec<Code>>, ApiError> {
+    if phase == PHASE_1 {
+        let codes = phase1_codebook().codes;
+        return Ok(unit_ids
+            .iter()
+            .map(|u| (u.clone(), codes.clone()))
+            .collect());
+    }
+    let book = store.codebook()?;
+    let p1 = phase1_finals(store, id)?;
+    Ok(unit_ids
+        .iter()
+        .map(|u| {
+            let set = p1.get(u).cloned().unwrap_or_default();
+            let codes = phase2_allowed(&book, &set, true)
+                .into_iter()
+                .cloned()
+                .collect();
+            (u.clone(), codes)
+        })
+        .collect())
+}
+
+/// Everything a phase's prompts are built from. The same scope is rebuilt to
+/// check an answer, so the parser always sees the prompt's own inputs.
+struct AiScope {
+    seg: Segmentation,
+    unit_ids: Vec<String>,
+    codebook: Codebook,
+    allowed: Option<BTreeMap<String, Vec<String>>>,
+}
+
+impl AiScope {
+    fn input(&self, phase: u8) -> cs_ai::PromptInput<'_> {
+        cs_ai::PromptInput {
+            seg: &self.seg,
+            phase,
+            unit_ids: &self.unit_ids,
+            codebook: &self.codebook,
+            allowed: self.allowed.as_ref(),
+        }
+    }
+}
+
+/// Phase 1: the four TOE categories over every unit. Phase 2: the relevant
+/// units, each with the study-specific codes of its reconciled contexts plus
+/// the cross-cutting families, minus the codes withheld from the AI.
+fn ai_scope(store: &Store, id: &str, phase: u8) -> Result<AiScope, ApiError> {
+    let seg = require_segmentation(store, id)?;
+    let unit_ids = store.phase_units(id, phase)?;
+    if phase == PHASE_1 {
+        return Ok(AiScope {
+            seg,
+            unit_ids,
+            codebook: phase1_codebook(),
+            allowed: None,
+        });
+    }
+    if unit_ids.is_empty() {
+        return Err(guard(
+            "phase 2 has no unit in scope yet: reconcile phase 1 first (a complete AI run and every divergence arbitrated)",
+        ));
+    }
+    let book = store.codebook()?;
+    let p1 = phase1_finals(store, id)?;
+    let mut allowed = BTreeMap::new();
+    let mut union = BTreeSet::new();
+    for u in &unit_ids {
+        let set = p1.get(u).cloned().unwrap_or_default();
+        let codes: Vec<String> = phase2_allowed(&book, &set, false)
+            .into_iter()
+            .filter(|c| c.in_prompt)
+            .map(|c| c.code.clone())
+            .collect();
+        union.extend(codes.iter().cloned());
+        allowed.insert(u.clone(), codes);
+    }
+    let codebook = Codebook {
+        source: book.source.clone(),
+        codes: book
+            .codes
+            .iter()
+            .filter(|c| union.contains(&c.code))
+            .cloned()
+            .collect(),
+    };
+    Ok(AiScope {
+        seg,
+        unit_ids,
+        codebook,
+        allowed: Some(allowed),
+    })
+}
+
 // ------------------------------------------------------------------ static
 
-/// Embedded assets are served uncached, so a rebuilt binary is always picked up.
-fn asset(content_type: &'static str, body: &'static str) -> Response {
-    (
-        [
-            (header::CONTENT_TYPE, content_type),
-            (header::CACHE_CONTROL, "no-store"),
-        ],
-        body,
-    )
-        .into_response()
-}
-
-async fn index() -> Response {
-    asset(
-        "text/html; charset=utf-8",
-        include_str!("../web/index.html"),
-    )
-}
-
-async fn app_js() -> Response {
-    asset(
-        "text/javascript; charset=utf-8",
-        include_str!("../web/app.js"),
-    )
-}
-
-async fn style_css() -> Response {
-    asset("text/css; charset=utf-8", include_str!("../web/style.css"))
+/// Serves the embedded React build. Hashed assets are immutable; any other
+/// path that is not a file gets `index.html` (client-side routing).
+async fn static_file(uri: Uri) -> Response {
+    let path = uri.path().trim_start_matches('/');
+    if path == "api" || path.starts_with("api/") {
+        return not_found(format!("no API route {}", uri.path())).into_response();
+    }
+    if let Some(file) = WEB.get_file(path).filter(|_| !path.is_empty()) {
+        let mime = mime_guess::from_path(path).first_or_octet_stream();
+        let cache = if path.starts_with("assets/") {
+            "public, max-age=31536000, immutable"
+        } else {
+            "no-cache"
+        };
+        return (
+            [
+                (header::CONTENT_TYPE, mime.essence_str().to_string()),
+                (header::CACHE_CONTROL, cache.to_string()),
+            ],
+            file.contents(),
+        )
+            .into_response();
+    }
+    match WEB.get_file("index.html") {
+        Some(index) => (
+            [
+                (header::CONTENT_TYPE, "text/html; charset=utf-8"),
+                (header::CACHE_CONTROL, "no-store"),
+            ],
+            index.contents(),
+        )
+            .into_response(),
+        None => (
+            StatusCode::SERVICE_UNAVAILABLE,
+            "The web interface is not built; run `make web`.",
+        )
+            .into_response(),
+    }
 }
 
 // ------------------------------------------------------------------ state
@@ -241,7 +383,7 @@ struct PickBody {
 /// Native folder or file dialog (desktop app only).
 async fn pick(State(st): State<AppState>, Json(body): Json<PickBody>) -> ApiResult {
     let picker = st.picker.clone().ok_or_else(|| ApiError {
-        status: axum::http::StatusCode::NOT_IMPLEMENTED,
+        status: StatusCode::NOT_IMPLEMENTED,
         kind: "validation",
         message: "native dialogs exist in the desktop app only; type the path".into(),
         issues: None,
@@ -299,51 +441,13 @@ async fn list_interviews(State(st): State<AppState>) -> ApiResult {
 
 async fn interview_detail(State(st): State<AppState>, UrlPath(id): UrlPath<String>) -> ApiResult {
     let store = st.store();
-    let entry = store
-        .interview(&id)?
-        .ok_or_else(|| not_found(format!("interview {id}")))?;
-    let segmentation = store.segmentation(&id)?;
-    let guard = match segmentation {
-        Some(_) => Some(store.guard(&id)?),
-        None => None,
-    };
-    let runs: Vec<Value> = store
-        .ai_runs(&id)?
-        .into_iter()
-        .map(|r| {
-            json!({
-                "run_id": r.run_id,
-                "meta": r.meta,
-                "parts_received": r.parts_received,
-                "parts_expected": r.parts_expected,
-                "complete": r.complete,
-                "n_coded": r.codings.len(),
-            })
-        })
-        .collect();
-    let prompts: Vec<Value> = store
-        .prompts(&id)?
-        .into_iter()
-        .map(|p| {
-            json!({
-                "part": p.part, "of": p.of, "sha256": p.sha256,
-                "n_units": p.unit_ids.len(), "prompt_version": p.prompt_version,
-                "segmentation_hash": p.segmentation_hash, "codebook_hash": p.codebook_hash,
-            })
-        })
-        .collect();
-    let locked = runs.iter().any(|r| {
-        r["parts_received"]
-            .as_array()
-            .is_some_and(|a| !a.is_empty())
-    });
+    let entry = require_interview(&store, &id)?;
     Ok(Json(json!({
         "entry": entry,
-        "segmentation": segmentation,
-        "guard": guard,
-        "runs": runs,
-        "prompts": prompts,
-        "human_locked": locked,
+        "segmentation": store.segmentation(&id)?,
+        "phase1": store.phase_summary(&id, PHASE_1)?,
+        "phase2": store.phase_summary(&id, PHASE_2)?,
+        "phase2_started": store.phase2_started(&id)?,
     })))
 }
 
@@ -357,10 +461,7 @@ async fn interview_file(
     UrlPath(id): UrlPath<String>,
     Query(q): Query<FileQuery>,
 ) -> ApiResult {
-    let entry = st
-        .store()
-        .interview(&id)?
-        .ok_or_else(|| not_found(format!("interview {id}")))?;
+    let entry = require_interview(&st.store(), &id)?;
     if q.path.split(['/', '\\']).any(|seg| seg == "..") {
         return Err(invalid("path must stay inside the interview folder"));
     }
@@ -374,8 +475,8 @@ async fn interview_file(
     Ok(Json(json!({
         "path": source.rel_path,
         "kind": source.kind,
-        "sha256_recorded": source.sha256,
-        "sha256_now": cs_model::sha256_hex(&bytes),
+        "sha256": source.sha256,
+        "changed_since_scan": cs_model::sha256_hex(&bytes) != source.sha256,
         "text": String::from_utf8_lossy(&bytes),
     })))
 }
@@ -390,9 +491,9 @@ async fn set_primary(
     UrlPath(id): UrlPath<String>,
     Json(body): Json<PrimaryBody>,
 ) -> ApiResult {
-    st.store()
-        .set_primary_source(&id, &body.rel_path, &st.actor)?;
-    Ok(Json(json!({ "ok": true })))
+    let store = st.store();
+    store.set_primary_source(&id, &body.rel_path, &st.actor)?;
+    Ok(Json(json!(require_interview(&store, &id)?)))
 }
 
 #[derive(Deserialize, Default)]
@@ -407,9 +508,7 @@ async fn segment(
 ) -> ApiResult {
     let body = body.map(|b| b.0).unwrap_or_default();
     let store = st.store();
-    let entry = store
-        .interview(&id)?
-        .ok_or_else(|| not_found(format!("interview {id}")))?;
+    let entry = require_interview(&store, &id)?;
     let rel = body
         .rel_path
         .filter(|r| !r.trim().is_empty())
@@ -421,18 +520,61 @@ async fn segment(
         })?;
     let seg = cs_ingest::build_segmentation(&entry, &rel, &st.interviewer_names)?;
     store.save_segmentation(&seg, &st.actor)?;
-    let current = store.segmentation(&id)?;
-    Ok(Json(json!(current)))
+    Ok(Json(json!(store.segmentation(&id)?)))
 }
 
-async fn units(State(st): State<AppState>, UrlPath(id): UrlPath<String>) -> ApiResult {
+// ------------------------------------------------------------ phase coding
+
+async fn phase_state(
+    State(st): State<AppState>,
+    UrlPath((id, phase)): UrlPath<(String, String)>,
+) -> ApiResult {
+    let phase = parse_phase(&phase)?;
+    let store = st.store();
+    require_interview(&store, &id)?;
+    let locked = store
+        .ai_runs(&id, phase)?
+        .iter()
+        .any(|r| !r.parts_received.is_empty());
+    let frozen = phase == PHASE_1 && store.phase2_started(&id)?;
+    Ok(Json(json!({
+        "phase": phase,
+        "summary": store.phase_summary(&id, phase)?,
+        "guard": store.guard(&id, phase)?,
+        "reconciled": store.is_reconciled(&id, phase)?,
+        "frozen": frozen,
+        "locked": locked,
+    })))
+}
+
+async fn units(
+    State(st): State<AppState>,
+    UrlPath((id, phase)): UrlPath<(String, String)>,
+) -> ApiResult {
+    let phase = parse_phase(&phase)?;
     let store = st.store();
     let seg = require_segmentation(&store, &id)?;
-    let codings = store.human_codings(&id)?;
-    let rows: Vec<Value> = seg
-        .units
+    let scope = store.phase_units(&id, phase)?;
+    let codings = store.human_codings(&id, phase)?;
+    let allowed = human_allowed(&store, &id, phase, &scope)?;
+    let p1 = if phase == PHASE_2 {
+        phase1_finals(&store, &id)?
+    } else {
+        BTreeMap::new()
+    };
+    let by_id: BTreeMap<&str, &cs_model::Unit> =
+        seg.units.iter().map(|u| (u.unit_id.as_str(), u)).collect();
+    let rows: Vec<Value> = scope
         .iter()
-        .map(|u| json!({ "unit": u, "coding": codings.get(&u.unit_id) }))
+        .filter_map(|u| by_id.get(u.as_str()).map(|unit| (u, unit)))
+        .map(|(u, unit)| {
+            json!({
+                "unit": unit,
+                "coding": codings.get(u),
+                "allowed": allowed.get(u).cloned().unwrap_or_default(),
+                "phase1_final": if phase == PHASE_2 { p1.get(u).map(|s| json!(s)) } else { None },
+            })
+        })
         .collect();
     Ok(Json(json!(rows)))
 }
@@ -451,9 +593,10 @@ struct CodingBody {
 
 async fn set_coding(
     State(st): State<AppState>,
-    UrlPath((id, unit_id)): UrlPath<(String, String)>,
+    UrlPath((id, phase, unit_id)): UrlPath<(String, String, String)>,
     Json(body): Json<CodingBody>,
 ) -> ApiResult {
+    let phase = parse_phase(&phase)?;
     let coding = HumanCoding {
         unit_id: unit_id.clone(),
         codes: body
@@ -469,15 +612,20 @@ async fn set_coding(
         excerpt: body.excerpt,
     };
     let store = st.store();
-    store.set_human_coding(&id, &coding, &st.actor)?;
-    let saved = store.human_codings(&id)?.remove(&unit_id);
-    Ok(Json(json!({ "coding": saved, "guard": store.guard(&id)? })))
+    require_interview(&store, &id)?;
+    store.set_human_coding(&id, phase, &coding, &st.actor)?;
+    let saved = store.human_codings(&id, phase)?.remove(&unit_id);
+    Ok(Json(json!(saved)))
 }
 
 // ---------------------------------------------------------------- codebook
 
 async fn codebook(State(st): State<AppState>) -> ApiResult {
     Ok(Json(json!(st.store().codebook()?)))
+}
+
+async fn codebook_phase1() -> ApiResult {
+    Ok(Json(json!(phase1_codebook())))
 }
 
 #[derive(Deserialize, Default)]
@@ -505,32 +653,35 @@ async fn import_codebook(
 #[derive(Deserialize)]
 struct CodeBody {
     code: String,
+    #[serde(default)]
     label: String,
     #[serde(default)]
     definition: String,
     #[serde(default)]
-    family: Option<String>,
+    example: Option<String>,
+    #[serde(default)]
+    reason: Option<String>,
 }
 
+/// New inductive code. The store requires a definition and the reason it
+/// was created (inductive log); inductive codes are never offered to the AI.
 async fn add_code(State(st): State<AppState>, Json(body): Json<CodeBody>) -> ApiResult {
     let code = body.code.trim().to_string();
-    if code.is_empty() || body.label.trim().is_empty() {
-        return Err(invalid("an inductive code needs a code and a label"));
-    }
-    if code.eq_ignore_ascii_case(cs_model::NA) {
-        return Err(invalid("NA is reserved"));
-    }
+    let label = match body.label.trim() {
+        "" => code.clone(),
+        l => l.to_string(),
+    };
     let new = Code {
         code,
-        family: body
-            .family
-            .filter(|f| !f.trim().is_empty())
-            .unwrap_or_else(|| "INDUCTIVE".to_string()),
-        label: body.label.trim().to_string(),
+        family: "INDUCTIVE".to_string(),
+        label,
         definition: body.definition.trim().to_string(),
         origin: "inductive".to_string(),
         active: true,
-        in_prompt: true,
+        in_prompt: false,
+        example: body.example,
+        reason: body.reason,
+        created_at: None,
     };
     let store = st.store();
     store.add_code(&new, &st.actor)?;
@@ -562,27 +713,42 @@ struct PromptBody {
 
 async fn generate_prompts(
     State(st): State<AppState>,
-    UrlPath(id): UrlPath<String>,
+    UrlPath((id, phase)): UrlPath<(String, String)>,
     body: Option<Json<PromptBody>>,
 ) -> ApiResult {
+    let phase = parse_phase(&phase)?;
     let batch = body.map(|b| b.0.batch_size).unwrap_or(0);
     let store = st.store();
-    let seg = require_segmentation(&store, &id)?;
-    let book = store.codebook()?;
-    if book.prompt_codes().is_empty() {
+    let scope = ai_scope(&store, &id, phase)?;
+    if scope.unit_ids.is_empty() {
+        return Err(invalid(format!("{id} has no unit in phase {phase}")));
+    }
+    if scope.codebook.codes.is_empty() {
         return Err(invalid(
-            "the codebook offers no code to the AI; import the codebook first",
+            "no code can be offered to the AI; import the codebook first",
         ));
     }
-    let parts = cs_ai::build_prompts(&seg, &book, batch);
+    let parts = cs_ai::build_prompts(&scope.input(phase), batch);
     for part in &parts {
         store.record_prompt(part, &st.actor)?;
     }
     Ok(Json(json!(parts)))
 }
 
-async fn list_prompts(State(st): State<AppState>, UrlPath(id): UrlPath<String>) -> ApiResult {
-    Ok(Json(json!(st.store().prompts(&id)?)))
+async fn list_prompts(
+    State(st): State<AppState>,
+    UrlPath((id, phase)): UrlPath<(String, String)>,
+) -> ApiResult {
+    let phase = parse_phase(&phase)?;
+    Ok(Json(json!(st.store().prompts(&id, phase)?)))
+}
+
+async fn list_runs(
+    State(st): State<AppState>,
+    UrlPath((id, phase)): UrlPath<(String, String)>,
+) -> ApiResult {
+    let phase = parse_phase(&phase)?;
+    Ok(Json(json!(st.store().ai_runs(&id, phase)?)))
 }
 
 #[derive(Deserialize, Default)]
@@ -602,9 +768,10 @@ struct RunBody {
 
 async fn create_run(
     State(st): State<AppState>,
-    UrlPath(id): UrlPath<String>,
+    UrlPath((id, phase)): UrlPath<(String, String)>,
     Json(body): Json<RunBody>,
 ) -> ApiResult {
+    let phase = parse_phase(&phase)?;
     let label = body.run_label.trim().to_string();
     if label.is_empty() || body.model_name.trim().is_empty() {
         return Err(invalid(
@@ -632,11 +799,14 @@ async fn create_run(
         notes: body.notes.filter(|s| !s.trim().is_empty()),
     };
     let store = st.store();
-    if store.interview(&id)?.is_none() {
-        return Err(not_found(format!("interview {id}")));
-    }
-    let run_id = store.create_ai_run(&id, &meta, &st.actor)?;
-    Ok(Json(json!({ "run_id": run_id, "meta": meta })))
+    require_interview(&store, &id)?;
+    let run_id = store.create_ai_run(&id, phase, &meta, &st.actor)?;
+    let run = store
+        .ai_runs(&id, phase)?
+        .into_iter()
+        .find(|r| r.run_id == run_id)
+        .ok_or_else(|| not_found(format!("run {run_id}")))?;
+    Ok(Json(json!(run)))
 }
 
 #[derive(Deserialize)]
@@ -648,41 +818,48 @@ struct OutputBody {
 
 async fn import_output(
     State(st): State<AppState>,
-    UrlPath((id, run_id)): UrlPath<(String, i64)>,
+    UrlPath((id, phase, run_id)): UrlPath<(String, String, i64)>,
     Json(body): Json<OutputBody>,
 ) -> ApiResult {
+    let phase = parse_phase(&phase)?;
     let store = st.store();
-    if !store.ai_runs(&id)?.iter().any(|r| r.run_id == run_id) {
-        return Err(not_found(format!("run {run_id} of {id}")));
+    require_interview(&store, &id)?;
+    if !store
+        .ai_runs(&id, phase)?
+        .iter()
+        .any(|r| r.run_id == run_id)
+    {
+        return Err(not_found(format!("run {run_id} of {id}, phase {phase}")));
     }
-    let seg = require_segmentation(&store, &id)?;
-    let book = store.codebook()?;
+    let scope = ai_scope(&store, &id, phase)?;
     let expected = body.part.zip(body.of);
-    let parsed =
-        cs_ai::parse_ai_output(&body.raw, &seg, &book, expected).map_err(ApiError::with_issues)?;
+    let parsed = cs_ai::parse_ai_output(&body.raw, &scope.input(phase), expected)
+        .map_err(ApiError::with_issues)?;
     store.record_ai_output(run_id, &body.raw, &parsed, &st.actor)?;
     let run = store
-        .ai_runs(&id)?
+        .ai_runs(&id, phase)?
         .into_iter()
         .find(|r| r.run_id == run_id)
         .ok_or_else(|| not_found(format!("run {run_id}")))?;
     Ok(Json(json!(run)))
 }
 
-async fn agreement(State(st): State<AppState>, UrlPath(id): UrlPath<String>) -> ApiResult {
-    let store = st.store();
-    let seg = require_segmentation(&store, &id)?;
-    let human = store.human_coding_map(&id)?;
-    let runs = complete_runs(&store, &id)?;
-    let order: Vec<String> = seg.units.iter().map(|u| u.unit_id.clone()).collect();
+// ----------------------------------------------------------- reconciliation
+
+/// Human against each complete run, then runs pairwise, over `order`.
+pub(crate) fn agreement_reports(
+    human: &CodingMap,
+    runs: &[(String, CodingMap)],
+    order: &[String],
+) -> Vec<cs_model::AgreementReport> {
     let mut reports = Vec::new();
-    for (label, codings) in &runs {
+    for (label, codings) in runs {
         reports.push(cs_ai::agreement(
             "Human",
-            &human,
+            human,
             &format!("AI {label}"),
             codings,
-            &order,
+            order,
         ));
     }
     for (i, (la, a)) in runs.iter().enumerate() {
@@ -692,32 +869,49 @@ async fn agreement(State(st): State<AppState>, UrlPath(id): UrlPath<String>) -> 
                 a,
                 &format!("AI {lb}"),
                 b,
-                &order,
+                order,
             ));
         }
     }
+    reports
+}
+
+async fn agreement(
+    State(st): State<AppState>,
+    UrlPath((id, phase)): UrlPath<(String, String)>,
+) -> ApiResult {
+    let phase = parse_phase(&phase)?;
+    let store = st.store();
+    let seg = require_segmentation(&store, &id)?;
+    let order = store.phase_units(&id, phase)?;
+    let human = store.human_coding_map(&id, phase)?;
+    let runs = complete_runs(&store, &id, phase)?;
+    let reports = agreement_reports(&human, &runs, &order);
     let markdown = if reports.is_empty() {
         String::new()
     } else {
-        cs_ai::render_agreement_md(&seg, &reports)
+        cs_ai::render_agreement_md(&seg, phase, &order, &reports)
     };
     Ok(Json(json!({ "reports": reports, "markdown": markdown })))
 }
 
-async fn divergences(State(st): State<AppState>, UrlPath(id): UrlPath<String>) -> ApiResult {
+async fn divergences(
+    State(st): State<AppState>,
+    UrlPath((id, phase)): UrlPath<(String, String)>,
+) -> ApiResult {
+    let phase = parse_phase(&phase)?;
     let store = st.store();
     let seg = require_segmentation(&store, &id)?;
-    let human = store.human_coding_map(&id)?;
-    let runs = complete_runs(&store, &id)?;
-    let current = store.arbitrations(&id)?;
-    let history = store.arbitration_history(&id)?;
+    let order = store.phase_units(&id, phase)?;
+    let human = store.human_coding_map(&id, phase)?;
+    let runs = complete_runs(&store, &id, phase)?;
+    let current = store.arbitrations(&id, phase)?;
+    let history = store.arbitration_history(&id, phase)?;
     let units: BTreeMap<&str, &cs_model::Unit> =
         seg.units.iter().map(|u| (u.unit_id.as_str(), u)).collect();
-    let divs = if runs.is_empty() {
-        Vec::new()
-    } else {
-        cs_ai::divergences(&seg, &human, &runs)
-    };
+    let divs = cs_ai::divergences(&order, &human, &runs);
+    let div_ids: Vec<String> = divs.iter().map(|d| d.unit_id.clone()).collect();
+    let allowed = human_allowed(&store, &id, phase, &div_ids)?;
     let n_decided = divs
         .iter()
         .filter(|d| current.contains_key(&d.unit_id))
@@ -732,6 +926,7 @@ async fn divergences(State(st): State<AppState>, UrlPath(id): UrlPath<String>) -
                 "unit": units.get(d.unit_id.as_str()),
                 "arbitration": current.get(&d.unit_id),
                 "history": hist,
+                "allowed": allowed.get(&d.unit_id).cloned().unwrap_or_default(),
             })
         })
         .collect();
@@ -753,21 +948,24 @@ struct ArbitrationBody {
 
 async fn arbitrate(
     State(st): State<AppState>,
-    UrlPath((id, unit_id)): UrlPath<(String, String)>,
+    UrlPath((id, phase, unit_id)): UrlPath<(String, String, String)>,
     Json(body): Json<ArbitrationBody>,
 ) -> ApiResult {
+    let phase = parse_phase(&phase)?;
     let store = st.store();
-    let seg = require_segmentation(&store, &id)?;
-    let human = store.human_coding_map(&id)?;
-    let runs = complete_runs(&store, &id)?;
-    let divs = cs_ai::divergences(&seg, &human, &runs);
+    require_segmentation(&store, &id)?;
+    let order = store.phase_units(&id, phase)?;
+    let human = store.human_coding_map(&id, phase)?;
+    let runs = complete_runs(&store, &id, phase)?;
+    let divs = cs_ai::divergences(&order, &human, &runs);
     if !divs.iter().any(|d| d.unit_id == unit_id) {
         return Err(invalid(format!(
-            "{unit_id} is not a divergence; only divergent units are arbitrated"
+            "{unit_id} is not a divergence of phase {phase}; only divergent units are arbitrated"
         )));
     }
     let arb = Arbitration {
         unit_id,
+        phase,
         choice: body.choice,
         final_codes: body.final_codes,
         rationale: body.rationale.trim().to_string(),
@@ -776,6 +974,19 @@ async fn arbitrate(
     };
     store.record_arbitration(&id, &arb, &st.actor)?;
     Ok(Json(json!(arb)))
+}
+
+async fn final_coding(
+    State(st): State<AppState>,
+    UrlPath((id, phase)): UrlPath<(String, String)>,
+) -> ApiResult {
+    let phase = parse_phase(&phase)?;
+    let store = st.store();
+    require_interview(&store, &id)?;
+    Ok(Json(match store.final_codings(&id, phase)? {
+        Ok(finals) => json!({ "reconciled": true, "finals": finals, "pending": [] }),
+        Err(pending) => json!({ "reconciled": false, "finals": [], "pending": pending }),
+    }))
 }
 
 async fn export_package(State(st): State<AppState>, UrlPath(id): UrlPath<String>) -> ApiResult {

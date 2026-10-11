@@ -21,6 +21,8 @@ axum.workspace = true
 tokio.workspace = true
 clap.workspace = true
 open.workspace = true
+include_dir.workspace = true
+mime_guess.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true

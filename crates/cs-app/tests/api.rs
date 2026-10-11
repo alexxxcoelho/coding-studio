@@ -1,6 +1,8 @@
-//! End-to-end round trip through the HTTP API on a temporary library:
-//! scan, segment, code, prompt, blind guard, AI import (valid and invalid),
-//! coding lock, divergences, arbitration, export, audit chain.
+//! End-to-end round trip through the HTTP API (v2, two coding phases) on a
+//! temporary library: scan, segment, phase 1 (TOE contexts) with blind guard,
+//! AI import, coding lock, arbitration and reconciliation, phase 2 restricted
+//! to the reconciled families, inductive codes, phase 1 frozen, export,
+//! audit chain. Plus the embedded React build and the native picker.
 
 use std::path::Path;
 use std::sync::{Arc, Mutex};
@@ -14,7 +16,7 @@ use http_body_util::BodyExt;
 use serde_json::{json, Value};
 use tower::ServiceExt;
 
-const CLEANED: &str = "---\ninterview_id: INT-01\nstatus: test fixture\n---\n\n# INT-01, cleaned and diarised transcript\n\nKey: INT = interviewer, RESP = respondent.\n\n---\n\n**INT `[00:01]`:** Thank you for your time. Could you describe your role?\n\n**RESP `[00:05]`:** I run the logistics of a mid-sized retailer and we tag every carton at the source.\n\n**INT `[00:20]`:** What made the business case work?\n\n**RESP `[00:24]`:** The inventory accuracy went from sixty to ninety-eight percent in one year.\n\n**INT `[00:40]`:** And the costs?\n\n**RESP `[00:43]`:** Tags were expensive at first, and the integration with our ERP took longer than planned.\n";
+const CLEANED: &str = "---\ninterview_id: INT-01\nstatus: test fixture\n---\n\n# INT-01, cleaned and diarised transcript\n\nKey: INT = interviewer, RESP = respondent.\n\n---\n\n**INT `[00:01]`:** Thank you for your time. Could you describe your role?\n\n**RESP `[00:05]`:** I run the logistics of a mid-sized retailer and our supplier tags every carton at the source.\n\n**INT `[00:20]`:** What made the business case work?\n\n**RESP `[00:24]`:** The inventory accuracy went from sixty to ninety-eight percent in one year.\n\n**INT `[00:40]`:** And the costs?\n\n**RESP `[00:43]`:** Tags were expensive at first, and our team lacked the skills for the ERP integration.\n";
 
 const VTT: &str = "WEBVTT\n\nabc/1-0\n00:00:01.000 --> 00:00:03.000\n<v Dos Santos Alexandre>Hello, can you hear me?</v>\n\nabc/2-0\n00:00:04.000 --> 00:00:08.000\n<v Jane Roe>Yes, perfectly. We use RFID in two stores.</v>\n\nabc/3-0\n00:00:09.000 --> 00:00:12.000\n<v Dos Santos Alexandre>Why only two?</v>\n\nabc/4-0\n00:00:13.000 --> 00:00:18.000\n<v Jane Roe>Our partner did not want to tag at source.</v>\n";
 
@@ -25,10 +27,12 @@ fn make_codebook(path: &Path) {
            sub_question TEXT, cycle INTEGER DEFAULT 1, origin TEXT DEFAULT 'codebook',
            active INTEGER NOT NULL DEFAULT 1, notes TEXT);
          INSERT INTO codes (code,family,label,definition,origin,active) VALUES
+          ('TECH','TECH','Technology, unrefined','Family-level code.','legacy',1),
           ('TECH-ADV','TECH','Relative advantage','Perceived advantage over the status quo.','codebook',1),
           ('TECH-COST','TECH','Cost','Lifecycle cost and investment burden.','codebook',1),
           ('ORG-SKILLS','ORG','Skills','Skills and expertise.','codebook',1),
-          ('ENV-PARTNER','ENV','Partner pressure','Partner pressure or mandate.','codebook',1);",
+          ('ENV-PARTNER','ENV','Partner pressure','Partner pressure or mandate.','codebook',1),
+          ('OUT-REALISED','OUTCOME','Realised outcome','A result supported by evidence.','codebook',1);",
     )
     .unwrap();
 }
@@ -74,6 +78,23 @@ fn setup() -> Ctx {
     }
 }
 
+/// Raw response: status, content type, cache control, body bytes.
+async fn raw(app: &Router, uri: &str) -> (StatusCode, String, String, Vec<u8>) {
+    let req = Request::builder().uri(uri).body(Body::empty()).unwrap();
+    let res = app.clone().oneshot(req).await.unwrap();
+    let status = res.status();
+    let header = |name: &str| {
+        res.headers()
+            .get(name)
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or("")
+            .to_string()
+    };
+    let (ct, cc) = (header("content-type"), header("cache-control"));
+    let bytes = res.into_body().collect().await.unwrap().to_bytes().to_vec();
+    (status, ct, cc, bytes)
+}
+
 async fn call(app: &Router, method: &str, uri: &str, body: Option<Value>) -> (StatusCode, Value) {
     let mut req = Request::builder().method(method).uri(uri);
     let body = match body {
@@ -95,33 +116,51 @@ async fn call(app: &Router, method: &str, uri: &str, body: Option<Value>) -> (St
     (status, value)
 }
 
-fn answer(seg_hash: &str, units: &[(String, Vec<&str>)]) -> String {
-    let codings: Vec<Value> = units
+/// An AI answer for one prompt part, wrapped in prose and a fence as chat
+/// interfaces often do. `codes_for` gives the codes of each unit.
+fn answer(part: &Value, codes_for: impl Fn(&str) -> Vec<String>) -> String {
+    let codings: Vec<Value> = part["unit_ids"]
+        .as_array()
+        .unwrap()
         .iter()
-        .map(|(u, c)| json!({ "unit_id": u, "codes": c }))
+        .map(|u| {
+            let u = u.as_str().unwrap();
+            json!({ "unit_id": u, "codes": codes_for(u) })
+        })
         .collect();
     let obj = json!({
         "schema": cs_ai::OUTPUT_SCHEMA_ID,
-        "interview_id": "INT-01",
-        "segmentation_hash": seg_hash,
-        "part": 1,
-        "of": 1,
+        "interview_id": part["interview_id"],
+        "phase": part["phase"],
+        "segmentation_hash": part["segmentation_hash"],
+        "part": part["part"],
+        "of": part["of"],
         "codings": codings,
     });
-    // Wrapped in a fence with prose, as chat interfaces often do.
-    format!("Here is the coding:\n```json\n{}\n```\n", obj)
+    format!("Here is the coding:\n```json\n{obj}\n```\n")
+}
+
+fn codes(list: &[&str]) -> Vec<String> {
+    list.iter().map(|s| s.to_string()).collect()
+}
+
+fn names(v: &Value) -> Vec<String> {
+    v.as_array()
+        .unwrap()
+        .iter()
+        .map(|c| c["code"].as_str().unwrap().to_string())
+        .collect()
 }
 
 #[tokio::test]
-async fn full_round_trip() {
+async fn two_phase_round_trip() {
     let ctx = setup();
     let app = &ctx.app;
+    const I: &str = "/api/interviews/INT-01";
+    const P1: &str = "/api/interviews/INT-01/phases/1";
+    const P2: &str = "/api/interviews/INT-01/phases/2";
 
-    // Static UI is served.
-    let (st, _) = call(app, "GET", "/", None).await;
-    assert_eq!(st, StatusCode::OK);
-
-    // Codebook.
+    // Codebook, library, segmentation.
     let (st, book) = call(
         app,
         "POST",
@@ -130,9 +169,13 @@ async fn full_round_trip() {
     )
     .await;
     assert_eq!(st, StatusCode::OK, "{book}");
-    assert_eq!(book["codes"].as_array().unwrap().len(), 4);
-
-    // Library scan.
+    assert_eq!(book["codes"].as_array().unwrap().len(), 6);
+    let (st, p1book) = call(app, "GET", "/api/codebook/phase1", None).await;
+    assert_eq!(st, StatusCode::OK);
+    assert_eq!(
+        names(&p1book["codes"]),
+        ["TECH", "ORG", "ENV", "INDUCTIVE-PENDING"]
+    );
     let (st, scan) = call(
         app,
         "POST",
@@ -141,318 +184,488 @@ async fn full_round_trip() {
     )
     .await;
     assert_eq!(st, StatusCode::OK, "{scan}");
-    let ids: Vec<&str> = scan["interviews"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .map(|s| s["interview_id"].as_str().unwrap())
-        .collect();
-    assert_eq!(ids, vec!["ECO-02", "INT-01"]);
+    assert_eq!(scan["interviews"].as_array().unwrap().len(), 2);
+    assert!(scan["interviews"][0]["phase1"].is_object());
 
-    // The VTT interview segments with the interviewer recognised.
     let (st, seg2) = call(app, "POST", "/api/interviews/ECO-02/segment", None).await;
     assert_eq!(st, StatusCode::OK, "{seg2}");
     assert_eq!(seg2["units"][0]["role"], "interviewer");
-    assert_eq!(seg2["units"][1]["role"], "respondent");
 
-    // Read-only file view refuses paths outside the inventory.
-    let (st, _) = call(
-        app,
-        "GET",
-        "/api/interviews/INT-01/file?path=..%2F..%2Fsecret",
-        None,
-    )
-    .await;
+    let (st, _) = call(app, "GET", &format!("{I}/file?path=..%2Fsecret"), None).await;
     assert_eq!(st, StatusCode::BAD_REQUEST);
     let (st, f) = call(
         app,
         "GET",
-        "/api/interviews/INT-01/file?path=02_transcript_cleaned_diarised.md",
+        &format!("{I}/file?path=02_transcript_cleaned_diarised.md"),
         None,
     )
     .await;
-    assert_eq!(st, StatusCode::OK);
-    assert_eq!(f["sha256_now"], f["sha256_recorded"]);
+    assert_eq!(st, StatusCode::OK, "{f}");
+    assert_eq!(f["changed_since_scan"], false);
+    assert_eq!(f["sha256"].as_str().unwrap().len(), 64);
 
-    // Segment INT-01.
-    let (st, seg) = call(app, "POST", "/api/interviews/INT-01/segment", None).await;
+    let (st, seg) = call(app, "POST", &format!("{I}/segment"), None).await;
     assert_eq!(st, StatusCode::OK, "{seg}");
-    let units: Vec<Value> = seg["units"].as_array().unwrap().clone();
+    let units: Vec<String> = seg["units"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|u| u["unit_id"].as_str().unwrap().to_string())
+        .collect();
     assert_eq!(units.len(), 6);
-    let seg_hash = seg["hash"].as_str().unwrap().to_string();
-    let uid = |i: usize| units[i]["unit_id"].as_str().unwrap().to_string();
+    let u = |i: usize| units[i].clone();
 
-    // Prompt.
+    // ---- Phase 1: TOE contexts.
+    let (st, rows) = call(app, "GET", &format!("{P1}/units"), None).await;
+    assert_eq!(st, StatusCode::OK, "{rows}");
+    assert_eq!(rows.as_array().unwrap().len(), 6);
+    assert_eq!(
+        names(&rows[0]["allowed"]),
+        ["TECH", "ORG", "ENV", "INDUCTIVE-PENDING"]
+    );
+
     let (st, parts) = call(
         app,
         "POST",
-        "/api/interviews/INT-01/prompts",
+        &format!("{P1}/prompts"),
         Some(json!({ "batch_size": 0 })),
     )
     .await;
     assert_eq!(st, StatusCode::OK, "{parts}");
-    assert_eq!(parts.as_array().unwrap().len(), 1);
-    let prompt_ids: Vec<String> = parts[0]["unit_ids"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .map(|v| v.as_str().unwrap().to_string())
-        .collect();
-    assert_eq!(prompt_ids.len(), 6);
+    let part1 = parts[0].clone();
+    assert_eq!(part1["phase"], 1);
+    assert!(part1["text"].as_str().unwrap().contains("Phase 1 of 2"));
+    let (_, listed) = call(app, "GET", &format!("{P1}/prompts"), None).await;
+    assert_eq!(listed.as_array().unwrap().len(), 1);
 
-    // Run.
     let (st, run) = call(
         app,
         "POST",
-        "/api/interviews/INT-01/runs",
+        &format!("{P1}/runs"),
         Some(json!({ "run_label": "R1", "model_name": "test-model", "temperature": 0.0 })),
     )
     .await;
     assert_eq!(st, StatusCode::OK, "{run}");
-    let run_id = run["run_id"].as_i64().unwrap();
+    assert_eq!(run["phase"], 1);
     assert_eq!(run["meta"]["prompt_id_version"], cs_ai::PROMPT_VERSION);
+    let run1 = run["run_id"].as_i64().unwrap();
 
-    // Human codes: interviewer turns NA, respondent turns a code.
-    let human: Vec<(String, Vec<&str>)> = vec![
-        (uid(0), vec!["NA"]),
-        (uid(1), vec!["TECH-ADV"]),
-        (uid(2), vec!["NA"]),
-        (uid(3), vec!["TECH-ADV"]),
-        (uid(4), vec!["NA"]),
-        (uid(5), vec!["TECH-COST"]),
-    ];
-
-    // Only one unit coded: AI import refused by the blind guard.
-    let (st, c) = call(
-        app,
-        "PUT",
-        &format!("/api/interviews/INT-01/coding/{}", uid(0)),
-        Some(json!({ "codes": ["NA"] })),
-    )
-    .await;
-    assert_eq!(st, StatusCode::OK, "{c}");
-    let valid = answer(
-        &seg_hash,
-        &[
-            (uid(0), vec!["NA"]),
-            (uid(1), vec!["TECH-ADV"]),
-            (uid(2), vec!["NA"]),
-            (uid(3), vec!["TECH-ADV", "ORG-SKILLS"]),
-            (uid(4), vec!["NA"]),
-            (uid(5), vec!["TECH-COST"]),
-        ],
-    );
-    let out_uri = format!("/api/interviews/INT-01/runs/{run_id}/outputs");
+    // Phase 1 human coding: INT turns NA, respondent turns on the contexts.
+    let human1 = |id: &str| -> Vec<String> {
+        match units.iter().position(|x| x == id).unwrap() {
+            1 => codes(&["ENV"]),
+            3 => codes(&["TECH"]),
+            5 => codes(&["TECH", "ORG"]),
+            _ => codes(&["NA"]),
+        }
+    };
+    let out1 = format!("{P1}/runs/{run1}/outputs");
+    // Blind guard before the human coding is complete.
     let (st, e) = call(
         app,
         "POST",
-        &out_uri,
-        Some(json!({ "raw": valid, "part": 1, "of": 1 })),
+        &out1,
+        Some(json!({ "raw": answer(&part1, human1), "part": 1, "of": 1 })),
     )
     .await;
     assert_eq!(st, StatusCode::CONFLICT, "{e}");
     assert_eq!(e["kind"], "guard");
 
-    // Validation of a human coding: unknown code, NA mixed, excerpt not in unit.
-    let (st, _) = call(
-        app,
-        "PUT",
-        &format!("/api/interviews/INT-01/coding/{}", uid(1)),
-        Some(json!({ "codes": ["NOPE"] })),
-    )
-    .await;
-    assert_eq!(st, StatusCode::BAD_REQUEST);
-    let (st, _) = call(
-        app,
-        "PUT",
-        &format!("/api/interviews/INT-01/coding/{}", uid(1)),
-        Some(json!({ "codes": ["TECH-ADV"], "excerpt": "words never said" })),
-    )
-    .await;
-    assert_eq!(st, StatusCode::BAD_REQUEST);
-
-    // Complete the human coding, with an exact excerpt on one unit.
-    for (u, codes) in &human {
-        let mut body = json!({ "codes": codes });
-        if *u == uid(3) {
-            body["excerpt"] = json!("went from sixty to ninety-eight percent");
-            body["ev_level"] = json!("EV2");
-        }
-        let (st, r) = call(
-            app,
-            "PUT",
-            &format!("/api/interviews/INT-01/coding/{u}"),
-            Some(body),
-        )
-        .await;
-        assert_eq!(st, StatusCode::OK, "{r}");
-    }
-
-    // Re-segmentation is now refused.
-    let (st, _) = call(app, "POST", "/api/interviews/INT-01/segment", None).await;
-    let (_, seg_again) = call(app, "GET", "/api/interviews/INT-01", None).await;
-    assert!(st == StatusCode::OK || st == StatusCode::CONFLICT);
-    assert_eq!(seg_again["segmentation"]["hash"], seg_hash);
-
-    // Invalid answer: unknown code, missing unit. All problems listed.
-    let invalid = answer(
-        &seg_hash,
-        &[(uid(0), vec!["FOO"]), (uid(1), vec!["NA", "TECH-ADV"])],
-    );
-    let (st, e) = call(app, "POST", &out_uri, Some(json!({ "raw": invalid }))).await;
-    assert_eq!(st, StatusCode::BAD_REQUEST, "{e}");
-    assert!(e["issues"].as_array().unwrap().len() >= 3, "{e}");
-
-    // Valid answer.
-    let (st, r) = call(
-        app,
-        "POST",
-        &out_uri,
-        Some(json!({ "raw": valid, "part": 1, "of": 1 })),
-    )
-    .await;
-    assert_eq!(st, StatusCode::OK, "{r}");
-    assert_eq!(r["complete"], true);
-
-    // Same part twice is refused.
-    let (st, _) = call(app, "POST", &out_uri, Some(json!({ "raw": valid }))).await;
-    assert_ne!(st, StatusCode::OK);
-
-    // Human coding is now locked.
+    // A study-specific code is refused in phase 1.
     let (st, e) = call(
         app,
         "PUT",
-        &format!("/api/interviews/INT-01/coding/{}", uid(1)),
-        Some(json!({ "codes": ["ORG-SKILLS"] })),
+        &format!("{P1}/coding/{}", u(1)),
+        Some(json!({ "codes": ["TECH-ADV"] })),
+    )
+    .await;
+    assert_eq!(st, StatusCode::BAD_REQUEST, "{e}");
+    for id in &units {
+        let (st, saved) = call(
+            app,
+            "PUT",
+            &format!("{P1}/coding/{id}"),
+            Some(json!({ "codes": human1(id), "memo": "test" })),
+        )
+        .await;
+        assert_eq!(st, StatusCode::OK, "{saved}");
+        assert_eq!(saved["unit_id"], id.as_str());
+    }
+    // Phase 2 cannot start before phase 1 is reconciled.
+    let (st, e) = call(
+        app,
+        "PUT",
+        &format!("{P2}/coding/{}", u(1)),
+        Some(json!({ "codes": ["ENV-PARTNER"] })),
     )
     .await;
     assert_eq!(st, StatusCode::CONFLICT, "{e}");
 
-    // Agreement and divergences.
-    let (st, agr) = call(app, "GET", "/api/interviews/INT-01/agreement", None).await;
-    assert_eq!(st, StatusCode::OK, "{agr}");
-    assert_eq!(agr["reports"][0]["n_exact"], 5);
-    assert!(agr["markdown"].as_str().unwrap().contains("TECH-ADV"));
-    let (st, dv) = call(app, "GET", "/api/interviews/INT-01/divergences", None).await;
-    assert_eq!(st, StatusCode::OK, "{dv}");
-    assert_eq!(dv["n_divergences"], 1);
-    assert_eq!(dv["items"][0]["divergence"]["unit_id"], uid(3));
+    // Invalid answer: every problem is listed.
+    let (st, e) = call(
+        app,
+        "POST",
+        &out1,
+        Some(json!({ "raw": answer(&part1, |_| codes(&["NOT-A-CODE"])), "part": 1, "of": 1 })),
+    )
+    .await;
+    assert_eq!(st, StatusCode::BAD_REQUEST, "{e}");
+    assert!(e["issues"].as_array().unwrap().len() >= 6);
 
-    // Export before arbitration: no final coding, pending listed.
-    let (st, ex1) = call(app, "POST", "/api/interviews/INT-01/export", None).await;
-    assert_eq!(st, StatusCode::OK, "{ex1}");
-    assert_eq!(ex1["final_complete"], false);
-    assert_eq!(ex1["pending_units"][0], uid(3));
+    // Valid answer, diverging on unit 3 only.
+    let ai1 = |id: &str| -> Vec<String> {
+        if id == units[3] {
+            codes(&["ORG"])
+        } else {
+            human1(id)
+        }
+    };
+    let (st, run) = call(
+        app,
+        "POST",
+        &out1,
+        Some(json!({ "raw": answer(&part1, ai1), "part": 1, "of": 1 })),
+    )
+    .await;
+    assert_eq!(st, StatusCode::OK, "{run}");
+    assert_eq!(run["complete"], true);
 
-    // Arbitration: rationale required, non-divergent unit refused.
-    let arb_uri = format!("/api/interviews/INT-01/arbitration/{}", uid(3));
+    // Human coding is now locked in phase 1.
     let (st, _) = call(
         app,
         "PUT",
-        &arb_uri,
-        Some(json!({ "choice": { "type": "human" }, "final_codes": ["TECH-ADV"], "rationale": "  " })),
+        &format!("{P1}/coding/{}", u(0)),
+        Some(json!({ "codes": ["TECH"] })),
+    )
+    .await;
+    assert_eq!(st, StatusCode::CONFLICT);
+    let (_, state1) = call(app, "GET", P1, None).await;
+    assert_eq!(state1["locked"], true);
+    assert_eq!(state1["reconciled"], false);
+    assert_eq!(state1["guard"]["complete"], true);
+
+    let (st, ag) = call(app, "GET", &format!("{P1}/agreement"), None).await;
+    assert_eq!(st, StatusCode::OK, "{ag}");
+    assert_eq!(ag["reports"][0]["n_units"], 6);
+    assert_eq!(ag["reports"][0]["n_exact"], 5);
+    assert!(ag["markdown"].as_str().unwrap().contains("Phase 1"));
+
+    let (st, div) = call(app, "GET", &format!("{P1}/divergences"), None).await;
+    assert_eq!(st, StatusCode::OK, "{div}");
+    assert_eq!(div["n_divergences"], 1);
+    assert_eq!(div["items"][0]["divergence"]["unit_id"], u(3).as_str());
+    assert_eq!(names(&div["items"][0]["allowed"]).len(), 4);
+
+    let arb1 = format!("{P1}/arbitration/{}", u(3));
+    let (st, _) = call(
+        app,
+        "PUT",
+        &arb1,
+        Some(json!({ "choice": {"type": "human"}, "final_codes": ["TECH"], "rationale": "  " })),
     )
     .await;
     assert_eq!(st, StatusCode::BAD_REQUEST);
     let (st, _) = call(
         app,
         "PUT",
-        &format!("/api/interviews/INT-01/arbitration/{}", uid(1)),
-        Some(
-            json!({ "choice": { "type": "human" }, "final_codes": ["TECH-ADV"], "rationale": "x" }),
-        ),
+        &format!("{P1}/arbitration/{}", u(1)),
+        Some(json!({ "choice": {"type": "human"}, "final_codes": ["ENV"], "rationale": "x" })),
     )
     .await;
-    assert_eq!(st, StatusCode::BAD_REQUEST);
+    assert_eq!(
+        st,
+        StatusCode::BAD_REQUEST,
+        "a non-divergent unit is not arbitrated"
+    );
     let (st, a) = call(
         app,
         "PUT",
-        &arb_uri,
-        Some(json!({
-            "choice": { "type": "ai", "run_label": "R1" },
-            "final_codes": ["TECH-ADV", "ORG-SKILLS"],
-            "rationale": "The respondent attributes the gain to the team's skills as well."
-        })),
+        &arb1,
+        Some(
+            json!({ "choice": {"type": "human"}, "final_codes": ["TECH"],
+                     "rationale": "The respondent speaks of tag cost, a technology property." }),
+        ),
     )
     .await;
     assert_eq!(st, StatusCode::OK, "{a}");
-    assert_eq!(a["decided_by"], "candidate");
+    assert_eq!(a["phase"], 1);
+    let (_, fin1) = call(app, "GET", &format!("{P1}/final"), None).await;
+    assert_eq!(fin1["reconciled"], true, "{fin1}");
+    assert_eq!(fin1["finals"].as_array().unwrap().len(), 6);
 
-    // Export after arbitration: final coding present, manifest hashes match.
-    let (st, ex) = call(app, "POST", "/api/interviews/INT-01/export", None).await;
-    assert_eq!(st, StatusCode::OK, "{ex}");
-    assert_eq!(ex["final_complete"], true);
-    let dir = Path::new(ex["dir"].as_str().unwrap());
-    assert_ne!(ex["dir"], ex1["dir"], "exports never overwrite");
-    assert!(dir.starts_with(ctx.db.parent().unwrap().join("exports")));
-    for name in [
+    // ---- Phase 2: study-specific codes on the relevant units.
+    let (st, rows2) = call(app, "GET", &format!("{P2}/units"), None).await;
+    assert_eq!(st, StatusCode::OK, "{rows2}");
+    let scope2: Vec<String> = rows2
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|r| r["unit"]["unit_id"].as_str().unwrap().to_string())
+        .collect();
+    assert_eq!(scope2, [u(1), u(3), u(5)]);
+    assert_eq!(rows2[1]["phase1_final"], json!(["TECH"]));
+    let allowed3 = names(&rows2[1]["allowed"]);
+    assert_eq!(allowed3, ["TECH-ADV", "TECH-COST", "OUT-REALISED"]);
+    assert_eq!(
+        names(&rows2[2]["allowed"]),
+        ["TECH-ADV", "TECH-COST", "ORG-SKILLS", "OUT-REALISED"]
+    );
+
+    // A code outside the unit's families is refused.
+    let (st, e) = call(
+        app,
+        "PUT",
+        &format!("{P2}/coding/{}", u(3)),
+        Some(json!({ "codes": ["ORG-SKILLS"] })),
+    )
+    .await;
+    assert_eq!(st, StatusCode::BAD_REQUEST, "{e}");
+
+    // Inductive code: definition and reason are required.
+    let (st, _) = call(
+        app,
+        "POST",
+        "/api/codebook/codes",
+        Some(json!({ "code": "SOURCE-TAGGING", "label": "Source tagging", "definition": "Tags applied by the supplier." })),
+    )
+    .await;
+    assert_eq!(st, StatusCode::BAD_REQUEST);
+    let (st, book) = call(
+        app,
+        "POST",
+        "/api/codebook/codes",
+        Some(json!({ "code": "SOURCE-TAGGING", "label": "Source tagging",
+                     "definition": "Tags applied by the supplier before goods reach the retailer.",
+                     "example": "our supplier tags every carton at the source",
+                     "reason": "Recurrent mechanism not covered by ENV-PARTNER." })),
+    )
+    .await;
+    assert_eq!(st, StatusCode::OK, "{book}");
+    let added = book["codes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|c| c["code"] == "SOURCE-TAGGING")
+        .unwrap()
+        .clone();
+    assert_eq!(added["origin"], "inductive");
+    assert!(added["created_at"].is_string());
+
+    let human2 = |id: &str| -> Vec<String> {
+        if id == units[1] {
+            codes(&["ENV-PARTNER", "SOURCE-TAGGING"])
+        } else if id == units[3] {
+            codes(&["TECH-ADV"])
+        } else {
+            codes(&["TECH-COST", "ORG-SKILLS"])
+        }
+    };
+    // Phase 1 is frozen as soon as phase 2 coding starts.
+    let (st, _) = call(
+        app,
+        "PUT",
+        &format!("{P2}/coding/{}", u(1)),
+        Some(json!({ "codes": human2(&u(1)), "excerpt": "our supplier tags every carton" })),
+    )
+    .await;
+    assert_eq!(st, StatusCode::OK);
+    let (st, e) = call(
+        app,
+        "POST",
+        &format!("{P1}/runs"),
+        Some(json!({ "run_label": "R2", "model_name": "other" })),
+    )
+    .await;
+    assert_eq!(st, StatusCode::CONFLICT, "{e}");
+    let (st, _) = call(
+        app,
+        "PUT",
+        &arb1,
+        Some(json!({ "choice": {"type": "custom"}, "final_codes": ["ORG"], "rationale": "late" })),
+    )
+    .await;
+    assert_eq!(st, StatusCode::CONFLICT);
+    let (_, state1) = call(app, "GET", P1, None).await;
+    assert_eq!(state1["frozen"], true);
+
+    // Phase 2 prompt carries the allowed codes; inductive codes never reach the AI.
+    let (st, parts2) = call(
+        app,
+        "POST",
+        &format!("{P2}/prompts"),
+        Some(json!({ "batch_size": 2 })),
+    )
+    .await;
+    assert_eq!(st, StatusCode::OK, "{parts2}");
+    assert_eq!(parts2.as_array().unwrap().len(), 2);
+    let text2 = parts2[0]["text"].as_str().unwrap();
+    assert!(text2.contains("allowed_codes"));
+    assert!(text2.contains("Phase 2 of 2"));
+    assert!(!text2.contains("SOURCE-TAGGING"));
+
+    let (st, run) = call(
+        app,
+        "POST",
+        &format!("{P2}/runs"),
+        Some(json!({ "run_label": "R1", "model_name": "test-model" })),
+    )
+    .await;
+    assert_eq!(st, StatusCode::OK, "{run}");
+    let run2 = run["run_id"].as_i64().unwrap();
+    let out2 = format!("{P2}/runs/{run2}/outputs");
+    let ai2 = |id: &str| -> Vec<String> {
+        if id == units[1] {
+            codes(&["ENV-PARTNER"])
+        } else {
+            human2(id)
+        }
+    };
+    let (st, e) = call(
+        app,
+        "POST",
+        &out2,
+        Some(json!({ "raw": answer(&parts2[0], ai2), "part": 1, "of": 2 })),
+    )
+    .await;
+    assert_eq!(
+        st,
+        StatusCode::CONFLICT,
+        "blind guard of phase 2 while human coding is incomplete: {e}"
+    );
+    for id in [u(3), u(5)] {
+        let (st, e) = call(
+            app,
+            "PUT",
+            &format!("{P2}/coding/{id}"),
+            Some(json!({ "codes": human2(&id) })),
+        )
+        .await;
+        assert_eq!(st, StatusCode::OK, "{e}");
+    }
+    // The AI may not use an inductive code.
+    let (st, e) = call(
+        app,
+        "POST",
+        &out2,
+        Some(json!({ "raw": answer(&parts2[0], human2), "part": 1, "of": 2 })),
+    )
+    .await;
+    assert_eq!(st, StatusCode::BAD_REQUEST, "{e}");
+    for p in parts2.as_array().unwrap() {
+        let (st, run) = call(
+            app,
+            "POST",
+            &out2,
+            Some(json!({ "raw": answer(p, ai2), "part": p["part"], "of": p["of"] })),
+        )
+        .await;
+        assert_eq!(st, StatusCode::OK, "{run}");
+    }
+    let (_, div2) = call(app, "GET", &format!("{P2}/divergences"), None).await;
+    assert_eq!(div2["n_divergences"], 1, "{div2}");
+    assert!(names(&div2["items"][0]["allowed"]).contains(&"SOURCE-TAGGING".to_string()));
+    let (st, a) = call(
+        app,
+        "PUT",
+        &format!("{P2}/arbitration/{}", u(1)),
+        Some(
+            json!({ "choice": {"type": "custom"}, "final_codes": ["ENV-PARTNER", "SOURCE-TAGGING"],
+                     "rationale": "The supplier's source tagging is a distinct mechanism." }),
+        ),
+    )
+    .await;
+    assert_eq!(st, StatusCode::OK, "{a}");
+    let (_, fin2) = call(app, "GET", &format!("{P2}/final"), None).await;
+    assert_eq!(fin2["reconciled"], true, "{fin2}");
+
+    let (_, detail) = call(app, "GET", I, None).await;
+    assert_eq!(detail["phase2_started"], true);
+    assert_eq!(detail["phase1"]["reconciled"], true);
+    assert_eq!(detail["phase2"]["reconciled"], true);
+    assert_eq!(detail["phase2"]["n_units"], 3);
+
+    // Export: both phases, inductive log, manifest hashes, never overwritten.
+    let (st, exp) = call(app, "POST", &format!("{I}/export"), None).await;
+    assert_eq!(st, StatusCode::OK, "{exp}");
+    let dir = std::path::PathBuf::from(exp["dir"].as_str().unwrap());
+    assert!(dir.starts_with(ctx.db.parent().unwrap()));
+    for f in [
         "units.csv",
-        "coding_human.csv",
-        "human_full.csv",
-        "agreement.md",
-        "adjudication_log.md",
-        "coding_final.csv",
+        "phase1_coding_human.csv",
+        "phase1_coding_final.csv",
+        "phase1_agreement.md",
+        "phase1_adjudication_log.md",
+        "phase2_coding_human.csv",
+        "phase2_human_full.csv",
+        "phase2_coding_final.csv",
+        "phase2_adjudication_log.md",
+        "inductive_log.csv",
         "audit_log.jsonl",
         "audit_chain.json",
-        "README.md",
         "manifest.json",
+        "README.md",
     ] {
-        assert!(dir.join(name).is_file(), "missing {name}");
+        assert!(dir.join(f).is_file(), "missing {f}");
     }
+    let final2 = std::fs::read_to_string(dir.join("phase2_coding_final.csv")).unwrap();
+    assert!(final2.contains("ENV-PARTNER;SOURCE-TAGGING"));
+    let log = std::fs::read_to_string(dir.join("inductive_log.csv")).unwrap();
+    assert!(log.contains("SOURCE-TAGGING") && log.contains("Recurrent mechanism"));
     let manifest: Value =
-        serde_json::from_slice(&std::fs::read(dir.join("manifest.json")).unwrap()).unwrap();
-    let files = manifest["files"].as_array().unwrap();
-    assert!(files.len() >= 13, "{manifest}");
-    for f in files {
+        serde_json::from_str(&std::fs::read_to_string(dir.join("manifest.json")).unwrap()).unwrap();
+    for f in manifest["files"].as_array().unwrap() {
         let bytes = std::fs::read(dir.join(f["name"].as_str().unwrap())).unwrap();
         assert_eq!(cs_model::sha256_hex(&bytes), f["sha256"].as_str().unwrap());
     }
-    let raw_name = files
-        .iter()
-        .map(|f| f["name"].as_str().unwrap())
-        .find(|n| n.starts_with("ai_run") && n.ends_with("_raw.txt"))
-        .expect("raw AI answer exported");
-    assert_eq!(std::fs::read_to_string(dir.join(raw_name)).unwrap(), valid);
-    let final_csv = std::fs::read_to_string(dir.join("coding_final.csv")).unwrap();
-    assert!(final_csv.contains("ORG-SKILLS;TECH-ADV"), "{final_csv}");
+    for name in std::fs::read_dir(&dir).unwrap() {
+        let path = name.unwrap().path();
+        let text = std::fs::read_to_string(&path).unwrap_or_default();
+        assert!(
+            !text.contains('\u{2014}') && !text.contains('\u{2013}'),
+            "dash in {}",
+            path.display()
+        );
+    }
+    let (_, exp2) = call(app, "POST", &format!("{I}/export"), None).await;
+    assert_ne!(exp2["dir"], exp["dir"]);
 
-    // Audit trail: chain intact, key actions present.
-    let (st, chain) = call(app, "GET", "/api/audit/verify", None).await;
-    assert_eq!(st, StatusCode::OK);
+    let (_, chain) = call(app, "GET", "/api/audit/verify", None).await;
     assert_eq!(chain["ok"], true, "{chain}");
     let (_, events) = call(app, "GET", "/api/audit?interview_id=INT-01", None).await;
-    let actions: Vec<&str> = events
-        .as_array()
-        .unwrap()
-        .iter()
-        .map(|e| e["action"].as_str().unwrap())
-        .collect();
-    for needed in [
-        "segmentation.save",
-        "coding.set",
-        "prompt.generate",
-        "ai.run.create",
-        "ai.output.import",
-        "arbitration.record",
-        "export.package",
-    ] {
-        assert!(actions.contains(&needed), "missing {needed} in {actions:?}");
-    }
+    assert!(events.as_array().unwrap().len() > 20);
+}
 
-    // State and summaries.
-    let (st, state) = call(app, "GET", "/api/state", None).await;
+#[tokio::test]
+async fn react_build_is_served() {
+    let ctx = setup();
+    let (st, ct, cc, body) = raw(&ctx.app, "/").await;
     assert_eq!(st, StatusCode::OK);
-    assert_eq!(state["codebook_size"], 4);
-    let (_, list) = call(app, "GET", "/api/interviews", None).await;
-    let int01 = list
-        .as_array()
-        .unwrap()
-        .iter()
-        .find(|s| s["interview_id"] == "INT-01")
-        .unwrap();
-    assert_eq!(int01["human_complete"], true);
-    assert_eq!(int01["n_divergences"], 1);
-    assert_eq!(int01["n_arbitrated"], 1);
+    assert!(ct.starts_with("text/html"), "{ct}");
+    assert_eq!(cc, "no-store");
+    let html = String::from_utf8(body).unwrap();
+
+    // Client-side routes fall back to index.html.
+    let (st, ct, _, deep) = raw(&ctx.app, "/interview/INT-01/coding").await;
+    assert_eq!(st, StatusCode::OK);
+    assert!(ct.starts_with("text/html"));
+    assert_eq!(String::from_utf8(deep).unwrap(), html);
+
+    // The script referenced by index.html is served with its type, immutable.
+    let src = html
+        .split("src=\"")
+        .skip(1)
+        .map(|s| s.split('"').next().unwrap())
+        .find(|s| s.starts_with("/assets/") && s.ends_with(".js"))
+        .expect("index.html references a script under /assets");
+    let (st, ct, cc, _) = raw(&ctx.app, src).await;
+    assert_eq!(st, StatusCode::OK);
+    assert!(ct.contains("javascript"), "{ct}");
+    assert!(cc.contains("immutable"), "{cc}");
+
+    // Unknown API routes stay JSON errors.
+    let (st, e) = call(&ctx.app, "GET", "/api/nope", None).await;
+    assert_eq!(st, StatusCode::NOT_FOUND);
+    assert_eq!(e["kind"], "not_found");
 }
 
 #[tokio::test]
@@ -461,6 +674,11 @@ async fn errors_are_typed() {
     let (st, e) = call(&ctx.app, "GET", "/api/interviews/NOPE-9", None).await;
     assert_eq!(st, StatusCode::NOT_FOUND);
     assert_eq!(e["kind"], "not_found");
+    let (st, e) = call(&ctx.app, "GET", "/api/interviews/NOPE-9/phases/1", None).await;
+    assert_eq!(st, StatusCode::NOT_FOUND, "{e}");
+    let (st, e) = call(&ctx.app, "GET", "/api/interviews/NOPE-9/phases/3", None).await;
+    assert_eq!(st, StatusCode::BAD_REQUEST, "{e}");
+    assert_eq!(e["kind"], "validation");
     let (st, e) = call(&ctx.app, "POST", "/api/library/scan", Some(json!({}))).await;
     assert_eq!(st, StatusCode::BAD_REQUEST, "{e}");
     let (st, _) = call(
