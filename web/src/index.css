@@ -7,7 +7,14 @@
 
 @theme inline {
     --font-heading: var(--font-sans);
-    --font-sans: 'Geist Variable', sans-serif;
+    --font-sans: 'Geist Variable', ui-sans-serif, system-ui, sans-serif;
+    --font-serif: "Iowan Old Style", Charter, "Palatino Linotype", Palatino, Georgia, serif;
+    --font-mono: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+    --color-ok: var(--ok);
+    --color-ok-soft: var(--ok-soft);
+    --color-warn: var(--warn);
+    --color-warn-soft: var(--warn-soft);
+    --color-danger-soft: var(--danger-soft);
     --color-sidebar-ring: var(--sidebar-ring);
     --color-sidebar-border: var(--sidebar-border);
     --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -49,72 +56,108 @@
 }
 
 :root {
-    --background: oklch(1 0 0);
-    --foreground: oklch(0.145 0 0);
-    --card: oklch(1 0 0);
-    --card-foreground: oklch(0.145 0 0);
-    --popover: oklch(1 0 0);
-    --popover-foreground: oklch(0.145 0 0);
-    --primary: oklch(0.205 0 0);
-    --primary-foreground: oklch(0.985 0 0);
-    --secondary: oklch(0.97 0 0);
-    --secondary-foreground: oklch(0.205 0 0);
-    --muted: oklch(0.97 0 0);
-    --muted-foreground: oklch(0.556 0 0);
-    --accent: oklch(0.97 0 0);
-    --accent-foreground: oklch(0.205 0 0);
-    --destructive: oklch(0.577 0.245 27.325);
-    --border: oklch(0.922 0 0);
-    --input: oklch(0.922 0 0);
-    --ring: oklch(0.708 0 0);
-    --chart-1: oklch(0.87 0 0);
-    --chart-2: oklch(0.556 0 0);
-    --chart-3: oklch(0.439 0 0);
-    --chart-4: oklch(0.371 0 0);
-    --chart-5: oklch(0.269 0 0);
-    --radius: 0.625rem;
-    --sidebar: oklch(0.985 0 0);
-    --sidebar-foreground: oklch(0.145 0 0);
-    --sidebar-primary: oklch(0.205 0 0);
-    --sidebar-primary-foreground: oklch(0.985 0 0);
-    --sidebar-accent: oklch(0.97 0 0);
-    --sidebar-accent-foreground: oklch(0.205 0 0);
-    --sidebar-border: oklch(0.922 0 0);
-    --sidebar-ring: oklch(0.708 0 0);
+    /* Slate paper: cool neutrals for long reading, one instrument blue. */
+    --background: #f3f5f7;
+    --foreground: #18202b;
+    --card: #ffffff;
+    --card-foreground: #18202b;
+    --popover: #ffffff;
+    --popover-foreground: #18202b;
+    --primary: #1e5a8c;
+    --primary-foreground: #ffffff;
+    --secondary: #e8ecf1;
+    --secondary-foreground: #18202b;
+    --muted: #eef1f4;
+    --muted-foreground: #5b6676;
+    --accent: #e4edf6;
+    --accent-foreground: #17496f;
+    --destructive: #a3262a;
+    --border: #dce1e8;
+    --input: #cfd6df;
+    --ring: #1e5a8c;
+    --chart-1: #1e5a8c;
+    --chart-2: #2b7a57;
+    --chart-3: #7346a0;
+    --chart-4: #a35e1b;
+    --chart-5: #6a7280;
+    --radius: 0.5rem;
+    --sidebar: #e9edf1;
+    --sidebar-foreground: #18202b;
+    --sidebar-primary: #1e5a8c;
+    --sidebar-primary-foreground: #ffffff;
+    --sidebar-accent: #dbe3ec;
+    --sidebar-accent-foreground: #18202b;
+    --sidebar-border: #d5dbe3;
+    --sidebar-ring: #1e5a8c;
+
+    --ok: #2d6a4f;
+    --ok-soft: #e4f1e9;
+    --warn: #8a5300;
+    --warn-soft: #fbf0db;
+    --danger-soft: #fae8e8;
+
+    /* TOE family colours, carried over from the first interface. */
+    --fam-tech: #2f64a8;
+    --fam-org: #7346a0;
+    --fam-env: #2b7a57;
+    --fam-outcome: #a35e1b;
+    --fam-turn: #a8323e;
+    --fam-transfer: #0e7480;
+    --fam-stage: #5c6b2a;
+    --fam-context: #6a7280;
+    --fam-inductive: #8a6d0b;
+    --fam-na: #9aa2ae;
 }
 
 .dark {
-    --background: oklch(0.145 0 0);
-    --foreground: oklch(0.985 0 0);
-    --card: oklch(0.205 0 0);
-    --card-foreground: oklch(0.985 0 0);
-    --popover: oklch(0.205 0 0);
-    --popover-foreground: oklch(0.985 0 0);
-    --primary: oklch(0.922 0 0);
-    --primary-foreground: oklch(0.205 0 0);
-    --secondary: oklch(0.269 0 0);
-    --secondary-foreground: oklch(0.985 0 0);
-    --muted: oklch(0.269 0 0);
-    --muted-foreground: oklch(0.708 0 0);
-    --accent: oklch(0.269 0 0);
-    --accent-foreground: oklch(0.985 0 0);
-    --destructive: oklch(0.704 0.191 22.216);
-    --border: oklch(1 0 0 / 10%);
-    --input: oklch(1 0 0 / 15%);
-    --ring: oklch(0.556 0 0);
-    --chart-1: oklch(0.87 0 0);
-    --chart-2: oklch(0.556 0 0);
-    --chart-3: oklch(0.439 0 0);
-    --chart-4: oklch(0.371 0 0);
-    --chart-5: oklch(0.269 0 0);
-    --sidebar: oklch(0.205 0 0);
-    --sidebar-foreground: oklch(0.985 0 0);
-    --sidebar-primary: oklch(0.488 0.243 264.376);
-    --sidebar-primary-foreground: oklch(0.985 0 0);
-    --sidebar-accent: oklch(0.269 0 0);
-    --sidebar-accent-foreground: oklch(0.985 0 0);
-    --sidebar-border: oklch(1 0 0 / 10%);
-    --sidebar-ring: oklch(0.556 0 0);
+    --background: #14181f;
+    --foreground: #e4e8ee;
+    --card: #1b2029;
+    --card-foreground: #e4e8ee;
+    --popover: #1f2530;
+    --popover-foreground: #e4e8ee;
+    --primary: #7fb0e0;
+    --primary-foreground: #0f1722;
+    --secondary: #252c37;
+    --secondary-foreground: #e4e8ee;
+    --muted: #222833;
+    --muted-foreground: #95a0b0;
+    --accent: #1f3247;
+    --accent-foreground: #b9d4ef;
+    --destructive: #ef8a8d;
+    --border: #2f3642;
+    --input: #3a4250;
+    --ring: #7fb0e0;
+    --chart-1: #7fb0e0;
+    --chart-2: #6cc49b;
+    --chart-3: #b493d6;
+    --chart-4: #e0a066;
+    --chart-5: #a3abb8;
+    --sidebar: #181c24;
+    --sidebar-foreground: #e4e8ee;
+    --sidebar-primary: #7fb0e0;
+    --sidebar-primary-foreground: #0f1722;
+    --sidebar-accent: #242b37;
+    --sidebar-accent-foreground: #e4e8ee;
+    --sidebar-border: #262c37;
+    --sidebar-ring: #7fb0e0;
+
+    --ok: #7cc49c;
+    --ok-soft: #1a3026;
+    --warn: #e6b765;
+    --warn-soft: #34291a;
+    --danger-soft: #3a1f22;
+
+    --fam-tech: #7aa7e0;
+    --fam-org: #b493d6;
+    --fam-env: #6cc49b;
+    --fam-outcome: #e0a066;
+    --fam-turn: #e88791;
+    --fam-transfer: #5cc3cf;
+    --fam-stage: #b2c46e;
+    --fam-context: #a3abb8;
+    --fam-inductive: #d9b952;
+    --fam-na: #6b7480;
 }
 
 @layer base {
@@ -127,4 +170,65 @@
   html {
     @apply font-sans;
     }
+}
+
+@layer base {
+  html { font-size: 14px; -webkit-font-smoothing: antialiased; }
+  :focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+}
+
+/* Verbatims are read, not scanned: a book serif with generous leading. */
+.verbatim {
+  font-family: var(--font-serif);
+  font-size: 1.07rem;
+  line-height: 1.62;
+  hyphens: auto;
+}
+
+.ident {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  letter-spacing: -0.01em;
+}
+
+/* Code chip: the family colour sits on the left edge, like a margin mark. */
+.chip {
+  --fam: var(--fam-na);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  height: 1.35rem;
+  padding: 0 0.45rem 0 0.4rem;
+  border-left: 3px solid var(--fam);
+  border-radius: 3px;
+  background: color-mix(in oklab, var(--fam) 11%, var(--card));
+  color: color-mix(in oklab, var(--fam) 62%, var(--foreground));
+  font-size: 0.78rem;
+  font-weight: 600;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.chip[data-mark="only"] {
+  outline: 1.5px solid var(--fam);
+  outline-offset: 1px;
+}
+.chip[data-mark="shared"] { opacity: 0.6; }
+
+/* The coding rail: one band per family a unit carries, read down the margin. */
+.rail {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 5px;
+  align-self: stretch;
+  border-radius: 3px;
+  overflow: hidden;
+}
+.rail > span { flex: 1; min-height: 6px; }
+.rail[data-state="empty"] {
+  background: repeating-linear-gradient(180deg, var(--border) 0 4px, transparent 4px 7px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
 }

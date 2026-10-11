@@ -7,8 +7,8 @@ import { defineConfig } from "vitest/config"
 // which the Rust binary embeds. In dev, /api is proxied to a running server.
 export default defineConfig({
   plugins: [react(), tailwindcss()],
-  resolve: { alias: { "@": path.resolve(__dirname, "./src") } },
+  resolve: { alias: { "@": path.resolve(import.meta.dirname, "./src") } },
   server: { proxy: { "/api": process.env.CS_API ?? "http://127.0.0.1:7878" } },
   build: { outDir: "dist", emptyOutDir: true, sourcemap: false },
-  test: { environment: "jsdom", globals: true },
+  test: { environment: "jsdom", globals: true, setupFiles: ["./src/test-setup.ts"] },
 })

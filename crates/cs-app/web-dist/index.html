@@ -4,9 +4,19 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>web</title>
-    <script type="module" crossorigin src="/assets/index-BCjYmE3y.js"></script>
-    <link rel="stylesheet" crossorigin href="/assets/index-CiBU4TiU.css">
+    <title>Coding Studio</title>
+    <script>
+      // Theme before first paint: a saved choice, otherwise the system setting.
+      (function () {
+        var t = null;
+        try { t = localStorage.getItem("cs-theme"); } catch (e) {}
+        var dark = t === "dark" || (t !== "light" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+        if (dark) document.documentElement.classList.add("dark");
+        document.documentElement.style.colorScheme = dark ? "dark" : "light";
+      })();
+    </script>
+    <script type="module" crossorigin src="/assets/index-B8bIEIQo.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-D-Dmcddd.css">
   </head>
   <body>
     <div id="root"></div>
