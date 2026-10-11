@@ -46,6 +46,23 @@ This starts the server on `http://127.0.0.1:7878/` and opens the browser, with t
 
 The SQLite database uses `journal_mode = DELETE`, which is safe in a synchronised folder. Stop the server with Ctrl+C.
 
+## Desktop app
+
+The same server and interface in a native window (Tauri 2), with native dialogs to choose folders and files.
+
+```bash
+make desktop       # builds "Coding Studio.app" (macOS) in $CARGO_TARGET_DIR/release/bundle/
+make desktop-dev   # runs the desktop app without bundling
+```
+
+On first launch the app asks where to keep its database (for the thesis: `05_Analysis/coding_studio/coding_studio.db`). The choice is saved in `config.json` in the platform configuration folder (`~/Library/Application Support/ch.dossantos.codingstudio/` on macOS), which can also hold `library`, `coding_db`, `actor` and `interviewer_names`. The Database menu opens or creates another database (the app restarts on it) and shows the database folder. `CODING_STUDIO_DB=/path/to.db` overrides the saved choice without changing it.
+
+The server listens on a free port of 127.0.0.1, so the desktop app and `make run` can run side by side, each on its own database. The bundle is not signed: on first opening, macOS asks for confirmation (right click, Open).
+
+## Appearance
+
+The interface follows the system light or dark setting. The switch in the top bar (System, Light, Dark) overrides it; the choice is kept by the browser or the desktop app.
+
 ## Workflow
 
 1. Library. Scan the interview folder. Each sub-folder whose name starts with an ID (`INT-`, `ECO-`, `RET-`, `ADJ-`) becomes an entry. Supported transcripts: platform `.vtt`, raw ASR `.txt` with timestamps, cleaned `02_transcript_cleaned_diarised.md`, Budgie Echo `.md` exports, written responses. Summaries and record sheets are listed and viewable read only; they never reach the AI.
@@ -97,6 +114,7 @@ crates/
   cs-store   SQLite schema, protocol guards, audit chain
   cs-ai      prompt builder, answer validation, agreement, adjudication, CSV and reports
   cs-app     local HTTP server (axum), embedded web UI, export
+  cs-desktop Tauri 2 window around cs-app, native dialogs, Database menu
 ```
 
 The JSON API is documented by the routes in `crates/cs-app/src/lib.rs`. The method, written for the thesis, is in `docs/METHOD.md`.

@@ -63,6 +63,7 @@ fn setup() -> Ctx {
         coding_db: Some(coding_db.clone()),
         actor: "candidate".into(),
         interviewer_names: vec!["Dos Santos Alexandre".into()],
+        picker: None,
     };
     Ctx {
         app: router(state),
@@ -470,4 +471,49 @@ async fn errors_are_typed() {
     )
     .await;
     assert_eq!(st, StatusCode::BAD_REQUEST);
+}
+
+#[tokio::test]
+async fn native_picker_only_in_desktop_mode() {
+    let ctx = setup();
+    let (status, body) = call(
+        &ctx.app,
+        "POST",
+        "/api/pick",
+        Some(json!({"kind": "folder"})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::NOT_IMPLEMENTED, "{body}");
+    let (_, state) = call(&ctx.app, "GET", "/api/state", None).await;
+    assert_eq!(state["native_dialogs"], json!(false));
+
+    // Desktop mode: the picker given at start-up answers the request.
+    let dir = tempfile::tempdir().unwrap();
+    let state = cs_app::prepare(
+        cs_app::Startup {
+            db: dir.path().join("sub/studio.db"),
+            library: None,
+            coding_db: None,
+            actor: "candidate".into(),
+            interviewer_names: vec![],
+        },
+        Some(Arc::new(|kind, title: &str| {
+            assert_eq!(kind, cs_app::PickKind::File);
+            assert_eq!(title, "Choose coding.db");
+            Some(std::path::PathBuf::from("/tmp/chosen.db"))
+        })),
+    )
+    .unwrap();
+    let app = router(state);
+    let (status, body) = call(
+        &app,
+        "POST",
+        "/api/pick",
+        Some(json!({"kind": "file", "title": "Choose coding.db"})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["path"], json!("/tmp/chosen.db"));
+    let (_, state) = call(&app, "GET", "/api/state", None).await;
+    assert_eq!(state["native_dialogs"], json!(true));
 }

@@ -38,6 +38,73 @@ pub struct AppState {
     pub coding_db: Option<PathBuf>,
     pub actor: String,
     pub interviewer_names: Vec<String>,
+    /// Native file dialog, present in the desktop app only. The browser mode
+    /// has none and the UI falls back to typed paths.
+    pub picker: Option<Picker>,
+}
+
+/// What the native dialog should let the user choose.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PickKind {
+    Folder,
+    File,
+}
+
+/// Opens a native dialog and returns the chosen path, `None` when cancelled.
+/// Called from a blocking thread, never from the async runtime.
+pub type Picker = Arc<dyn Fn(PickKind, &str) -> Option<PathBuf> + Send + Sync>;
+
+/// Start-up settings shared by the browser binary and the desktop app.
+#[derive(Debug, Clone)]
+pub struct Startup {
+    pub db: PathBuf,
+    pub library: Option<PathBuf>,
+    pub coding_db: Option<PathBuf>,
+    pub actor: String,
+    /// Empty: `cs_ingest::DEFAULT_INTERVIEWER_NAMES`.
+    pub interviewer_names: Vec<String>,
+}
+
+/// Opens (or creates) the database, records the library folder and imports
+/// the codebook when the local one is still empty.
+pub fn prepare(startup: Startup, picker: Option<Picker>) -> anyhow::Result<AppState> {
+    use anyhow::Context;
+    if let Some(parent) = startup.db.parent().filter(|p| !p.as_os_str().is_empty()) {
+        std::fs::create_dir_all(parent)
+            .with_context(|| format!("creating {}", parent.display()))?;
+    }
+    let store =
+        Store::open(&startup.db).with_context(|| format!("opening {}", startup.db.display()))?;
+    if let Some(lib) = &startup.library {
+        let lib = lib.display().to_string();
+        if store.setting("library_root")?.as_deref() != Some(lib.as_str()) {
+            store.set_setting("library_root", &lib, &startup.actor)?;
+        }
+    }
+    if let Some(cdb) = startup.coding_db.as_ref().filter(|p| p.is_file()) {
+        if store.codebook()?.codes.is_empty() {
+            store
+                .import_codebook(cdb, &startup.actor)
+                .with_context(|| format!("importing the codebook from {}", cdb.display()))?;
+        }
+    }
+    let interviewer_names = if startup.interviewer_names.is_empty() {
+        cs_ingest::DEFAULT_INTERVIEWER_NAMES
+            .iter()
+            .map(|s| s.to_string())
+            .collect()
+    } else {
+        startup.interviewer_names
+    };
+    Ok(AppState {
+        store: Arc::new(Mutex::new(store)),
+        db_path: startup.db,
+        coding_db: startup.coding_db,
+        actor: startup.actor,
+        interviewer_names,
+        picker,
+    })
 }
 
 impl AppState {
@@ -55,6 +122,7 @@ pub fn router(state: AppState) -> Router {
         .route("/app.js", get(app_js))
         .route("/style.css", get(style_css))
         .route("/api/state", get(api_state))
+        .route("/api/pick", post(pick))
         .route("/api/library/scan", post(scan_library))
         .route("/api/interviews", get(list_interviews))
         .route("/api/interviews/{id}", get(interview_detail))
@@ -160,7 +228,31 @@ async fn api_state(State(st): State<AppState>) -> ApiResult {
         "actor": st.actor,
         "codebook_size": store.codebook()?.codes.len(),
         "chain": store.verify_chain()?,
+        "native_dialogs": st.picker.is_some(),
     })))
+}
+
+#[derive(Deserialize)]
+struct PickBody {
+    kind: PickKind,
+    title: Option<String>,
+}
+
+/// Native folder or file dialog (desktop app only).
+async fn pick(State(st): State<AppState>, Json(body): Json<PickBody>) -> ApiResult {
+    let picker = st.picker.clone().ok_or_else(|| ApiError {
+        status: axum::http::StatusCode::NOT_IMPLEMENTED,
+        kind: "validation",
+        message: "native dialogs exist in the desktop app only; type the path".into(),
+        issues: None,
+    })?;
+    let title = body.title.unwrap_or_default();
+    let chosen = tokio::task::spawn_blocking(move || picker(body.kind, &title))
+        .await
+        .map_err(|e| anyhow::anyhow!("dialog thread failed: {e}"))?;
+    Ok(Json(
+        json!({ "path": chosen.map(|p| p.display().to_string()) }),
+    ))
 }
 
 // ---------------------------------------------------------------- library

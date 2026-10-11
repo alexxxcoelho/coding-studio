@@ -68,6 +68,17 @@ function fail(err) {
 }
 
 /** Runs an async action with a busy button, reporting errors as toasts. */
+// Native "Browse" button, desktop app only: fills `input` with the chosen path.
+function browseButton(state, input, kind, title) {
+  if (!state.native_dialogs) return null;
+  return h('button', { type: 'button', onclick: async () => {
+    try {
+      const res = await api('POST', '/api/pick', { kind, title });
+      if (res && res.path) { input.value = res.path; input.focus(); }
+    } catch (err) { fail(err); }
+  } }, 'Browse...');
+}
+
 async function busy(button, label, fn) {
   const before = button.textContent;
   button.disabled = true;
@@ -291,6 +302,7 @@ async function viewLibrary() {
   } },
   h('div', { class: 'row' },
     h('div', { class: 'grow' }, h('label', {}, 'Interview folder, one sub-folder per interview'), root),
+    browseButton(state, root, 'folder', 'Choose the interview folder'),
     scan),
   h('p', { class: 'muted small', style: 'margin:8px 0 0' }, 'A rescan refreshes the inventory and records every added, removed or changed file with its SHA-256. Transcripts are read, never modified.'));
 
@@ -968,7 +980,7 @@ async function viewCodebook() {
     const res = await busy(imp, 'Importing...', () => api('POST', '/api/codebook/import', { coding_db: path.value }));
     if (res) { BOOK = res; toast(`${res.codes.length} codes imported`, 'ok'); route(); }
   } },
-  h('div', { class: 'row' }, h('div', { class: 'grow' }, h('label', {}, 'Thesis coding.db, opened read only'), path), imp, add),
+  h('div', { class: 'row' }, h('div', { class: 'grow' }, h('label', {}, 'Thesis coding.db, opened read only'), path), browseButton(state, path, 'file', 'Choose the thesis coding.db'), imp, add),
   h('p', { class: 'small muted', style: 'margin:8px 0 0' }, 'Importing again keeps your inductive codes and your choices of what is offered to the AI. A code removed upstream is deactivated, never deleted. Legacy family codes are not offered to the AI by default.'));
   if (!book.codes.length) {
     put(clear(view), head, form, emptyState('The codebook is empty.', 'Import it from the thesis coding.db, which stays untouched.'));

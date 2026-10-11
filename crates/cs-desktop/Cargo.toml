@@ -1,0 +1,27 @@
+[package]
+name = "cs-desktop"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Coding Studio desktop app: the local server inside a native window"
+
+[[bin]]
+name = "coding-studio-desktop"
+path = "src/main.rs"
+
+[build-dependencies]
+tauri-build.workspace = true
+
+[dependencies]
+cs-app.workspace = true
+anyhow.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+axum.workspace = true
+tokio.workspace = true
+open.workspace = true
+tauri.workspace = true
+tauri-plugin-dialog.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

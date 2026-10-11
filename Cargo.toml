@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/cs-model", "crates/cs-ingest", "crates/cs-store", "crates/cs-ai", "crates/cs-app"]
+members = ["crates/cs-model", "crates/cs-ingest", "crates/cs-store", "crates/cs-ai", "crates/cs-app", "crates/cs-desktop"]
 
 [workspace.package]
 version = "0.1.0"
@@ -13,6 +13,7 @@ cs-model = { path = "crates/cs-model" }
 cs-ingest = { path = "crates/cs-ingest" }
 cs-store = { path = "crates/cs-store" }
 cs-ai = { path = "crates/cs-ai" }
+cs-app = { path = "crates/cs-app" }
 anyhow = "1"
 thiserror = "2"
 serde = { version = "1", features = ["derive"] }
@@ -28,3 +29,6 @@ tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "signal
 clap = { version = "4", features = ["derive"] }
 open = "5"
 tempfile = "3"
+tauri = "2"
+tauri-build = "2"
+tauri-plugin-dialog = "2"
