@@ -422,6 +422,7 @@ pub struct AuditEvent {
 impl AuditEvent {
     /// Hash that chains this event to the previous one. Any edit of a past
     /// event breaks every later hash, which `verify` reports.
+    #[allow(clippy::too_many_arguments)]
     pub fn compute_hash(
         prev_hash: &str,
         seq: i64,
