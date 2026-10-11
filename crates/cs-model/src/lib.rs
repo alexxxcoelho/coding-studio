@@ -9,6 +9,11 @@ use std::collections::{BTreeMap, BTreeSet};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
+pub mod phase;
+pub mod reconcile;
+
+pub use phase::{PHASE_1, PHASE_2};
+
 /// Code used when no code of the codebook applies to a unit. Exclusive: a unit
 /// coded `NA` carries no other code.
 pub const NA: &str = "NA";
@@ -196,6 +201,15 @@ pub struct Code {
     /// Whether the code is offered to the AI coder. Default: every active code
     /// whose origin is not `legacy`.
     pub in_prompt: bool,
+    /// Inductive log (candidate's codes): an example segment or quote.
+    #[serde(default)]
+    pub example: Option<String>,
+    /// Inductive log: why the code was created.
+    #[serde(default)]
+    pub reason: Option<String>,
+    /// Inductive log: creation time, ISO 8601.
+    #[serde(default)]
+    pub created_at: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -284,6 +298,8 @@ pub struct AiRunMeta {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PromptPart {
     pub interview_id: String,
+    /// 1 (TOE contexts) or 2 (study-specific codes).
+    pub phase: u8,
     pub part: u32,
     pub of: u32,
     pub unit_ids: Vec<String>,
@@ -298,6 +314,7 @@ pub struct PromptPart {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AiOutput {
     pub interview_id: String,
+    pub phase: u8,
     pub segmentation_hash: String,
     pub part: u32,
     pub of: u32,
@@ -315,6 +332,7 @@ pub struct ValidationIssue {
 pub struct AiRun {
     pub run_id: i64,
     pub interview_id: String,
+    pub phase: u8,
     pub meta: AiRunMeta,
     pub codings: CodingMap,
     /// Parts received so far, e.g. [1, 2] of 3.
@@ -376,12 +394,18 @@ pub enum ArbitrationChoice {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Arbitration {
     pub unit_id: String,
+    #[serde(default = "default_phase")]
+    pub phase: u8,
     pub choice: ArbitrationChoice,
     pub final_codes: CodeSet,
     /// Mandatory, never empty.
     pub rationale: String,
     pub decided_by: String,
     pub decided_at: String,
+}
+
+fn default_phase() -> u8 {
+    PHASE_1
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -457,6 +481,23 @@ pub struct ChainCheck {
 
 // ---------------------------------------------------------- library summary
 
+/// Progress of one coding phase of an interview.
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub struct PhaseSummary {
+    pub phase: u8,
+    /// Units in scope: every unit in phase 1, the relevant ones in phase 2
+    /// (0 while phase 1 is not reconciled).
+    pub n_units: usize,
+    pub n_human_coded: usize,
+    pub human_complete: bool,
+    pub n_ai_runs: usize,
+    pub n_ai_runs_complete: usize,
+    pub n_divergences: usize,
+    pub n_arbitrated: usize,
+    /// Every unit in scope has a final coding (agreed or arbitrated).
+    pub reconciled: bool,
+}
+
 /// Where an interview stands in the pipeline, for the library view.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct InterviewSummary {
@@ -465,13 +506,9 @@ pub struct InterviewSummary {
     pub n_sources: usize,
     pub primary_source: Option<String>,
     pub n_units: usize,
-    pub n_human_coded: usize,
-    pub human_complete: bool,
-    pub n_ai_runs: usize,
-    pub n_ai_runs_complete: usize,
-    pub n_divergences: usize,
-    pub n_arbitrated: usize,
     pub n_warnings: usize,
+    pub phase1: PhaseSummary,
+    pub phase2: PhaseSummary,
 }
 
 #[cfg(test)]
