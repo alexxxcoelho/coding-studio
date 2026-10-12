@@ -1,53 +1,46 @@
 //! The two coding phases.
 //!
-//! Phase 1 codes every unit against the three contexts of the TOE framework
-//! (Tornatzky and Fleischer 1990, as summarised by Baker 2012), plus two closed
-//! categories: descriptive context of the account, and relevant material outside
-//! the framework. The framework names
-//! the contexts but prescribes no fixed list of factors within them; the
-//! factors are study-specific, so they belong to phase 2.
+//! Phase 1 is a provisional pre-classification of every unit by the candidate
+//! against the three contexts of the TOE framework (Tornatzky and Fleischer
+//! 1990, as summarised by Baker 2012), plus CONTEXT for descriptive material.
+//! It stays revisable at any time and is never challenged by the AI.
 //!
-//! Phase 2 runs only on units whose reconciled phase 1 coding is not `NA`. A
-//! unit may receive the study-specific codes of the families it was assigned
-//! in phase 1, plus the cross-cutting families (outcome, turning point,
-//! transfer, stage, context). Inductive codes are created by the candidate in
-//! phase 2 and are never offered to the AI coder.
+//! Phase 2 codes the units whose phase 1 category is not NA with concrete
+//! codes. Each code may be attached to a TOE context; every active code is
+//! offered on every unit, the codes attached to the unit's phase 1 contexts
+//! first. The AI challenges phase 2 only.
 
-use crate::{Code, CodeSet, Codebook, NA};
+use crate::{toe_of_context, Code, CodeSet, Codebook, NA};
 
-/// First phase: TOE contexts.
+/// First phase: provisional TOE pre-classification.
 pub const PHASE_1: u8 = 1;
-/// Second phase: study-specific codes within the reconciled contexts.
+/// Second phase: concrete codes, challenged by the AI.
 pub const PHASE_2: u8 = 2;
 
-/// Identifier of the phase 1 category set, stored with prompts and exports.
-pub const PHASE1_CODEBOOK_VERSION: &str =
-    "TOE-contexts v1.1 (draft, to be validated by the candidate)";
-
-/// Families whose study-specific codes are reachable from a phase 1 code.
-pub const TOE_FAMILIES: [&str; 3] = ["TECH", "ORG", "ENV"];
-
-/// Families open to every relevant unit in phase 2, whatever its context.
-pub const CROSS_CUTTING_FAMILIES: [&str; 5] =
-    ["OUTCOME", "TURNING-POINT", "TRANSFER", "STAGE", "CONTEXT"];
+/// Identifier of the phase 1 category set, stored with exports.
+pub const PHASE1_CODEBOOK_VERSION: &str = "TOE-contexts v2.0 (provisional pre-classification)";
 
 /// Phase 1 code for descriptive material: respondent, organisation, scope.
 pub const CONTEXT: &str = "CONTEXT";
 
-/// Phase 1 code for relevant material outside the three contexts.
-pub const OUTSIDE_TOE: &str = "INDUCTIVE-PENDING";
+/// Origins of the codes usable in phase 2.
+pub const PHASE2_ORIGINS: [&str; 2] = ["literature", "field"];
 
 /// The phase 1 categories (NA is implicit, as in every phase). Definitions are
 /// a draft derived from Baker (2012) and the family scopes of codebook v0.2.
 pub fn phase1_codebook() -> Codebook {
-    let c = |code: &str, family: &str, label: &str, definition: &str| Code {
+    let c = |code: &str, toe: Option<&str>, label: &str, definition: &str| Code {
         code: code.to_string(),
-        family: family.to_string(),
+        family: code.to_string(),
         label: label.to_string(),
         definition: definition.to_string(),
         origin: "phase1".to_string(),
+        toe: toe.map(str::to_string),
         active: true,
-        in_prompt: true,
+        in_prompt: false,
+        research_questions: Vec::new(),
+        merged_into: None,
+        version: 1,
         example: None,
         reason: None,
         created_at: None,
@@ -57,64 +50,63 @@ pub fn phase1_codebook() -> Codebook {
         codes: vec![
             c(
                 "TECH",
-                "TECH",
+                Some("T"),
                 "Technological context",
                 "Characteristics of RFID or of other technologies, in use at the firm or available on the market, as they bear on adoption or use: benefits over the status quo, cost and investment, complexity, fit with existing systems and data, read performance, data quality, standards.",
             ),
             c(
                 "ORG",
-                "ORG",
+                Some("O"),
                 "Organisational context",
                 "Characteristics and resources of the adopting organisation: executive sponsorship, champions, structure and decision rights, skills and expertise, budget and staff time, redesign of work processes, size and slack.",
             ),
             c(
                 "ENV",
-                "ENV",
+                Some("E"),
                 "Environmental and interorganisational context",
                 "The setting in which the organisation operates: industry and market structure, competitors, customers, suppliers and value-chain partners (who tags, who pays, who mandates), technology suppliers and support, regulation and standards bodies.",
             ),
             c(
                 CONTEXT,
-                "CONTEXT",
+                None,
                 "Context of the account",
                 "Descriptive information about the respondent, the organisation or the scope of the account: role, background, company, portfolio, which project, where and when. It explains nothing about adoption on its own: when the unit says why adoption advanced, stalled or failed, code TECH, ORG or ENV instead.",
-            ),
-            c(
-                OUTSIDE_TOE,
-                "INDUCTIVE",
-                "Relevant, outside the three contexts",
-                "Relevant to the adoption, implementation, outcome or transfer of the technology, but not attributable to the technological, organisational or environmental context: for example a result, a turning point, a transfer claim, or a mechanism the framework does not cover.",
             ),
         ],
     }
 }
 
-/// True when a reconciled phase 1 set makes the unit eligible for phase 2.
-pub fn is_relevant(phase1_final: &CodeSet) -> bool {
-    !phase1_final.is_empty() && !phase1_final.contains(NA)
+/// True when a phase 1 set puts the unit in phase 2 scope.
+pub fn is_relevant(phase1: &CodeSet) -> bool {
+    !phase1.is_empty() && !phase1.contains(NA)
 }
 
-/// Codes a unit may receive in phase 2, given its reconciled phase 1 set.
-/// `with_inductive` adds the candidate's inductive codes (never for the AI).
-/// Legacy and bookkeeping codes are excluded; NA is always allowed besides.
-pub fn phase2_allowed<'a>(
-    codebook: &'a Codebook,
-    phase1_final: &CodeSet,
-    with_inductive: bool,
-) -> Vec<&'a Code> {
+/// A code the candidate may use in phase 2: active, not merged, literature or field.
+pub fn is_phase2_code(code: &Code) -> bool {
+    code.active && code.merged_into.is_none() && PHASE2_ORIGINS.contains(&code.origin.as_str())
+}
+
+/// Every phase 2 code, the ones attached to the unit's phase 1 contexts
+/// first, codebook order within each group.
+pub fn phase2_codes<'a>(codebook: &'a Codebook, phase1: &CodeSet) -> Vec<&'a Code> {
+    let contexts: Vec<&str> = phase1.iter().filter_map(|c| toe_of_context(c)).collect();
+    let attached = |c: &Code| c.toe.as_deref().is_some_and(|t| contexts.contains(&t));
+    let usable: Vec<&Code> = codebook
+        .codes
+        .iter()
+        .filter(|c| is_phase2_code(c))
+        .collect();
+    let mut out: Vec<&Code> = usable.iter().copied().filter(|c| attached(c)).collect();
+    out.extend(usable.iter().copied().filter(|c| !attached(c)));
+    out
+}
+
+/// Codes offered to the AI coder: phase 2 codes marked `in_prompt`.
+pub fn phase2_prompt_codes(codebook: &Codebook) -> Vec<&Code> {
     codebook
         .codes
         .iter()
-        .filter(|c| c.active)
-        .filter(|c| match c.origin.as_str() {
-            "codebook" => {
-                let fam = c.family.as_str();
-                CROSS_CUTTING_FAMILIES.contains(&fam)
-                    || (TOE_FAMILIES.contains(&fam) && phase1_final.contains(fam))
-            }
-            "inductive" => with_inductive,
-            _ => false,
-        })
+        .filter(|c| is_phase2_code(c) && c.in_prompt)
         .collect()
 }
 
@@ -122,15 +114,19 @@ pub fn phase2_allowed<'a>(
 mod tests {
     use super::*;
 
-    fn code(code: &str, family: &str, origin: &str) -> Code {
+    fn code(code: &str, toe: Option<&str>, origin: &str) -> Code {
         Code {
             code: code.into(),
-            family: family.into(),
+            family: crate::family_for_toe(toe).into(),
             label: code.into(),
             definition: String::new(),
             origin: origin.into(),
+            toe: toe.map(str::to_string),
             active: true,
             in_prompt: true,
+            research_questions: Vec::new(),
+            merged_into: None,
+            version: 1,
             example: None,
             reason: None,
             created_at: None,
@@ -142,10 +138,10 @@ mod tests {
     }
 
     #[test]
-    fn phase1_has_the_three_contexts_context_and_the_outside_category() {
+    fn phase1_has_the_three_contexts_and_context() {
         let book = phase1_codebook();
         let codes: Vec<&str> = book.codes.iter().map(|c| c.code.as_str()).collect();
-        assert_eq!(codes, ["TECH", "ORG", "ENV", CONTEXT, OUTSIDE_TOE]);
+        assert_eq!(codes, ["TECH", "ORG", "ENV", CONTEXT]);
         assert!(book
             .codes
             .iter()
@@ -154,37 +150,51 @@ mod tests {
 
     #[test]
     fn relevance() {
-        assert!(is_relevant(&set(&["TECH"])));
+        assert!(is_relevant(&set(&["CONTEXT"])));
         assert!(!is_relevant(&set(&["NA"])));
         assert!(!is_relevant(&set(&[])));
     }
 
     #[test]
-    fn phase2_follows_the_reconciled_families() {
+    fn phase2_offers_every_code_attached_ones_first() {
+        let mut merged = code("OLD", Some("T"), "literature");
+        merged.merged_into = Some("TECH-ADV".into());
+        merged.active = false;
+        let mut quiet = code("ORG-QUIET", Some("O"), "field");
+        quiet.in_prompt = false;
         let book = Codebook {
             source: String::new(),
             codes: vec![
-                code("TECH", "TECH", "legacy"),
-                code("TECH-ADV", "TECH", "codebook"),
-                code("ORG-SKILLS", "ORG", "codebook"),
-                code("ENV-PARTNER", "ENV", "codebook"),
-                code("OUT-REALISED", "OUTCOME", "codebook"),
-                code("INDUCTIVE-PENDING", "INDUCTIVE", "bookkeeping"),
-                code("BUSINESS-CASE", "INDUCTIVE", "inductive"),
+                code("TECH", Some("T"), "legacy"),
+                code("LEGAL-OBLIGATION", Some("E"), "literature"),
+                code("TECH-ADV", Some("T"), "literature"),
+                quiet,
+                code("COST-NO-BENEFIT", None, "field"),
+                merged,
             ],
         };
         let names = |v: Vec<&Code>| v.iter().map(|c| c.code.clone()).collect::<Vec<_>>();
         assert_eq!(
-            names(phase2_allowed(&book, &set(&["TECH"]), false)),
-            ["TECH-ADV", "OUT-REALISED"]
+            names(phase2_codes(&book, &set(&["TECH"]))),
+            [
+                "TECH-ADV",
+                "LEGAL-OBLIGATION",
+                "ORG-QUIET",
+                "COST-NO-BENEFIT"
+            ]
         );
         assert_eq!(
-            names(phase2_allowed(&book, &set(&["ORG", "ENV"]), true)),
-            ["ORG-SKILLS", "ENV-PARTNER", "OUT-REALISED", "BUSINESS-CASE"]
+            names(phase2_codes(&book, &set(&["ORG", "ENV"]))),
+            [
+                "LEGAL-OBLIGATION",
+                "ORG-QUIET",
+                "TECH-ADV",
+                "COST-NO-BENEFIT"
+            ]
         );
         assert_eq!(
-            names(phase2_allowed(&book, &set(&[OUTSIDE_TOE]), false)),
-            ["OUT-REALISED"]
+            names(phase2_prompt_codes(&book)),
+            ["LEGAL-OBLIGATION", "TECH-ADV", "COST-NO-BENEFIT"]
         );
     }
 }

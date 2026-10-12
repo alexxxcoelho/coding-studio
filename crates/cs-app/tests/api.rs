@@ -1,8 +1,9 @@
-//! End-to-end round trip through the HTTP API (v2, two coding phases) on a
-//! temporary library: scan, segment, phase 1 (TOE contexts) with blind guard,
-//! AI import, coding lock, arbitration and reconciliation, phase 2 restricted
-//! to the reconciled families, inductive codes, phase 1 frozen, export,
-//! audit chain. Plus the embedded React build and the native picker.
+//! End-to-end round trip through the HTTP API (v3) on a temporary library:
+//! scan, segment, provisional phase 1, concrete phase 2 codes, a label to
+//! clarify resolved into a field code, blind AI challenge with batches, the
+//! review with its agreement sample, codebook edits and merge, research
+//! questions, cases and the cross-case matrix, exports and the audit chain.
+//! Plus the embedded React build and the native picker.
 
 use std::path::Path;
 use std::sync::{Arc, Mutex};
@@ -26,13 +27,13 @@ fn make_codebook(path: &Path) {
         "CREATE TABLE codes (code TEXT PRIMARY KEY, family TEXT NOT NULL, label TEXT, definition TEXT,
            sub_question TEXT, cycle INTEGER DEFAULT 1, origin TEXT DEFAULT 'codebook',
            active INTEGER NOT NULL DEFAULT 1, notes TEXT);
-         INSERT INTO codes (code,family,label,definition,origin,active) VALUES
-          ('TECH','TECH','Technology, unrefined','Family-level code.','legacy',1),
-          ('TECH-ADV','TECH','Relative advantage','Perceived advantage over the status quo.','codebook',1),
-          ('TECH-COST','TECH','Cost','Lifecycle cost and investment burden.','codebook',1),
-          ('ORG-SKILLS','ORG','Skills','Skills and expertise.','codebook',1),
-          ('ENV-PARTNER','ENV','Partner pressure','Partner pressure or mandate.','codebook',1),
-          ('OUT-REALISED','OUTCOME','Realised outcome','A result supported by evidence.','codebook',1);",
+         INSERT INTO codes (code,family,label,definition,sub_question,origin,active) VALUES
+          ('TECH','TECH','Technology, unrefined','Family-level code.',NULL,'legacy',1),
+          ('TECH-ADV','TECH','Relative advantage','Perceived advantage over the status quo.','SQ1','codebook',1),
+          ('TECH-COST','TECH','Cost','Lifecycle cost and investment burden.','SQ1','codebook',1),
+          ('ORG-SKILLS','ORG','Skills','Skills and expertise.','SQ2','codebook',1),
+          ('ENV-PARTNER','ENV','Partner pressure','Partner pressure or mandate.','SQ3','codebook',1),
+          ('OUT-REALISED','OUTCOME','Realised outcome','A result supported by evidence.','SQ1','codebook',1);",
     )
     .unwrap();
 }
@@ -153,7 +154,7 @@ fn names(v: &Value) -> Vec<String> {
 }
 
 #[tokio::test]
-async fn two_phase_round_trip() {
+async fn v3_round_trip() {
     let ctx = setup();
     let app = &ctx.app;
     const I: &str = "/api/interviews/INT-01";
@@ -170,12 +171,12 @@ async fn two_phase_round_trip() {
     .await;
     assert_eq!(st, StatusCode::OK, "{book}");
     assert_eq!(book["codes"].as_array().unwrap().len(), 6);
-    let (st, p1book) = call(app, "GET", "/api/codebook/phase1", None).await;
-    assert_eq!(st, StatusCode::OK);
-    assert_eq!(
-        names(&p1book["codes"]),
-        ["TECH", "ORG", "ENV", "CONTEXT", "INDUCTIVE-PENDING"]
-    );
+    assert_eq!(book["codes"][1]["toe"], "T");
+    assert_eq!(book["codes"][1]["origin"], "literature");
+    let (_, rqs) = call(app, "GET", "/api/research-questions", None).await;
+    assert_eq!(rqs.as_array().unwrap().len(), 3);
+    let (_, p1book) = call(app, "GET", "/api/codebook/phase1", None).await;
+    assert_eq!(names(&p1book["codes"]), ["TECH", "ORG", "ENV", "CONTEXT"]);
     let (st, scan) = call(
         app,
         "POST",
@@ -185,25 +186,11 @@ async fn two_phase_round_trip() {
     .await;
     assert_eq!(st, StatusCode::OK, "{scan}");
     assert_eq!(scan["interviews"].as_array().unwrap().len(), 2);
-    assert!(scan["interviews"][0]["phase1"].is_object());
-
     let (st, seg2) = call(app, "POST", "/api/interviews/ECO-02/segment", None).await;
     assert_eq!(st, StatusCode::OK, "{seg2}");
     assert_eq!(seg2["units"][0]["role"], "interviewer");
-
     let (st, _) = call(app, "GET", &format!("{I}/file?path=..%2Fsecret"), None).await;
     assert_eq!(st, StatusCode::BAD_REQUEST);
-    let (st, f) = call(
-        app,
-        "GET",
-        &format!("{I}/file?path=02_transcript_cleaned_diarised.md"),
-        None,
-    )
-    .await;
-    assert_eq!(st, StatusCode::OK, "{f}");
-    assert_eq!(f["changed_since_scan"], false);
-    assert_eq!(f["sha256"].as_str().unwrap().len(), 64);
-
     let (st, seg) = call(app, "POST", &format!("{I}/segment"), None).await;
     assert_eq!(st, StatusCode::OK, "{seg}");
     let units: Vec<String> = seg["units"]
@@ -215,391 +202,347 @@ async fn two_phase_round_trip() {
     assert_eq!(units.len(), 6);
     let u = |i: usize| units[i].clone();
 
-    // ---- Phase 1: TOE contexts.
-    let (st, rows) = call(app, "GET", &format!("{P1}/units"), None).await;
-    assert_eq!(st, StatusCode::OK, "{rows}");
-    assert_eq!(rows.as_array().unwrap().len(), 6);
+    // ---- Phase 1: provisional pre-classification, no AI pass.
+    let (_, rows) = call(app, "GET", &format!("{P1}/units"), None).await;
     assert_eq!(
         names(&rows[0]["allowed"]),
-        ["TECH", "ORG", "ENV", "CONTEXT", "INDUCTIVE-PENDING"]
+        ["TECH", "ORG", "ENV", "CONTEXT"]
     );
-
-    let (st, parts) = call(
-        app,
-        "POST",
-        &format!("{P1}/prompts"),
-        Some(json!({ "batch_size": 0 })),
-    )
-    .await;
-    assert_eq!(st, StatusCode::OK, "{parts}");
-    let part1 = parts[0].clone();
-    assert_eq!(part1["phase"], 1);
-    assert!(part1["text"].as_str().unwrap().contains("Phase 1 of 2"));
-    let (_, listed) = call(app, "GET", &format!("{P1}/prompts"), None).await;
-    assert_eq!(listed.as_array().unwrap().len(), 1);
-
-    let (st, run) = call(
-        app,
-        "POST",
-        &format!("{P1}/runs"),
-        Some(json!({ "run_label": "R1", "model_name": "test-model", "temperature": 0.0 })),
-    )
-    .await;
-    assert_eq!(st, StatusCode::OK, "{run}");
-    assert_eq!(run["phase"], 1);
-    assert_eq!(run["meta"]["prompt_id_version"], cs_ai::PROMPT_VERSION);
-    let run1 = run["run_id"].as_i64().unwrap();
-
-    // Phase 1 human coding: INT turns NA, respondent turns on the contexts.
-    let human1 = |id: &str| -> Vec<String> {
-        match units.iter().position(|x| x == id).unwrap() {
-            1 => codes(&["ENV"]),
-            3 => codes(&["TECH"]),
-            5 => codes(&["TECH", "ORG"]),
-            _ => codes(&["NA"]),
-        }
-    };
-    let out1 = format!("{P1}/runs/{run1}/outputs");
-    // Blind guard before the human coding is complete.
-    let (st, e) = call(
-        app,
-        "POST",
-        &out1,
-        Some(json!({ "raw": answer(&part1, human1), "part": 1, "of": 1 })),
-    )
-    .await;
-    assert_eq!(st, StatusCode::CONFLICT, "{e}");
-    assert_eq!(e["kind"], "guard");
-
-    // A study-specific code is refused in phase 1.
-    let (st, e) = call(
+    for (i, c) in [
+        (0, vec!["NA"]),
+        (1, vec!["CONTEXT", "ENV"]),
+        (2, vec!["NA"]),
+        (3, vec!["TECH"]),
+        (4, vec!["NA"]),
+        (5, vec!["TECH", "ORG"]),
+    ] {
+        let (st, r) = call(
+            app,
+            "PUT",
+            &format!("{P1}/coding/{}", u(i)),
+            Some(json!({ "codes": c })),
+        )
+        .await;
+        assert_eq!(st, StatusCode::OK, "{r}");
+    }
+    let (st, _) = call(
         app,
         "PUT",
-        &format!("{P1}/coding/{}", u(1)),
+        &format!("{P1}/coding/{}", u(3)),
         Some(json!({ "codes": ["TECH-ADV"] })),
     )
     .await;
-    assert_eq!(st, StatusCode::BAD_REQUEST, "{e}");
-    for id in &units {
-        let (st, saved) = call(
-            app,
-            "PUT",
-            &format!("{P1}/coding/{id}"),
-            Some(json!({ "codes": human1(id), "memo": "test" })),
-        )
-        .await;
-        assert_eq!(st, StatusCode::OK, "{saved}");
-        assert_eq!(saved["unit_id"], id.as_str());
-    }
-    // Phase 2 cannot start before phase 1 is reconciled.
-    let (st, e) = call(
-        app,
-        "PUT",
-        &format!("{P2}/coding/{}", u(1)),
-        Some(json!({ "codes": ["ENV-PARTNER"] })),
-    )
-    .await;
-    assert_eq!(st, StatusCode::CONFLICT, "{e}");
-
-    // Invalid answer: every problem is listed.
-    let (st, e) = call(
-        app,
-        "POST",
-        &out1,
-        Some(json!({ "raw": answer(&part1, |_| codes(&["NOT-A-CODE"])), "part": 1, "of": 1 })),
-    )
-    .await;
-    assert_eq!(st, StatusCode::BAD_REQUEST, "{e}");
-    assert!(e["issues"].as_array().unwrap().len() >= 6);
-
-    // Valid answer, diverging on unit 3 only.
-    let ai1 = |id: &str| -> Vec<String> {
-        if id == units[3] {
-            codes(&["ORG"])
-        } else {
-            human1(id)
-        }
-    };
-    let (st, run) = call(
-        app,
-        "POST",
-        &out1,
-        Some(json!({ "raw": answer(&part1, ai1), "part": 1, "of": 1 })),
-    )
-    .await;
-    assert_eq!(st, StatusCode::OK, "{run}");
-    assert_eq!(run["complete"], true);
-
-    // Human coding is now locked in phase 1.
-    let (st, _) = call(
-        app,
-        "PUT",
-        &format!("{P1}/coding/{}", u(0)),
-        Some(json!({ "codes": ["TECH"] })),
-    )
-    .await;
-    assert_eq!(st, StatusCode::CONFLICT);
-    let (_, state1) = call(app, "GET", P1, None).await;
-    assert_eq!(state1["locked"], true);
-    assert_eq!(state1["reconciled"], false);
-    assert_eq!(state1["guard"]["complete"], true);
-
-    let (st, ag) = call(app, "GET", &format!("{P1}/agreement"), None).await;
-    assert_eq!(st, StatusCode::OK, "{ag}");
-    assert_eq!(ag["reports"][0]["n_units"], 6);
-    assert_eq!(ag["reports"][0]["n_exact"], 5);
-    assert!(ag["markdown"].as_str().unwrap().contains("Phase 1"));
-
-    let (st, div) = call(app, "GET", &format!("{P1}/divergences"), None).await;
-    assert_eq!(st, StatusCode::OK, "{div}");
-    assert_eq!(div["n_divergences"], 1);
-    assert_eq!(div["items"][0]["divergence"]["unit_id"], u(3).as_str());
-    assert_eq!(names(&div["items"][0]["allowed"]).len(), 5);
-
-    let arb1 = format!("{P1}/arbitration/{}", u(3));
-    let (st, _) = call(
-        app,
-        "PUT",
-        &arb1,
-        Some(json!({ "choice": {"type": "human"}, "final_codes": ["TECH"], "rationale": "  " })),
-    )
-    .await;
     assert_eq!(st, StatusCode::BAD_REQUEST);
-    let (st, _) = call(
-        app,
-        "PUT",
-        &format!("{P1}/arbitration/{}", u(1)),
-        Some(json!({ "choice": {"type": "human"}, "final_codes": ["ENV"], "rationale": "x" })),
-    )
-    .await;
-    assert_eq!(
-        st,
-        StatusCode::BAD_REQUEST,
-        "a non-divergent unit is not arbitrated"
-    );
-    let (st, a) = call(
-        app,
-        "PUT",
-        &arb1,
-        Some(
-            json!({ "choice": {"type": "human"}, "final_codes": ["TECH"],
-                     "rationale": "The respondent speaks of tag cost, a technology property." }),
-        ),
-    )
-    .await;
-    assert_eq!(st, StatusCode::OK, "{a}");
-    assert_eq!(a["phase"], 1);
-    let (_, fin1) = call(app, "GET", &format!("{P1}/final"), None).await;
-    assert_eq!(fin1["reconciled"], true, "{fin1}");
-    assert_eq!(fin1["finals"].as_array().unwrap().len(), 6);
+    let (st, e) = call(app, "POST", &format!("{P1}/prompts"), Some(json!({}))).await;
+    assert_eq!(st, StatusCode::BAD_REQUEST, "{e}");
 
-    // ---- Phase 2: study-specific codes on the relevant units.
-    let (st, rows2) = call(app, "GET", &format!("{P2}/units"), None).await;
-    assert_eq!(st, StatusCode::OK, "{rows2}");
-    let scope2: Vec<String> = rows2
-        .as_array()
-        .unwrap()
-        .iter()
-        .map(|r| r["unit"]["unit_id"].as_str().unwrap().to_string())
-        .collect();
-    assert_eq!(scope2, [u(1), u(3), u(5)]);
-    assert_eq!(rows2[1]["phase1_final"], json!(["TECH"]));
-    let allowed3 = names(&rows2[1]["allowed"]);
-    assert_eq!(allowed3, ["TECH-ADV", "TECH-COST", "OUT-REALISED"]);
+    // ---- Phase 2: concrete codes on the units not NA in phase 1.
+    let (_, rows) = call(app, "GET", &format!("{P2}/units"), None).await;
+    let rows = rows.as_array().unwrap().clone();
+    assert_eq!(rows.len(), 3);
+    assert_eq!(rows[2]["unit"]["unit_id"], u(5));
+    assert_eq!(rows[2]["phase1"], json!(["ORG", "TECH"]));
+    assert_eq!(rows[2]["in_scope"], true);
+    let first: Vec<String> = names(&rows[2]["allowed"]);
     assert_eq!(
-        names(&rows2[2]["allowed"]),
-        ["TECH-ADV", "TECH-COST", "ORG-SKILLS", "OUT-REALISED"]
+        &first[..3],
+        ["TECH-ADV", "TECH-COST", "ORG-SKILLS"],
+        "attached first"
     );
-
-    // A code outside the unit's families is refused.
-    let (st, e) = call(
+    assert!(
+        first.contains(&"ENV-PARTNER".to_string()),
+        "every code offered"
+    );
+    assert!(!first.contains(&"TECH".to_string()), "legacy not offered");
+    let (st, r) = call(
         app,
         "PUT",
         &format!("{P2}/coding/{}", u(3)),
-        Some(json!({ "codes": ["ORG-SKILLS"] })),
+        Some(json!({ "codes": ["TECH-ADV", "OUT-REALISED"], "excerpt": "sixty to ninety-eight percent" })),
     )
     .await;
-    assert_eq!(st, StatusCode::BAD_REQUEST, "{e}");
-
-    // Inductive code: definition and reason are required.
-    let (st, _) = call(
+    assert_eq!(st, StatusCode::OK, "{r}");
+    let (st, label) = call(
         app,
         "POST",
-        "/api/codebook/codes",
-        Some(json!({ "code": "SOURCE-TAGGING", "label": "Source tagging", "definition": "Tags applied by the supplier." })),
+        &format!("{I}/units/{}/to-clarify", u(1)),
+        Some(json!({ "label": "source tagging by the supplier", "note": "who pays?" })),
     )
     .await;
-    assert_eq!(st, StatusCode::BAD_REQUEST);
-    let (st, book) = call(
-        app,
-        "POST",
-        "/api/codebook/codes",
-        Some(json!({ "code": "SOURCE-TAGGING", "label": "Source tagging",
-                     "definition": "Tags applied by the supplier before goods reach the retailer.",
-                     "example": "our supplier tags every carton at the source",
-                     "reason": "Recurrent mechanism not covered by ENV-PARTNER." })),
-    )
-    .await;
-    assert_eq!(st, StatusCode::OK, "{book}");
-    let added = book["codes"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .find(|c| c["code"] == "SOURCE-TAGGING")
-        .unwrap()
-        .clone();
-    assert_eq!(added["origin"], "inductive");
-    assert!(added["created_at"].is_string());
+    assert_eq!(st, StatusCode::OK, "{label}");
+    let tid = label["id"].as_i64().unwrap();
+    let (_, open) = call(app, "GET", "/api/to-clarify?open=true", None).await;
+    assert_eq!(open[0]["unit_text"], seg["units"][1]["text"]);
+    assert_eq!(open[0]["interview_id"], "INT-01");
 
-    let human2 = |id: &str| -> Vec<String> {
-        if id == units[1] {
-            codes(&["ENV-PARTNER", "SOURCE-TAGGING"])
-        } else if id == units[3] {
-            codes(&["TECH-ADV"])
-        } else {
-            codes(&["TECH-COST", "ORG-SKILLS"])
-        }
-    };
-    // Phase 1 is frozen as soon as phase 2 coding starts.
-    let (st, _) = call(
-        app,
-        "PUT",
-        &format!("{P2}/coding/{}", u(1)),
-        Some(json!({ "codes": human2(&u(1)), "excerpt": "our supplier tags every carton" })),
-    )
-    .await;
-    assert_eq!(st, StatusCode::OK);
-    let (st, e) = call(
-        app,
-        "POST",
-        &format!("{P1}/runs"),
-        Some(json!({ "run_label": "R2", "model_name": "other" })),
-    )
-    .await;
-    assert_eq!(st, StatusCode::CONFLICT, "{e}");
-    let (st, _) = call(
-        app,
-        "PUT",
-        &arb1,
-        Some(json!({ "choice": {"type": "custom"}, "final_codes": ["ORG"], "rationale": "late" })),
-    )
-    .await;
-    assert_eq!(st, StatusCode::CONFLICT);
-    let (_, state1) = call(app, "GET", P1, None).await;
-    assert_eq!(state1["frozen"], true);
-
-    // Phase 2 prompt carries the allowed codes; inductive codes never reach the AI.
-    let (st, parts2) = call(
+    // Prompts before U006 is coded; the blind guard waits for it.
+    let (st, parts) = call(
         app,
         "POST",
         &format!("{P2}/prompts"),
         Some(json!({ "batch_size": 2 })),
     )
     .await;
-    assert_eq!(st, StatusCode::OK, "{parts2}");
-    assert_eq!(parts2.as_array().unwrap().len(), 2);
-    let text2 = parts2[0]["text"].as_str().unwrap();
-    assert!(text2.contains("allowed_codes"));
-    assert!(text2.contains("Phase 2 of 2"));
-    assert!(!text2.contains("SOURCE-TAGGING"));
-
+    assert_eq!(st, StatusCode::OK, "{parts}");
+    let parts = parts.as_array().unwrap().clone();
+    assert_eq!(parts.len(), 2);
+    assert_eq!(parts[0]["batch_id"], 1);
+    assert_eq!(parts[1]["batch_id"], 1);
+    let text = parts[0]["text"].as_str().unwrap();
+    assert!(text.contains("### Technological context (T)"));
+    for absent in [
+        "source tagging by the supplier",
+        "\"CONTEXT\"",
+        "OUT-REALISED\"]}",
+    ] {
+        assert!(!text.contains(absent), "{absent}");
+    }
     let (st, run) = call(
         app,
         "POST",
         &format!("{P2}/runs"),
-        Some(json!({ "run_label": "R1", "model_name": "test-model" })),
+        Some(json!({ "run_label": "R1", "model_name": "model-a", "model_version": "1" })),
     )
     .await;
     assert_eq!(st, StatusCode::OK, "{run}");
-    let run2 = run["run_id"].as_i64().unwrap();
-    let out2 = format!("{P2}/runs/{run2}/outputs");
-    let ai2 = |id: &str| -> Vec<String> {
-        if id == units[1] {
-            codes(&["ENV-PARTNER"])
-        } else {
-            human2(id)
+    assert_eq!(run["batch_id"], 1);
+    let run_id = run["run_id"].as_i64().unwrap();
+    let outputs = format!("{P2}/runs/{run_id}/outputs");
+    let ai = |unit: &str| -> Vec<String> {
+        match unit {
+            x if x == u(1) => codes(&["ENV-PARTNER"]),
+            x if x == u(3) => codes(&["TECH-ADV", "OUT-REALISED"]),
+            _ => codes(&["TECH-COST"]),
         }
     };
     let (st, e) = call(
         app,
         "POST",
-        &out2,
-        Some(json!({ "raw": answer(&parts2[0], ai2), "part": 1, "of": 2 })),
+        &outputs,
+        Some(json!({ "raw": answer(&parts[1], ai), "part": 2, "of": 2 })),
+    )
+    .await;
+    assert_eq!(st, StatusCode::CONFLICT, "{e}");
+    let (st, _) = call(
+        app,
+        "PUT",
+        &format!("{P2}/coding/{}", u(5)),
+        Some(json!({ "codes": ["TECH-COST", "ORG-SKILLS"] })),
+    )
+    .await;
+    assert_eq!(st, StatusCode::OK);
+    let (st, e) = call(
+        app,
+        "POST",
+        &outputs,
+        Some(json!({ "raw": answer(&parts[0], |_| codes(&["CONTEXT"])), "part": 1, "of": 2 })),
+    )
+    .await;
+    assert_eq!(st, StatusCode::BAD_REQUEST, "{e}");
+    assert!(e["issues"].as_array().unwrap().len() >= 2);
+    for (i, p) in parts.iter().enumerate() {
+        let (st, r) = call(
+            app,
+            "POST",
+            &outputs,
+            Some(json!({ "raw": answer(p, ai), "part": i + 1, "of": 2 })),
+        )
+        .await;
+        assert_eq!(st, StatusCode::OK, "{r}");
+    }
+
+    // Revising after the AI answer is allowed and flagged.
+    let (_, r) = call(
+        app,
+        "PUT",
+        &format!("{P2}/coding/{}", u(3)),
+        Some(json!({ "codes": ["TECH-ADV", "OUT-REALISED"], "memo": "re-read" })),
+    )
+    .await;
+    assert_eq!(r["revised_after_ai"], true, "{r}");
+
+    // ---- Review.
+    let (_, review) = call(app, "GET", &format!("{I}/review"), None).await;
+    assert_eq!(review["n_disagreements"], 1, "{review}");
+    assert_eq!(review["n_sampled"], 1);
+    assert_eq!(review["items"][0]["unit_id"], u(5));
+    assert_eq!(review["items"][0]["kind"], "disagreement");
+    assert_eq!(review["items"][0]["unit"]["unit_id"], u(5));
+    assert_eq!(review["items"][1]["kind"], "agreement_sample");
+    assert_eq!(review["seeds"][0]["run_label"], "R1");
+    let (st, _) = call(
+        app,
+        "PUT",
+        &format!("{I}/review/{}", u(5)),
+        Some(json!({ "choice": {"type": "human"}, "final_codes": ["TECH-COST", "ORG-SKILLS"], "rationale": " " })),
+    )
+    .await;
+    assert_eq!(st, StatusCode::BAD_REQUEST);
+    let (st, d) = call(
+        app,
+        "PUT",
+        &format!("{I}/review/{}", u(5)),
+        Some(
+            json!({ "choice": {"type": "human"}, "final_codes": ["TECH-COST", "ORG-SKILLS"],
+                     "rationale": "The skills gap is stated, not only the cost." }),
+        ),
+    )
+    .await;
+    assert_eq!(st, StatusCode::OK, "{d}");
+    let (st, _) = call(
+        app,
+        "PUT",
+        &format!("{I}/review/{}", u(3)),
+        Some(json!({ "choice": {"type": "human"}, "final_codes": ["TECH-ADV", "OUT-REALISED"] })),
     )
     .await;
     assert_eq!(
         st,
-        StatusCode::CONFLICT,
-        "blind guard of phase 2 while human coding is incomplete: {e}"
+        StatusCode::OK,
+        "sampled agreement confirmed without a note"
     );
-    for id in [u(3), u(5)] {
-        let (st, e) = call(
-            app,
-            "PUT",
-            &format!("{P2}/coding/{id}"),
-            Some(json!({ "codes": human2(&id) })),
-        )
-        .await;
-        assert_eq!(st, StatusCode::OK, "{e}");
-    }
-    // The AI may not use an inductive code.
-    let (st, e) = call(
+    let (_, ag) = call(app, "GET", &format!("{I}/agreement"), None).await;
+    assert!(ag["markdown"].as_str().unwrap().contains("Phase 2"));
+
+    // ---- The label becomes a field code.
+    let (st, res) = call(
         app,
         "POST",
-        &out2,
-        Some(json!({ "raw": answer(&parts2[0], human2), "part": 1, "of": 2 })),
+        &format!("/api/to-clarify/{tid}/resolve"),
+        Some(json!({
+            "kind": "new_code",
+            "code": "SUPPLIER-TAGGING",
+            "all_with_label": true,
+            "rationale": "Recurs as a condition of the business case.",
+            "new_code": {
+                "code": "SUPPLIER-TAGGING",
+                "label": "Supplier tags at source",
+                "definition": "Items arrive tagged by the supplier.",
+                "toe": "E",
+                "research_questions": ["SQ3"],
+            },
+        })),
     )
     .await;
-    assert_eq!(st, StatusCode::BAD_REQUEST, "{e}");
-    for p in parts2.as_array().unwrap() {
-        let (st, run) = call(
-            app,
-            "POST",
-            &out2,
-            Some(json!({ "raw": answer(p, ai2), "part": p["part"], "of": p["of"] })),
-        )
-        .await;
-        assert_eq!(st, StatusCode::OK, "{run}");
-    }
-    let (_, div2) = call(app, "GET", &format!("{P2}/divergences"), None).await;
-    assert_eq!(div2["n_divergences"], 1, "{div2}");
-    assert!(names(&div2["items"][0]["allowed"]).contains(&"SOURCE-TAGGING".to_string()));
-    let (st, a) = call(
+    assert_eq!(st, StatusCode::OK, "{res}");
+    assert_eq!(res["resolved"][0]["resolved"]["kind"], "new_code");
+    let new = res["codebook"]["codes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|c| c["code"] == "SUPPLIER-TAGGING")
+        .unwrap()
+        .clone();
+    assert_eq!(new["origin"], "field");
+    // Now coded, U002 is compared with the AI and becomes a disagreement.
+    let (_, fin) = call(app, "GET", &format!("{I}/final"), None).await;
+    assert_eq!(fin["n_open_disagreements"], 1, "{fin}");
+    let (st, _) = call(
         app,
         "PUT",
-        &format!("{P2}/arbitration/{}", u(1)),
-        Some(
-            json!({ "choice": {"type": "custom"}, "final_codes": ["ENV-PARTNER", "SOURCE-TAGGING"],
-                     "rationale": "The supplier's source tagging is a distinct mechanism." }),
-        ),
+        &format!("{I}/review/{}", u(1)),
+        Some(json!({ "choice": {"type": "custom"}, "final_codes": ["ENV-PARTNER", "SUPPLIER-TAGGING"],
+                     "rationale": "Source tagging is the partner's mandate here." })),
     )
     .await;
-    assert_eq!(st, StatusCode::OK, "{a}");
-    let (_, fin2) = call(app, "GET", &format!("{P2}/final"), None).await;
-    assert_eq!(fin2["reconciled"], true, "{fin2}");
+    assert_eq!(st, StatusCode::OK);
+    let (_, fin) = call(app, "GET", &format!("{I}/final"), None).await;
+    assert_eq!(fin["n_open_disagreements"], 0, "{fin}");
+    assert_eq!(fin["finals"].as_array().unwrap().len(), 3);
+    assert!(fin["uncoded"].as_array().unwrap().is_empty());
 
-    let (_, detail) = call(app, "GET", I, None).await;
-    assert_eq!(detail["phase2_started"], true);
-    assert_eq!(detail["phase1"]["reconciled"], true);
-    assert_eq!(detail["phase2"]["reconciled"], true);
-    assert_eq!(detail["phase2"]["n_units"], 3);
+    // ---- Codebook: edit, units, merge, export.
+    let (st, b) = call(
+        app,
+        "PUT",
+        "/api/codebook/codes/OUT-REALISED",
+        Some(json!({ "toe": "O", "definition": "A result the respondent supports." })),
+    )
+    .await;
+    assert_eq!(st, StatusCode::OK, "{b}");
+    let (_, cu) = call(app, "GET", "/api/codebook/codes/OUT-REALISED/units", None).await;
+    assert_eq!(cu[0]["unit"]["unit_id"], u(3));
+    let (st, m) = call(
+        app,
+        "POST",
+        "/api/codebook/codes/OUT-REALISED/merge",
+        Some(json!({ "into": "TECH-ADV", "rationale": "Same mechanism in this corpus." })),
+    )
+    .await;
+    assert_eq!(st, StatusCode::OK, "{m}");
+    assert_eq!(m["rewritten_codings"], 1);
+    let (st, x) = call(app, "POST", "/api/codebook/export", None).await;
+    assert_eq!(st, StatusCode::OK, "{x}");
+    assert_eq!(x["files"].as_array().unwrap().len(), 2);
+    let sql = std::fs::read_to_string(x["files"][1]["path"].as_str().unwrap()).unwrap();
+    assert!(sql.contains("'SUPPLIER-TAGGING','ENV'"));
 
-    // Export: both phases, inductive log, manifest hashes, never overwritten.
+    // ---- Research questions, cases, cross-case.
+    let (st, _) = call(
+        app,
+        "POST",
+        "/api/research-questions",
+        Some(json!({ "id": "RQ1", "text": "Why do projects stall?" })),
+    )
+    .await;
+    assert_eq!(st, StatusCode::OK);
+    let (st, _) = call(app, "DELETE", "/api/research-questions/SQ3", None).await;
+    assert_eq!(st, StatusCode::CONFLICT, "still mapped");
+    let (st, case) = call(
+        app,
+        "POST",
+        &format!("{I}/cases"),
+        Some(json!({
+            "label": "Retail rollout",
+            "trigger": { "text": "Inventory accuracy", "evidence": [u(3)] },
+            "constraints": { "text": "Skills for the ERP integration", "evidence": [u(5)] },
+            "result": { "text": "Ninety-eight percent accuracy", "evidence": [u(3)] },
+        })),
+    )
+    .await;
+    assert_eq!(st, StatusCode::OK, "{case}");
+    assert_eq!(case["case_id"], "INT-01-C1");
+    let (st, _) = call(
+        app,
+        "POST",
+        &format!("{I}/cases"),
+        Some(json!({ "label": "x", "choice": { "text": "", "evidence": ["INT-01-U999"] } })),
+    )
+    .await;
+    assert_eq!(st, StatusCode::BAD_REQUEST);
+    let (_, cc) = call(app, "GET", "/api/cross-case", None).await;
+    let cell = cc["cells"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|c| c["rq"] == "SQ1" && c["case_id"] == "INT-01-C1")
+        .unwrap()
+        .clone();
+    let found: Vec<String> = cell["codes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|c| c["code"].as_str().unwrap().to_string())
+        .collect();
+    assert_eq!(found, ["TECH-ADV", "TECH-COST"]);
+
+    // ---- Export package.
     let (st, exp) = call(app, "POST", &format!("{I}/export"), None).await;
     assert_eq!(st, StatusCode::OK, "{exp}");
     let dir = std::path::PathBuf::from(exp["dir"].as_str().unwrap());
     assert!(dir.starts_with(ctx.db.parent().unwrap()));
     for f in [
         "units.csv",
-        "phase1_coding_human.csv",
-        "phase1_coding_final.csv",
-        "phase1_agreement.md",
-        "phase1_adjudication_log.md",
+        "phase1_contexts.csv",
         "phase2_coding_human.csv",
         "phase2_human_full.csv",
+        "phase2_agreement.md",
+        "phase2_review.md",
         "phase2_coding_final.csv",
-        "phase2_adjudication_log.md",
-        "inductive_log.csv",
+        "to_clarify.csv",
+        "cases.json",
+        "cases.md",
+        "codebook.csv",
         "audit_log.jsonl",
         "audit_chain.json",
         "manifest.json",
@@ -607,10 +550,8 @@ async fn two_phase_round_trip() {
     ] {
         assert!(dir.join(f).is_file(), "missing {f}");
     }
-    let final2 = std::fs::read_to_string(dir.join("phase2_coding_final.csv")).unwrap();
-    assert!(final2.contains("ENV-PARTNER;SOURCE-TAGGING"));
-    let log = std::fs::read_to_string(dir.join("inductive_log.csv")).unwrap();
-    assert!(log.contains("SOURCE-TAGGING") && log.contains("Recurrent mechanism"));
+    let human = std::fs::read_to_string(dir.join("phase2_coding_human.csv")).unwrap();
+    assert!(human.contains(&format!("{},TECH-ADV,1", u(3))), "{human}");
     let manifest: Value =
         serde_json::from_str(&std::fs::read_to_string(dir.join("manifest.json")).unwrap()).unwrap();
     for f in manifest["files"].as_array().unwrap() {
@@ -631,8 +572,9 @@ async fn two_phase_round_trip() {
 
     let (_, chain) = call(app, "GET", "/api/audit/verify", None).await;
     assert_eq!(chain["ok"], true, "{chain}");
-    let (_, events) = call(app, "GET", "/api/audit?interview_id=INT-01", None).await;
-    assert!(events.as_array().unwrap().len() > 20);
+    let (_, detail) = call(app, "GET", I, None).await;
+    assert_eq!(detail["phase2"]["reconciled"], true);
+    assert_eq!(detail["phase2"]["n_units"], 3);
 }
 
 #[tokio::test]

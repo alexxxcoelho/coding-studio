@@ -1,14 +1,18 @@
-//! Divergences and final coding, shared by the store (to enforce the phase
-//! locks) and the AI layer (to report). One implementation, so the numbers
-//! the database guards on and the numbers the reports print cannot differ.
+//! Disagreements, agreement samples and final coding, shared by the store and
+//! the AI layer so that the figures the database works on and the figures the
+//! reports print cannot differ.
 //!
-//! A unit diverges when the candidate's set differs from an AI run's set, or
-//! when the candidate agrees with some runs but the runs disagree among
-//! themselves. Only units coded by the candidate and by every run are compared.
+//! A unit is a disagreement when the candidate's set differs from the set of
+//! at least one complete AI run (`HumanVsAi` when it matches no run,
+//! `AiRunsUnstable` when it matches some runs only). Only units coded by the
+//! candidate and by every run are compared.
 
 use std::collections::BTreeMap;
 
-use crate::{Arbitration, CodeSet, CodingMap, Divergence, DivergenceKind, FinalBasis, FinalCoding};
+use crate::{
+    sha256_hex, Arbitration, CodeSet, CodingMap, Divergence, DivergenceKind, FinalBasis,
+    FinalCoding,
+};
 
 fn coded<'a>(map: &'a CodingMap, unit_id: &str) -> Option<&'a CodeSet> {
     map.get(unit_id).filter(|s| !s.is_empty())
@@ -34,7 +38,7 @@ fn run_sets<'a>(
         .collect()
 }
 
-/// Divergent units, in `unit_order`. Empty when there is no run.
+/// Disagreements, in `unit_order`. Empty when there is no run.
 pub fn divergences(
     unit_order: &[String],
     human: &CodingMap,
@@ -61,48 +65,74 @@ pub fn divergences(
         .collect()
 }
 
-/// Final coding of every unit in `unit_order`: the common set when everyone
-/// agrees, the arbitration otherwise. Err lists the units still pending (not
-/// coded by the candidate, not coded by a run, or diverging without decision).
-/// With no run at all, the candidate's coding is final.
+/// Units, in `unit_order`, on which the candidate and one run agree.
+pub fn agreements(unit_order: &[String], human: &CodingMap, run: &CodingMap) -> Vec<String> {
+    unit_order
+        .iter()
+        .filter(|id| matches!((coded(human, id), coded(run, id)), (Some(h), Some(r)) if h == r))
+        .cloned()
+        .collect()
+}
+
+/// Seed of the agreement sample of a run: first 16 hex characters of
+/// sha256(run_id followed by the segmentation hash).
+pub fn sample_seed(run_id: i64, segmentation_hash: &str) -> String {
+    sha256_hex(format!("{run_id}{segmentation_hash}").as_bytes())[..16].to_string()
+}
+
+/// Size of an agreement sample: max(5, ceil(10 %)) capped at the number of agreements.
+pub fn sample_size(n_agreements: usize) -> usize {
+    n_agreements.min(5.max(n_agreements.div_ceil(10)))
+}
+
+/// Deterministic sample: agreements ordered by sha256(seed + unit_id), the
+/// first `sample_size` kept, returned in their original order.
+pub fn sample_agreements(seed: &str, agreeing: &[String]) -> Vec<String> {
+    let mut keyed: Vec<(String, &String)> = agreeing
+        .iter()
+        .map(|u| (sha256_hex(format!("{seed}{u}").as_bytes()), u))
+        .collect();
+    keyed.sort();
+    let chosen: Vec<&String> = keyed
+        .into_iter()
+        .take(sample_size(agreeing.len()))
+        .map(|(_, u)| u)
+        .collect();
+    agreeing
+        .iter()
+        .filter(|u| chosen.contains(u))
+        .cloned()
+        .collect()
+}
+
+/// Final coding of `unit_order`: the review decision where one exists,
+/// otherwise the candidate's current codes. The second vector lists the units
+/// that have neither.
 pub fn final_coding(
     unit_order: &[String],
     human: &CodingMap,
-    runs: &[(String, CodingMap)],
-    arbitrations: &BTreeMap<String, Arbitration>,
-) -> Result<Vec<FinalCoding>, Vec<String>> {
+    decisions: &BTreeMap<String, Arbitration>,
+) -> (Vec<FinalCoding>, Vec<String>) {
     let mut finals = Vec::new();
-    let mut pending = Vec::new();
+    let mut uncoded = Vec::new();
     for id in unit_order {
-        let Some(h) = coded(human, id) else {
-            pending.push(id.clone());
-            continue;
-        };
-        let Some(sets) = run_sets(runs, id) else {
-            pending.push(id.clone());
-            continue;
-        };
-        match classify(h, &sets) {
-            None => finals.push(FinalCoding {
+        if let Some(d) = decisions.get(id) {
+            finals.push(FinalCoding {
+                unit_id: id.clone(),
+                codes: d.final_codes.clone(),
+                basis: FinalBasis::Reviewed,
+            });
+        } else if let Some(h) = coded(human, id) {
+            finals.push(FinalCoding {
                 unit_id: id.clone(),
                 codes: h.clone(),
-                basis: FinalBasis::Agreed,
-            }),
-            Some(_) => match arbitrations.get(id) {
-                Some(arb) => finals.push(FinalCoding {
-                    unit_id: id.clone(),
-                    codes: arb.final_codes.clone(),
-                    basis: FinalBasis::Arbitrated,
-                }),
-                None => pending.push(id.clone()),
-            },
+                basis: FinalBasis::Candidate,
+            });
+        } else {
+            uncoded.push(id.clone());
         }
     }
-    if pending.is_empty() {
-        Ok(finals)
-    } else {
-        Err(pending)
-    }
+    (finals, uncoded)
 }
 
 #[cfg(test)]
@@ -116,48 +146,66 @@ mod tests {
     fn map(pairs: &[(&str, &[&str])]) -> CodingMap {
         pairs.iter().map(|(u, c)| (u.to_string(), set(c))).collect()
     }
-
-    #[test]
-    fn kinds_and_finals() {
-        let order: Vec<String> = ["u1", "u2", "u3"].iter().map(|s| s.to_string()).collect();
-        let human = map(&[("u1", &["TECH"]), ("u2", &["ORG"]), ("u3", &["NA"])]);
-        let r1 = map(&[("u1", &["TECH"]), ("u2", &["ENV"]), ("u3", &["NA"])]);
-        let r2 = map(&[("u1", &["TECH"]), ("u2", &["ORG"]), ("u3", &["ENV"])]);
-        let runs = vec![("R1".to_string(), r1), ("R2".to_string(), r2)];
-        let d = divergences(&order, &human, &runs);
-        assert_eq!(d.len(), 2);
-        assert_eq!(d[0].kind, DivergenceKind::AiRunsUnstable);
-        assert_eq!(d[0].unit_id, "u2");
-
-        let mut arbs = BTreeMap::new();
-        assert_eq!(
-            final_coding(&order, &human, &runs, &arbs).unwrap_err(),
-            ["u2", "u3"]
-        );
-        for u in ["u2", "u3"] {
-            arbs.insert(
-                u.to_string(),
-                Arbitration {
-                    unit_id: u.into(),
-                    phase: 1,
-                    choice: ArbitrationChoice::Human,
-                    final_codes: human[u].clone(),
-                    rationale: "r".into(),
-                    decided_by: "c".into(),
-                    decided_at: "t".into(),
-                },
-            );
-        }
-        let f = final_coding(&order, &human, &runs, &arbs).unwrap();
-        assert_eq!(f[0].basis, FinalBasis::Agreed);
-        assert_eq!(f[1].basis, FinalBasis::Arbitrated);
+    fn ids(n: usize) -> Vec<String> {
+        (1..=n).map(|i| format!("u{i:03}")).collect()
     }
 
     #[test]
-    fn no_run_means_human_is_final() {
-        let order = vec!["u1".to_string()];
-        let human = map(&[("u1", &["TECH"])]);
-        let f = final_coding(&order, &human, &[], &BTreeMap::new()).unwrap();
-        assert_eq!(f[0].codes, set(&["TECH"]));
+    fn kinds_and_finals() {
+        let order: Vec<String> = ["u1", "u2", "u3", "u4"]
+            .iter()
+            .map(|s| s.to_string())
+            .collect();
+        let human = map(&[("u1", &["A"]), ("u2", &["B"]), ("u3", &["NA"])]);
+        let r1 = map(&[("u1", &["A"]), ("u2", &["C"]), ("u3", &["NA"])]);
+        let r2 = map(&[("u1", &["A"]), ("u2", &["B"]), ("u3", &["C"])]);
+        let runs = vec![("R1".to_string(), r1.clone()), ("R2".to_string(), r2)];
+        let d = divergences(&order, &human, &runs);
+        assert_eq!(d.len(), 2);
+        assert_eq!(d[0].kind, DivergenceKind::AiRunsUnstable);
+        assert_eq!(agreements(&order, &human, &r1), ["u1", "u3"]);
+
+        let mut decisions = BTreeMap::new();
+        decisions.insert(
+            "u2".to_string(),
+            Arbitration {
+                unit_id: "u2".into(),
+                phase: 2,
+                choice: ArbitrationChoice::Custom,
+                final_codes: set(&["D"]),
+                rationale: "r".into(),
+                decided_by: "c".into(),
+                decided_at: "t".into(),
+            },
+        );
+        let (finals, uncoded) = final_coding(&order, &human, &decisions);
+        assert_eq!(uncoded, ["u4"]);
+        assert_eq!(finals[0].basis, FinalBasis::Candidate);
+        assert_eq!(finals[1].codes, set(&["D"]));
+        assert_eq!(finals[1].basis, FinalBasis::Reviewed);
+    }
+
+    #[test]
+    fn sample_size_rule() {
+        assert_eq!(sample_size(0), 0);
+        assert_eq!(sample_size(3), 3);
+        assert_eq!(sample_size(5), 5);
+        assert_eq!(sample_size(49), 5);
+        assert_eq!(sample_size(51), 6);
+        assert_eq!(sample_size(120), 12);
+    }
+
+    #[test]
+    fn sample_is_deterministic_and_in_order() {
+        let agreeing = ids(80);
+        let seed = sample_seed(7, "abc");
+        assert_eq!(seed.len(), 16);
+        let a = sample_agreements(&seed, &agreeing);
+        assert_eq!(a, sample_agreements(&seed, &agreeing));
+        assert_eq!(a.len(), 8);
+        let mut sorted = a.clone();
+        sorted.sort();
+        assert_eq!(a, sorted);
+        assert_ne!(a, sample_agreements(&sample_seed(8, "abc"), &agreeing));
     }
 }

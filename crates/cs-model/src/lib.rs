@@ -191,25 +191,67 @@ impl Segmentation {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Code {
     pub code: String,
-    /// TECH | ORG | ENV | OUTCOME | TURNING-POINT | TRANSFER | STAGE | CONTEXT | INDUCTIVE
+    /// Display family: TECH, ORG or ENV from the TOE attachment, otherwise
+    /// OTHER (phase 1 categories keep their own name).
     pub family: String,
     pub label: String,
     pub definition: String,
-    /// codebook | legacy | inductive | bookkeeping
+    /// literature (from the codebook and the literature) | field (created from
+    /// the interviews) | legacy (family-level codes of the first passes, kept
+    /// for the record) | phase1 (the provisional TOE categories).
     pub origin: String,
+    /// TOE attachment: "T", "O", "E", or none when the code is not attached.
+    #[serde(default)]
+    pub toe: Option<String>,
     pub active: bool,
     /// Whether the code is offered to the AI coder. Default: every active code
     /// whose origin is not `legacy`.
     pub in_prompt: bool,
-    /// Inductive log (candidate's codes): an example segment or quote.
+    /// Research questions the code bears on (ids of `ResearchQuestion`).
+    #[serde(default)]
+    pub research_questions: Vec<String>,
+    /// Set when the code was merged into another one; it is then inactive.
+    #[serde(default)]
+    pub merged_into: Option<String>,
+    /// Incremented on every edit of the code.
+    #[serde(default = "one")]
+    pub version: u32,
+    /// An example segment or quote.
     #[serde(default)]
     pub example: Option<String>,
-    /// Inductive log: why the code was created.
+    /// Why the code was created (field codes).
     #[serde(default)]
     pub reason: Option<String>,
-    /// Inductive log: creation time, ISO 8601.
+    /// Creation time, ISO 8601, for codes created in the tool.
     #[serde(default)]
     pub created_at: Option<String>,
+}
+
+fn one() -> u32 {
+    1
+}
+
+/// TOE letters accepted on a code.
+pub const TOE_LETTERS: [&str; 3] = ["T", "O", "E"];
+
+/// Display family of a TOE attachment: TECH, ORG, ENV, or OTHER.
+pub fn family_for_toe(toe: Option<&str>) -> &'static str {
+    match toe {
+        Some("T") => "TECH",
+        Some("O") => "ORG",
+        Some("E") => "ENV",
+        _ => "OTHER",
+    }
+}
+
+/// TOE letter of a phase 1 category (TECH, ORG, ENV), if any.
+pub fn toe_of_context(category: &str) -> Option<&'static str> {
+    match category {
+        "TECH" => Some("T"),
+        "ORG" => Some("O"),
+        "ENV" => Some("E"),
+        _ => None,
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -260,6 +302,10 @@ pub struct HumanCoding {
     pub memo: Option<String>,
     /// Verbatim extract; must be an exact substring of the unit text.
     pub excerpt: Option<String>,
+    /// Set by the store when the coding was changed after an AI answer covering
+    /// the unit had been imported. Ignored on input.
+    #[serde(default)]
+    pub revised_after_ai: bool,
 }
 
 /// Checks the rules every code set must follow. Returns the problems found.
@@ -292,14 +338,24 @@ pub struct AiRunMeta {
     /// When the candidate ran the prompt, ISO 8601.
     pub executed_at: String,
     pub notes: Option<String>,
+    /// Prompt batch the run answers; the latest batch when omitted.
+    #[serde(default)]
+    pub batch_id: Option<i64>,
 }
 
 /// One copy-paste prompt. Long interviews are split into parts.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PromptPart {
     pub interview_id: String,
-    /// 1 (TOE contexts) or 2 (study-specific codes).
+    /// Always 2: only the detailed codes are challenged by the AI.
     pub phase: u8,
+    /// Generation the part belongs to (all parts generated together share it);
+    /// assigned by the store when the parts are recorded.
+    #[serde(default)]
+    pub batch_id: i64,
+    /// Codes offered in the part (snapshot), the reference for validating the answer.
+    #[serde(default)]
+    pub codes: Vec<String>,
     pub part: u32,
     pub of: u32,
     pub unit_ids: Vec<String>,
@@ -334,11 +390,15 @@ pub struct AiRun {
     pub interview_id: String,
     pub phase: u8,
     pub meta: AiRunMeta,
+    /// Prompt batch answered by the run.
+    pub batch_id: i64,
+    /// Units of the batch, in order.
+    pub unit_ids: Vec<String>,
     pub codings: CodingMap,
     /// Parts received so far, e.g. [1, 2] of 3.
     pub parts_received: Vec<u32>,
     pub parts_expected: Option<u32>,
-    /// Every unit of the segmentation has a coding.
+    /// Every unit of the batch has a coding.
     pub complete: bool,
 }
 
@@ -411,10 +471,10 @@ fn default_phase() -> u8 {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum FinalBasis {
-    /// Human and every AI run gave the same set.
-    Agreed,
-    /// Divergence settled by an arbitration record.
-    Arbitrated,
+    /// The candidate's current coding (no review decision on the unit).
+    Candidate,
+    /// A review decision of the candidate.
+    Reviewed,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -422,6 +482,144 @@ pub struct FinalCoding {
     pub unit_id: String,
     pub codes: CodeSet,
     pub basis: FinalBasis,
+}
+
+// ------------------------------------------------------------------ review
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ReviewKind {
+    /// The candidate's codes differ from at least one complete AI run.
+    Disagreement,
+    /// The candidate and the AI agree; drawn at random for a second look.
+    AgreementSample,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ReviewItem {
+    pub unit_id: String,
+    pub kind: ReviewKind,
+    pub human: CodeSet,
+    /// Codes per run label (complete runs).
+    pub ai: BTreeMap<String, CodeSet>,
+    pub decision: Option<Arbitration>,
+}
+
+// -------------------------------------------------------------- to clarify
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ResolutionKind {
+    /// A new code was created from the label (origin field).
+    NewCode,
+    /// The label was mapped to an existing code.
+    Mapped,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Resolution {
+    pub kind: ResolutionKind,
+    pub code: String,
+    pub at: String,
+    pub by: String,
+    pub rationale: Option<String>,
+}
+
+/// A provisional label put on a unit while the right code is not yet known.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ToClarify {
+    pub id: i64,
+    pub interview_id: String,
+    pub unit_id: String,
+    pub label: String,
+    pub note: String,
+    pub created_at: String,
+    pub created_by: String,
+    pub resolved: Option<Resolution>,
+}
+
+// --------------------------------------------------- questions and cases
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ResearchQuestion {
+    /// Short id, e.g. RQ1 or SQ1.
+    pub id: String,
+    pub text: String,
+    pub ord: u32,
+}
+
+/// One field of a case synthesis, backed by units.
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub struct CaseField {
+    pub text: String,
+    /// unit_ids of the case's interview that support the text.
+    #[serde(default)]
+    pub evidence: Vec<String>,
+}
+
+/// Synthesis of one case (one identifiable project) told in an interview.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Case {
+    /// e.g. ECO-05-C1; generated when empty on creation.
+    #[serde(default)]
+    pub case_id: String,
+    #[serde(default)]
+    pub interview_id: String,
+    pub label: String,
+    #[serde(default)]
+    pub trigger: CaseField,
+    #[serde(default)]
+    pub alternatives: CaseField,
+    #[serde(default)]
+    pub constraints: CaseField,
+    #[serde(default)]
+    pub choice: CaseField,
+    #[serde(default)]
+    pub result: CaseField,
+    /// STAGE-* of the codebook, free text otherwise.
+    #[serde(default)]
+    pub stage: Option<String>,
+    /// STATUS-* of the codebook, free text otherwise.
+    #[serde(default)]
+    pub outcome_status: Option<String>,
+    #[serde(default)]
+    pub notes: Option<String>,
+    #[serde(default)]
+    pub updated_at: String,
+}
+
+impl Case {
+    /// The five synthesis fields with their names, in reading order.
+    pub fn fields(&self) -> [(&'static str, &CaseField); 5] {
+        [
+            ("trigger", &self.trigger),
+            ("alternatives", &self.alternatives),
+            ("constraints", &self.constraints),
+            ("choice", &self.choice),
+            ("result", &self.result),
+        ]
+    }
+}
+
+/// Codes of one research question found in one case, with their units.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CrossCaseCode {
+    pub code: String,
+    pub units: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CrossCaseCell {
+    pub rq: String,
+    pub case_id: String,
+    pub codes: Vec<CrossCaseCode>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CrossCase {
+    pub questions: Vec<ResearchQuestion>,
+    pub cases: Vec<Case>,
+    pub cells: Vec<CrossCaseCell>,
 }
 
 // -------------------------------------------------------------------- audit
@@ -481,20 +679,28 @@ pub struct ChainCheck {
 
 // ---------------------------------------------------------- library summary
 
-/// Progress of one coding phase of an interview.
+/// Progress of one coding phase of an interview. In phase 1 only the unit and
+/// coding counts are used.
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct PhaseSummary {
     pub phase: u8,
-    /// Units in scope: every unit in phase 1, the relevant ones in phase 2
-    /// (0 while phase 1 is not reconciled).
+    /// Units in scope: every unit in phase 1; in phase 2 the units whose
+    /// current phase 1 category is not NA.
     pub n_units: usize,
+    /// Units coded (phase 2: codes or an open label to clarify).
     pub n_human_coded: usize,
     pub human_complete: bool,
     pub n_ai_runs: usize,
     pub n_ai_runs_complete: usize,
+    /// Disagreements between the candidate and a complete AI run.
     pub n_divergences: usize,
+    /// Agreements drawn for review.
+    pub n_sampled: usize,
+    /// Review decisions recorded (disagreements and sampled agreements).
     pub n_arbitrated: usize,
-    /// Every unit in scope has a final coding (agreed or arbitrated).
+    /// Open labels to clarify.
+    pub n_to_clarify: usize,
+    /// At least one complete AI run and every disagreement decided.
     pub reconciled: bool,
 }
 

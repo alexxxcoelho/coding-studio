@@ -2,13 +2,13 @@
 //! interview, written to a new folder that is never overwritten, with a
 //! manifest of SHA-256 hashes.
 
-use std::collections::BTreeSet;
+use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
 use cs_model::phase::{PHASE_1, PHASE_2};
-use cs_model::{sha256_hex, CsError, HumanCoding};
+use cs_model::{sha256_hex, Case, CsError, HumanCoding, ToClarify};
 use cs_store::Store;
 use serde::Serialize;
 use serde_json::json;
@@ -20,16 +20,21 @@ pub struct ExportedFile {
     pub size: u64,
 }
 
-/// Status of one coding phase in the package.
+/// Status of the detailed coding in the package.
 #[derive(Debug, Serialize)]
-pub struct PhaseExport {
-    pub phase: u8,
-    pub n_units: usize,
+pub struct CodingStatus {
+    pub n_units_phase1: usize,
+    pub n_coded_phase1: usize,
+    pub n_units_phase2: usize,
+    pub n_coded_phase2: usize,
     pub n_runs: usize,
     pub n_complete_runs: usize,
-    pub n_divergences: usize,
-    pub reconciled: bool,
-    pub pending_units: Vec<String>,
+    pub n_disagreements: usize,
+    pub n_sampled: usize,
+    pub n_decided: usize,
+    pub n_revised_after_ai: usize,
+    pub n_to_clarify_open: usize,
+    pub n_cases: usize,
 }
 
 #[derive(Debug, Serialize)]
@@ -37,16 +42,16 @@ pub struct ExportResult {
     pub dir: String,
     pub files: Vec<ExportedFile>,
     pub manifest_sha256: String,
-    pub phases: Vec<PhaseExport>,
+    pub status: CodingStatus,
 }
 
-struct Writer {
-    dir: PathBuf,
-    files: Vec<ExportedFile>,
+pub(crate) struct Writer {
+    pub dir: PathBuf,
+    pub files: Vec<ExportedFile>,
 }
 
 impl Writer {
-    fn write(&mut self, name: &str, content: &[u8]) -> Result<()> {
+    pub fn write(&mut self, name: &str, content: &[u8]) -> Result<()> {
         let path = self.dir.join(name);
         if path.exists() {
             anyhow::bail!("refusing to overwrite {}", path.display());
@@ -80,7 +85,7 @@ fn safe(label: &str) -> String {
     }
 }
 
-fn csv_field(value: &str) -> String {
+pub(crate) fn csv_field(value: &str) -> String {
     if value.contains([',', '"', '\n', '\r']) {
         format!("\"{}\"", value.replace('"', "\"\""))
     } else {
@@ -88,182 +93,158 @@ fn csv_field(value: &str) -> String {
     }
 }
 
-fn human_full_csv(
-    order: &[String],
-    codings: &std::collections::BTreeMap<String, HumanCoding>,
-) -> String {
-    let mut out = String::from("unit_id,codes,subcode,modifier,ev_level,provenance,memo,excerpt\n");
+fn codes_text(c: &HumanCoding) -> String {
+    c.codes.iter().cloned().collect::<Vec<_>>().join(";")
+}
+
+fn human_csv(order: &[String], codings: &BTreeMap<String, HumanCoding>) -> String {
+    let mut out = String::from("unit_id,codes,revised_after_ai\n");
+    for unit_id in order {
+        if let Some(c) = codings.get(unit_id) {
+            out.push_str(&format!(
+                "{},{},{}\n",
+                csv_field(unit_id),
+                csv_field(&codes_text(c)),
+                c.revised_after_ai as u8
+            ));
+        }
+    }
+    out
+}
+
+fn human_full_csv(order: &[String], codings: &BTreeMap<String, HumanCoding>) -> String {
+    let mut out = String::from(
+        "unit_id,codes,subcode,modifier,ev_level,provenance,memo,excerpt,revised_after_ai\n",
+    );
     for unit_id in order {
         let Some(c) = codings.get(unit_id) else {
             continue;
         };
-        let codes = c.codes.iter().cloned().collect::<Vec<_>>().join(";");
         let opt = |v: &Option<String>| csv_field(v.as_deref().unwrap_or(""));
         out.push_str(&format!(
-            "{},{},{},{},{},{},{},{}\n",
+            "{},{},{},{},{},{},{},{},{}\n",
             csv_field(unit_id),
-            csv_field(&codes),
+            csv_field(&codes_text(c)),
             opt(&c.subcode),
             opt(&c.modifier),
             opt(&c.ev_level),
             opt(&c.provenance),
             opt(&c.memo),
             opt(&c.excerpt),
+            c.revised_after_ai as u8,
         ));
     }
     out
 }
 
-/// Picks `<base>/<YYYY-MM-DD>_<ID>`, or a time-suffixed sibling when it exists.
-fn target_dir(base: &Path, interview_id: &str) -> PathBuf {
+fn to_clarify_csv(items: &[ToClarify]) -> String {
+    let mut out = String::from(
+        "id,unit_id,label,note,created_at,created_by,resolution,code,rationale,resolved_at,resolved_by\n",
+    );
+    for t in items {
+        let (kind, code, rationale, at, by) = match &t.resolved {
+            Some(r) => (
+                match r.kind {
+                    cs_model::ResolutionKind::NewCode => "new_code",
+                    cs_model::ResolutionKind::Mapped => "mapped",
+                },
+                r.code.as_str(),
+                r.rationale.as_deref().unwrap_or(""),
+                r.at.as_str(),
+                r.by.as_str(),
+            ),
+            None => ("open", "", "", "", ""),
+        };
+        out.push_str(
+            &[
+                t.id.to_string(),
+                csv_field(&t.unit_id),
+                csv_field(&t.label),
+                csv_field(&t.note),
+                csv_field(&t.created_at),
+                csv_field(&t.created_by),
+                kind.to_string(),
+                csv_field(code),
+                csv_field(rationale),
+                csv_field(at),
+                csv_field(by),
+            ]
+            .join(","),
+        );
+        out.push('\n');
+    }
+    out
+}
+
+/// Markdown synthesis of the cases of one interview.
+pub(crate) fn cases_md(interview_id: &str, cases: &[Case]) -> String {
+    let mut s = format!("# Case syntheses, {interview_id}\n\n");
+    if cases.is_empty() {
+        s.push_str("No case recorded.\n");
+        return s;
+    }
+    for c in cases {
+        s.push_str(&format!("## {}, {}\n\n", c.case_id, c.label));
+        if let Some(stage) = &c.stage {
+            s.push_str(&format!("Stage: {stage}. "));
+        }
+        if let Some(status) = &c.outcome_status {
+            s.push_str(&format!("Outcome status: {status}."));
+        }
+        if c.stage.is_some() || c.outcome_status.is_some() {
+            s.push_str("\n\n");
+        }
+        for (name, f) in c.fields() {
+            let title = match name {
+                "trigger" => "Trigger",
+                "alternatives" => "Alternatives",
+                "constraints" => "Constraints",
+                "choice" => "Choice",
+                _ => "Result",
+            };
+            s.push_str(&format!("### {title}\n\n"));
+            s.push_str(if f.text.is_empty() {
+                "(not filled)"
+            } else {
+                f.text.as_str()
+            });
+            s.push_str("\n\n");
+            if !f.evidence.is_empty() {
+                s.push_str(&format!("Evidence: {}.\n\n", f.evidence.join(", ")));
+            }
+        }
+        if let Some(n) = &c.notes {
+            s.push_str(&format!("Notes: {n}\n\n"));
+        }
+    }
+    s
+}
+
+/// Picks `<base>/<YYYY-MM-DD>_<name>`, or a time-suffixed sibling when it exists.
+pub(crate) fn target_dir(base: &Path, name: &str) -> PathBuf {
     let now = chrono::Local::now();
-    let first = base.join(format!("{}_{}", now.format("%Y-%m-%d"), interview_id));
+    let first = base.join(format!("{}_{}", now.format("%Y-%m-%d"), name));
     if !first.exists() {
         return first;
     }
-    let stamped = base.join(format!(
-        "{}_{}_{}",
-        now.format("%Y-%m-%d"),
-        interview_id,
-        now.format("%H%M%S")
-    ));
-    if !stamped.exists() {
-        return stamped;
-    }
-    let mut n = 2;
+    let mut n = 1;
     loop {
         let candidate = base.join(format!(
-            "{}_{}_{}_{n}",
+            "{}_{}_{}{}",
             now.format("%Y-%m-%d"),
-            interview_id,
-            now.format("%H%M%S")
+            name,
+            now.format("%H%M%S"),
+            if n == 1 {
+                String::new()
+            } else {
+                format!("_{n}")
+            }
         ));
         if !candidate.exists() {
             return candidate;
         }
         n += 1;
     }
-}
-
-/// Writes the files of one phase; returns its status.
-fn write_phase(
-    w: &mut Writer,
-    store: &Store,
-    interview_id: &str,
-    seg: &cs_model::Segmentation,
-    phase: u8,
-) -> Result<PhaseExport> {
-    let order = store.phase_units(interview_id, phase)?;
-    let human_full = store.human_codings(interview_id, phase)?;
-    let human = store.human_coding_map(interview_id, phase)?;
-    let runs = store.ai_runs(interview_id, phase)?;
-    let prompts = store.prompts(interview_id, phase)?;
-    let pre = format!("phase{phase}_");
-
-    if !human_full.is_empty() || !runs.is_empty() {
-        w.write(
-            &format!("{pre}coding_human.csv"),
-            cs_ai::coding_csv(&human, &order).as_bytes(),
-        )?;
-        w.write(
-            &format!("{pre}human_full.csv"),
-            human_full_csv(&order, &human_full).as_bytes(),
-        )?;
-    }
-
-    let mut seen_prompts = BTreeSet::new();
-    for p in &prompts {
-        if !seen_prompts.insert(p.sha256.clone()) {
-            continue;
-        }
-        let name = format!(
-            "{pre}prompt_part{}_of{}_{}.txt",
-            p.part,
-            p.of,
-            &p.sha256[..8]
-        );
-        w.write(&name, p.text.as_bytes())?;
-    }
-
-    for run in &runs {
-        let tag = format!("run{}_{}", run.run_id, safe(&run.meta.run_label));
-        let meta = json!({
-            "run_id": run.run_id,
-            "phase": run.phase,
-            "meta": run.meta,
-            "parts_received": run.parts_received,
-            "parts_expected": run.parts_expected,
-            "complete": run.complete,
-        });
-        w.write(
-            &format!("{pre}{tag}.json"),
-            serde_json::to_string_pretty(&meta)?.as_bytes(),
-        )?;
-        w.write(
-            &format!("{pre}coding_ai_{tag}.csv"),
-            cs_ai::coding_csv(&run.codings, &order).as_bytes(),
-        )?;
-        for (part, raw, _sha, _at) in store.ai_raw_outputs(run.run_id)? {
-            w.write(&format!("{pre}ai_{tag}_part{part}_raw.txt"), raw.as_bytes())?;
-        }
-    }
-
-    let complete: Vec<(String, cs_model::CodingMap)> = runs
-        .iter()
-        .filter(|r| r.complete)
-        .map(|r| (r.meta.run_label.clone(), r.codings.clone()))
-        .collect();
-    let arbitrations = store.arbitrations(interview_id, phase)?;
-    let divergences = cs_ai::divergences(&order, &human, &complete);
-    if !complete.is_empty() {
-        let reports = crate::agreement_reports(&human, &complete, &order);
-        w.write(
-            &format!("{pre}agreement.md"),
-            cs_ai::render_agreement_md(seg, phase, &order, &reports).as_bytes(),
-        )?;
-        w.write(
-            &format!("{pre}adjudication_log.md"),
-            cs_ai::render_adjudication_md(seg, phase, &divergences, &arbitrations).as_bytes(),
-        )?;
-    }
-
-    let (reconciled, pending) = match store.final_codings(interview_id, phase)? {
-        Ok(finals) => {
-            w.write(
-                &format!("{pre}coding_final.csv"),
-                cs_ai::final_csv(&finals).as_bytes(),
-            )?;
-            (true, Vec::new())
-        }
-        Err(pending) => (false, pending),
-    };
-
-    Ok(PhaseExport {
-        phase,
-        n_units: order.len(),
-        n_runs: runs.len(),
-        n_complete_runs: complete.len(),
-        n_divergences: divergences.len(),
-        reconciled,
-        pending_units: pending,
-    })
-}
-
-fn inductive_log_csv(codebook: &cs_model::Codebook) -> String {
-    let mut out = String::from("code,label,definition,example,reason,created_at\n");
-    for c in codebook.codes.iter().filter(|c| c.origin == "inductive") {
-        let opt = |v: &Option<String>| csv_field(v.as_deref().unwrap_or(""));
-        out.push_str(&format!(
-            "{},{},{},{},{},{}\n",
-            csv_field(&c.code),
-            csv_field(&c.label),
-            csv_field(&c.definition),
-            opt(&c.example),
-            opt(&c.reason),
-            opt(&c.created_at),
-        ));
-    }
-    out
 }
 
 pub fn write_package(
@@ -281,7 +262,18 @@ pub fn write_package(
             "{interview_id} has no segmentation; nothing to export yet"
         ))
     })?;
-    let codebook = store.codebook()?;
+    let all_units: Vec<String> = seg.units.iter().map(|u| u.unit_id.clone()).collect();
+    let p1 = store.human_codings(interview_id, PHASE_1)?;
+    let p2 = store.human_codings(interview_id, PHASE_2)?;
+    let scope2 = store.phase_units(interview_id, PHASE_2)?;
+    let runs = store.ai_runs(interview_id)?;
+    let prompts = store.prompts(interview_id)?;
+    let review = store.review(interview_id)?;
+    let history = store.decision_history(interview_id)?;
+    let (finals, _uncoded) = store.final_codings(interview_id)?;
+    let to_clarify = store.to_clarify_items(Some(interview_id), false)?;
+    let cases = store.cases(Some(interview_id))?;
+    let (codebook_csv, _) = store.codebook_export()?;
     let events = store.audit_events(Some(interview_id))?;
     let chain = store.verify_chain()?;
 
@@ -294,11 +286,85 @@ pub fn write_package(
     };
 
     w.write("units.csv", cs_ai::units_csv(&seg).as_bytes())?;
-    let phases = vec![
-        write_phase(&mut w, store, interview_id, &seg, PHASE_1)?,
-        write_phase(&mut w, store, interview_id, &seg, PHASE_2)?,
-    ];
-    w.write("inductive_log.csv", inductive_log_csv(&codebook).as_bytes())?;
+    let p1_map = store.human_coding_map(interview_id, PHASE_1)?;
+    w.write(
+        "phase1_contexts.csv",
+        cs_ai::coding_csv(&p1_map, &all_units).as_bytes(),
+    )?;
+    w.write(
+        "phase2_coding_human.csv",
+        human_csv(&all_units, &p2).as_bytes(),
+    )?;
+    w.write(
+        "phase2_human_full.csv",
+        human_full_csv(&all_units, &p2).as_bytes(),
+    )?;
+
+    for p in &prompts {
+        let name = format!(
+            "phase2_batch{}_prompt_part{}_of{}_{}.txt",
+            p.batch_id,
+            p.part,
+            p.of,
+            &p.sha256[..8]
+        );
+        w.write(&name, p.text.as_bytes())?;
+    }
+
+    for run in &runs {
+        let tag = format!("run{}_{}", run.run_id, safe(&run.meta.run_label));
+        let meta = json!({
+            "run_id": run.run_id,
+            "batch_id": run.batch_id,
+            "meta": run.meta,
+            "unit_ids": run.unit_ids,
+            "parts_received": run.parts_received,
+            "parts_expected": run.parts_expected,
+            "complete": run.complete,
+        });
+        w.write(
+            &format!("phase2_{tag}.json"),
+            serde_json::to_string_pretty(&meta)?.as_bytes(),
+        )?;
+        w.write(
+            &format!("phase2_coding_ai_{tag}.csv"),
+            cs_ai::coding_csv(&run.codings, &run.unit_ids).as_bytes(),
+        )?;
+        for (part, raw, _sha, _at) in store.ai_raw_outputs(run.run_id)? {
+            w.write(
+                &format!("phase2_ai_{tag}_part{part}_raw.txt"),
+                raw.as_bytes(),
+            )?;
+        }
+    }
+
+    let complete: Vec<(String, cs_model::CodingMap)> = store.complete_runs(interview_id)?;
+    if !complete.is_empty() {
+        let order = crate::compared_units(store, interview_id)?;
+        let human = store.human_coding_map(interview_id, PHASE_2)?;
+        let reports = crate::agreement_reports(&human, &complete, &order);
+        w.write(
+            "phase2_agreement.md",
+            cs_ai::render_agreement_md(&seg, &order, &reports).as_bytes(),
+        )?;
+        let items: Vec<cs_model::ReviewItem> =
+            review.items.iter().map(|e| e.item.clone()).collect();
+        w.write(
+            "phase2_review.md",
+            cs_ai::render_review_md(&seg, &items, &history, &review.seeds).as_bytes(),
+        )?;
+    }
+    w.write(
+        "phase2_coding_final.csv",
+        cs_ai::final_csv(&finals).as_bytes(),
+    )?;
+    w.write("to_clarify.csv", to_clarify_csv(&to_clarify).as_bytes())?;
+    w.write(
+        "cases.json",
+        serde_json::to_string_pretty(&cases)?.as_bytes(),
+    )?;
+    w.write("cases.md", cases_md(interview_id, &cases).as_bytes())?;
+    w.write("codebook.csv", codebook_csv.as_bytes())?;
 
     let mut jsonl = String::new();
     for e in &events {
@@ -310,9 +376,25 @@ pub fn write_package(
         "audit_chain.json",
         serde_json::to_string_pretty(&chain)?.as_bytes(),
     )?;
+
+    let status = CodingStatus {
+        n_units_phase1: all_units.len(),
+        n_coded_phase1: p1.len(),
+        n_units_phase2: scope2.len(),
+        n_coded_phase2: store.guard(interview_id, PHASE_2)?.n_units
+            - store.guard(interview_id, PHASE_2)?.missing.len(),
+        n_runs: runs.len(),
+        n_complete_runs: complete.len(),
+        n_disagreements: review.n_disagreements,
+        n_sampled: review.n_sampled,
+        n_decided: review.n_decided,
+        n_revised_after_ai: p2.values().filter(|c| c.revised_after_ai).count(),
+        n_to_clarify_open: to_clarify.iter().filter(|t| t.resolved.is_none()).count(),
+        n_cases: cases.len(),
+    };
     w.write(
         "README.md",
-        readme(interview_id, &entry.folder_name, &seg, &phases).as_bytes(),
+        readme(interview_id, &entry.folder_name, &seg, &status).as_bytes(),
     )?;
 
     let manifest = json!({
@@ -327,7 +409,7 @@ pub fn write_package(
         "segmentation_hash": seg.hash,
         "source": { "path": seg.source_rel_path, "sha256": seg.source_sha256 },
         "audit_chain_ok": chain.ok,
-        "phases": phases,
+        "status": status,
         "files": w.files,
     });
     let manifest_bytes = serde_json::to_vec_pretty(&manifest)?;
@@ -343,7 +425,7 @@ pub fn write_package(
             "dir": dir.display().to_string(),
             "manifest_sha256": manifest_sha,
             "n_files": w.files.len(),
-            "phases": phases,
+            "status": status,
         }),
     )?;
 
@@ -351,60 +433,40 @@ pub fn write_package(
         dir: dir.display().to_string(),
         files: w.files,
         manifest_sha256: manifest_sha,
-        phases,
+        status,
     })
 }
 
-fn phase_status(p: &PhaseExport) -> String {
-    let title = cs_ai::phase_title(p.phase);
-    if p.n_units == 0 && p.n_runs == 0 {
-        return format!("{title}: not started (phase 1 must be reconciled first).\n\n");
-    }
-    let mut s = format!(
-        "{title}: {} unit(s) in scope, {} AI run(s) recorded, {} complete, {} divergence(s). ",
-        p.n_units, p.n_runs, p.n_complete_runs, p.n_divergences
-    );
-    if p.reconciled {
-        s.push_str(
-            "Reconciled: every divergence is arbitrated and the final coding is included.\n\n",
-        );
-    } else if p.n_complete_runs == 0 {
-        s.push_str("No complete AI run yet, so no agreement, adjudication or final coding is included.\n\n");
-    } else {
-        s.push_str(&format!(
-            "Not reconciled: {} unit(s) still pending: {}.\n\n",
-            p.pending_units.len(),
-            p.pending_units.join(", ")
-        ));
-    }
-    s
-}
-
-fn readme(id: &str, folder: &str, seg: &cs_model::Segmentation, phases: &[PhaseExport]) -> String {
+fn readme(id: &str, folder: &str, seg: &cs_model::Segmentation, st: &CodingStatus) -> String {
     let mut s = String::new();
     s.push_str(&format!("# Coding audit package, {id}\n\n"));
     s.push_str(&format!(
         "Interview folder: {folder}. Segmented source: {} (SHA-256 {}). Segmentation hash: {}. Rule: {}. Units: {}.\n\n",
         seg.source_rel_path, seg.source_sha256, seg.hash, seg.rule, seg.units.len()
     ));
-    s.push_str("Coding runs in two phases. Phase 1 codes every unit against the three contexts of the TOE framework (TECH, ORG, ENV), plus CONTEXT for descriptive material about the respondent, the organisation or the scope of the account, INDUCTIVE-PENDING for relevant material outside the three contexts, and NA for the rest. Phase 2 codes only the units found relevant in the reconciled phase 1, with the study-specific codes of their contexts and the cross-cutting families. In each phase the candidate codes first, an AI coder then codes blind from a generated prompt, and every divergence is arbitrated with a written rationale.\n\n");
-    for p in phases {
-        s.push_str(&phase_status(p));
-    }
+    s.push_str("Phase 1 is the candidate's provisional pre-classification of every unit against the three contexts of the TOE framework (TECH, ORG, ENV), plus CONTEXT for descriptive material and NA for the rest; it stays revisable and is not challenged by the AI. Phase 2 codes the units whose phase 1 category is not NA with concrete codes, each attached to a TOE context where relevant and marked as coming from the literature or from the field. A unit may carry several codes, or a provisional label to clarify that is later resolved into a new code or mapped to an existing one. An AI coder then challenges the detailed codes blind, from a generated prompt; the candidate reviews every disagreement and a random sample of agreements and keeps the final decision.\n\n");
+    s.push_str(&format!(
+        "Status at export: phase 1, {} of {} units coded; phase 2, {} of {} units coded, {} AI run(s) of which {} complete, {} disagreement(s) and {} sampled agreement(s), {} decision(s); {} coding(s) revised after the AI answer; {} open label(s) to clarify; {} case(s).\n\n",
+        st.n_coded_phase1, st.n_units_phase1, st.n_coded_phase2, st.n_units_phase2, st.n_runs,
+        st.n_complete_runs, st.n_disagreements, st.n_sampled, st.n_decided, st.n_revised_after_ai,
+        st.n_to_clarify_open, st.n_cases
+    ));
     s.push_str("## Files\n\n");
-    s.push_str("Files starting with `phase1_` or `phase2_` belong to that phase.\n\n");
     for (name, what) in [
         ("units.csv", "The units of analysis, `unit_id,speaker,timestamp,text`, as produced by the deterministic segmentation."),
-        ("phase<p>_coding_human.csv", "The candidate's coding, `unit_id,codes`, codes separated by `;`, NA when no code applies."),
-        ("phase<p>_human_full.csv", "The same coding with every field: sub-code, modifier, evidence level, provenance, memo and verbatim excerpt."),
-        ("phase<p>_prompt_part<n>_of<m>_<hash>.txt", "Each prompt generated for the AI coder, byte for byte; the hash prefix is the start of its SHA-256."),
-        ("phase<p>_run<id>_<label>.json", "Parameters of each AI run: model, version, temperature, seed, context length, batch size, prompt version, execution time."),
-        ("phase<p>_coding_ai_run<id>_<label>.csv", "Codes per unit returned by that run, after validation, in the format of the human coding."),
-        ("phase<p>_ai_run<id>_<label>_part<n>_raw.txt", "The AI answer exactly as pasted, before any parsing."),
-        ("phase<p>_agreement.md", "Exact agreement and Cohen's kappa per code, human against each run and runs against each other."),
-        ("phase<p>_adjudication_log.md", "Every divergence with the unit text, the competing codes, the decision and its rationale."),
-        ("phase<p>_coding_final.csv", "Final coding of the phase: agreed units keep the common codes, divergent units take the arbitrated codes (`basis`)."),
-        ("inductive_log.csv", "The candidate's inductive codes: definition, example, reason for creation and creation time."),
+        ("phase1_contexts.csv", "The provisional TOE pre-classification, `unit_id,codes`."),
+        ("phase2_coding_human.csv", "The candidate's detailed coding, `unit_id,codes,revised_after_ai`; the last column is 1 when the coding was changed after an AI answer covering the unit."),
+        ("phase2_human_full.csv", "The same coding with every field: sub-code, modifier, evidence level, provenance, memo and verbatim excerpt."),
+        ("phase2_batch<b>_prompt_part<n>_of<m>_<hash>.txt", "Each prompt generated for the AI coder, byte for byte, by batch; the hash prefix is the start of its SHA-256."),
+        ("phase2_run<id>_<label>.json", "Parameters of each AI run: batch answered, model, version, temperature, seed, context length, prompt version, execution time."),
+        ("phase2_coding_ai_run<id>_<label>.csv", "Codes per unit returned by that run, after validation."),
+        ("phase2_ai_run<id>_<label>_part<n>_raw.txt", "The AI answer exactly as pasted, before any parsing."),
+        ("phase2_agreement.md", "Exact agreement and Cohen's kappa per code, candidate against each run and runs against each other; reported, not optimised."),
+        ("phase2_review.md", "Every disagreement and every sampled agreement with the unit text, the competing codes, the decision and its rationale, and the sample seeds."),
+        ("phase2_coding_final.csv", "Final detailed coding: the review decision where one exists, otherwise the candidate's codes (`basis`)."),
+        ("to_clarify.csv", "Every provisional label, its note, and how it was resolved (new code or mapped code)."),
+        ("cases.json, cases.md", "The case syntheses: trigger, alternatives, constraints, choice and result, each with the units that support it."),
+        ("codebook.csv", "The codebook at export time: TOE attachment, origin, research questions, version."),
         ("audit_log.jsonl", "Every recorded action on this interview, one JSON event per line, each chained to the previous one by SHA-256."),
         ("audit_chain.json", "Result of the verification of the whole audit chain at export time."),
         ("manifest.json", "SHA-256 and size of every file above, with the tool version and the export time."),

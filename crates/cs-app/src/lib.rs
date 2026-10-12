@@ -15,12 +15,12 @@ use axum::http::{header, StatusCode, Uri};
 use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post, put};
 use axum::{Json, Router};
-use cs_model::phase::{phase1_codebook, phase2_allowed, PHASE_1, PHASE_2};
+use cs_model::phase::{phase1_codebook, phase2_codes, phase2_prompt_codes, PHASE_1, PHASE_2};
 use cs_model::{
-    AiRunMeta, Arbitration, ArbitrationChoice, Code, CodeSet, Codebook, CodingMap, CsError,
-    HumanCoding, Segmentation,
+    AiRunMeta, Arbitration, ArbitrationChoice, Case, Code, CodeSet, CodingMap, CsError,
+    HumanCoding, ResolutionKind, Segmentation,
 };
-use cs_store::Store;
+use cs_store::{CodePatch, ResolveRequest, Store};
 use include_dir::{include_dir, Dir};
 use serde::Deserialize;
 use serde_json::{json, Value};
@@ -123,17 +123,18 @@ impl AppState {
 
 /// Builds the router: API under `/api`, the React build everywhere else.
 pub fn router(state: AppState) -> Router {
+    const I: &str = "/api/interviews/{id}";
     const P: &str = "/api/interviews/{id}/phases/{phase}";
     Router::new()
         .route("/api/state", get(api_state))
         .route("/api/pick", post(pick))
         .route("/api/library/scan", post(scan_library))
         .route("/api/interviews", get(list_interviews))
-        .route("/api/interviews/{id}", get(interview_detail))
-        .route("/api/interviews/{id}/file", get(interview_file))
-        .route("/api/interviews/{id}/primary", post(set_primary))
-        .route("/api/interviews/{id}/segment", post(segment))
-        .route("/api/interviews/{id}/export", post(export_package))
+        .route(I, get(interview_detail))
+        .route(&format!("{I}/file"), get(interview_file))
+        .route(&format!("{I}/primary"), post(set_primary))
+        .route(&format!("{I}/segment"), post(segment))
+        .route(&format!("{I}/export"), post(export_package))
         .route(P, get(phase_state))
         .route(&format!("{P}/units"), get(units))
         .route(&format!("{P}/coding/{{unit_id}}"), put(set_coding))
@@ -143,15 +144,39 @@ pub fn router(state: AppState) -> Router {
         )
         .route(&format!("{P}/runs"), post(create_run).get(list_runs))
         .route(&format!("{P}/runs/{{run_id}}/outputs"), post(import_output))
-        .route(&format!("{P}/agreement"), get(agreement))
-        .route(&format!("{P}/divergences"), get(divergences))
-        .route(&format!("{P}/arbitration/{{unit_id}}"), put(arbitrate))
-        .route(&format!("{P}/final"), get(final_coding))
+        .route(&format!("{I}/review"), get(review))
+        .route(&format!("{I}/review/{{unit_id}}"), put(decide))
+        .route(&format!("{I}/final"), get(final_coding))
+        .route(&format!("{I}/agreement"), get(agreement))
+        .route(
+            &format!("{I}/units/{{unit_id}}/to-clarify"),
+            post(add_to_clarify),
+        )
+        .route("/api/to-clarify", get(list_to_clarify))
+        .route("/api/to-clarify/{tid}", put(edit_to_clarify))
+        .route("/api/to-clarify/{tid}/resolve", post(resolve_to_clarify))
         .route("/api/codebook", get(codebook))
         .route("/api/codebook/phase1", get(codebook_phase1))
         .route("/api/codebook/import", post(import_codebook))
+        .route("/api/codebook/export", post(export_codebook))
         .route("/api/codebook/codes", post(add_code))
+        .route("/api/codebook/codes/{code}", put(edit_code))
         .route("/api/codebook/codes/{code}/in_prompt", put(set_in_prompt))
+        .route("/api/codebook/codes/{code}/active", post(set_active))
+        .route("/api/codebook/codes/{code}/merge", post(merge_code))
+        .route("/api/codebook/codes/{code}/units", get(code_units))
+        .route(
+            "/api/research-questions",
+            get(list_questions).post(add_question),
+        )
+        .route(
+            "/api/research-questions/{rq}",
+            put(edit_question).delete(delete_question),
+        )
+        .route("/api/cases", get(all_cases))
+        .route("/api/cases/{case_id}", put(edit_case))
+        .route(&format!("{I}/cases"), get(interview_cases).post(add_case))
+        .route("/api/cross-case", get(cross_case))
         .route("/api/audit", get(audit))
         .route("/api/audit/verify", get(audit_verify))
         .fallback(static_file)
@@ -171,15 +196,21 @@ fn invalid(msg: impl Into<String>) -> ApiError {
     ApiError::from(anyhow::Error::new(CsError::Validation(msg.into())))
 }
 
-fn guard(msg: impl Into<String>) -> ApiError {
-    ApiError::from(anyhow::Error::new(CsError::Guard(msg.into())))
-}
-
 fn parse_phase(raw: &str) -> Result<u8, ApiError> {
     match raw {
         "1" => Ok(PHASE_1),
         "2" => Ok(PHASE_2),
         _ => Err(invalid(format!("unknown phase {raw}; use 1 or 2"))),
+    }
+}
+
+/// The AI pass exists in phase 2 only.
+fn only_phase2(raw: &str) -> Result<(), ApiError> {
+    match parse_phase(raw)? {
+        PHASE_2 => Ok(()),
+        _ => Err(invalid(
+            "phase 1 is a provisional pre-classification: it has no AI pass",
+        )),
     }
 }
 
@@ -198,122 +229,55 @@ fn require_segmentation(store: &Store, id: &str) -> Result<Segmentation, ApiErro
     })
 }
 
-/// Complete AI runs of a phase as (label, codings), in creation order.
-fn complete_runs(store: &Store, id: &str, phase: u8) -> Result<Vec<(String, CodingMap)>, ApiError> {
-    Ok(store
-        .ai_runs(id, phase)?
+/// Units compared with the AI: those of the complete runs' batches, in
+/// segmentation order.
+pub(crate) fn compared_units(store: &Store, id: &str) -> anyhow::Result<Vec<String>> {
+    let in_runs: BTreeSet<String> = store
+        .ai_runs(id)?
         .into_iter()
         .filter(|r| r.complete)
-        .map(|r| (r.meta.run_label, r.codings))
-        .collect())
-}
-
-/// Reconciled phase 1 codes per unit; empty while phase 1 is not reconciled.
-fn phase1_finals(store: &Store, id: &str) -> Result<BTreeMap<String, CodeSet>, ApiError> {
-    Ok(match store.final_codings(id, PHASE_1)? {
-        Ok(finals) => finals.into_iter().map(|f| (f.unit_id, f.codes)).collect(),
-        Err(_) => BTreeMap::new(),
-    })
-}
-
-/// Codes the candidate may use on each unit of a phase (NA aside).
-fn human_allowed(
-    store: &Store,
-    id: &str,
-    phase: u8,
-    unit_ids: &[String],
-) -> Result<BTreeMap<String, Vec<Code>>, ApiError> {
-    if phase == PHASE_1 {
-        let codes = phase1_codebook().codes;
-        return Ok(unit_ids
-            .iter()
-            .map(|u| (u.clone(), codes.clone()))
-            .collect());
-    }
-    let book = store.codebook()?;
-    let p1 = phase1_finals(store, id)?;
-    Ok(unit_ids
-        .iter()
-        .map(|u| {
-            let set = p1.get(u).cloned().unwrap_or_default();
-            let codes = phase2_allowed(&book, &set, true)
+        .flat_map(|r| r.unit_ids)
+        .collect();
+    Ok(store
+        .segmentation(id)?
+        .map(|s| {
+            s.units
                 .into_iter()
-                .cloned()
-                .collect();
-            (u.clone(), codes)
+                .map(|u| u.unit_id)
+                .filter(|u| in_runs.contains(u))
+                .collect()
         })
-        .collect())
+        .unwrap_or_default())
 }
 
-/// Everything a phase's prompts are built from. The same scope is rebuilt to
-/// check an answer, so the parser always sees the prompt's own inputs.
-struct AiScope {
-    seg: Segmentation,
-    unit_ids: Vec<String>,
-    codebook: Codebook,
-    allowed: Option<BTreeMap<String, Vec<String>>>,
-}
-
-impl AiScope {
-    fn input(&self, phase: u8) -> cs_ai::PromptInput<'_> {
-        cs_ai::PromptInput {
-            seg: &self.seg,
-            phase,
-            unit_ids: &self.unit_ids,
-            codebook: &self.codebook,
-            allowed: self.allowed.as_ref(),
-        }
-    }
-}
-
-/// Phase 1: the four TOE categories over every unit. Phase 2: the relevant
-/// units, each with the study-specific codes of its reconciled contexts plus
-/// the cross-cutting families, minus the codes withheld from the AI.
-fn ai_scope(store: &Store, id: &str, phase: u8) -> Result<AiScope, ApiError> {
-    let seg = require_segmentation(store, id)?;
-    let unit_ids = store.phase_units(id, phase)?;
-    if phase == PHASE_1 {
-        return Ok(AiScope {
-            seg,
-            unit_ids,
-            codebook: phase1_codebook(),
-            allowed: None,
-        });
-    }
-    if unit_ids.is_empty() {
-        return Err(guard(
-            "phase 2 has no unit in scope yet: reconcile phase 1 first (a complete AI run and every divergence arbitrated)",
+/// Candidate against each complete run, then runs pairwise, over `order`.
+pub(crate) fn agreement_reports(
+    human: &CodingMap,
+    runs: &[(String, CodingMap)],
+    order: &[String],
+) -> Vec<cs_model::AgreementReport> {
+    let mut reports = Vec::new();
+    for (label, codings) in runs {
+        reports.push(cs_ai::agreement(
+            "Candidate",
+            human,
+            &format!("AI {label}"),
+            codings,
+            order,
         ));
     }
-    let book = store.codebook()?;
-    let p1 = phase1_finals(store, id)?;
-    let mut allowed = BTreeMap::new();
-    let mut union = BTreeSet::new();
-    for u in &unit_ids {
-        let set = p1.get(u).cloned().unwrap_or_default();
-        let codes: Vec<String> = phase2_allowed(&book, &set, false)
-            .into_iter()
-            .filter(|c| c.in_prompt)
-            .map(|c| c.code.clone())
-            .collect();
-        union.extend(codes.iter().cloned());
-        allowed.insert(u.clone(), codes);
+    for (i, (la, a)) in runs.iter().enumerate() {
+        for (lb, b) in runs.iter().skip(i + 1) {
+            reports.push(cs_ai::agreement(
+                &format!("AI {la}"),
+                a,
+                &format!("AI {lb}"),
+                b,
+                order,
+            ));
+        }
     }
-    let codebook = Codebook {
-        source: book.source.clone(),
-        codes: book
-            .codes
-            .iter()
-            .filter(|c| union.contains(&c.code))
-            .cloned()
-            .collect(),
-    };
-    Ok(AiScope {
-        seg,
-        unit_ids,
-        codebook,
-        allowed: Some(allowed),
-    })
+    reports
 }
 
 // ------------------------------------------------------------------ static
@@ -447,7 +411,6 @@ async fn interview_detail(State(st): State<AppState>, UrlPath(id): UrlPath<Strin
         "segmentation": store.segmentation(&id)?,
         "phase1": store.phase_summary(&id, PHASE_1)?,
         "phase2": store.phase_summary(&id, PHASE_2)?,
-        "phase2_started": store.phase2_started(&id)?,
     })))
 }
 
@@ -532,18 +495,10 @@ async fn phase_state(
     let phase = parse_phase(&phase)?;
     let store = st.store();
     require_interview(&store, &id)?;
-    let locked = store
-        .ai_runs(&id, phase)?
-        .iter()
-        .any(|r| !r.parts_received.is_empty());
-    let frozen = phase == PHASE_1 && store.phase2_started(&id)?;
     Ok(Json(json!({
         "phase": phase,
         "summary": store.phase_summary(&id, phase)?,
         "guard": store.guard(&id, phase)?,
-        "reconciled": store.is_reconciled(&id, phase)?,
-        "frozen": frozen,
-        "locked": locked,
     })))
 }
 
@@ -554,25 +509,40 @@ async fn units(
     let phase = parse_phase(&phase)?;
     let store = st.store();
     let seg = require_segmentation(&store, &id)?;
-    let scope = store.phase_units(&id, phase)?;
     let codings = store.human_codings(&id, phase)?;
-    let allowed = human_allowed(&store, &id, phase, &scope)?;
-    let p1 = if phase == PHASE_2 {
-        phase1_finals(&store, &id)?
-    } else {
-        BTreeMap::new()
-    };
-    let by_id: BTreeMap<&str, &cs_model::Unit> =
-        seg.units.iter().map(|u| (u.unit_id.as_str(), u)).collect();
-    let rows: Vec<Value> = scope
+    if phase == PHASE_1 {
+        let allowed = phase1_codebook().codes;
+        let rows: Vec<Value> = seg
+            .units
+            .iter()
+            .map(|u| {
+                json!({
+                    "unit": u,
+                    "coding": codings.get(&u.unit_id),
+                    "allowed": allowed,
+                })
+            })
+            .collect();
+        return Ok(Json(json!(rows)));
+    }
+    let scope: BTreeSet<String> = store.phase_units(&id, PHASE_2)?.into_iter().collect();
+    let p1 = store.human_coding_map(&id, PHASE_1)?;
+    let book = store.codebook()?;
+    let labels = store.to_clarify_items(Some(&id), false)?;
+    let rows: Vec<Value> = seg
+        .units
         .iter()
-        .filter_map(|u| by_id.get(u.as_str()).map(|unit| (u, unit)))
-        .map(|(u, unit)| {
+        .filter(|u| scope.contains(&u.unit_id) || codings.contains_key(&u.unit_id))
+        .map(|u| {
+            let ctx = p1.get(&u.unit_id).cloned().unwrap_or_default();
+            let allowed: Vec<&Code> = phase2_codes(&book, &ctx);
             json!({
-                "unit": unit,
-                "coding": codings.get(u),
-                "allowed": allowed.get(u).cloned().unwrap_or_default(),
-                "phase1_final": if phase == PHASE_2 { p1.get(u).map(|s| json!(s)) } else { None },
+                "unit": u,
+                "coding": codings.get(&u.unit_id),
+                "allowed": allowed,
+                "phase1": p1.get(&u.unit_id),
+                "in_scope": scope.contains(&u.unit_id),
+                "to_clarify": labels.iter().filter(|t| t.unit_id == u.unit_id).collect::<Vec<_>>(),
             })
         })
         .collect();
@@ -598,24 +568,118 @@ async fn set_coding(
 ) -> ApiResult {
     let phase = parse_phase(&phase)?;
     let coding = HumanCoding {
-        unit_id: unit_id.clone(),
-        codes: body
-            .codes
-            .into_iter()
-            .map(|c| c.trim().to_string())
-            .collect(),
+        unit_id,
+        codes: body.codes,
         subcode: body.subcode,
         modifier: body.modifier,
         ev_level: body.ev_level,
         provenance: body.provenance,
         memo: body.memo,
         excerpt: body.excerpt,
+        revised_after_ai: false,
     };
     let store = st.store();
     require_interview(&store, &id)?;
-    store.set_human_coding(&id, phase, &coding, &st.actor)?;
-    let saved = store.human_codings(&id, phase)?.remove(&unit_id);
-    Ok(Json(json!(saved)))
+    Ok(Json(json!(
+        store.set_human_coding(&id, phase, &coding, &st.actor)?
+    )))
+}
+
+// -------------------------------------------------------------- to clarify
+
+#[derive(Deserialize)]
+struct LabelBody {
+    label: String,
+    #[serde(default)]
+    note: String,
+}
+
+async fn add_to_clarify(
+    State(st): State<AppState>,
+    UrlPath((id, unit_id)): UrlPath<(String, String)>,
+    Json(body): Json<LabelBody>,
+) -> ApiResult {
+    let store = st.store();
+    require_interview(&store, &id)?;
+    Ok(Json(json!(store.create_to_clarify(
+        &id,
+        &unit_id,
+        &body.label,
+        &body.note,
+        &st.actor
+    )?)))
+}
+
+#[derive(Deserialize, Default)]
+struct ToClarifyQuery {
+    interview_id: Option<String>,
+    open: Option<bool>,
+}
+
+/// Items with the text of their unit.
+async fn list_to_clarify(State(st): State<AppState>, Query(q): Query<ToClarifyQuery>) -> ApiResult {
+    let store = st.store();
+    let id = q.interview_id.filter(|s| !s.is_empty());
+    let items = store.to_clarify_items(id.as_deref(), q.open.unwrap_or(false))?;
+    let mut texts: BTreeMap<String, BTreeMap<String, String>> = BTreeMap::new();
+    let mut out = Vec::new();
+    for t in items {
+        if !texts.contains_key(&t.interview_id) {
+            let map = store
+                .segmentation(&t.interview_id)?
+                .map(|s| s.units.into_iter().map(|u| (u.unit_id, u.text)).collect())
+                .unwrap_or_default();
+            texts.insert(t.interview_id.clone(), map);
+        }
+        let mut v = json!(t);
+        v["unit_text"] = json!(texts[&t.interview_id].get(&t.unit_id));
+        out.push(v);
+    }
+    Ok(Json(json!(out)))
+}
+
+async fn edit_to_clarify(
+    State(st): State<AppState>,
+    UrlPath(tid): UrlPath<i64>,
+    Json(body): Json<LabelBody>,
+) -> ApiResult {
+    Ok(Json(json!(st.store().update_to_clarify(
+        tid,
+        &body.label,
+        &body.note,
+        &st.actor
+    )?)))
+}
+
+#[derive(Deserialize)]
+struct ResolveBody {
+    kind: ResolutionKind,
+    code: String,
+    #[serde(default)]
+    rationale: Option<String>,
+    #[serde(default)]
+    all_with_label: bool,
+    #[serde(default)]
+    new_code: Option<CodeBody>,
+}
+
+async fn resolve_to_clarify(
+    State(st): State<AppState>,
+    UrlPath(tid): UrlPath<i64>,
+    Json(body): Json<ResolveBody>,
+) -> ApiResult {
+    let req = ResolveRequest {
+        kind: body.kind,
+        code: body.code,
+        rationale: body.rationale,
+        all_with_label: body.all_with_label,
+        new_code: body.new_code.map(CodeBody::into_code),
+    };
+    let store = st.store();
+    let resolved = store.resolve_to_clarify(tid, &req, &st.actor)?;
+    Ok(Json(
+        json!({ "resolved": resolved, "codebook": store.codebook()? }),
+    ))
 }
 
 // ---------------------------------------------------------------- codebook
@@ -658,34 +722,457 @@ struct CodeBody {
     #[serde(default)]
     definition: String,
     #[serde(default)]
+    origin: String,
+    #[serde(default)]
+    toe: Option<String>,
+    #[serde(default)]
+    research_questions: Vec<String>,
+    #[serde(default)]
     example: Option<String>,
     #[serde(default)]
     reason: Option<String>,
+    #[serde(default = "yes")]
+    in_prompt: bool,
 }
 
-/// New inductive code. The store requires a definition and the reason it
-/// was created (inductive log); inductive codes are never offered to the AI.
+fn yes() -> bool {
+    true
+}
+
+impl CodeBody {
+    fn into_code(self) -> Code {
+        let code = self.code.trim().to_string();
+        let label = match self.label.trim() {
+            "" => code.clone(),
+            l => l.to_string(),
+        };
+        Code {
+            code,
+            family: String::new(),
+            label,
+            definition: self.definition,
+            origin: self.origin,
+            toe: self.toe,
+            active: true,
+            in_prompt: self.in_prompt,
+            research_questions: self.research_questions,
+            merged_into: None,
+            version: 1,
+            example: self.example,
+            reason: self.reason,
+            created_at: None,
+        }
+    }
+}
+
+/// New phase 2 code (origin literature or field, default field).
 async fn add_code(State(st): State<AppState>, Json(body): Json<CodeBody>) -> ApiResult {
-    let code = body.code.trim().to_string();
-    let label = match body.label.trim() {
-        "" => code.clone(),
-        l => l.to_string(),
-    };
-    let new = Code {
-        code,
-        family: "INDUCTIVE".to_string(),
-        label,
-        definition: body.definition.trim().to_string(),
-        origin: "inductive".to_string(),
-        active: true,
-        in_prompt: false,
-        example: body.example,
-        reason: body.reason,
-        created_at: None,
+    let store = st.store();
+    store.create_code(&body.into_code(), &st.actor)?;
+    Ok(Json(json!(store.codebook()?)))
+}
+
+async fn edit_code(
+    State(st): State<AppState>,
+    UrlPath(code): UrlPath<String>,
+    Json(patch): Json<CodePatch>,
+) -> ApiResult {
+    let store = st.store();
+    store.edit_code(&code, &patch, &st.actor)?;
+    Ok(Json(json!(store.codebook()?)))
+}
+
+#[derive(Deserialize)]
+struct ActiveBody {
+    active: bool,
+}
+
+async fn set_active(
+    State(st): State<AppState>,
+    UrlPath(code): UrlPath<String>,
+    Json(body): Json<ActiveBody>,
+) -> ApiResult {
+    let store = st.store();
+    store.set_code_active(&code, body.active, &st.actor)?;
+    Ok(Json(json!(store.codebook()?)))
+}
+
+#[derive(Deserialize)]
+struct MergeBody {
+    into: String,
+    #[serde(default)]
+    rationale: String,
+}
+
+async fn merge_code(
+    State(st): State<AppState>,
+    UrlPath(code): UrlPath<String>,
+    Json(body): Json<MergeBody>,
+) -> ApiResult {
+    let store = st.store();
+    let out = store.merge_code(&code, &body.into, &body.rationale, &st.actor)?;
+    Ok(Json(json!({
+        "codebook": store.codebook()?,
+        "rewritten_codings": out.rewritten_codings,
+        "rewritten_decisions": out.rewritten_decisions,
+    })))
+}
+
+async fn code_units(State(st): State<AppState>, UrlPath(code): UrlPath<String>) -> ApiResult {
+    let rows: Vec<Value> = st
+        .store()
+        .code_units(&code)?
+        .into_iter()
+        .map(|(iid, unit, coding)| json!({"interview_id": iid, "unit": unit, "coding": coding}))
+        .collect();
+    Ok(Json(json!(rows)))
+}
+
+/// Writes the codebook as CSV and SQL under `<db dir>/exports/codebook/`.
+async fn export_codebook(State(st): State<AppState>) -> ApiResult {
+    let store = st.store();
+    let (csv, sql) = store.codebook_export()?;
+    let base = st
+        .db_path
+        .parent()
+        .map(Path::to_path_buf)
+        .unwrap_or_else(|| PathBuf::from("."))
+        .join("exports")
+        .join("codebook");
+    std::fs::create_dir_all(&base)
+        .map_err(|e| invalid(format!("creating {}: {e}", base.display())))?;
+    let stamp = chrono::Local::now().format("%Y-%m-%d_%H%M%S").to_string();
+    let mut files = Vec::new();
+    for (ext, content) in [("csv", csv), ("sql", sql)] {
+        let mut path = base.join(format!("{stamp}_codebook.{ext}"));
+        let mut n = 2;
+        while path.exists() {
+            path = base.join(format!("{stamp}_{n}_codebook.{ext}"));
+            n += 1;
+        }
+        std::fs::write(&path, &content)
+            .map_err(|e| invalid(format!("writing {}: {e}", path.display())))?;
+        files.push(json!({
+            "path": path.display().to_string(),
+            "sha256": cs_model::sha256_hex(content.as_bytes()),
+            "size": content.len(),
+        }));
+    }
+    store.log(
+        &st.actor,
+        "codebook.export",
+        None,
+        Some(&base.display().to_string()),
+        json!({ "files": files, "n_codes": store.codebook()?.codes.len() }),
+    )?;
+    Ok(Json(json!({ "files": files })))
+}
+
+// ------------------------------------------------------ research questions
+
+async fn list_questions(State(st): State<AppState>) -> ApiResult {
+    Ok(Json(json!(st.store().research_questions()?)))
+}
+
+#[derive(Deserialize)]
+struct QuestionBody {
+    #[serde(default)]
+    id: String,
+    #[serde(default)]
+    text: String,
+    #[serde(default)]
+    ord: Option<u32>,
+}
+
+async fn add_question(State(st): State<AppState>, Json(body): Json<QuestionBody>) -> ApiResult {
+    let store = st.store();
+    store.create_research_question(&body.id, &body.text, &st.actor)?;
+    Ok(Json(json!(store.research_questions()?)))
+}
+
+async fn edit_question(
+    State(st): State<AppState>,
+    UrlPath(rq): UrlPath<String>,
+    Json(body): Json<QuestionBody>,
+) -> ApiResult {
+    let store = st.store();
+    store.update_research_question(&rq, &body.text, body.ord, &st.actor)?;
+    Ok(Json(json!(store.research_questions()?)))
+}
+
+async fn delete_question(State(st): State<AppState>, UrlPath(rq): UrlPath<String>) -> ApiResult {
+    let store = st.store();
+    store.delete_research_question(&rq, &st.actor)?;
+    Ok(Json(json!(store.research_questions()?)))
+}
+
+// ------------------------------------------------------------------- cases
+
+async fn all_cases(State(st): State<AppState>) -> ApiResult {
+    Ok(Json(json!(st.store().cases(None)?)))
+}
+
+async fn interview_cases(State(st): State<AppState>, UrlPath(id): UrlPath<String>) -> ApiResult {
+    let store = st.store();
+    require_interview(&store, &id)?;
+    Ok(Json(json!(store.cases(Some(&id))?)))
+}
+
+async fn add_case(
+    State(st): State<AppState>,
+    UrlPath(id): UrlPath<String>,
+    Json(case): Json<Case>,
+) -> ApiResult {
+    Ok(Json(json!(st
+        .store()
+        .create_case(&id, &case, &st.actor)?)))
+}
+
+async fn edit_case(
+    State(st): State<AppState>,
+    UrlPath(case_id): UrlPath<String>,
+    Json(case): Json<Case>,
+) -> ApiResult {
+    Ok(Json(json!(st
+        .store()
+        .update_case(&case_id, &case, &st.actor)?)))
+}
+
+async fn cross_case(State(st): State<AppState>) -> ApiResult {
+    Ok(Json(json!(st.store().cross_case()?)))
+}
+
+// ------------------------------------------------------------------ AI side
+
+#[derive(Deserialize, Default)]
+struct PromptBody {
+    #[serde(default)]
+    batch_size: usize,
+}
+
+async fn generate_prompts(
+    State(st): State<AppState>,
+    UrlPath((id, phase)): UrlPath<(String, String)>,
+    body: Option<Json<PromptBody>>,
+) -> ApiResult {
+    only_phase2(&phase)?;
+    let batch = body.map(|b| b.0.batch_size).unwrap_or(0);
+    let store = st.store();
+    let seg = require_segmentation(&store, &id)?;
+    let unit_ids = store.phase_units(&id, PHASE_2)?;
+    if unit_ids.is_empty() {
+        return Err(invalid(format!(
+            "{id} has no unit in phase 2: give units a phase 1 category other than NA first"
+        )));
+    }
+    let book = store.codebook()?;
+    let codes: Vec<Code> = phase2_prompt_codes(&book).into_iter().cloned().collect();
+    if codes.is_empty() {
+        return Err(invalid(
+            "no code can be offered to the AI; import or create codes first",
+        ));
+    }
+    let parts = cs_ai::build_prompts(
+        &cs_ai::PromptInput {
+            seg: &seg,
+            unit_ids: &unit_ids,
+            codes: &codes,
+        },
+        batch,
+    );
+    Ok(Json(json!(store.record_prompts(&parts, &st.actor)?)))
+}
+
+async fn list_prompts(
+    State(st): State<AppState>,
+    UrlPath((id, phase)): UrlPath<(String, String)>,
+) -> ApiResult {
+    only_phase2(&phase)?;
+    Ok(Json(json!(st.store().prompts(&id)?)))
+}
+
+async fn list_runs(
+    State(st): State<AppState>,
+    UrlPath((id, phase)): UrlPath<(String, String)>,
+) -> ApiResult {
+    only_phase2(&phase)?;
+    Ok(Json(json!(st.store().ai_runs(&id)?)))
+}
+
+#[derive(Deserialize, Default)]
+#[serde(default)]
+struct RunBody {
+    run_label: String,
+    model_name: String,
+    model_version: String,
+    temperature: Option<f64>,
+    seed: Option<String>,
+    context_length: Option<u32>,
+    batch_size: Option<u32>,
+    prompt_id_version: String,
+    executed_at: String,
+    notes: Option<String>,
+    batch_id: Option<i64>,
+}
+
+async fn create_run(
+    State(st): State<AppState>,
+    UrlPath((id, phase)): UrlPath<(String, String)>,
+    Json(body): Json<RunBody>,
+) -> ApiResult {
+    only_phase2(&phase)?;
+    let meta = AiRunMeta {
+        run_label: body.run_label,
+        model_name: body.model_name,
+        model_version: body.model_version,
+        temperature: body.temperature,
+        seed: body.seed,
+        context_length: body.context_length,
+        batch_size: body.batch_size,
+        prompt_id_version: if body.prompt_id_version.trim().is_empty() {
+            cs_ai::PROMPT_VERSION.to_string()
+        } else {
+            body.prompt_id_version
+        },
+        executed_at: if body.executed_at.trim().is_empty() {
+            now()
+        } else {
+            body.executed_at
+        },
+        notes: body.notes,
+        batch_id: body.batch_id,
     };
     let store = st.store();
-    store.add_code(&new, &st.actor)?;
-    Ok(Json(json!(store.codebook()?)))
+    require_interview(&store, &id)?;
+    let run_id = store.create_ai_run(&id, &meta, &st.actor)?;
+    Ok(Json(json!(store.ai_run(run_id)?)))
+}
+
+#[derive(Deserialize)]
+struct OutputBody {
+    raw: String,
+    part: Option<u32>,
+    of: Option<u32>,
+}
+
+async fn import_output(
+    State(st): State<AppState>,
+    UrlPath((id, phase, run_id)): UrlPath<(String, String, i64)>,
+    Json(body): Json<OutputBody>,
+) -> ApiResult {
+    only_phase2(&phase)?;
+    let store = st.store();
+    let seg = require_segmentation(&store, &id)?;
+    let run = store.ai_run(run_id)?;
+    if run.interview_id != id {
+        return Err(not_found(format!("run {run_id} of {id}")));
+    }
+    let parts: Vec<cs_model::PromptPart> = store
+        .prompts(&id)?
+        .into_iter()
+        .filter(|p| p.batch_id == run.batch_id)
+        .collect();
+    let (unit_ids, codes) = cs_ai::batch_scope(&parts);
+    let scope = cs_ai::AnswerScope {
+        seg: &seg,
+        unit_ids: &unit_ids,
+        codes: &codes,
+    };
+    let parsed = cs_ai::parse_ai_output(&body.raw, &scope, body.part.zip(body.of))
+        .map_err(ApiError::with_issues)?;
+    store.record_ai_output(run_id, &body.raw, &parsed, &st.actor)?;
+    Ok(Json(json!(store.ai_run(run_id)?)))
+}
+
+// ------------------------------------------------------------------ review
+
+async fn review(State(st): State<AppState>, UrlPath(id): UrlPath<String>) -> ApiResult {
+    let store = st.store();
+    let seg = require_segmentation(&store, &id)?;
+    let r = store.review(&id)?;
+    let units: BTreeMap<&str, &cs_model::Unit> =
+        seg.units.iter().map(|u| (u.unit_id.as_str(), u)).collect();
+    let p1 = store.human_coding_map(&id, PHASE_1)?;
+    let book = store.codebook()?;
+    let items: Vec<Value> = r
+        .items
+        .iter()
+        .map(|e| {
+            let mut v = json!(e);
+            v["unit"] = json!(units.get(e.item.unit_id.as_str()));
+            let ctx = p1.get(&e.item.unit_id).cloned().unwrap_or_default();
+            v["allowed"] = json!(phase2_codes(&book, &ctx));
+            v
+        })
+        .collect();
+    Ok(Json(json!({
+        "runs": r.runs,
+        "items": items,
+        "n_disagreements": r.n_disagreements,
+        "n_sampled": r.n_sampled,
+        "n_decided": r.n_decided,
+        "seeds": r.seeds.iter().map(|(l, s)| json!({"run_label": l, "seed": s})).collect::<Vec<_>>(),
+    })))
+}
+
+#[derive(Deserialize)]
+struct DecisionBody {
+    choice: ArbitrationChoice,
+    final_codes: CodeSet,
+    #[serde(default)]
+    rationale: String,
+}
+
+async fn decide(
+    State(st): State<AppState>,
+    UrlPath((id, unit_id)): UrlPath<(String, String)>,
+    Json(body): Json<DecisionBody>,
+) -> ApiResult {
+    let arb = Arbitration {
+        unit_id,
+        phase: PHASE_2,
+        choice: body.choice,
+        final_codes: body.final_codes,
+        rationale: body.rationale,
+        decided_by: st.actor.clone(),
+        decided_at: String::new(),
+    };
+    Ok(Json(json!(st
+        .store()
+        .record_decision(&id, &arb, &st.actor)?)))
+}
+
+async fn final_coding(State(st): State<AppState>, UrlPath(id): UrlPath<String>) -> ApiResult {
+    let store = st.store();
+    require_interview(&store, &id)?;
+    let (finals, uncoded) = store.final_codings(&id)?;
+    let r = store.review(&id)?;
+    let open = r
+        .items
+        .iter()
+        .filter(|e| e.item.kind == cs_model::ReviewKind::Disagreement && e.item.decision.is_none())
+        .count();
+    Ok(Json(json!({
+        "finals": finals,
+        "uncoded": uncoded,
+        "n_decided": r.n_decided,
+        "n_open_disagreements": open,
+    })))
+}
+
+async fn agreement(State(st): State<AppState>, UrlPath(id): UrlPath<String>) -> ApiResult {
+    let store = st.store();
+    let seg = require_segmentation(&store, &id)?;
+    let order = compared_units(&store, &id)?;
+    let human = store.human_coding_map(&id, PHASE_2)?;
+    let runs = store.complete_runs(&id)?;
+    let reports = agreement_reports(&human, &runs, &order);
+    let markdown = if reports.is_empty() {
+        String::new()
+    } else {
+        cs_ai::render_agreement_md(&seg, &order, &reports)
+    };
+    Ok(Json(json!({ "reports": reports, "markdown": markdown })))
 }
 
 #[derive(Deserialize)]
@@ -703,291 +1190,7 @@ async fn set_in_prompt(
     Ok(Json(json!(store.codebook()?)))
 }
 
-// ------------------------------------------------------------------ AI side
-
-#[derive(Deserialize, Default)]
-struct PromptBody {
-    #[serde(default)]
-    batch_size: usize,
-}
-
-async fn generate_prompts(
-    State(st): State<AppState>,
-    UrlPath((id, phase)): UrlPath<(String, String)>,
-    body: Option<Json<PromptBody>>,
-) -> ApiResult {
-    let phase = parse_phase(&phase)?;
-    let batch = body.map(|b| b.0.batch_size).unwrap_or(0);
-    let store = st.store();
-    let scope = ai_scope(&store, &id, phase)?;
-    if scope.unit_ids.is_empty() {
-        return Err(invalid(format!("{id} has no unit in phase {phase}")));
-    }
-    if scope.codebook.codes.is_empty() {
-        return Err(invalid(
-            "no code can be offered to the AI; import the codebook first",
-        ));
-    }
-    let parts = cs_ai::build_prompts(&scope.input(phase), batch);
-    for part in &parts {
-        store.record_prompt(part, &st.actor)?;
-    }
-    Ok(Json(json!(parts)))
-}
-
-async fn list_prompts(
-    State(st): State<AppState>,
-    UrlPath((id, phase)): UrlPath<(String, String)>,
-) -> ApiResult {
-    let phase = parse_phase(&phase)?;
-    Ok(Json(json!(st.store().prompts(&id, phase)?)))
-}
-
-async fn list_runs(
-    State(st): State<AppState>,
-    UrlPath((id, phase)): UrlPath<(String, String)>,
-) -> ApiResult {
-    let phase = parse_phase(&phase)?;
-    Ok(Json(json!(st.store().ai_runs(&id, phase)?)))
-}
-
-#[derive(Deserialize, Default)]
-#[serde(default)]
-struct RunBody {
-    run_label: String,
-    model_name: String,
-    model_version: String,
-    temperature: Option<f64>,
-    seed: Option<String>,
-    context_length: Option<u32>,
-    batch_size: Option<u32>,
-    prompt_id_version: String,
-    executed_at: String,
-    notes: Option<String>,
-}
-
-async fn create_run(
-    State(st): State<AppState>,
-    UrlPath((id, phase)): UrlPath<(String, String)>,
-    Json(body): Json<RunBody>,
-) -> ApiResult {
-    let phase = parse_phase(&phase)?;
-    let label = body.run_label.trim().to_string();
-    if label.is_empty() || body.model_name.trim().is_empty() {
-        return Err(invalid(
-            "a run needs a label (R1, R2...) and the name of the model",
-        ));
-    }
-    let meta = AiRunMeta {
-        run_label: label,
-        model_name: body.model_name.trim().to_string(),
-        model_version: body.model_version.trim().to_string(),
-        temperature: body.temperature,
-        seed: body.seed.filter(|s| !s.trim().is_empty()),
-        context_length: body.context_length,
-        batch_size: body.batch_size,
-        prompt_id_version: if body.prompt_id_version.trim().is_empty() {
-            cs_ai::PROMPT_VERSION.to_string()
-        } else {
-            body.prompt_id_version.trim().to_string()
-        },
-        executed_at: if body.executed_at.trim().is_empty() {
-            now()
-        } else {
-            body.executed_at.trim().to_string()
-        },
-        notes: body.notes.filter(|s| !s.trim().is_empty()),
-    };
-    let store = st.store();
-    require_interview(&store, &id)?;
-    let run_id = store.create_ai_run(&id, phase, &meta, &st.actor)?;
-    let run = store
-        .ai_runs(&id, phase)?
-        .into_iter()
-        .find(|r| r.run_id == run_id)
-        .ok_or_else(|| not_found(format!("run {run_id}")))?;
-    Ok(Json(json!(run)))
-}
-
-#[derive(Deserialize)]
-struct OutputBody {
-    raw: String,
-    part: Option<u32>,
-    of: Option<u32>,
-}
-
-async fn import_output(
-    State(st): State<AppState>,
-    UrlPath((id, phase, run_id)): UrlPath<(String, String, i64)>,
-    Json(body): Json<OutputBody>,
-) -> ApiResult {
-    let phase = parse_phase(&phase)?;
-    let store = st.store();
-    require_interview(&store, &id)?;
-    if !store
-        .ai_runs(&id, phase)?
-        .iter()
-        .any(|r| r.run_id == run_id)
-    {
-        return Err(not_found(format!("run {run_id} of {id}, phase {phase}")));
-    }
-    let scope = ai_scope(&store, &id, phase)?;
-    let expected = body.part.zip(body.of);
-    let parsed = cs_ai::parse_ai_output(&body.raw, &scope.input(phase), expected)
-        .map_err(ApiError::with_issues)?;
-    store.record_ai_output(run_id, &body.raw, &parsed, &st.actor)?;
-    let run = store
-        .ai_runs(&id, phase)?
-        .into_iter()
-        .find(|r| r.run_id == run_id)
-        .ok_or_else(|| not_found(format!("run {run_id}")))?;
-    Ok(Json(json!(run)))
-}
-
-// ----------------------------------------------------------- reconciliation
-
-/// Human against each complete run, then runs pairwise, over `order`.
-pub(crate) fn agreement_reports(
-    human: &CodingMap,
-    runs: &[(String, CodingMap)],
-    order: &[String],
-) -> Vec<cs_model::AgreementReport> {
-    let mut reports = Vec::new();
-    for (label, codings) in runs {
-        reports.push(cs_ai::agreement(
-            "Human",
-            human,
-            &format!("AI {label}"),
-            codings,
-            order,
-        ));
-    }
-    for (i, (la, a)) in runs.iter().enumerate() {
-        for (lb, b) in runs.iter().skip(i + 1) {
-            reports.push(cs_ai::agreement(
-                &format!("AI {la}"),
-                a,
-                &format!("AI {lb}"),
-                b,
-                order,
-            ));
-        }
-    }
-    reports
-}
-
-async fn agreement(
-    State(st): State<AppState>,
-    UrlPath((id, phase)): UrlPath<(String, String)>,
-) -> ApiResult {
-    let phase = parse_phase(&phase)?;
-    let store = st.store();
-    let seg = require_segmentation(&store, &id)?;
-    let order = store.phase_units(&id, phase)?;
-    let human = store.human_coding_map(&id, phase)?;
-    let runs = complete_runs(&store, &id, phase)?;
-    let reports = agreement_reports(&human, &runs, &order);
-    let markdown = if reports.is_empty() {
-        String::new()
-    } else {
-        cs_ai::render_agreement_md(&seg, phase, &order, &reports)
-    };
-    Ok(Json(json!({ "reports": reports, "markdown": markdown })))
-}
-
-async fn divergences(
-    State(st): State<AppState>,
-    UrlPath((id, phase)): UrlPath<(String, String)>,
-) -> ApiResult {
-    let phase = parse_phase(&phase)?;
-    let store = st.store();
-    let seg = require_segmentation(&store, &id)?;
-    let order = store.phase_units(&id, phase)?;
-    let human = store.human_coding_map(&id, phase)?;
-    let runs = complete_runs(&store, &id, phase)?;
-    let current = store.arbitrations(&id, phase)?;
-    let history = store.arbitration_history(&id, phase)?;
-    let units: BTreeMap<&str, &cs_model::Unit> =
-        seg.units.iter().map(|u| (u.unit_id.as_str(), u)).collect();
-    let divs = cs_ai::divergences(&order, &human, &runs);
-    let div_ids: Vec<String> = divs.iter().map(|d| d.unit_id.clone()).collect();
-    let allowed = human_allowed(&store, &id, phase, &div_ids)?;
-    let n_decided = divs
-        .iter()
-        .filter(|d| current.contains_key(&d.unit_id))
-        .count();
-    let items: Vec<Value> = divs
-        .iter()
-        .map(|d| {
-            let hist: Vec<&Arbitration> =
-                history.iter().filter(|a| a.unit_id == d.unit_id).collect();
-            json!({
-                "divergence": d,
-                "unit": units.get(d.unit_id.as_str()),
-                "arbitration": current.get(&d.unit_id),
-                "history": hist,
-                "allowed": allowed.get(&d.unit_id).cloned().unwrap_or_default(),
-            })
-        })
-        .collect();
-    Ok(Json(json!({
-        "runs": runs.iter().map(|(l, _)| l).collect::<Vec<_>>(),
-        "n_divergences": divs.len(),
-        "n_decided": n_decided,
-        "items": items,
-    })))
-}
-
-#[derive(Deserialize)]
-struct ArbitrationBody {
-    choice: ArbitrationChoice,
-    final_codes: CodeSet,
-    #[serde(default)]
-    rationale: String,
-}
-
-async fn arbitrate(
-    State(st): State<AppState>,
-    UrlPath((id, phase, unit_id)): UrlPath<(String, String, String)>,
-    Json(body): Json<ArbitrationBody>,
-) -> ApiResult {
-    let phase = parse_phase(&phase)?;
-    let store = st.store();
-    require_segmentation(&store, &id)?;
-    let order = store.phase_units(&id, phase)?;
-    let human = store.human_coding_map(&id, phase)?;
-    let runs = complete_runs(&store, &id, phase)?;
-    let divs = cs_ai::divergences(&order, &human, &runs);
-    if !divs.iter().any(|d| d.unit_id == unit_id) {
-        return Err(invalid(format!(
-            "{unit_id} is not a divergence of phase {phase}; only divergent units are arbitrated"
-        )));
-    }
-    let arb = Arbitration {
-        unit_id,
-        phase,
-        choice: body.choice,
-        final_codes: body.final_codes,
-        rationale: body.rationale.trim().to_string(),
-        decided_by: st.actor.clone(),
-        decided_at: now(),
-    };
-    store.record_arbitration(&id, &arb, &st.actor)?;
-    Ok(Json(json!(arb)))
-}
-
-async fn final_coding(
-    State(st): State<AppState>,
-    UrlPath((id, phase)): UrlPath<(String, String)>,
-) -> ApiResult {
-    let phase = parse_phase(&phase)?;
-    let store = st.store();
-    require_interview(&store, &id)?;
-    Ok(Json(match store.final_codings(&id, phase)? {
-        Ok(finals) => json!({ "reconciled": true, "finals": finals, "pending": [] }),
-        Err(pending) => json!({ "reconciled": false, "finals": [], "pending": pending }),
-    }))
-}
+// ------------------------------------------------------------------ export
 
 async fn export_package(State(st): State<AppState>, UrlPath(id): UrlPath<String>) -> ApiResult {
     let store = st.store();

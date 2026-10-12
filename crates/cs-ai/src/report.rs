@@ -4,8 +4,8 @@ use std::collections::BTreeMap;
 use std::fmt::Write as _;
 
 use cs_model::{
-    AgreementReport, Arbitration, ArbitrationChoice, CodeSet, CodingMap, Divergence,
-    DivergenceKind, FinalBasis, FinalCoding, Segmentation, Unit,
+    AgreementReport, Arbitration, ArbitrationChoice, CodeSet, CodingMap, FinalBasis, FinalCoding,
+    ReviewItem, ReviewKind, Segmentation, Unit, PHASE_2,
 };
 
 use crate::prompt::{phase_title, speaker_label};
@@ -69,8 +69,8 @@ pub(crate) fn final_csv(finals: &[FinalCoding]) -> String {
     let mut out = String::from("unit_id,codes,basis\n");
     for f in finals {
         let basis = match f.basis {
-            FinalBasis::Agreed => "agreed",
-            FinalBasis::Arbitrated => "arbitrated",
+            FinalBasis::Candidate => "candidate",
+            FinalBasis::Reviewed => "reviewed",
         };
         let _ = writeln!(
             out,
@@ -92,10 +92,10 @@ fn pct(n: usize, d: usize) -> String {
 
 pub(crate) fn render_agreement_md(
     seg: &Segmentation,
-    phase: u8,
     unit_order: &[String],
     reports: &[AgreementReport],
 ) -> String {
+    let phase = PHASE_2;
     let units: BTreeMap<&str, &Unit> = seg.units.iter().map(|u| (u.unit_id.as_str(), u)).collect();
     let mut t = String::new();
     let _ = writeln!(
@@ -107,9 +107,11 @@ pub(crate) fn render_agreement_md(
     let _ = writeln!(t);
     let _ = writeln!(
         t,
-        "Primary human coding against blind secondary AI coding. Deterministic calculation, \
-no model involved. Kappa is Cohen's kappa per code on presence or absence, the form suited to \
-multi-label coding (O'Connor and Joffe, 2020); undefined when a single level is observed."
+        "The candidate's detailed coding against the blind AI coding. The figures describe how \
+far the two readings coincide; they are reported, not optimised, and every disagreement is \
+reviewed by the candidate. Deterministic calculation, no model involved. Kappa is Cohen's kappa \
+per code on presence or absence, the form suited to multi-label coding (O'Connor and Joffe, \
+2020); undefined when a single level is observed."
     );
     let _ = writeln!(t);
     let _ = writeln!(t, "| Item | Value |");
@@ -119,11 +121,7 @@ multi-label coding (O'Connor and Joffe, 2020); undefined when a single level is 
     let _ = writeln!(t, "| Phase | {} |", phase_title(phase));
     let _ = writeln!(t, "| Segmentation hash | `{}` |", seg.hash);
     let _ = writeln!(t, "| Units in the segmentation | {} |", seg.units.len());
-    let _ = writeln!(
-        t,
-        "| Units in scope for this phase | {} |",
-        unit_order.len()
-    );
+    let _ = writeln!(t, "| Units compared with the AI | {} |", unit_order.len());
     if reports.is_empty() {
         let _ = writeln!(t);
         let _ = writeln!(t, "No comparison available yet.");
@@ -170,12 +168,12 @@ multi-label coding (O'Connor and Joffe, 2020); undefined when a single level is 
             );
         }
         let _ = writeln!(t);
-        let _ = writeln!(t, "### Divergences: {}", r.divergent_unit_ids.len());
+        let _ = writeln!(t, "### Disagreements: {}", r.divergent_unit_ids.len());
         let _ = writeln!(t);
         if r.divergent_unit_ids.is_empty() {
             let _ = writeln!(t, "None.");
         } else {
-            let _ = writeln!(t, "Every divergence is arbitrated by hand. No sampling.");
+            let _ = writeln!(t, "Every disagreement is reviewed by the candidate.");
             let _ = writeln!(t);
             let _ = writeln!(t, "| unit_id | Timestamp | Speaker | Text |");
             let _ = writeln!(t, "|---|---|---|---|");
@@ -203,66 +201,70 @@ multi-label coding (O'Connor and Joffe, 2020); undefined when a single level is 
 
 fn describe_choice(choice: &ArbitrationChoice) -> String {
     match choice {
-        ArbitrationChoice::Human => "human coding kept".to_string(),
+        ArbitrationChoice::Human => "the candidate's coding kept".to_string(),
         ArbitrationChoice::Ai { run_label } => format!("AI run {run_label} adopted"),
         ArbitrationChoice::Custom => "new code set decided by the candidate".to_string(),
     }
 }
 
-pub(crate) fn render_adjudication_md(
+pub(crate) fn render_review_md(
     seg: &Segmentation,
-    phase: u8,
-    divergences: &[Divergence],
-    arbitrations: &BTreeMap<String, Arbitration>,
+    items: &[ReviewItem],
+    history: &[Arbitration],
+    seeds: &[(String, String)],
 ) -> String {
     let units: BTreeMap<&str, &Unit> = seg.units.iter().map(|u| (u.unit_id.as_str(), u)).collect();
-    let n_arbitrated = divergences
+    let n_dis = items
         .iter()
-        .filter(|d| arbitrations.contains_key(&d.unit_id))
+        .filter(|i| i.kind == ReviewKind::Disagreement)
         .count();
+    let n_decided = items.iter().filter(|i| i.decision.is_some()).count();
     let mut t = String::new();
     let _ = writeln!(
         t,
-        "# Adjudication log, {}, {}",
+        "# Review log, {}, {}",
         seg.interview_id,
-        phase_title(phase)
+        phase_title(PHASE_2)
     );
     let _ = writeln!(t);
     let _ = writeln!(
         t,
-        "Every unit where the human coding and the AI coding differ, or where AI runs differ \
-among themselves, with the decision of the candidate and its rationale."
+        "Every unit where the candidate's detailed coding and a complete AI run differ, then a \
+random sample of the units where they agree, each with the candidate's decision. The aim is a \
+better reading of the units, not a higher agreement figure."
     );
     let _ = writeln!(t);
     let _ = writeln!(t, "| Item | Value |");
     let _ = writeln!(t, "|---|---|");
-    let _ = writeln!(t, "| Phase | {} |", phase_title(phase));
     let _ = writeln!(t, "| Segmentation hash | `{}` |", seg.hash);
-    let _ = writeln!(t, "| Divergences | {} |", divergences.len());
-    let _ = writeln!(t, "| Arbitrated | {n_arbitrated} |");
-    let _ = writeln!(t, "| Pending | {} |", divergences.len() - n_arbitrated);
-    for d in divergences {
+    let _ = writeln!(t, "| Disagreements | {n_dis} |");
+    let _ = writeln!(t, "| Sampled agreements | {} |", items.len() - n_dis);
+    let _ = writeln!(t, "| Decided | {n_decided} |");
+    for (label, seed) in seeds {
+        let _ = writeln!(
+            t,
+            "| Sample seed, run {} | `{seed}` (max(5, ceil(10 %)) of the agreeing units, ordered by sha256(seed + unit_id)) |",
+            cell(label)
+        );
+    }
+    for item in items {
         let _ = writeln!(t);
-        let (ts, speaker, text) = match units.get(d.unit_id.as_str()) {
+        let (ts, speaker, text) = match units.get(item.unit_id.as_str()) {
             Some(u) => (u.timestamp.as_str(), speaker_label(u), u.text.as_str()),
             None => ("", "", "(text unavailable)"),
         };
-        let _ = writeln!(t, "## {} ({ts}, {speaker})", d.unit_id);
+        let kind = match item.kind {
+            ReviewKind::Disagreement => "disagreement",
+            ReviewKind::AgreementSample => "sampled agreement",
+        };
+        let _ = writeln!(t, "## {} ({ts}, {speaker}), {kind}", item.unit_id);
         let _ = writeln!(t);
         let _ = writeln!(t, "> {}", text.replace('\n', " "));
         let _ = writeln!(t);
-        let kind = match d.kind {
-            DivergenceKind::HumanVsAi => "human coding differs from the AI coding",
-            DivergenceKind::AiRunsUnstable => {
-                "AI runs differ among themselves; the human coding matches at least one run"
-            }
-        };
-        let _ = writeln!(t, "Divergence: {kind}.");
-        let _ = writeln!(t);
         let _ = writeln!(t, "| Coder | Codes |");
         let _ = writeln!(t, "|---|---|");
-        let _ = writeln!(t, "| Human | {} |", cell(&codes_or_none(&d.human)));
-        for (label, codes) in &d.ai {
+        let _ = writeln!(t, "| Candidate | {} |", cell(&codes_or_none(&item.human)));
+        for (label, codes) in &item.ai {
             let _ = writeln!(
                 t,
                 "| AI {} | {} |",
@@ -271,15 +273,26 @@ among themselves, with the decision of the candidate and its rationale."
             );
         }
         let _ = writeln!(t);
-        match arbitrations.get(&d.unit_id) {
+        match &item.decision {
             Some(a) => {
                 let _ = writeln!(t, "Decision: {}.", describe_choice(&a.choice));
                 let _ = writeln!(t);
                 let _ = writeln!(t, "Final codes: {}", codes_or_none(&a.final_codes));
                 let _ = writeln!(t);
-                let _ = writeln!(t, "Rationale: {}", a.rationale.replace('\n', " "));
-                let _ = writeln!(t);
+                if !a.rationale.is_empty() {
+                    let _ = writeln!(t, "Rationale: {}", a.rationale.replace('\n', " "));
+                    let _ = writeln!(t);
+                }
                 let _ = writeln!(t, "Decided by {} at {}.", a.decided_by, a.decided_at);
+                let earlier = history
+                    .iter()
+                    .filter(|h| h.unit_id == item.unit_id)
+                    .count()
+                    .saturating_sub(1);
+                if earlier > 0 {
+                    let _ = writeln!(t);
+                    let _ = writeln!(t, "Earlier decisions on this unit: {earlier}.");
+                }
             }
             None => {
                 let _ = writeln!(t, "Pending: no decision recorded.");

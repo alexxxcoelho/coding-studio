@@ -8,8 +8,8 @@ use std::collections::{BTreeMap, BTreeSet};
 use cs_model::{AiOutput, CodeSet, ValidationIssue, NA, PHASE_2};
 use serde_json::Value;
 
-use crate::prompt::{allowed_for, listed_codes, part_unit_ids};
-use crate::{PromptInput, OUTPUT_SCHEMA_ID};
+use crate::prompt::part_unit_ids;
+use crate::{AnswerScope, OUTPUT_SCHEMA_ID};
 
 const TOP_KEYS: &[&str] = &[
     "schema",
@@ -123,11 +123,10 @@ fn read_str<'a>(
 
 pub(crate) fn parse(
     raw: &str,
-    input: &PromptInput,
+    scope: &AnswerScope,
     expected_part: Option<(u32, u32)>,
 ) -> Result<AiOutput, Vec<ValidationIssue>> {
-    let seg = input.seg;
-    let codebook = input.codebook;
+    let seg = scope.seg;
     let mut issues = Vec::new();
 
     let Some(json_text) = extract_json_object(raw) else {
@@ -179,13 +178,10 @@ pub(crate) fn parse(
         }
     }
     if let Some(phase) = read_u32(&obj, "phase", &mut issues) {
-        if phase != u32::from(input.phase) {
+        if phase != u32::from(PHASE_2) {
             issues.push(issue(
                 "$.phase",
-                format!(
-                    "answer is for phase {phase}, expected phase {}: paste it in the tab of the phase its prompt was built for",
-                    input.phase
-                ),
+                format!("answer is for phase {phase}; only phase {PHASE_2} is coded by the AI"),
             ));
         }
     }
@@ -216,17 +212,16 @@ pub(crate) fn parse(
         _ => None,
     });
     let expected_ids: Vec<String> = match range {
-        Some((p, o)) => part_unit_ids(input.unit_ids, p, o),
+        Some((p, o)) => part_unit_ids(scope.unit_ids, p, o),
         None => Vec::new(),
     };
     let expected_set: BTreeSet<&str> = expected_ids.iter().map(String::as_str).collect();
     let known: BTreeSet<&str> = seg.units.iter().map(|u| u.unit_id.as_str()).collect();
-    let in_scope: BTreeSet<&str> = input.unit_ids.iter().map(String::as_str).collect();
-    let phase2 = input.phase == PHASE_2;
-    // Phase 1: the listed codes and NA. Phase 2: per unit, see below.
-    let listed: BTreeSet<&str> = listed_codes(input)
-        .into_iter()
-        .map(|c| c.code.as_str())
+    let in_scope: BTreeSet<&str> = scope.unit_ids.iter().map(String::as_str).collect();
+    let offered: BTreeSet<&str> = scope
+        .codes
+        .iter()
+        .map(String::as_str)
         .chain(std::iter::once(NA))
         .collect();
 
@@ -257,7 +252,7 @@ pub(crate) fn parse(
                 } else if !in_scope.contains(unit_id.as_str()) {
                     issues.push(issue(
                         &unit_id,
-                        format!("unit_id is not in the scope of phase {}", input.phase),
+                        "unit_id is not in the scope of this prompt",
                     ));
                 } else if range.is_some() && !expected_set.contains(unit_id.as_str()) {
                     issues.push(issue(&unit_id, "unit_id does not belong to this part"));
@@ -273,15 +268,6 @@ pub(crate) fn parse(
                         continue;
                     }
                 };
-                let unit_allowed: BTreeSet<&str> = if phase2 {
-                    allowed_for(input, &unit_id)
-                        .iter()
-                        .map(String::as_str)
-                        .chain(std::iter::once(NA))
-                        .collect()
-                } else {
-                    listed.clone()
-                };
                 let mut set = CodeSet::new();
                 for c in codes {
                     let Some(s) = c.as_str() else {
@@ -291,15 +277,11 @@ pub(crate) fn parse(
                     let s = s.trim();
                     if s.is_empty() {
                         issues.push(issue(&unit_id, "empty code"));
-                    } else if !unit_allowed.contains(s) {
-                        let msg = if phase2 && (codebook.get(s).is_some() || listed.contains(s)) {
-                            format!("code \"{s}\" is not among the allowed codes of this unit")
-                        } else if codebook.get(s).is_some() {
-                            format!("code \"{s}\" exists in the codebook but was not offered in the prompt")
-                        } else {
-                            format!("code \"{s}\" is not in the codebook")
-                        };
-                        issues.push(issue(&unit_id, msg));
+                    } else if !offered.contains(s) {
+                        issues.push(issue(
+                            &unit_id,
+                            format!("code \"{s}\" was not offered in the prompt"),
+                        ));
                     } else {
                         set.insert(s.to_string());
                     }
@@ -339,7 +321,7 @@ pub(crate) fn parse(
     let (part, of) = (part.unwrap_or(1), of.unwrap_or(1));
     Ok(AiOutput {
         interview_id: seg.interview_id.clone(),
-        phase: input.phase,
+        phase: PHASE_2,
         segmentation_hash: seg.hash.clone(),
         part,
         of,
