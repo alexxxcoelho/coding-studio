@@ -275,7 +275,26 @@ async fn v3_round_trip() {
     assert_eq!(open[0]["unit_text"], seg["units"][1]["text"]);
     assert_eq!(open[0]["interview_id"], "INT-01");
 
-    // Prompts before U006 is coded; the blind guard waits for it.
+    // Prompts are refused while a unit of the batch is uncoded: the human
+    // reference is frozen at generation, so it must be complete.
+    let (st, e) = call(
+        app,
+        "POST",
+        &format!("{P2}/prompts"),
+        Some(json!({ "batch_size": 2 })),
+    )
+    .await;
+    assert_eq!(st, StatusCode::BAD_REQUEST, "{e}");
+    assert_eq!(e["kind"], "validation", "{e}");
+    assert!(e["error"].as_str().unwrap().contains(&u(5)), "{e}");
+    let (st, _) = call(
+        app,
+        "PUT",
+        &format!("{P2}/coding/{}", u(5)),
+        Some(json!({ "codes": ["TECH-COST", "ORG-SKILLS"] })),
+    )
+    .await;
+    assert_eq!(st, StatusCode::OK);
     let (st, parts) = call(
         app,
         "POST",
@@ -315,22 +334,6 @@ async fn v3_round_trip() {
             _ => codes(&["TECH-COST"]),
         }
     };
-    let (st, e) = call(
-        app,
-        "POST",
-        &outputs,
-        Some(json!({ "raw": answer(&parts[1], ai), "part": 2, "of": 2 })),
-    )
-    .await;
-    assert_eq!(st, StatusCode::CONFLICT, "{e}");
-    let (st, _) = call(
-        app,
-        "PUT",
-        &format!("{P2}/coding/{}", u(5)),
-        Some(json!({ "codes": ["TECH-COST", "ORG-SKILLS"] })),
-    )
-    .await;
-    assert_eq!(st, StatusCode::OK);
     let (st, e) = call(
         app,
         "POST",
@@ -434,20 +437,20 @@ async fn v3_round_trip() {
         .unwrap()
         .clone();
     assert_eq!(new["origin"], "field");
-    // Now coded, U002 is compared with the AI and becomes a disagreement.
-    let (_, fin) = call(app, "GET", &format!("{I}/final"), None).await;
-    assert_eq!(fin["n_open_disagreements"], 1, "{fin}");
-    let (st, _) = call(
-        app,
-        "PUT",
-        &format!("{I}/review/{}", u(1)),
-        Some(json!({ "choice": {"type": "custom"}, "final_codes": ["ENV-PARTNER", "SUPPLIER-TAGGING"],
-                     "rationale": "Source tagging is the partner's mandate here." })),
-    )
-    .await;
-    assert_eq!(st, StatusCode::OK);
+    // The human reference is frozen: U002 carried only a label when the
+    // prompts were generated, so it is not compared with the AI afterwards.
+    // Its final coding is the candidate's current one.
     let (_, fin) = call(app, "GET", &format!("{I}/final"), None).await;
     assert_eq!(fin["n_open_disagreements"], 0, "{fin}");
+    let f2 = fin["finals"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|f| f["unit_id"] == u(1).as_str())
+        .unwrap()
+        .clone();
+    assert_eq!(f2["codes"], json!(["SUPPLIER-TAGGING"]), "{fin}");
+    assert_eq!(f2["basis"], "candidate", "{fin}");
     assert_eq!(fin["finals"].as_array().unwrap().len(), 3);
     assert!(fin["uncoded"].as_array().unwrap().is_empty());
 
@@ -494,6 +497,7 @@ async fn v3_round_trip() {
         &format!("{I}/cases"),
         Some(json!({
             "label": "Retail rollout",
+            "units": [u(3), u(5)],
             "trigger": { "text": "Inventory accuracy", "evidence": [u(3)] },
             "constraints": { "text": "Skills for the ERP integration", "evidence": [u(5)] },
             "result": { "text": "Ninety-eight percent accuracy", "evidence": [u(3)] },
@@ -575,6 +579,293 @@ async fn v3_round_trip() {
     let (_, detail) = call(app, "GET", I, None).await;
     assert_eq!(detail["phase2"]["reconciled"], true);
     assert_eq!(detail["phase2"]["n_units"], 3);
+}
+
+/// Library, codebook, segmentation of INT-01 and a phase 1 where only U004 and
+/// U006 stay in scope for phase 2. Returns the unit ids of INT-01.
+async fn bootstrap_two_units(ctx: &Ctx) -> Vec<String> {
+    let app = &ctx.app;
+    let (st, b) = call(
+        app,
+        "POST",
+        "/api/codebook/import",
+        Some(json!({ "coding_db": ctx.coding_db })),
+    )
+    .await;
+    assert_eq!(st, StatusCode::OK, "{b}");
+    let (st, s) = call(
+        app,
+        "POST",
+        "/api/library/scan",
+        Some(json!({ "root": ctx.root })),
+    )
+    .await;
+    assert_eq!(st, StatusCode::OK, "{s}");
+    let (st, seg) = call(app, "POST", "/api/interviews/INT-01/segment", None).await;
+    assert_eq!(st, StatusCode::OK, "{seg}");
+    let units: Vec<String> = seg["units"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|u| u["unit_id"].as_str().unwrap().to_string())
+        .collect();
+    for (i, c) in [
+        (0, "NA"),
+        (1, "NA"),
+        (2, "NA"),
+        (3, "TECH"),
+        (4, "NA"),
+        (5, "TECH"),
+    ] {
+        let (st, r) = call(
+            app,
+            "PUT",
+            &format!("/api/interviews/INT-01/phases/1/coding/{}", units[i]),
+            Some(json!({ "codes": [c] })),
+        )
+        .await;
+        assert_eq!(st, StatusCode::OK, "{r}");
+    }
+    units
+}
+
+async fn code_phase2(app: &Router, unit: &str, list: &[&str]) {
+    let (st, r) = call(
+        app,
+        "PUT",
+        &format!("/api/interviews/INT-01/phases/2/coding/{unit}"),
+        Some(json!({ "codes": list })),
+    )
+    .await;
+    assert_eq!(st, StatusCode::OK, "{r}");
+}
+
+#[tokio::test]
+async fn v4_snapshots_and_review() {
+    let ctx = setup();
+    let app = &ctx.app;
+    const I: &str = "/api/interviews/INT-01";
+    const P2: &str = "/api/interviews/INT-01/phases/2";
+    let units = bootstrap_two_units(&ctx).await;
+    let (u4, u6) = (units[3].clone(), units[5].clone());
+
+    code_phase2(app, &u4, &["TECH-ADV", "OUT-REALISED"]).await;
+    code_phase2(app, &u6, &["TECH-COST", "ORG-SKILLS"]).await;
+
+    let (st, parts) = call(
+        app,
+        "POST",
+        &format!("{P2}/prompts"),
+        Some(json!({ "batch_size": 2 })),
+    )
+    .await;
+    assert_eq!(st, StatusCode::OK, "{parts}");
+    let parts = parts.as_array().unwrap().clone();
+    assert_eq!(parts.len(), 1);
+    let (st, run) = call(
+        app,
+        "POST",
+        &format!("{P2}/runs"),
+        Some(json!({ "run_label": "R1", "model_name": "model-a", "model_version": "1" })),
+    )
+    .await;
+    assert_eq!(st, StatusCode::OK, "{run}");
+    let run_id = run["run_id"].as_i64().unwrap();
+    let ai = |unit: &str| -> Vec<String> {
+        if unit == u4 {
+            codes(&["TECH-ADV", "OUT-REALISED"])
+        } else {
+            codes(&["TECH-COST"])
+        }
+    };
+    let (st, r) = call(
+        app,
+        "POST",
+        &format!("{P2}/runs/{run_id}/outputs"),
+        Some(json!({ "raw": answer(&parts[0], ai), "part": 1, "of": 1 })),
+    )
+    .await;
+    assert_eq!(st, StatusCode::OK, "{r}");
+
+    // The candidate revises U006 after the freeze: live coding now equals the AI.
+    code_phase2(app, &u6, &["TECH-COST"]).await;
+
+    // Agreement is computed on the snapshot: 1 of 2 exact, although the live
+    // coding would give 2 of 2.
+    let (st, ag) = call(app, "GET", &format!("{I}/agreement"), None).await;
+    assert_eq!(st, StatusCode::OK, "{ag}");
+    let rep = &ag["reports"][0];
+    assert_eq!(rep["label_a"], "Candidate", "{ag}");
+    assert_eq!(rep["label_b"], "AI R1", "{ag}");
+    assert_eq!(rep["n_units"], 2, "{rep}");
+    assert_eq!(rep["n_exact"], 1, "snapshot, not live coding: {rep}");
+    assert_eq!(rep["divergent_unit_ids"], json!([u6]), "{rep}");
+
+    let (st, review) = call(app, "GET", &format!("{I}/review"), None).await;
+    assert_eq!(st, StatusCode::OK, "{review}");
+    let snaps = review["snapshots"].as_array().expect("snapshots array");
+    assert_eq!(snaps.len(), 1, "{review}");
+    assert_eq!(snaps[0]["run_label"], "R1");
+    assert!(snaps[0]["snapshot_id"].as_i64().is_some());
+    let sha = snaps[0]["sha256"].as_str().unwrap().to_string();
+    assert_eq!(sha.len(), 64);
+    let item = review["items"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|i| i["unit_id"] == u6.as_str())
+        .unwrap_or_else(|| panic!("no review item for {u6}: {review}"))
+        .clone();
+    assert_eq!(item["kind"], "disagreement", "{item}");
+    assert_eq!(
+        item["human"],
+        json!(["ORG-SKILLS", "TECH-COST"]),
+        "snapshot"
+    );
+    assert_eq!(item["human_current"], json!(["TECH-COST"]), "{item}");
+    assert_eq!(item["revised_since_snapshot"], true, "{item}");
+    let item4 = review["items"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|i| i["unit_id"] == u4.as_str())
+        .unwrap()
+        .clone();
+    assert_eq!(item4["revised_since_snapshot"], false, "{item4}");
+
+    // The snapshot route.
+    let (st, list) = call(app, "GET", &format!("{I}/snapshots"), None).await;
+    assert_eq!(st, StatusCode::OK, "{list}");
+    let list = list.as_array().unwrap();
+    assert_eq!(list.len(), 1);
+    assert_eq!(list[0]["batch_id"], 1);
+    assert_eq!(list[0]["sha256"], sha.as_str());
+    let snapped = list[0]["codings"]
+        .as_object()
+        .expect("codings is an object");
+    assert_eq!(snapped.len(), 2);
+    assert_eq!(snapped[&u6], json!(["ORG-SKILLS", "TECH-COST"]));
+    assert_eq!(snapped[&u4], json!(["OUT-REALISED", "TECH-ADV"]));
+}
+
+#[tokio::test]
+async fn v4_cases_across_interviews() {
+    let ctx = setup();
+    let app = &ctx.app;
+    const I: &str = "/api/interviews/INT-01";
+    let units = bootstrap_two_units(&ctx).await;
+    let (st, seg2) = call(app, "POST", "/api/interviews/ECO-02/segment", None).await;
+    assert_eq!(st, StatusCode::OK, "{seg2}");
+    let eco_unit = seg2["units"][1]["unit_id"].as_str().unwrap().to_string();
+    assert!(eco_unit.starts_with("ECO-02-U"));
+    let (u4, u6) = (units[3].clone(), units[5].clone());
+    code_phase2(app, &u4, &["TECH-ADV"]).await;
+    code_phase2(app, &u6, &["TECH-COST", "ORG-SKILLS"]).await;
+
+    // A case attributing units of two interviews, given unsorted.
+    let body = json!({
+        "label": "Source tagging",
+        "units": [u6, eco_unit, u4, u6],
+        "decision": "adopted",
+        "granularity": "item",
+        "carrier_chosen": "RAIN RFID",
+        "carriers_rejected": ["QR"],
+        "account_type": "first-hand",
+        "swiss_link": "Swiss retailer, supplier in the EU",
+        "trigger": {
+            "text": "Inventory accuracy",
+            "contradictions": "The respondent also cites cost",
+            "missing": "No figure on tag price",
+            "evidence": [u4],
+        },
+    });
+    let (st, case) = call(app, "POST", &format!("{I}/cases"), Some(body.clone())).await;
+    assert!(
+        st == StatusCode::OK || st == StatusCode::CREATED,
+        "{st} {case}"
+    );
+    let case_id = case["case_id"].as_str().unwrap().to_string();
+    assert_eq!(case_id, "INT-01-C1");
+    let mut sorted = vec![u4.clone(), u6.clone(), eco_unit.clone()];
+    sorted.sort();
+    assert_eq!(case["units"], json!(sorted), "{case}");
+    assert_eq!(case["interviews"], json!(["ECO-02", "INT-01"]), "{case}");
+    assert_eq!(case["decision"], "adopted");
+    assert_eq!(case["granularity"], "item");
+    assert_eq!(case["carrier_chosen"], "RAIN RFID");
+    assert_eq!(case["carriers_rejected"], json!(["QR"]));
+    assert_eq!(case["account_type"], "first-hand");
+    assert_eq!(case["swiss_link"], "Swiss retailer, supplier in the EU");
+    assert_eq!(
+        case["trigger"]["contradictions"],
+        "The respondent also cites cost"
+    );
+    assert_eq!(case["trigger"]["missing"], "No figure on tag price");
+    assert_eq!(case["trigger"]["evidence"], json!([u4]));
+
+    // Evidence must be among the attributed units.
+    let mut bad = body.clone();
+    bad["label"] = json!("Bad");
+    bad["units"] = json!([u4]);
+    bad["trigger"]["evidence"] = json!([u6]);
+    let (st, e) = call(app, "POST", &format!("{I}/cases"), Some(bad)).await;
+    assert_eq!(st, StatusCode::BAD_REQUEST, "{e}");
+    assert_eq!(e["kind"], "validation", "{e}");
+    assert!(e["error"].as_str().unwrap().contains(&u6), "{e}");
+
+    // Listings: all cases, then by interview (created-from or attributed).
+    let (_, all) = call(app, "GET", "/api/cases", None).await;
+    assert_eq!(all.as_array().unwrap().len(), 1, "{all}");
+    assert_eq!(all[0]["case_id"], case_id.as_str());
+    let (st, mine) = call(app, "GET", &format!("{I}/cases"), None).await;
+    assert_eq!(st, StatusCode::OK);
+    assert_eq!(mine.as_array().unwrap().len(), 1);
+    let (_, other) = call(app, "GET", "/api/interviews/ECO-02/cases", None).await;
+    assert_eq!(
+        other.as_array().unwrap().len(),
+        1,
+        "attributed unit: {other}"
+    );
+
+    // Documented: attributed units with a final phase 2 coding fill cells.
+    let (_, cc) = call(app, "GET", "/api/cross-case", None).await;
+    let cells: Vec<Value> = cc["cells"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|c| c["case_id"] == case_id.as_str())
+        .cloned()
+        .collect();
+    assert!(!cells.is_empty());
+    assert!(cells.iter().all(|c| c["documented"] == true), "{cells:?}");
+    assert!(
+        cells
+            .iter()
+            .any(|c| c["documented"] == true && !c["codes"].as_array().unwrap().is_empty()),
+        "{cells:?}"
+    );
+
+    // Detaching every unit leaves the case undocumented, with no code at all.
+    let mut empty = case.clone();
+    empty["units"] = json!([]);
+    for f in ["trigger", "alternatives", "constraints", "choice", "result"] {
+        empty[f]["evidence"] = json!([]);
+    }
+    let (st, upd) = call(app, "PUT", &format!("/api/cases/{case_id}"), Some(empty)).await;
+    assert_eq!(st, StatusCode::OK, "{upd}");
+    assert_eq!(upd["units"], json!([]));
+    let (_, cc) = call(app, "GET", "/api/cross-case", None).await;
+    let cells: Vec<&Value> = cc["cells"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|c| c["case_id"] == case_id.as_str())
+        .collect();
+    assert!(!cells.is_empty());
+    for c in cells {
+        assert_eq!(c["documented"], false, "{c}");
+        assert_eq!(c["codes"], json!([]), "{c}");
+    }
 }
 
 #[tokio::test]

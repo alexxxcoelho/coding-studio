@@ -338,11 +338,10 @@ pub fn write_package(
         }
     }
 
-    let complete: Vec<(String, cs_model::CodingMap)> = store.complete_runs(interview_id)?;
+    let (snapshots, complete) = crate::candidate_runs(store, interview_id)?;
     if !complete.is_empty() {
         let order = crate::compared_units(store, interview_id)?;
-        let human = store.human_coding_map(interview_id, PHASE_2)?;
-        let reports = crate::agreement_reports(&human, &complete, &order);
+        let reports = crate::agreement_reports(&snapshots, &complete, &order)?;
         w.write(
             "phase2_agreement.md",
             cs_ai::render_agreement_md(&seg, &order, &reports).as_bytes(),

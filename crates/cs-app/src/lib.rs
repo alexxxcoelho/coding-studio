@@ -145,6 +145,7 @@ pub fn router(state: AppState) -> Router {
         .route(&format!("{P}/runs"), post(create_run).get(list_runs))
         .route(&format!("{P}/runs/{{run_id}}/outputs"), post(import_output))
         .route(&format!("{I}/review"), get(review))
+        .route(&format!("{I}/snapshots"), get(human_snapshots))
         .route(&format!("{I}/review/{{unit_id}}"), put(decide))
         .route(&format!("{I}/final"), get(final_coding))
         .route(&format!("{I}/agreement"), get(agreement))
@@ -250,14 +251,42 @@ pub(crate) fn compared_units(store: &Store, id: &str) -> anyhow::Result<Vec<Stri
         .unwrap_or_default())
 }
 
-/// Candidate against each complete run, then runs pairwise, over `order`.
+/// A complete run: (run_label, batch_id, codings).
+pub(crate) type CandidateRun = (String, i64, CodingMap);
+
+/// The complete runs, and the frozen human reference (snapshot codings) of
+/// each of their batches, keyed by batch_id.
+pub(crate) fn candidate_runs(
+    store: &Store,
+    id: &str,
+) -> anyhow::Result<(BTreeMap<i64, CodingMap>, Vec<CandidateRun>)> {
+    let runs: Vec<CandidateRun> = store
+        .ai_runs(id)?
+        .into_iter()
+        .filter(|r| r.complete)
+        .map(|r| (r.meta.run_label, r.batch_id, r.codings))
+        .collect();
+    let mut snapshots = BTreeMap::new();
+    for (_, batch_id, _) in &runs {
+        if !snapshots.contains_key(batch_id) {
+            snapshots.insert(*batch_id, store.human_snapshot(id, *batch_id)?.codings);
+        }
+    }
+    Ok((snapshots, runs))
+}
+
+/// Candidate (the snapshot of each run's batch) against each complete run,
+/// then runs pairwise, over `order`.
 pub(crate) fn agreement_reports(
-    human: &CodingMap,
-    runs: &[(String, CodingMap)],
+    snapshots: &BTreeMap<i64, CodingMap>,
+    runs: &[CandidateRun],
     order: &[String],
-) -> Vec<cs_model::AgreementReport> {
+) -> anyhow::Result<Vec<cs_model::AgreementReport>> {
     let mut reports = Vec::new();
-    for (label, codings) in runs {
+    for (label, batch_id, codings) in runs {
+        let human = snapshots
+            .get(batch_id)
+            .ok_or_else(|| anyhow::anyhow!("no human snapshot of batch {batch_id}"))?;
         reports.push(cs_ai::agreement(
             "Candidate",
             human,
@@ -266,8 +295,8 @@ pub(crate) fn agreement_reports(
             order,
         ));
     }
-    for (i, (la, a)) in runs.iter().enumerate() {
-        for (lb, b) in runs.iter().skip(i + 1) {
+    for (i, (la, _, a)) in runs.iter().enumerate() {
+        for (lb, _, b) in runs.iter().skip(i + 1) {
             reports.push(cs_ai::agreement(
                 &format!("AI {la}"),
                 a,
@@ -277,7 +306,7 @@ pub(crate) fn agreement_reports(
             ));
         }
     }
-    reports
+    Ok(reports)
 }
 
 // ------------------------------------------------------------------ static
@@ -1112,7 +1141,14 @@ async fn review(State(st): State<AppState>, UrlPath(id): UrlPath<String>) -> Api
         "n_sampled": r.n_sampled,
         "n_decided": r.n_decided,
         "seeds": r.seeds.iter().map(|(l, s)| json!({"run_label": l, "seed": s})).collect::<Vec<_>>(),
+        "snapshots": r.snapshots,
     })))
+}
+
+async fn human_snapshots(State(st): State<AppState>, UrlPath(id): UrlPath<String>) -> ApiResult {
+    let store = st.store();
+    require_interview(&store, &id)?;
+    Ok(Json(json!(store.human_snapshots(&id)?)))
 }
 
 #[derive(Deserialize)]
@@ -1164,9 +1200,8 @@ async fn agreement(State(st): State<AppState>, UrlPath(id): UrlPath<String>) -> 
     let store = st.store();
     let seg = require_segmentation(&store, &id)?;
     let order = compared_units(&store, &id)?;
-    let human = store.human_coding_map(&id, PHASE_2)?;
-    let runs = store.complete_runs(&id)?;
-    let reports = agreement_reports(&human, &runs, &order);
+    let (snapshots, runs) = candidate_runs(&store, &id)?;
+    let reports = agreement_reports(&snapshots, &runs, &order)?;
     let markdown = if reports.is_empty() {
         String::new()
     } else {
