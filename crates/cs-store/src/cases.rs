@@ -1,17 +1,21 @@
 //! Case syntheses (trigger, alternatives, constraints, choice, result, each
 //! backed by units) and the cross-case comparison by research question.
+//!
+//! A case attributes units from any interview (`case_units`). Its
+//! `interviews` are derived from those units plus its `interview_id`, never
+//! trusted from input.
 
 use std::collections::{BTreeMap, BTreeSet};
 
 use anyhow::Result;
-use cs_model::{Case, CaseField, CrossCase, CrossCaseCell, CrossCaseCode};
+use cs_model::{Case, CaseField, CrossCase, CrossCaseCell, CrossCaseCode, FinalCoding};
 use rusqlite::{params, OptionalExtension};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
 use crate::{append_event, clean_opt, from_json, not_found, now, to_json, validation, Store};
 
-/// Stored form of the five synthesis fields.
+/// Stored form of the synthesis fields (the `cases.fields` JSON blob).
 #[derive(Serialize, Deserialize, Default)]
 struct Fields {
     trigger: CaseField,
@@ -19,6 +23,33 @@ struct Fields {
     constraints: CaseField,
     choice: CaseField,
     result: CaseField,
+    #[serde(default)]
+    decision: Option<String>,
+    #[serde(default)]
+    granularity: Option<String>,
+    #[serde(default)]
+    carrier_chosen: Option<String>,
+    #[serde(default)]
+    carriers_rejected: Vec<String>,
+    #[serde(default)]
+    account_type: Option<String>,
+    #[serde(default)]
+    swiss_link: Option<String>,
+}
+
+/// Interview of a unit id: the prefix before `-U` (`ECO-16-U002` gives `ECO-16`).
+fn interview_of(unit_id: &str) -> Option<&str> {
+    unit_id.rsplit_once("-U").map(|(interview, _)| interview)
+}
+
+/// Trims each entry and drops the empty ones.
+fn clean_list(values: &[String]) -> Vec<String> {
+    values
+        .iter()
+        .map(|v| v.trim())
+        .filter(|v| !v.is_empty())
+        .map(str::to_string)
+        .collect()
 }
 
 fn row_to_case(r: &rusqlite::Row<'_>) -> rusqlite::Result<(Case, String)> {
@@ -32,6 +63,14 @@ fn row_to_case(r: &rusqlite::Row<'_>) -> rusqlite::Result<(Case, String)> {
             constraints: CaseField::default(),
             choice: CaseField::default(),
             result: CaseField::default(),
+            units: Vec::new(),
+            interviews: Vec::new(),
+            decision: None,
+            granularity: None,
+            carrier_chosen: None,
+            carriers_rejected: Vec::new(),
+            account_type: None,
+            swiss_link: None,
             stage: r.get(4)?,
             outcome_status: r.get(5)?,
             notes: r.get(6)?,
@@ -48,6 +87,12 @@ fn with_fields(mut case: Case, fields: &str) -> Result<Case> {
     case.constraints = f.constraints;
     case.choice = f.choice;
     case.result = f.result;
+    case.decision = f.decision;
+    case.granularity = f.granularity;
+    case.carrier_chosen = f.carrier_chosen;
+    case.carriers_rejected = f.carriers_rejected;
+    case.account_type = f.account_type;
+    case.swiss_link = f.swiss_link;
     Ok(case)
 }
 
@@ -55,12 +100,16 @@ const CASE_COLUMNS: &str =
     "case_id, interview_id, label, fields, stage, outcome_status, notes, updated_at";
 
 impl Store {
-    /// Cases of one interview, or of every interview, by case_id.
+    /// Cases of one interview (created from it, or attributing one of its
+    /// units), or of every interview, by case_id. Each case appears once.
     pub fn cases(&self, interview_id: Option<&str>) -> Result<Vec<Case>> {
         let rows: Vec<(Case, String)> = match interview_id {
             Some(id) => {
                 let mut stmt = self.conn.prepare(&format!(
-                    "SELECT {CASE_COLUMNS} FROM cases WHERE interview_id = ?1 ORDER BY case_id"
+                    "SELECT {CASE_COLUMNS} FROM cases
+                     WHERE interview_id = ?1
+                        OR case_id IN (SELECT case_id FROM case_units WHERE interview_id = ?1)
+                     ORDER BY case_id"
                 ))?;
                 let r = stmt.query_map([id], row_to_case)?;
                 r.collect::<rusqlite::Result<_>>()?
@@ -73,7 +122,7 @@ impl Store {
                 r.collect::<rusqlite::Result<_>>()?
             }
         };
-        rows.into_iter().map(|(c, f)| with_fields(c, &f)).collect()
+        rows.into_iter().map(|(c, f)| self.hydrate(c, &f)).collect()
     }
 
     pub fn case(&self, case_id: &str) -> Result<Case> {
@@ -86,26 +135,74 @@ impl Store {
             )
             .optional()?
             .ok_or_else(|| not_found(format!("case {case_id}")))?;
-        with_fields(row.0, &row.1)
+        self.hydrate(row.0, &row.1)
     }
 
-    /// Normalises a case and checks its evidence against the current units.
+    /// Fills the JSON fields, the attributed units (from `case_units`) and
+    /// the derived `interviews`.
+    fn hydrate(&self, case: Case, fields: &str) -> Result<Case> {
+        let mut case = with_fields(case, fields)?;
+        let mut stmt = self.conn.prepare(
+            "SELECT unit_id, interview_id FROM case_units WHERE case_id = ?1 ORDER BY unit_id",
+        )?;
+        let rows = stmt.query_map([&case.case_id], |r| {
+            Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?))
+        })?;
+        let mut units = Vec::new();
+        let mut interviews = BTreeSet::from([case.interview_id.clone()]);
+        for row in rows {
+            let (unit, interview) = row?;
+            units.push(unit);
+            interviews.insert(interview);
+        }
+        case.units = units;
+        case.interviews = interviews.into_iter().collect();
+        Ok(case)
+    }
+
+    /// Normalises a case and checks its units and evidence against the
+    /// current segmentations.
     fn clean_case(&self, interview_id: &str, case: &Case) -> Result<Case> {
         let label = case.label.trim();
         if label.is_empty() {
             return Err(validation("a case needs a label"));
         }
-        let units: BTreeSet<String> = self
-            .segmentation(interview_id)?
-            .map(|s| s.units.into_iter().map(|u| u.unit_id).collect())
-            .unwrap_or_default();
+
+        let mut units: BTreeSet<String> = BTreeSet::new();
+        let mut current: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
+        for unit in case
+            .units
+            .iter()
+            .map(|u| u.trim())
+            .filter(|u| !u.is_empty())
+        {
+            let owner = interview_of(unit).ok_or_else(|| {
+                validation(format!(
+                    "unit {unit} is not in the current segmentation of any interview"
+                ))
+            })?;
+            if !current.contains_key(owner) {
+                let ids: BTreeSet<String> = self
+                    .segmentation(owner)?
+                    .map(|s| s.units.into_iter().map(|u| u.unit_id).collect())
+                    .unwrap_or_default();
+                current.insert(owner.to_string(), ids);
+            }
+            if !current.get(owner).is_some_and(|ids| ids.contains(unit)) {
+                return Err(validation(format!(
+                    "unit {unit} is not in the current segmentation of {owner}"
+                )));
+            }
+            units.insert(unit.to_string());
+        }
+
         let clean = |f: &CaseField, name: &str| -> Result<CaseField> {
             let mut evidence: Vec<String> = Vec::new();
             for u in &f.evidence {
                 let u = u.trim().to_string();
                 if !units.contains(&u) {
                     return Err(validation(format!(
-                        "{name}: unit {u} is not in the current segmentation of {interview_id}"
+                        "{name}: unit {u} is not attributed to the case (add it to units first)"
                     )));
                 }
                 if !evidence.contains(&u) {
@@ -114,9 +211,19 @@ impl Store {
             }
             Ok(CaseField {
                 text: f.text.trim().to_string(),
+                contradictions: f.contradictions.trim().to_string(),
+                missing: f.missing.trim().to_string(),
                 evidence,
             })
         };
+
+        let mut interviews = BTreeSet::from([interview_id.to_string()]);
+        for unit in &units {
+            if let Some(owner) = interview_of(unit) {
+                interviews.insert(owner.to_string());
+            }
+        }
+
         Ok(Case {
             case_id: case.case_id.trim().to_string(),
             interview_id: interview_id.to_string(),
@@ -126,6 +233,14 @@ impl Store {
             constraints: clean(&case.constraints, "constraints")?,
             choice: clean(&case.choice, "choice")?,
             result: clean(&case.result, "result")?,
+            units: units.into_iter().collect(),
+            interviews: interviews.into_iter().collect(),
+            decision: clean_opt(&case.decision),
+            granularity: clean_opt(&case.granularity),
+            carrier_chosen: clean_opt(&case.carrier_chosen),
+            carriers_rejected: clean_list(&case.carriers_rejected),
+            account_type: clean_opt(&case.account_type),
+            swiss_link: clean_opt(&case.swiss_link),
             stage: clean_opt(&case.stage),
             outcome_status: clean_opt(&case.outcome_status),
             notes: clean_opt(&case.notes),
@@ -140,6 +255,12 @@ impl Store {
             constraints: case.constraints.clone(),
             choice: case.choice.clone(),
             result: case.result.clone(),
+            decision: case.decision.clone(),
+            granularity: case.granularity.clone(),
+            carrier_chosen: case.carrier_chosen.clone(),
+            carriers_rejected: case.carriers_rejected.clone(),
+            account_type: case.account_type.clone(),
+            swiss_link: case.swiss_link.clone(),
         };
         let tx = self.conn.unchecked_transaction()?;
         tx.execute(
@@ -159,6 +280,19 @@ impl Store {
                 case.updated_at
             ],
         )?;
+        tx.execute(
+            "DELETE FROM case_units WHERE case_id = ?1",
+            params![case.case_id],
+        )?;
+        for unit in &case.units {
+            let owner = interview_of(unit).ok_or_else(|| {
+                validation(format!("unit {unit} has no interview: not a unit id"))
+            })?;
+            tx.execute(
+                "INSERT INTO case_units (case_id, unit_id, interview_id) VALUES (?1, ?2, ?3)",
+                params![case.case_id, unit, owner],
+            )?;
+        }
         append_event(
             &tx,
             actor,
@@ -216,8 +350,8 @@ impl Store {
     }
 
     /// For each research question and each case: the codes mapped to the
-    /// question found in the final phase 2 coding of the case's interview, or
-    /// of its evidence units when the case lists any.
+    /// question found in the final phase 2 coding of the units attributed to
+    /// the case. A case without attributed units gets undocumented cells.
     pub fn cross_case(&self) -> Result<CrossCase> {
         let questions = self.research_questions()?;
         let cases = self.cases(None)?;
@@ -228,26 +362,31 @@ impl Store {
                 by_rq.entry(q.as_str()).or_default().insert(c.code.as_str());
             }
         }
-        let mut finals_by_interview: BTreeMap<String, Vec<cs_model::FinalCoding>> = BTreeMap::new();
+        let mut finals_by_interview: BTreeMap<String, Vec<FinalCoding>> = BTreeMap::new();
         let mut cells = Vec::new();
         for case in &cases {
-            if !finals_by_interview.contains_key(&case.interview_id) {
-                let (finals, _) = self.final_codings(&case.interview_id)?;
-                finals_by_interview.insert(case.interview_id.clone(), finals);
+            let documented = !case.units.is_empty();
+            let unit_set: BTreeSet<&str> = case.units.iter().map(String::as_str).collect();
+            let interviews: BTreeSet<&str> =
+                case.units.iter().filter_map(|u| interview_of(u)).collect();
+            let mut finals: Vec<FinalCoding> = Vec::new();
+            for interview in interviews {
+                if !finals_by_interview.contains_key(interview) {
+                    let (list, _) = self.final_codings(interview)?;
+                    finals_by_interview.insert(interview.to_string(), list);
+                }
+                finals.extend(
+                    finals_by_interview[interview]
+                        .iter()
+                        .filter(|f| unit_set.contains(f.unit_id.as_str()))
+                        .cloned(),
+                );
             }
-            let finals = &finals_by_interview[&case.interview_id];
-            let evidence: BTreeSet<&String> = case
-                .fields()
-                .iter()
-                .flat_map(|(_, f)| f.evidence.iter())
-                .collect();
+            finals.sort_by(|a, b| a.unit_id.cmp(&b.unit_id));
             for q in &questions {
                 let mapped = by_rq.get(q.id.as_str());
                 let mut codes: BTreeMap<String, Vec<String>> = BTreeMap::new();
-                for f in finals {
-                    if !evidence.is_empty() && !evidence.contains(&f.unit_id) {
-                        continue;
-                    }
+                for f in &finals {
                     for code in &f.codes {
                         if mapped.is_some_and(|m| m.contains(code.as_str())) {
                             codes
@@ -260,6 +399,7 @@ impl Store {
                 cells.push(CrossCaseCell {
                     rq: q.id.clone(),
                     case_id: case.case_id.clone(),
+                    documented,
                     codes: codes
                         .into_iter()
                         .map(|(code, units)| CrossCaseCode { code, units })

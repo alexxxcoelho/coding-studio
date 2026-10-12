@@ -875,6 +875,20 @@ fn edits_after_the_ai_answer_are_flagged() {
     s.set_human_coding(ID, 2, &hc(U3, &["ORG-SKILLS"]), ACTOR)
         .unwrap();
     assert!(s.human_codings(ID, 2).unwrap()[U3].revised_after_ai);
+    // The review still compares the frozen reference, not the edits.
+    let review = s.review(ID).unwrap();
+    let item = &review
+        .items
+        .iter()
+        .find(|e| e.item.unit_id == U3)
+        .unwrap()
+        .item;
+    assert_eq!(item.human, set(&["ORG-SKILLS"]));
+    assert_eq!(item.human_current, set(&["ORG-SKILLS"]));
+    assert!(
+        !item.revised_since_snapshot,
+        "codes came back to the snapshot value"
+    );
 }
 
 #[test]
@@ -1054,20 +1068,30 @@ fn runs_need_a_batch_and_unique_labels() {
     assert!(!runs[0].complete);
 }
 
+/// Blind coding guard. Since C2 the refusal happens at prompt generation: a
+/// batch cannot be generated while a unit of it is uncoded (nothing is
+/// written). The import then refuses any answer that does not cover exactly
+/// the units frozen in the batch.
 #[test]
 fn blind_guard_blocks_import_until_the_part_is_coded() {
     let (s, _d) = ready();
     phase1(&s);
     s.set_human_coding(ID, 2, &hc(U2, &["TECH-ADV"]), ACTOR)
         .unwrap();
-    batch(&s);
-    let run = s.create_ai_run(ID, &meta("R1"), ACTOR).unwrap();
-    let out = output(&s, 1, 1, &[(U2, &["TECH-ADV"]), (U3, &["NA"])]);
-    let e = s.record_ai_output(run, "raw", &out, ACTOR).unwrap_err();
-    assert_eq!(kind(&e), "guard");
+    let p = part(&s, &[U2, U3], &OFFERED, 1, 1);
+    let e = s.record_prompts(std::slice::from_ref(&p), ACTOR).unwrap_err();
+    assert_eq!(kind(&e), "validation");
     assert!(e.to_string().contains(U3), "{e}");
+    assert!(s.prompts(ID).unwrap().is_empty());
     s.set_human_coding(ID, 2, &hc(U3, &["ORG-SKILLS"]), ACTOR)
         .unwrap();
+    s.record_prompts(&[p], ACTOR).unwrap();
+    let run = s.create_ai_run(ID, &meta("R1"), ACTOR).unwrap();
+    // An answer covering a unit absent from the batch (and so from the snapshot).
+    let bad = output(&s, 1, 1, &[(U2, &["TECH-ADV"]), (U1, &["NA"])]);
+    let e = s.record_ai_output(run, "raw", &bad, ACTOR).unwrap_err();
+    assert!(matches!(kind(&e), "validation" | "guard"), "{e}");
+    let out = output(&s, 1, 1, &[(U2, &["TECH-ADV"]), (U3, &["NA"])]);
     s.record_ai_output(run, "raw", &out, ACTOR).unwrap();
 }
 
@@ -1138,10 +1162,19 @@ fn review_lists_disagreements_and_a_deterministic_sample() {
     assert_eq!(review.n_disagreements, 1);
     assert_eq!(review.items[0].item.unit_id, U3);
     assert_eq!(review.items[0].item.kind, ReviewKind::Disagreement);
+    assert_eq!(review.items[0].item.human, set(&["ORG-SKILLS"]));
+    assert_eq!(review.items[0].item.human_current, set(&["ORG-SKILLS"]));
+    assert!(!review.items[0].item.revised_since_snapshot);
     // One agreeing unit: the sample takes it (max(5, 10%) capped at 1).
     assert_eq!(review.n_sampled, 1);
     assert_eq!(review.items[1].item.unit_id, U2);
     assert_eq!(review.items[1].item.kind, ReviewKind::AgreementSample);
+    assert_eq!(
+        review.items[1].item.human_current,
+        review.items[1].item.human
+    );
+    assert!(!review.items[1].item.revised_since_snapshot);
+    assert_eq!(review.snapshots.len(), 1);
     let seg_hash = s.segmentation(ID).unwrap().unwrap().hash;
     assert_eq!(
         review.seeds,
@@ -1239,6 +1272,10 @@ fn review_decisions_and_final_coding() {
     )
     .unwrap();
     assert_eq!(s.decision_history(ID).unwrap().len(), 3);
+    let items = s.review(ID).unwrap().items;
+    assert!(items
+        .iter()
+        .all(|e| !e.item.revised_since_snapshot && e.item.human_current == e.item.human));
     let (finals, uncoded) = s.final_codings(ID).unwrap();
     assert!(uncoded.is_empty());
     assert_eq!(finals[1].codes, set(&["ENV-PARTNER", "ORG-SKILLS"]));
@@ -1269,6 +1306,8 @@ fn summaries_report_both_phases() {
 fn field(text: &str, evidence: &[&str]) -> CaseField {
     CaseField {
         text: text.into(),
+        contradictions: String::new(),
+        missing: String::new(),
         evidence: evidence.iter().map(|s| s.to_string()).collect(),
     }
 }
@@ -1283,6 +1322,14 @@ fn case(label: &str) -> Case {
         constraints: field("No skills in house", &[U3]),
         choice: field("Pilot with a partner", &[]),
         result: field("Paid back in a year", &[U2, U2]),
+        units: vec![U2.into(), U3.into()],
+        interviews: vec![],
+        decision: None,
+        granularity: None,
+        carrier_chosen: None,
+        carriers_rejected: vec![],
+        account_type: None,
+        swiss_link: None,
         stage: Some("STAGE-PILOT".into()),
         outcome_status: None,
         notes: None,
@@ -1326,18 +1373,25 @@ fn cases_crud_with_evidence_validation() {
 fn cross_case_cells_follow_the_question_mapping() {
     let (s, _d) = ready();
     coded(&s);
-    s.create_case(ID, &case("Store pilot"), ACTOR).unwrap();
-    let mut wide = case("Whole interview");
+    let mut narrow = case("Store pilot");
+    narrow.units = vec![U2.into()];
+    narrow.constraints.evidence.clear();
+    s.create_case(ID, &narrow, ACTOR).unwrap();
+    let mut wide = case("Both units");
+    wide.units = vec![U2.into(), U3.into()];
+    s.create_case(ID, &wide, ACTOR).unwrap();
+    let mut empty = case("Undocumented");
+    empty.units = vec![];
     for f in [
-        &mut wide.trigger,
-        &mut wide.alternatives,
-        &mut wide.constraints,
-        &mut wide.choice,
-        &mut wide.result,
+        &mut empty.trigger,
+        &mut empty.alternatives,
+        &mut empty.constraints,
+        &mut empty.choice,
+        &mut empty.result,
     ] {
         f.evidence.clear();
     }
-    s.create_case(ID, &wide, ACTOR).unwrap();
+    s.create_case(ID, &empty, ACTOR).unwrap();
     let cc = s.cross_case().unwrap();
     assert_eq!(cc.questions.len(), 4);
     let cell = |rq: &str, case_id: &str| {
@@ -1349,17 +1403,21 @@ fn cross_case_cells_follow_the_question_mapping() {
     };
     assert_eq!(cell("SQ1", "ECO-16-C1").codes[0].code, "TECH-ADV");
     assert_eq!(cell("SQ1", "ECO-16-C1").codes[0].units, [U2]);
-    assert_eq!(
-        cell("SQ2", "ECO-16-C1").codes[0].code,
-        "ORG-SKILLS",
-        "U003 is evidence"
+    assert!(cell("SQ1", "ECO-16-C1").documented);
+    assert!(
+        cell("SQ2", "ECO-16-C1").codes.is_empty(),
+        "U003 is not attributed to C1"
     );
+    assert!(cell("SQ2", "ECO-16-C1").documented);
+    assert_eq!(cell("SQ2", "ECO-16-C2").codes[0].code, "ORG-SKILLS");
+    assert_eq!(cell("SQ2", "ECO-16-C2").codes[0].units, [U3]);
     assert!(cell("SQ3", "ECO-16-C2").codes.is_empty());
-    assert_eq!(
-        cell("SQ2", "ECO-16-C2").codes[0].units,
-        [U3],
-        "no evidence: whole interview"
-    );
+    assert!(cell("SQ3", "ECO-16-C2").documented);
+    for rq in ["SQ1", "SQ2", "SQ3", "SQ4"] {
+        let c = cell(rq, "ECO-16-C3");
+        assert!(!c.documented, "no attributed unit: not documented");
+        assert!(c.codes.is_empty());
+    }
 }
 
 // -------------------------------------------------------------------- audit
@@ -1386,6 +1444,8 @@ fn append_only_tables_refuse_update_and_delete() {
         "UPDATE arbitrations SET rationale = 'x'",
         "DELETE FROM arbitrations",
         "DELETE FROM review_samples",
+        "UPDATE human_snapshots SET sha256 = 'x'",
+        "DELETE FROM human_snapshots",
         "DELETE FROM to_clarify",
     ] {
         let e = c.execute(sql, []).unwrap_err();
@@ -1458,3 +1518,7 @@ fn audit_filter_by_interview() {
     assert!(all.len() > mine.len()); // codebook import is global
     assert!(mine.iter().all(|e| e.interview_id.as_deref() == Some(ID)));
 }
+
+// v4 modules (dev graph 12.10.2026); each may use the fixtures above through `super::*`.
+mod cases_v4;
+mod snapshots_v4;

@@ -322,6 +322,23 @@ pub fn check_code_set(codes: &CodeSet) -> Vec<String> {
 
 // ------------------------------------------------------------------- AI runs
 
+/// The candidate's phase 2 coding of every unit of a prompt batch, frozen when
+/// the batch was generated. The reference of every comparison with that batch.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct HumanSnapshot {
+    pub snapshot_id: i64,
+    pub interview_id: String,
+    pub batch_id: i64,
+    pub phase: u8,
+    pub segmentation_hash: String,
+    pub codebook_hash: String,
+    /// unit_id -> sorted codes (empty when the unit only carried an open label).
+    pub codings: CodingMap,
+    /// SHA-256 of the canonical JSON of `codings`.
+    pub sha256: String,
+    pub created_at: String,
+}
+
 /// Parameters journalised for every AI run (P-04, after Fehring et al. 2026).
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 pub struct AiRunMeta {
@@ -500,9 +517,21 @@ pub struct ReviewItem {
     pub unit_id: String,
     pub kind: ReviewKind,
     pub human: CodeSet,
+    /// The candidate's current coding (may differ from `human`, the snapshot).
+    #[serde(default)]
+    pub human_current: CodeSet,
+    #[serde(default)]
+    pub revised_since_snapshot: bool,
     /// Codes per run label (complete runs).
     pub ai: BTreeMap<String, CodeSet>,
     pub decision: Option<Arbitration>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ReviewSnapshotRef {
+    pub run_label: String,
+    pub snapshot_id: i64,
+    pub sha256: String,
 }
 
 // -------------------------------------------------------------- to clarify
@@ -552,7 +581,11 @@ pub struct ResearchQuestion {
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct CaseField {
     pub text: String,
-    /// unit_ids of the case's interview that support the text.
+    #[serde(default)]
+    pub contradictions: String,
+    #[serde(default)]
+    pub missing: String,
+    /// unit_ids, from any interview, that illustrate the text; each must be among the case's attributed `units`.
     #[serde(default)]
     pub evidence: Vec<String>,
 }
@@ -576,6 +609,27 @@ pub struct Case {
     pub choice: CaseField,
     #[serde(default)]
     pub result: CaseField,
+    /// Units attributed to the case, from any interview, sorted and deduplicated. The cross-case matrix uses only these.
+    #[serde(default)]
+    pub units: Vec<String>,
+    /// Read-only: interview ids derived from `units` plus `interview_id`, sorted.
+    #[serde(default)]
+    pub interviews: Vec<String>,
+    /// adopted | deferred | rejected, or free text.
+    #[serde(default)]
+    pub decision: Option<String>,
+    /// item | batch | model, or free text.
+    #[serde(default)]
+    pub granularity: Option<String>,
+    #[serde(default)]
+    pub carrier_chosen: Option<String>,
+    #[serde(default)]
+    pub carriers_rejected: Vec<String>,
+    /// first-hand | reported | ecosystem | anticipation, or free text.
+    #[serde(default)]
+    pub account_type: Option<String>,
+    #[serde(default)]
+    pub swiss_link: Option<String>,
     /// STAGE-* of the codebook, free text otherwise.
     #[serde(default)]
     pub stage: Option<String>,
@@ -612,6 +666,9 @@ pub struct CrossCaseCode {
 pub struct CrossCaseCell {
     pub rq: String,
     pub case_id: String,
+    /// false when the case has no attributed unit; then `codes` is empty.
+    #[serde(default)]
+    pub documented: bool,
     pub codes: Vec<CrossCaseCode>,
 }
 

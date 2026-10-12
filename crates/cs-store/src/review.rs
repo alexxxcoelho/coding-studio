@@ -8,7 +8,8 @@ use cs_model::phase::is_phase2_code;
 use cs_model::reconcile::{self, agreements, sample_agreements, sample_seed};
 use cs_model::{
     check_code_set, sha256_hex, AiOutput, AiRun, AiRunMeta, Arbitration, ArbitrationChoice,
-    CodingMap, FinalCoding, PhaseSummary, PromptPart, ReviewItem, ReviewKind, NA, PHASE_1, PHASE_2,
+    CodeSet, CodingMap, FinalCoding, HumanSnapshot, PhaseSummary, PromptPart, ReviewItem,
+    ReviewKind, ReviewSnapshotRef, NA, PHASE_1, PHASE_2,
 };
 use rusqlite::{params, OptionalExtension};
 use serde_json::json;
@@ -37,6 +38,8 @@ pub struct Review {
     pub n_decided: usize,
     /// (run_label, seed) of every agreement sample.
     pub seeds: Vec<(String, String)>,
+    /// The frozen human reference of each complete run, in run order.
+    pub snapshots: Vec<ReviewSnapshotRef>,
 }
 
 fn only_phase2(phase: u8) -> Result<()> {
@@ -67,6 +70,33 @@ impl Store {
                 return Err(validation("prompt sha256 does not match its text"));
             }
         }
+        // Every unit of the batch must be coded by the candidate: the human
+        // reference is frozen from these codings.
+        let batch_units: BTreeSet<String> = parts
+            .iter()
+            .flat_map(|p| p.unit_ids.iter().cloned())
+            .collect();
+        let coded = self.coded_units(&interview_id, PHASE_2)?;
+        let missing: Vec<&String> = batch_units.iter().filter(|u| !coded.contains(*u)).collect();
+        if !missing.is_empty() {
+            return Err(validation(format!(
+                "{} units of the batch are not yet coded by the candidate in phase 2: {}",
+                missing.len(),
+                missing
+                    .iter()
+                    .map(|s| s.as_str())
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            )));
+        }
+        let human = self.human_coding_map(&interview_id, PHASE_2)?;
+        let codings: CodingMap = batch_units
+            .iter()
+            .map(|u| (u.clone(), human.get(u).cloned().unwrap_or_default()))
+            .collect();
+        let codings_json = to_json(&codings);
+        let snapshot_sha = sha256_hex(codings_json.as_bytes());
+
         let tx = self.conn.unchecked_transaction()?;
         let batch_id: i64 = tx.query_row(
             "SELECT COALESCE(MAX(batch_id), 0) + 1 FROM prompts WHERE interview_id = ?1",
@@ -118,7 +148,97 @@ impl Store {
             )?;
             out.push(p);
         }
+        let first = &out[0];
+        tx.execute(
+            "INSERT INTO human_snapshots (interview_id, batch_id, phase, segmentation_hash, codebook_hash,
+               codings, sha256, created_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+            params![
+                interview_id,
+                batch_id,
+                PHASE_2,
+                first.segmentation_hash,
+                first.codebook_hash,
+                codings_json,
+                snapshot_sha,
+                now()
+            ],
+        )?;
+        append_event(
+            &tx,
+            actor,
+            "human_snapshot.take",
+            Some(&interview_id),
+            Some(&format!("batch {batch_id}")),
+            json!({
+                "batch_id": batch_id,
+                "sha256": snapshot_sha,
+                "n_units": batch_units.len(),
+                "segmentation_hash": first.segmentation_hash,
+                "codebook_hash": first.codebook_hash,
+            }),
+        )?;
         tx.commit()?;
+        Ok(out)
+    }
+
+    /// The frozen human references of an interview, ordered by batch.
+    pub fn human_snapshots(&self, interview_id: &str) -> Result<Vec<HumanSnapshot>> {
+        self.snapshot_rows(interview_id, None)
+    }
+
+    /// The frozen human reference of one prompt batch.
+    pub fn human_snapshot(&self, interview_id: &str, batch_id: i64) -> Result<HumanSnapshot> {
+        self.snapshot_rows(interview_id, Some(batch_id))?
+            .into_iter()
+            .next()
+            .ok_or_else(|| {
+                not_found(format!(
+                    "human snapshot of batch {batch_id} of {interview_id}"
+                ))
+            })
+    }
+
+    fn snapshot_rows(
+        &self,
+        interview_id: &str,
+        batch_id: Option<i64>,
+    ) -> Result<Vec<HumanSnapshot>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT snapshot_id, interview_id, batch_id, phase, segmentation_hash, codebook_hash, codings,
+                    sha256, created_at
+             FROM human_snapshots WHERE interview_id = ?1 AND (?2 IS NULL OR batch_id = ?2)
+             ORDER BY batch_id",
+        )?;
+        let rows = stmt.query_map(params![interview_id, batch_id], |r| {
+            Ok((
+                r.get::<_, i64>(0)?,
+                r.get::<_, String>(1)?,
+                r.get::<_, i64>(2)?,
+                r.get::<_, u8>(3)?,
+                r.get::<_, String>(4)?,
+                r.get::<_, String>(5)?,
+                r.get::<_, String>(6)?,
+                r.get::<_, String>(7)?,
+                r.get::<_, String>(8)?,
+            ))
+        })?;
+        let mut out = Vec::new();
+        for row in rows {
+            let (snapshot_id, interview_id, batch_id, phase, sh, ch, codings, sha, created_at) =
+                row?;
+            out.push(HumanSnapshot {
+                snapshot_id,
+                interview_id,
+                batch_id,
+                phase,
+                segmentation_hash: sh,
+                codebook_hash: ch,
+                codings: from_json(&codings)?,
+                sha256: sha,
+                created_at,
+            });
+        }
         Ok(out)
     }
 
@@ -427,8 +547,8 @@ impl Store {
         // Complete? Then draw the agreement sample.
         let run = self.run_with(&tx, run_id)?;
         if run.complete {
-            let human = self.human_coding_map(&interview_id, PHASE_2)?;
-            let agreeing = agreements(&run.unit_ids, &human, &run.codings);
+            let snapshot = self.human_snapshot(&interview_id, batch_id)?;
+            let agreeing = agreements(&run.unit_ids, &snapshot.codings, &run.codings);
             let seed = sample_seed(run_id, &seg.hash);
             let sample = sample_agreements(&seed, &agreeing);
             tx.execute(
@@ -568,17 +688,48 @@ impl Store {
     /// sampled agreements (still agreeing), each with its current decision.
     pub fn review(&self, interview_id: &str) -> Result<Review> {
         self.require_interview(interview_id)?;
-        let complete = self.complete_runs(interview_id)?;
+        let runs: Vec<AiRun> = self
+            .ai_runs(interview_id)?
+            .into_iter()
+            .filter(|r| r.complete)
+            .collect();
+        let complete: Vec<(String, CodingMap)> = runs
+            .iter()
+            .map(|r| (r.meta.run_label.clone(), r.codings.clone()))
+            .collect();
+        let snapshots: Vec<HumanSnapshot> = runs
+            .iter()
+            .map(|r| self.human_snapshot(interview_id, r.batch_id))
+            .collect::<Result<_>>()?;
+        // The human reference of a unit is the snapshot of the latest batch
+        // among the complete runs that cover it.
+        let mut reference: BTreeMap<String, (i64, CodeSet)> = BTreeMap::new();
+        for (run, snap) in runs.iter().zip(&snapshots) {
+            for u in &run.unit_ids {
+                let codes = snap.codings.get(u).cloned().unwrap_or_default();
+                if reference.get(u).is_none_or(|(b, _)| *b <= snap.batch_id) {
+                    reference.insert(u.clone(), (snap.batch_id, codes));
+                }
+            }
+        }
+        let human: CodingMap = reference
+            .iter()
+            .map(|(u, (_, codes))| (u.clone(), codes.clone()))
+            .collect();
+        let current = self.human_coding_map(interview_id, PHASE_2)?;
         let order = self.compared_units(interview_id)?;
-        let human = self.human_coding_map(interview_id, PHASE_2)?;
         let decisions = self.decisions(interview_id)?;
         let history = self.decision_history(interview_id)?;
-        let entry = |unit_id: &str, kind: ReviewKind, ai: BTreeMap<String, cs_model::CodeSet>| {
+        let entry = |unit_id: &str, kind: ReviewKind, ai: BTreeMap<String, CodeSet>| {
+            let frozen = human.get(unit_id).cloned().unwrap_or_default();
+            let live = current.get(unit_id).cloned().unwrap_or_default();
             ReviewEntry {
                 item: ReviewItem {
                     unit_id: unit_id.to_string(),
                     kind,
-                    human: human.get(unit_id).cloned().unwrap_or_default(),
+                    revised_since_snapshot: frozen != live,
+                    human: frozen,
+                    human_current: live,
                     ai,
                     decision: decisions.get(unit_id).cloned(),
                 },
@@ -619,6 +770,15 @@ impl Store {
             n_sampled,
             n_decided,
             seeds: samples.into_iter().map(|(l, s, _)| (l, s)).collect(),
+            snapshots: runs
+                .iter()
+                .zip(&snapshots)
+                .map(|(r, s)| ReviewSnapshotRef {
+                    run_label: r.meta.run_label.clone(),
+                    snapshot_id: s.snapshot_id,
+                    sha256: s.sha256.clone(),
+                })
+                .collect(),
         })
     }
 

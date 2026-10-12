@@ -180,6 +180,22 @@ CREATE TABLE IF NOT EXISTS ai_outputs (
     UNIQUE (run_id, part)
 );
 
+-- The candidate's phase 2 coding of every unit of a prompt batch, frozen in
+-- the same transaction as the prompts. Reference of every comparison with
+-- the runs of that batch. Append-only.
+CREATE TABLE IF NOT EXISTS human_snapshots (
+    snapshot_id        INTEGER PRIMARY KEY AUTOINCREMENT,
+    interview_id       TEXT NOT NULL REFERENCES interviews(interview_id),
+    batch_id           INTEGER NOT NULL,
+    phase              INTEGER NOT NULL,
+    segmentation_hash  TEXT NOT NULL,
+    codebook_hash      TEXT NOT NULL,
+    codings            TEXT NOT NULL,    -- JSON object unit_id -> sorted codes
+    sha256             TEXT NOT NULL,    -- of codings
+    created_at         TEXT NOT NULL,
+    UNIQUE (interview_id, batch_id)
+);
+
 -- Agreements drawn for review when a run becomes complete (append-only).
 CREATE TABLE IF NOT EXISTS review_samples (
     run_id      INTEGER PRIMARY KEY REFERENCES ai_runs(run_id),
@@ -213,6 +229,15 @@ CREATE TABLE IF NOT EXISTS cases (
     outcome_status  TEXT,
     notes           TEXT,
     updated_at      TEXT NOT NULL
+);
+
+-- Units attributed to a case, from any interview. The cross-case matrix
+-- uses only these; a case without attributed units is undocumented.
+CREATE TABLE IF NOT EXISTS case_units (
+    case_id       TEXT NOT NULL REFERENCES cases(case_id),
+    unit_id       TEXT NOT NULL,
+    interview_id  TEXT NOT NULL REFERENCES interviews(interview_id),
+    PRIMARY KEY (case_id, unit_id)
 );
 
 -- --------------------------------------------------------------- audit trail
@@ -255,6 +280,11 @@ CREATE TRIGGER IF NOT EXISTS arbitrations_no_update BEFORE UPDATE ON arbitration
 BEGIN SELECT RAISE(ABORT, 'append-only: arbitrations'); END;
 CREATE TRIGGER IF NOT EXISTS arbitrations_no_delete BEFORE DELETE ON arbitrations
 BEGIN SELECT RAISE(ABORT, 'append-only: arbitrations'); END;
+
+CREATE TRIGGER IF NOT EXISTS human_snapshots_no_update BEFORE UPDATE ON human_snapshots
+BEGIN SELECT RAISE(ABORT, 'human_snapshots is append-only'); END;
+CREATE TRIGGER IF NOT EXISTS human_snapshots_no_delete BEFORE DELETE ON human_snapshots
+BEGIN SELECT RAISE(ABORT, 'human_snapshots is append-only'); END;
 
 CREATE TRIGGER IF NOT EXISTS review_samples_no_update BEFORE UPDATE ON review_samples
 BEGIN SELECT RAISE(ABORT, 'append-only: review_samples'); END;
