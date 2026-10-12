@@ -1429,3 +1429,96 @@ async fn v4_rq_memo_and_saturation() {
     let first = rows[0]["codes_first_used"].as_array().unwrap();
     assert!(first.contains(&json!("TECH-ADV")), "{sat}");
 }
+
+#[tokio::test]
+async fn v4_cross_case_export_and_state() {
+    let ctx = setup();
+    let app = &ctx.app;
+    const I: &str = "/api/interviews/INT-01";
+    let units = bootstrap_two_units(&ctx).await;
+    let u4 = units[3].clone();
+    code_phase2(app, &u4, &["TECH-ADV"]).await;
+
+    // A case, a memo on SQ1 and a claim on the unit.
+    let (st, case) = call(
+        app,
+        "POST",
+        &format!("{I}/cases"),
+        Some(json!({ "label": "Pilot", "units": [u4] })),
+    )
+    .await;
+    assert!(
+        st == StatusCode::OK || st == StatusCode::CREATED,
+        "{st} {case}"
+    );
+    let (st, memo) = call(
+        app,
+        "PUT",
+        "/api/research-questions/SQ1/memo",
+        Some(json!({
+            "rq_id": "SQ1",
+            "documented": "Accuracy gains are reported in the pilot.",
+            "units_for": [u4],
+        })),
+    )
+    .await;
+    assert_eq!(st, StatusCode::OK, "{memo}");
+    let (st, claim) = call(
+        app,
+        "POST",
+        &format!("{I}/claims"),
+        Some(json!({
+            "unit_id": u4,
+            "excerpt": "sixty to ninety-eight percent",
+            "codes": ["TECH-ADV"],
+            "provenance": "SPONTANEOUS",
+        })),
+    )
+    .await;
+    assert!(
+        st == StatusCode::OK || st == StatusCode::CREATED,
+        "{st} {claim}"
+    );
+
+    // The interview package carries the state, the snapshot and the claim files, all in the manifest.
+    let (st, exp) = call(app, "POST", &format!("{I}/export"), None).await;
+    assert_eq!(st, StatusCode::OK, "{exp}");
+    let dir = std::path::PathBuf::from(exp["dir"].as_str().unwrap());
+    let expected = [
+        "state.json",
+        "db_snapshot.sqlite",
+        "claims.csv",
+        "units_verification.csv",
+    ];
+    for f in expected {
+        assert!(dir.join(f).is_file(), "missing {f}");
+    }
+    let manifest: Value =
+        serde_json::from_str(&std::fs::read_to_string(dir.join("manifest.json")).unwrap()).unwrap();
+    let listed: Vec<&str> = manifest["files"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|f| f["name"].as_str().unwrap())
+        .collect();
+    for f in expected {
+        assert!(listed.contains(&f), "manifest lacks {f}");
+    }
+    let state: Value =
+        serde_json::from_str(&std::fs::read_to_string(dir.join("state.json")).unwrap()).unwrap();
+    assert_eq!(state["sha256"].as_str().unwrap().len(), 64, "{state}");
+    assert!(state["generator"]["version"].is_string(), "{state}");
+    let claims_csv = std::fs::read_to_string(dir.join("claims.csv")).unwrap();
+    assert_eq!(claims_csv.lines().count(), 2, "{claims_csv}");
+
+    // The cross-case package carries the memo text and the saturation table.
+    let (st, cc) = call(app, "POST", "/api/export/cross-case", None).await;
+    assert_eq!(st, StatusCode::OK, "{cc}");
+    let folder = std::path::PathBuf::from(cc["folder"].as_str().unwrap());
+    let answers = std::fs::read_to_string(folder.join("answers.md")).unwrap();
+    assert!(
+        answers.contains("Accuracy gains are reported in the pilot."),
+        "{answers}"
+    );
+    assert!(folder.join("saturation.csv").is_file());
+}

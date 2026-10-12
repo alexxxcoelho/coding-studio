@@ -2,18 +2,27 @@
 //! interview, written to a new folder that is never overwritten, with a
 //! manifest of SHA-256 hashes.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::fs;
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
 use cs_model::phase::{PHASE_1, PHASE_2};
 use cs_model::{
-    sha256_hex, ArbitrationChoice, Case, CodeSet, CsError, HumanCoding, HumanSnapshot, ToClarify,
+    sha256_hex, Arbitration, ArbitrationChoice, Case, Claim, CodeSet, CsError, HumanCoding,
+    HumanSnapshot, RqMemo, SaturationRow, ToClarify, Unit, UnitCorrection, UnitFlags,
+    VerificationCoverage, VerificationStatus, VerificationTarget,
 };
 use cs_store::Store;
 use serde::Serialize;
-use serde_json::json;
+use serde_json::{json, Value};
+
+/// Git description of the source tree, set at build time through the
+/// `CS_GIT_DESCRIBE` environment variable; `unknown` when it was not set.
+const GIT_DESCRIBE: &str = match option_env!("CS_GIT_DESCRIBE") {
+    Some(s) => s,
+    None => "unknown",
+};
 
 #[derive(Debug, Serialize)]
 pub struct ExportedFile {
@@ -38,6 +47,9 @@ pub struct CodingStatus {
     pub n_to_clarify_open: usize,
     pub n_cases: usize,
     pub n_snapshots: usize,
+    pub n_claims: usize,
+    /// Verification coverage of the interview; reported apart from the counts above.
+    pub verification: VerificationCoverage,
 }
 
 #[derive(Debug, Serialize)]
@@ -63,6 +75,18 @@ impl Writer {
         self.files.push(ExportedFile {
             name: name.to_string(),
             sha256: sha256_hex(content),
+            size: content.len() as u64,
+        });
+        Ok(())
+    }
+
+    /// Adds a file that was written into the folder by another means (the database snapshot).
+    pub fn register(&mut self, name: &str) -> Result<()> {
+        let path = self.dir.join(name);
+        let content = fs::read(&path).with_context(|| format!("reading {}", path.display()))?;
+        self.files.push(ExportedFile {
+            name: name.to_string(),
+            sha256: sha256_hex(&content),
             size: content.len() as u64,
         });
         Ok(())
@@ -392,6 +416,359 @@ pub(crate) fn cases_md(interview_id: &str, cases: &[Case]) -> String {
     s
 }
 
+/// Overlays the corrections on the segmented units. Returns the current units
+/// (text and role of the latest correction, `corrected` set) and every
+/// correction of the interview, oldest first. The segmentation is not touched.
+fn current_units(
+    store: &Store,
+    interview_id: &str,
+    seg: &cs_model::Segmentation,
+) -> Result<(Vec<Unit>, Vec<UnitCorrection>)> {
+    let mut units = Vec::with_capacity(seg.units.len());
+    let mut corrections = Vec::new();
+    for unit in &seg.units {
+        let mut unit = unit.clone();
+        let mine = store.unit_corrections(interview_id, &unit.unit_id)?;
+        if let Some(latest) = mine.last() {
+            unit.text = latest.text.clone();
+            unit.role = latest.role;
+            unit.corrected = true;
+        }
+        corrections.extend(mine);
+        units.push(unit);
+    }
+    corrections.sort_by_key(|c| c.correction_id);
+    Ok((units, corrections))
+}
+
+/// Speaker field of a unit as in the segmentation: INT, RESP, or the source label when unknown.
+fn speaker_of(unit: &Unit) -> &str {
+    match unit.role {
+        cs_model::SpeakerRole::Unknown => unit.speaker_raw.as_str(),
+        role => role.short(),
+    }
+}
+
+/// `unit_id,speaker,timestamp,text,corrected`: the current text of each unit.
+fn units_current_csv(units: &[Unit]) -> String {
+    let mut out = String::from("unit_id,speaker,timestamp,text,corrected\n");
+    for u in units {
+        out.push_str(&format!(
+            "{},{},{},{},{}\n",
+            csv_field(&u.unit_id),
+            csv_field(speaker_of(u)),
+            csv_field(&u.timestamp),
+            csv_field(&u.text),
+            u8::from(u.corrected)
+        ));
+    }
+    out
+}
+
+/// Serialized name of a speaker role, as stored.
+fn role_text(role: &cs_model::SpeakerRole) -> String {
+    serde_json::to_value(role)
+        .ok()
+        .and_then(|v| v.as_str().map(str::to_string))
+        .unwrap_or_default()
+}
+
+fn unit_corrections_csv(corrections: &[UnitCorrection]) -> String {
+    let mut out = String::from("unit_id,correction_id,text,role,reason,created_at\n");
+    for c in corrections {
+        out.push_str(&format!(
+            "{},{},{},{},{},{}\n",
+            csv_field(&c.unit_id),
+            c.correction_id,
+            csv_field(&c.text),
+            csv_field(&role_text(&c.role)),
+            csv_field(&c.reason),
+            csv_field(&c.created_at)
+        ));
+    }
+    out
+}
+
+/// One row per unit: its verification state, the reasons it is a target, its flags and corrections.
+fn units_verification_csv(
+    statuses: &[VerificationStatus],
+    targets: &[VerificationTarget],
+    flags: &[UnitFlags],
+    units: &[Unit],
+) -> String {
+    let reasons: HashMap<&str, String> = targets
+        .iter()
+        .map(|t| (t.unit_id.as_str(), t.reasons.join(";")))
+        .collect();
+    let flag_of: HashMap<&str, &UnitFlags> =
+        flags.iter().map(|f| (f.unit_id.as_str(), f)).collect();
+    let corrected: BTreeSet<&str> = units
+        .iter()
+        .filter(|u| u.corrected)
+        .map(|u| u.unit_id.as_str())
+        .collect();
+    let mut out = String::from("unit_id,state,stale,reasons,flags,co_constructed_kind,corrected\n");
+    for s in statuses {
+        let uid = s.unit_id.as_str();
+        let (flag_list, kind) = match flag_of.get(uid) {
+            Some(f) => (
+                f.flags.join(";"),
+                f.co_constructed_kind.clone().unwrap_or_default(),
+            ),
+            None => (String::new(), String::new()),
+        };
+        out.push_str(&format!(
+            "{},{},{},{},{},{},{}\n",
+            csv_field(uid),
+            csv_field(&s.state),
+            u8::from(s.stale),
+            csv_field(reasons.get(uid).map_or("", String::as_str)),
+            csv_field(&flag_list),
+            csv_field(&kind),
+            u8::from(corrected.contains(uid))
+        ));
+    }
+    out
+}
+
+/// One row per claim, with its codes joined by `;`.
+fn claims_csv(claims: &[Claim]) -> String {
+    let mut out = String::from("claim_id,unit_id,excerpt,codes,ev_level,provenance,role,memo\n");
+    for c in claims {
+        out.push_str(&format!(
+            "{},{},{},{},{},{},{},{}\n",
+            c.claim_id,
+            csv_field(&c.unit_id),
+            csv_field(&c.excerpt),
+            csv_field(&codes_list(&c.codes)),
+            csv_field(opt_text(&c.ev_level)),
+            csv_field(opt_text(&c.provenance)),
+            csv_field(opt_text(&c.role)),
+            csv_field(opt_text(&c.memo))
+        ));
+    }
+    out
+}
+
+/// Distinct claims per value of one field; a claim without the field counts as `(none)`.
+fn distribution_csv(claims: &[Claim], field: fn(&Claim) -> Option<&str>) -> String {
+    let mut counts: BTreeMap<&str, usize> = BTreeMap::new();
+    for c in claims {
+        *counts.entry(field(c).unwrap_or("(none)")).or_default() += 1;
+    }
+    let mut out = String::from("value,n_claims\n");
+    for (value, n) in counts {
+        out.push_str(&format!("{},{}\n", csv_field(value), n));
+    }
+    out
+}
+
+/// Recursively sorted copy of a JSON value, so that its serialization is canonical.
+fn canonical(value: &Value) -> Value {
+    match value {
+        Value::Object(map) => {
+            let sorted: BTreeMap<&String, Value> =
+                map.iter().map(|(k, v)| (k, canonical(v))).collect();
+            Value::Object(sorted.into_iter().map(|(k, v)| (k.clone(), v)).collect())
+        }
+        Value::Array(items) => Value::Array(items.iter().map(canonical).collect()),
+        other => other.clone(),
+    }
+}
+
+/// The human state of the given interviews: both phases of human coding, claims,
+/// cases, case units, decisions, flags, verifications and codebook, canonical.
+fn state_parts(store: &Store, interview_ids: &[String], cases: &[Case]) -> Result<Value> {
+    let mut phase1 = BTreeMap::new();
+    let mut phase2 = BTreeMap::new();
+    let mut decisions: BTreeMap<&str, Vec<Arbitration>> = BTreeMap::new();
+    let mut verifications: BTreeMap<&str, Vec<VerificationStatus>> = BTreeMap::new();
+    let mut claims: Vec<Claim> = Vec::new();
+    let mut flags: Vec<UnitFlags> = Vec::new();
+    for id in interview_ids {
+        phase1.insert(id.as_str(), store.human_codings(id, PHASE_1)?);
+        phase2.insert(id.as_str(), store.human_codings(id, PHASE_2)?);
+        decisions.insert(id.as_str(), store.decision_history(id)?);
+        verifications.insert(id.as_str(), store.verification_status(id)?);
+        claims.extend(store.claims(id)?);
+        flags.extend(store.unit_flags(id)?);
+    }
+    let mut case_units: Vec<Value> = Vec::new();
+    for c in cases {
+        for unit in &c.units {
+            let interview = unit.rsplit_once("-U").map_or("", |(i, _)| i);
+            case_units.push(json!({
+                "case_id": c.case_id,
+                "unit_id": unit,
+                "interview_id": interview,
+            }));
+        }
+    }
+    let parts = json!({
+        "human_phase1": phase1,
+        "human_phase2": phase2,
+        "claims": claims,
+        "cases": cases,
+        "case_units": case_units,
+        "decisions": decisions,
+        "flags": flags,
+        "verifications": verifications,
+        "codebook": store.codebook()?,
+    });
+    Ok(canonical(&parts))
+}
+
+/// `state.json` bytes and the SHA-256 of the canonical state they carry.
+fn state_document(
+    store: &Store,
+    interview_ids: &[String],
+    cases: &[Case],
+) -> Result<(Vec<u8>, String)> {
+    let parts = state_parts(store, interview_ids, cases)?;
+    let sha = sha256_hex(serde_json::to_string(&parts)?.as_bytes());
+    let doc = json!({
+        "sha256": sha,
+        "sha256_of": "canonical JSON of `parts` (sorted keys, no whitespace)",
+        "generator": { "version": crate::VERSION, "git": GIT_DESCRIBE },
+        "parts": parts,
+    });
+    Ok((serde_json::to_string_pretty(&doc)?.into_bytes(), sha))
+}
+
+/// Copies the whole database to `path` with `VACUUM INTO`. The path is quoted for SQL.
+fn write_snapshot(store: &Store, path: &Path) -> Result<()> {
+    let quoted = path.display().to_string().replace('\'', "''");
+    store
+        .connection()
+        .execute_batch(&format!("VACUUM INTO '{quoted}';"))
+        .with_context(|| format!("writing snapshot {}", path.display()))?;
+    Ok(())
+}
+
+/// `unit_id,codes,...` of the saturation table, lists joined with `;`.
+fn saturation_csv(rows: &[SaturationRow]) -> String {
+    let mut out = String::from(
+        "interview_id,order,first_coded_at,codes_first_used,field_codes_created,labels_opened,labels_resolved\n",
+    );
+    for r in rows {
+        out.push_str(&format!(
+            "{},{},{},{},{},{},{}\n",
+            csv_field(&r.interview_id),
+            r.order,
+            csv_field(&r.first_coded_at),
+            csv_field(&r.codes_first_used.join(";")),
+            csv_field(&r.field_codes_created.join(";")),
+            r.labels_opened,
+            r.labels_resolved
+        ));
+    }
+    out
+}
+
+fn md_cell(value: &str) -> String {
+    value.replace('|', "\\|")
+}
+
+fn saturation_md(rows: &[SaturationRow]) -> String {
+    let mut s = String::from("# Saturation table, provisional\n\n");
+    s.push_str(
+        "This table is provisional. It orders the interviews by their first phase 2 coding and counts, for each one, the codes first used and the field codes created, with the labels opened and resolved. The enrichment of meaning is not computed: a code first used in an interview is not evidence that the interview adds meaning, and this export makes no saturation judgement. A row with an empty interview holds field codes whose interview cannot be placed.\n\n",
+    );
+    if rows.is_empty() {
+        s.push_str("No interview coded in phase 2 yet.\n");
+        return s;
+    }
+    s.push_str("| Order | Interview | First coded | Codes first used | Field codes created | Labels opened | Labels resolved |\n|---|---|---|---|---|---|---|\n");
+    for r in rows {
+        s.push_str(&format!(
+            "| {} | {} | {} | {} | {} | {} | {} |\n",
+            r.order,
+            md_cell(&r.interview_id),
+            md_cell(&r.first_coded_at),
+            md_cell(&r.codes_first_used.join(", ")),
+            md_cell(&r.field_codes_created.join(", ")),
+            r.labels_opened,
+            r.labels_resolved
+        ));
+    }
+    s
+}
+
+/// One section per research question: the text, the four memo parts, the units for and against.
+fn answers_md(questions: &[cs_model::ResearchQuestion], memos: &[Option<RqMemo>]) -> String {
+    let mut s = String::from("# Answers to the research questions\n\n");
+    s.push_str(
+        "Written across interviews. Each question gives its text, then the four memo parts (documented, interpretation, rivals, limits), then the units for and against the answer. \"no memo yet\" marks a question without a memo.\n\n",
+    );
+    if questions.is_empty() {
+        s.push_str("No research question recorded.\n");
+        return s;
+    }
+    for (q, memo) in questions.iter().zip(memos) {
+        s.push_str(&format!("## {}\n\n{}\n\n", q.id, q.text));
+        let Some(m) = memo else {
+            s.push_str("no memo yet\n\n");
+            continue;
+        };
+        for (title, text) in [
+            ("Documented", &m.documented),
+            ("Interpretation", &m.interpretation),
+            ("Rivals", &m.rivals),
+            ("Limits", &m.limits),
+        ] {
+            let body = if text.trim().is_empty() {
+                "(not filled)"
+            } else {
+                text.as_str()
+            };
+            s.push_str(&format!("### {title}\n\n{body}\n\n"));
+        }
+        for (title, units) in [
+            ("Units for", &m.units_for),
+            ("Units against", &m.units_against),
+        ] {
+            s.push_str(&format!("**{title}**\n\n"));
+            if units.is_empty() {
+                s.push_str("None.\n\n");
+            } else {
+                for u in units {
+                    s.push_str(&format!("- `{u}`\n"));
+                }
+                s.push('\n');
+            }
+        }
+    }
+    s
+}
+
+/// One row per research question and case; one row per code of the cell.
+fn cross_case_csv(cells: &[cs_model::CrossCaseCell]) -> String {
+    let mut out = String::from("rq,case_id,documented,code,units\n");
+    for cell in cells {
+        let documented = u8::from(cell.documented);
+        if cell.codes.is_empty() {
+            out.push_str(&format!(
+                "{},{},{},,\n",
+                csv_field(&cell.rq),
+                csv_field(&cell.case_id),
+                documented
+            ));
+            continue;
+        }
+        for code in &cell.codes {
+            out.push_str(&format!(
+                "{},{},{},{},{}\n",
+                csv_field(&cell.rq),
+                csv_field(&cell.case_id),
+                documented,
+                csv_field(&code.code),
+                csv_field(&code.units.join(";"))
+            ));
+        }
+    }
+    out
+}
+
 /// Picks `<base>/<YYYY-MM-DD>_<name>`, or a time-suffixed sibling when it exists.
 pub(crate) fn target_dir(base: &Path, name: &str) -> PathBuf {
     let now = chrono::Local::now();
@@ -447,6 +824,13 @@ pub fn write_package(
     let cases = store.cases(Some(interview_id))?;
     let human_snaps = store.human_snapshots(interview_id)?;
     let (codebook_csv, _) = store.codebook_export()?;
+    // Read before the audit events: the first draw of the verification sample is audited.
+    let (units_now, corrections) = current_units(store, interview_id, &seg)?;
+    let claims = store.claims(interview_id)?;
+    let flags = store.unit_flags(interview_id)?;
+    let statuses = store.verification_status(interview_id)?;
+    let targets = store.verification_targets(interview_id)?;
+    let coverage = store.verification_coverage(interview_id)?;
     let events = store.audit_events(Some(interview_id))?;
     let chain = store.verify_chain()?;
 
@@ -458,7 +842,28 @@ pub fn write_package(
         files: Vec::new(),
     };
 
-    w.write("units.csv", cs_ai::units_csv(&seg).as_bytes())?;
+    w.write("units.csv", units_current_csv(&units_now).as_bytes())?;
+    w.write(
+        "units_verification.csv",
+        units_verification_csv(&statuses, &targets, &flags, &units_now).as_bytes(),
+    )?;
+    w.write(
+        "unit_corrections.csv",
+        unit_corrections_csv(&corrections).as_bytes(),
+    )?;
+    w.write("claims.csv", claims_csv(&claims).as_bytes())?;
+    w.write(
+        "ev_distribution.csv",
+        distribution_csv(&claims, |c| c.ev_level.as_deref()).as_bytes(),
+    )?;
+    w.write(
+        "provenance_distribution.csv",
+        distribution_csv(&claims, |c| c.provenance.as_deref()).as_bytes(),
+    )?;
+    w.write(
+        "roles_distribution.csv",
+        distribution_csv(&claims, |c| c.role.as_deref()).as_bytes(),
+    )?;
     let p1_map = store.human_coding_map(interview_id, PHASE_1)?;
     w.write(
         "phase1_contexts.csv",
@@ -550,6 +955,11 @@ pub fn write_package(
     w.write("case_units.csv", case_units_csv(&cases).as_bytes())?;
     w.write("codebook.csv", codebook_csv.as_bytes())?;
 
+    let (state_bytes, state_sha) = state_document(store, &[interview_id.to_string()], &cases)?;
+    w.write("state.json", &state_bytes)?;
+    write_snapshot(store, &dir.join("db_snapshot.sqlite"))?;
+    w.register("db_snapshot.sqlite")?;
+
     let mut jsonl = String::new();
     for e in &events {
         jsonl.push_str(&serde_json::to_string(e)?);
@@ -576,6 +986,8 @@ pub fn write_package(
         n_to_clarify_open: to_clarify.iter().filter(|t| t.resolved.is_none()).count(),
         n_cases: cases.len(),
         n_snapshots: human_snaps.len(),
+        n_claims: claims.len(),
+        verification: coverage,
     };
     w.write(
         "README.md",
@@ -609,6 +1021,7 @@ pub fn write_package(
         json!({
             "dir": dir.display().to_string(),
             "manifest_sha256": manifest_sha,
+            "state_sha256": state_sha,
             "n_files": w.files.len(),
             "status": status,
         }),
@@ -631,14 +1044,29 @@ fn readme(id: &str, folder: &str, seg: &cs_model::Segmentation, st: &CodingStatu
     ));
     s.push_str("Phase 1 is the candidate's provisional pre-classification of every unit against the three contexts of the TOE framework (TECH, ORG, ENV), plus CONTEXT for descriptive material and NA for the rest; it stays revisable and is not challenged by the AI. Phase 2 codes the units whose phase 1 category is not NA with concrete codes, each attached to a TOE context where relevant and marked as coming from the literature or from the field. A unit may carry several codes, or a provisional label to clarify that is later resolved into a new code or mapped to an existing one. An AI coder then challenges the detailed codes blind, from a generated prompt; the candidate reviews every disagreement and a random sample of agreements and keeps the final decision.\n\n");
     s.push_str(&format!(
-        "Status at export: phase 1, {} of {} units coded; phase 2, {} of {} units coded, {} AI run(s) of which {} complete, {} disagreement(s) and {} sampled agreement(s), {} decision(s); {} coding(s) revised after the AI answer; {} open label(s) to clarify; {} case(s); {} human snapshot(s), one per prompt batch.\n\n",
+        "Status at export: phase 1, {} of {} units coded; phase 2, {} of {} units coded, {} AI run(s) of which {} complete, {} disagreement(s) and {} sampled agreement(s), {} decision(s); {} coding(s) revised after the AI answer; {} open label(s) to clarify; {} case(s); {} human snapshot(s), one per prompt batch; {} claim(s). Verification coverage, reported apart from the counts above: {} of {} verification target(s) verified or marked unusable, {} unit(s) verified, {} unusable, {} stale, out of {} unit(s).\n\n",
         st.n_coded_phase1, st.n_units_phase1, st.n_coded_phase2, st.n_units_phase2, st.n_runs,
         st.n_complete_runs, st.n_disagreements, st.n_sampled, st.n_decided, st.n_revised_after_ai,
-        st.n_to_clarify_open, st.n_cases, st.n_snapshots
+        st.n_to_clarify_open, st.n_cases, st.n_snapshots, st.n_claims,
+        st.verification.n_targets_verified, st.verification.n_targets,
+        st.verification.n_verified, st.verification.n_unusable, st.verification.n_stale,
+        st.verification.n_units
     ));
+    s.push_str(
+        "Counting unit. The counting unit is the claim. Each distribution (`ev_distribution.csv`, `provenance_distribution.csv`, `roles_distribution.csv`) counts distinct claims once, by the value of one field, with `(none)` for a claim without that field. The counts describe the eligible coded corpus of this interview (its phase 2 coded units and the claims made on them). Verification coverage is reported separately, in `units_verification.csv` and in the status above, and is not mixed into these counts.\n\n",
+    );
+    s.push_str(
+        "Immutable state. `state.json` holds the human state behind this package: both phases of the candidate's coding, claims, cases, case units, decisions, flags, verifications and codebook. It is canonical JSON (sorted keys, no whitespace); its `sha256` field is the SHA-256 of that canonical JSON, and `generator` names the tool version and the source description it was built from. `db_snapshot.sqlite` is a consistent copy of the whole database, taken with `VACUUM INTO` at export time: it is the immutable state behind this package, from which every figure here can be recomputed. Both files are listed in `manifest.json`.\n\n",
+    );
     s.push_str("## Files\n\n");
     for (name, what) in [
-        ("units.csv", "The units of analysis, `unit_id,speaker,timestamp,text`, as produced by the deterministic segmentation."),
+        ("units.csv", "The units of analysis with their current text and role, `unit_id,speaker,timestamp,text,corrected`: the segmentation as produced by the deterministic rule, overlaid by the corrections; `corrected` is 1 when a correction exists."),
+        ("units_verification.csv", "Verification of each unit against the audio: `unit_id,state,stale,reasons,flags,co_constructed_kind,corrected`. `state` is verified, unusable or unverified; `stale` is 1 when the verification was made on a text or role that has since changed; `reasons` says why the unit must be verified (quoted, flagged, disagreement, case, sample)."),
+        ("unit_corrections.csv", "Every correction of a unit's text or role, oldest first, with its reason: `unit_id,correction_id,text,role,reason,created_at`. The segmentation itself is never rewritten."),
+        ("claims.csv", "The claims of this interview: one qualified statement per row, with its excerpt, codes, evidence level, provenance, role and memo."),
+        ("ev_distribution.csv, provenance_distribution.csv, roles_distribution.csv", "Distinct claims per value of evidence level, provenance and role, `value,n_claims`."),
+        ("state.json", "The human state behind the package, canonical, with its SHA-256 and the generator (see Immutable state)."),
+        ("db_snapshot.sqlite", "A consistent copy of the whole database at export time, taken with VACUUM INTO (see Immutable state)."),
         ("phase1_contexts.csv", "The provisional TOE pre-classification, `unit_id,codes`."),
         ("phase2_coding_human.csv", "The candidate's detailed coding, `unit_id,codes,revised_after_ai`; the last column is 1 when the coding was changed after an AI answer covering the unit."),
         ("phase2_human_full.csv", "The same coding with every field: sub-code, modifier, evidence level, provenance, memo and verbatim excerpt."),
@@ -664,4 +1092,129 @@ fn readme(id: &str, folder: &str, seg: &cs_model::Segmentation, st: &CodingStatu
     }
     s.push_str("\nTo check the package, recompute the SHA-256 of each file and compare it with manifest.json.\n");
     s
+}
+
+/// Result of the cross-case export: its folder and the files written there.
+#[derive(Debug, Serialize)]
+pub struct CrossCaseExport {
+    pub folder: String,
+    pub files: Vec<ExportedFile>,
+}
+
+fn cross_case_readme(
+    n_interviews: usize,
+    questions: &[cs_model::ResearchQuestion],
+    n_memos: usize,
+    n_cases: usize,
+    saturation_rows: usize,
+    state_sha: &str,
+) -> String {
+    let mut s = String::from("# Cross-case export\n\n");
+    s.push_str(&format!(
+        "Across {n_interviews} interview(s): {} research question(s), of which {n_memos} with a memo; {n_cases} case(s); a saturation table of {saturation_rows} row(s), provisional. State SHA-256 {state_sha}.\n\n",
+        questions.len()
+    ));
+    s.push_str("The answers are written by research question: the question, the four memo parts (documented, interpretation, rivals, limits), and the units for and against. The cross-case matrix lists, for each question and case, the codes found in the units attributed to that case. The saturation table orders the interviews by their first phase 2 coding and is provisional: the enrichment of meaning is not computed.\n\n");
+    s.push_str("Immutable state. `state.json` holds the human state of every interview (both phases of coding, claims, cases, case units, decisions, flags, verifications and codebook) as canonical JSON. Its `sha256` field is the SHA-256 of that canonical JSON. Each interview package carries its own `db_snapshot.sqlite`.\n\n");
+    s.push_str("## Files\n\n");
+    for (name, what) in [
+        ("answers.md", "One section per research question: the text, the four memo parts, the units for and against the answer; `no memo yet` when absent."),
+        ("cross_case.csv", "The cross-case matrix, `rq,case_id,documented,code,units`: one row per code found in a case for a question; `documented` is 1 when the case has attributed units."),
+        ("saturation.csv, saturation.md", "The provisional saturation table: codes first used, field codes created and labels opened and resolved, per interview in order of first coding."),
+        ("cases.csv", "One row per case, as in the interview packages."),
+        ("state.json", "The human state of every interview, canonical, with its SHA-256 and the generator."),
+        ("manifest.json", "SHA-256 and size of every file above, with the tool version and the export time."),
+    ] {
+        s.push_str(&format!("- `{name}`: {what}\n"));
+    }
+    s.push_str("\nTo check the export, recompute the SHA-256 of each file and compare it with manifest.json.\n");
+    s
+}
+
+/// Writes the cross-case package to `<base>/<YYYY-MM-DD>_cross-case/` (time suffix when it exists).
+pub fn write_cross_case(
+    store: &Store,
+    base: &Path,
+    db_path: &Path,
+    actor: &str,
+) -> Result<CrossCaseExport> {
+    let cross = store.cross_case()?;
+    let saturation = store.saturation()?;
+    let memos: Vec<Option<RqMemo>> = cross
+        .questions
+        .iter()
+        .map(|q| store.rq_memo(&q.id))
+        .collect::<Result<_>>()?;
+    let interview_ids: Vec<String> = store
+        .summaries()?
+        .into_iter()
+        .map(|s| s.interview_id)
+        .collect();
+    let (state_bytes, state_sha) = state_document(store, &interview_ids, &cross.cases)?;
+    let n_memos = memos.iter().filter(|m| m.is_some()).count();
+
+    fs::create_dir_all(base).with_context(|| format!("creating {}", base.display()))?;
+    let dir = target_dir(base, "cross-case");
+    fs::create_dir(&dir).with_context(|| format!("creating {}", dir.display()))?;
+    let mut w = Writer {
+        dir: dir.clone(),
+        files: Vec::new(),
+    };
+
+    w.write(
+        "answers.md",
+        answers_md(&cross.questions, &memos).as_bytes(),
+    )?;
+    w.write("cross_case.csv", cross_case_csv(&cross.cells).as_bytes())?;
+    w.write("saturation.csv", saturation_csv(&saturation).as_bytes())?;
+    w.write("saturation.md", saturation_md(&saturation).as_bytes())?;
+    w.write("cases.csv", cases_csv(&cross.cases).as_bytes())?;
+    w.write("state.json", &state_bytes)?;
+    w.write(
+        "README.md",
+        cross_case_readme(
+            interview_ids.len(),
+            &cross.questions,
+            n_memos,
+            cross.cases.len(),
+            saturation.len(),
+            &state_sha,
+        )
+        .as_bytes(),
+    )?;
+
+    let manifest = json!({
+        "tool": "Coding Studio",
+        "version": crate::VERSION,
+        "generated_at": crate::now(),
+        "generated_by": actor,
+        "db_path": db_path,
+        "state_sha256": state_sha,
+        "counts": {
+            "interviews": interview_ids.len(),
+            "research_questions": cross.questions.len(),
+            "memos": n_memos,
+            "cases": cross.cases.len(),
+            "saturation_rows": saturation.len(),
+        },
+        "files": w.files,
+    });
+    w.write("manifest.json", &serde_json::to_vec_pretty(&manifest)?)?;
+
+    store.log(
+        actor,
+        "export.cross_case",
+        None,
+        Some(&dir.display().to_string()),
+        json!({
+            "dir": dir.display().to_string(),
+            "state_sha256": state_sha,
+            "n_files": w.files.len(),
+        }),
+    )?;
+
+    Ok(CrossCaseExport {
+        folder: dir.display().to_string(),
+        files: w.files,
+    })
 }

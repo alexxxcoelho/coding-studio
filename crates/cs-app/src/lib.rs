@@ -204,6 +204,7 @@ pub fn router(state: AppState) -> Router {
             get(get_rq_memo).put(put_rq_memo),
         )
         .route("/api/saturation", get(saturation_table))
+        .route("/api/export/cross-case", post(export_cross_case))
         .route("/api/audit", get(audit))
         .route("/api/audit/verify", get(audit_verify))
         .fallback(static_file)
@@ -1481,6 +1482,18 @@ async fn export_package(State(st): State<AppState>, UrlPath(id): UrlPath<String>
         .unwrap_or_else(|| PathBuf::from("."))
         .join("exports");
     let result = export::write_package(&store, &id, &base, &st.db_path, &st.actor)?;
+    Ok(Json(json!(result)))
+}
+
+async fn export_cross_case(State(st): State<AppState>) -> ApiResult {
+    let store = st.store();
+    let base = st
+        .db_path
+        .parent()
+        .map(Path::to_path_buf)
+        .unwrap_or_else(|| PathBuf::from("."))
+        .join("exports");
+    let result = export::write_cross_case(&store, &base, &st.db_path, &st.actor)?;
     Ok(Json(json!(result)))
 }
 
