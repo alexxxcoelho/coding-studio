@@ -766,3 +766,93 @@ fn print_sample_prompt() {
     let p = &prompts_with(&sample_seg(), &codes(), 0)[0];
     println!("{}", p.text);
 }
+
+// ------------------------------------------------------------ redaction
+
+/// Slice of `text` from the first `from` up to the next `to`.
+fn section<'a>(text: &'a str, from: &str, to: &str) -> &'a str {
+    let a = text.find(from).expect(from);
+    let b = a + text[a..].find(to).expect(to);
+    &text[a..b]
+}
+
+#[test]
+fn prompt_redacts_unit_ids_in_code_text() {
+    let mut cs = codes();
+    // Printed fields (label, definition) and the unprinted ones (example,
+    // reason) all carry ids of this interview and of another one.
+    cs[1].label = "Cost, from ECO-16-U007".into();
+    cs[1].definition = "Lifecycle cost, see ECO-16-U002 and ECO-16-U007 and RET-22-U001.".into();
+    cs[2].example = Some("see ECO-16-U002 and ECO-16-U007 and RET-22-U001".into());
+    cs[2].reason = Some("see ECO-16-U002 and ECO-16-U007 and RET-22-U001".into());
+    let p = &prompts_with(&sample_seg(), &cs, 0)[0];
+
+    let codebook = section(&p.text, "## Codebook", "## Rules");
+    for id in ["ECO-16-U002", "ECO-16-U007", "RET-22-U001"] {
+        assert!(!codebook.contains(id), "{id} leaked into the codebook");
+    }
+    assert!(codebook.contains("[unit]"));
+    assert!(
+        codebook.contains("\"definition\":\"Lifecycle cost, see [unit] and [unit] and [unit].\"")
+    );
+    assert!(codebook.contains("\"label\":\"Cost, from [unit]\""));
+
+    // The prompted units keep their ids in the units section.
+    let units = section(&p.text, "## Units", "## Output");
+    for id in ["ECO-16-U001", "ECO-16-U002", "ECO-16-U003"] {
+        assert!(units.contains(id), "{id} missing from the units");
+    }
+    assert!(!units.contains("[unit]"));
+}
+
+#[test]
+fn unit_id_redaction_matches_the_pattern_only() {
+    use crate::prompt::redact_unit_ids as r;
+    assert_eq!(r("ECO-16-U002"), "[unit]");
+    assert_eq!(r("ECO-16-U002 and RET-22-U001."), "[unit] and [unit].");
+    // Four letters are the most a prefix may have: the match starts at X.
+    assert_eq!(r("XECO-16-U0071x"), "[unit]x");
+    // Five letters: the match starts at the second letter.
+    assert_eq!(r("ABCDE-1-U1"), "A[unit]");
+    // Digits: at most three before the dash, at most four after U.
+    assert_eq!(r("ECO-1234-U001"), "ECO-1234-U001");
+    assert_eq!(r("ECO-16-U00712"), "[unit]2");
+    // Not ids: no digits, lowercase, a missing U or a missing digit.
+    assert_eq!(r("ECO-16-U"), "ECO-16-U");
+    assert_eq!(r("eco-16-u002"), "eco-16-u002");
+    assert_eq!(r("ECO-16-002"), "ECO-16-002");
+    assert_eq!(r("ECO-U002"), "ECO-U002");
+    assert!(no_dash(&r("plain text")));
+}
+
+#[test]
+fn prompt_contains_no_human_material() {
+    // The builder takes only the segmentation, the unit ids in scope and the
+    // codes offered (`PromptInput`): no memo, claim, flag, label to clarify,
+    // excerpt or phase 1 context can reach the text. The check is on the
+    // section structure of the output, which must be the template's own.
+    let p = &prompts_with(&sample_seg(), &codes(), 0)[0];
+    let headers: Vec<&str> = p.text.lines().filter(|l| l.starts_with("## ")).collect();
+    assert_eq!(
+        headers,
+        [
+            "## Role",
+            "## Task",
+            "## Codebook",
+            "## Rules",
+            "## Units",
+            "## Output"
+        ]
+    );
+    // "memo" is not a sentinel: the rule "Write no ... memo" is in the template.
+    for absent in [
+        "ZZSENTINEL",
+        "EV1",
+        "excerpt",
+        "claim",
+        "to clarify",
+        "flag",
+    ] {
+        assert!(!p.text.contains(absent), "{absent}");
+    }
+}

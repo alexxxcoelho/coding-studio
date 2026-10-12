@@ -203,11 +203,77 @@ fn part_schema(input: &PromptInput, valid: &[&str], part: u32, of: u32) -> Value
     schema
 }
 
+/// Replaces every unit id, `<LETTERS>-<digits>-U<digits>`, in a code text with
+/// `[unit]`. The pattern is `[A-Z]{2,4}-[0-9]{1,3}-U[0-9]{1,4}`, matched
+/// leftmost and greedily without word boundaries, as a regex would; it is
+/// hand-written because cs-ai has no regex dependency. Any interview's ids are
+/// redacted, not only the prompted one's: the codebook never names a unit.
+pub(crate) fn redact_unit_ids(text: &str) -> String {
+    let b = text.as_bytes();
+    let mut out = String::with_capacity(text.len());
+    let mut last = 0;
+    let mut i = 0;
+    while i < b.len() {
+        match unit_id_len_at(b, i) {
+            Some(len) => {
+                out.push_str(&text[last..i]);
+                out.push_str("[unit]");
+                i += len;
+                last = i;
+            }
+            None => i += 1,
+        }
+    }
+    out.push_str(&text[last..]);
+    out
+}
+
+/// Length of the unit id starting at `start`, if one starts there.
+fn unit_id_len_at(b: &[u8], start: usize) -> Option<usize> {
+    fn run(b: &[u8], from: usize, max: usize, pred: impl Fn(u8) -> bool) -> usize {
+        b.iter()
+            .skip(from)
+            .take(max)
+            .take_while(|&&c| pred(c))
+            .count()
+    }
+    // [A-Z]{2,4}: a longer run leaves an uppercase letter where '-' is needed.
+    let letters = run(b, start, 4, |c| c.is_ascii_uppercase());
+    if letters < 2 {
+        return None;
+    }
+    let mut p = start + letters;
+    if b.get(p) != Some(&b'-') {
+        return None;
+    }
+    p += 1;
+    // [0-9]{1,3}, then '-'.
+    let digits = run(b, p, 3, |c| c.is_ascii_digit());
+    if digits == 0 {
+        return None;
+    }
+    p += digits;
+    if b.get(p) != Some(&b'-') {
+        return None;
+    }
+    p += 1;
+    // U[0-9]{1,4}
+    if b.get(p) != Some(&b'U') {
+        return None;
+    }
+    p += 1;
+    let n = run(b, p, 4, |c| c.is_ascii_digit());
+    if n == 0 {
+        return None;
+    }
+    Some(p + n - start)
+}
+
 fn code_line(c: &Code) -> String {
     json_line(&[
         ("code", json!(c.code)),
-        ("label", json!(c.label)),
-        ("definition", json!(c.definition)),
+        ("label", json!(redact_unit_ids(&c.label))),
+        ("definition", json!(redact_unit_ids(&c.definition))),
     ])
 }
 

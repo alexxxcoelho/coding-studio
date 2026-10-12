@@ -38,7 +38,7 @@ No real database exists yet: schema version 3, older databases are refused.
 
 ## AI (cs-ai)
 
-- Only phase 2. The prompt lists every active, in-prompt code grouped by TOE attachment (T, O, E, other) with label and definition; units are plain (no phase 1 context, no allowed list). Same P-04 rules. `PROMPT_VERSION = "CS-P04-EN v3.0"`. Answer shape unchanged except `phase` is always 2.
+- Only phase 2. The prompt lists every active, in-prompt code grouped by TOE attachment (T, O, E, other) with label and definition; units are plain (no phase 1 context, no allowed list). Same P-04 rules. `PROMPT_VERSION = "CS-P04-EN v3.1"`. Answer shape unchanged except `phase` is always 2.
 
 ## HTTP API v3 (cs-app) changes from docs/API.md
 

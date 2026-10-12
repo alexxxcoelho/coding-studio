@@ -1076,3 +1076,356 @@ async fn v4_export_lists_cases_and_snapshots() {
         "{review_md}"
     );
 }
+
+/// The per-unit extras of a phase 2 row. The contract says "each unit JSON
+/// gains" the fields; they are read on the row, falling back to its `unit`.
+fn extra<'a>(row: &'a Value, field: &str) -> &'a Value {
+    if row.get(field).is_some() {
+        &row[field]
+    } else {
+        &row["unit"][field]
+    }
+}
+
+fn row_of<'a>(rows: &'a Value, unit: &str) -> &'a Value {
+    rows.as_array()
+        .unwrap()
+        .iter()
+        .find(|r| r["unit"]["unit_id"] == unit)
+        .unwrap_or_else(|| panic!("no phase 2 row for {unit}: {rows}"))
+}
+
+#[tokio::test]
+async fn v4_flags_corrections_verification() {
+    let ctx = setup();
+    let app = &ctx.app;
+    const I: &str = "/api/interviews/INT-01";
+    const P2: &str = "/api/interviews/INT-01/phases/2";
+    let units = bootstrap_two_units(&ctx).await;
+    let (u4, u6) = (units[3].clone(), units[5].clone());
+    code_phase2(app, &u4, &["TECH-ADV"]).await;
+    code_phase2(app, &u6, &["TECH-COST"]).await;
+
+    // Flags: closed list, CO-CONSTRUCTED needs a kind.
+    let (st, e) = call(
+        app,
+        "PUT",
+        &format!("{I}/units/{u6}/flags"),
+        Some(json!({ "flags": ["NOT-A-FLAG"] })),
+    )
+    .await;
+    assert_eq!(st, StatusCode::BAD_REQUEST, "{e}");
+    assert_eq!(e["kind"], "validation", "{e}");
+    let (st, e) = call(
+        app,
+        "PUT",
+        &format!("{I}/units/{u6}/flags"),
+        Some(json!({ "flags": ["CO-CONSTRUCTED"] })),
+    )
+    .await;
+    assert_eq!(
+        st,
+        StatusCode::BAD_REQUEST,
+        "co-constructed without kind: {e}"
+    );
+    let (st, f) = call(
+        app,
+        "PUT",
+        &format!("{I}/units/{u6}/flags"),
+        Some(json!({ "flags": ["VERIFY"] })),
+    )
+    .await;
+    assert_eq!(st, StatusCode::OK, "{f}");
+    assert_eq!(f["unit_id"], u6.as_str());
+    assert_eq!(f["flags"], json!(["VERIFY"]));
+    let (st, all) = call(app, "GET", &format!("{I}/flags"), None).await;
+    assert_eq!(st, StatusCode::OK, "{all}");
+    let all = all.as_array().unwrap();
+    assert_eq!(all.len(), 1, "{all:?}");
+    assert_eq!(all[0]["unit_id"], u6.as_str());
+
+    // Corrections are appended; the reason is required.
+    let corrected = "The inventory accuracy went from sixty to ninety-eight percent in two years.";
+    let (st, e) = call(
+        app,
+        "POST",
+        &format!("{I}/units/{u4}/corrections"),
+        Some(json!({ "text": corrected, "role": "respondent", "reason": " " })),
+    )
+    .await;
+    assert_eq!(st, StatusCode::BAD_REQUEST, "empty reason: {e}");
+    let (st, c) = call(
+        app,
+        "POST",
+        &format!("{I}/units/{u4}/corrections"),
+        Some(json!({ "text": corrected, "role": "respondent", "reason": "Audio says two years" })),
+    )
+    .await;
+    assert!(
+        st == StatusCode::OK || st == StatusCode::CREATED,
+        "{st} {c}"
+    );
+    assert_eq!(c["unit_id"], u4.as_str());
+    assert_eq!(c["text"], corrected);
+    assert_eq!(c["role"], "respondent");
+    assert_eq!(c["reason"], "Audio says two years");
+    assert!(c["correction_id"].as_i64().is_some(), "{c}");
+    let (st, list) = call(app, "GET", &format!("{I}/units/{u4}/corrections"), None).await;
+    assert_eq!(st, StatusCode::OK, "{list}");
+    assert_eq!(list.as_array().unwrap().len(), 1);
+
+    // The phase 2 list shows the corrected text and the extras.
+    let (st, rows) = call(app, "GET", &format!("{P2}/units"), None).await;
+    assert_eq!(st, StatusCode::OK, "{rows}");
+    let r4 = row_of(&rows, &u4);
+    assert_eq!(r4["unit"]["text"], corrected, "{r4}");
+    assert_eq!(r4["unit"]["corrected"], true, "{r4}");
+    assert_eq!(extra(r4, "verification")["state"], "unverified", "{r4}");
+    assert_eq!(extra(r4, "verification")["stale"], false, "{r4}");
+    assert_eq!(extra(r4, "claims"), &json!([]), "{r4}");
+    assert_eq!(extra(r4, "flags"), &json!([]), "{r4}");
+    let r6 = row_of(&rows, &u6);
+    assert_eq!(extra(r6, "flags"), &json!(["VERIFY"]), "{r6}");
+    assert_ne!(r6["unit"]["corrected"], true, "{r6}");
+
+    // Verification: status, targets (flagged unit), coverage before verifying.
+    let (st, v) = call(app, "GET", &format!("{I}/verification"), None).await;
+    assert_eq!(st, StatusCode::OK, "{v}");
+    let target = v["targets"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|t| t["unit_id"] == u6.as_str())
+        .unwrap_or_else(|| panic!("flagged unit not a target: {v}"))
+        .clone();
+    assert!(
+        target["reasons"]
+            .as_array()
+            .unwrap()
+            .contains(&json!("flagged")),
+        "{target}"
+    );
+    assert_eq!(v["coverage"]["n_units"], 6, "{v}");
+    assert_eq!(v["coverage"]["n_verified"], 0, "{v}");
+    let status_of = |v: &Value, unit: &str| -> Value {
+        v["status"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|s| s["unit_id"] == unit)
+            .unwrap_or_else(|| panic!("no status for {unit}: {v}"))
+            .clone()
+    };
+    let s4 = status_of(&v, &u4);
+    assert_eq!(s4["state"], "unverified", "{s4}");
+    assert_eq!(s4["stale"], false, "{s4}");
+
+    // Verify the flagged unit, then the corrected one.
+    let (st, e) = call(
+        app,
+        "PUT",
+        &format!("{I}/units/{u6}/verification"),
+        Some(json!({ "state": "maybe" })),
+    )
+    .await;
+    assert_eq!(st, StatusCode::BAD_REQUEST, "{e}");
+    let (st, s) = call(
+        app,
+        "PUT",
+        &format!("{I}/units/{u6}/verification"),
+        Some(json!({ "state": "verified", "note": "listened" })),
+    )
+    .await;
+    assert_eq!(st, StatusCode::OK, "{s}");
+    assert_eq!(s["unit_id"], u6.as_str());
+    assert_eq!(s["state"], "verified");
+    assert_eq!(s["stale"], false);
+    assert_eq!(s["note"], "listened");
+    let (st, s) = call(
+        app,
+        "PUT",
+        &format!("{I}/units/{u4}/verification"),
+        Some(json!({ "state": "verified" })),
+    )
+    .await;
+    assert_eq!(st, StatusCode::OK, "{s}");
+    assert_eq!(s["state"], "verified");
+    let (_, v) = call(app, "GET", &format!("{I}/verification"), None).await;
+    assert_eq!(status_of(&v, &u6)["state"], "verified", "{v}");
+    assert_eq!(status_of(&v, &u4)["state"], "verified", "{v}");
+    assert_eq!(v["coverage"]["n_units"], 6, "segmentation size: {v}");
+    assert_eq!(v["coverage"]["n_verified"], 2, "{v}");
+    let (_, rows) = call(app, "GET", &format!("{P2}/units"), None).await;
+    assert_eq!(
+        extra(row_of(&rows, &u6), "verification")["state"],
+        "verified"
+    );
+}
+
+#[tokio::test]
+async fn v4_claims_api() {
+    let ctx = setup();
+    let app = &ctx.app;
+    const I: &str = "/api/interviews/INT-01";
+    let units = bootstrap_two_units(&ctx).await;
+    let u4 = units[3].clone();
+    code_phase2(app, &u4, &["TECH-ADV", "OUT-REALISED"]).await;
+
+    let (st, none) = call(app, "GET", &format!("{I}/claims"), None).await;
+    assert_eq!(st, StatusCode::OK, "{none}");
+    assert_eq!(none, json!([]));
+
+    // An excerpt that is not in the unit text is refused, naming the field.
+    let (st, e) = call(
+        app,
+        "POST",
+        &format!("{I}/claims"),
+        Some(json!({ "unit_id": u4, "excerpt": "not in this unit", "codes": ["TECH-ADV"] })),
+    )
+    .await;
+    assert_eq!(st, StatusCode::BAD_REQUEST, "{e}");
+    assert_eq!(e["kind"], "validation", "{e}");
+    assert!(e["error"].as_str().unwrap().contains("excerpt"), "{e}");
+
+    // Create: same convention as cases (200 or 201).
+    let (st, claim) = call(
+        app,
+        "POST",
+        &format!("{I}/claims"),
+        Some(json!({
+            "unit_id": u4,
+            "excerpt": "sixty to ninety-eight percent",
+            "codes": ["TECH-ADV"],
+            "provenance": "SPONTANEOUS",
+        })),
+    )
+    .await;
+    assert!(
+        st == StatusCode::OK || st == StatusCode::CREATED,
+        "{st} {claim}"
+    );
+    let cid = claim["claim_id"].as_i64().unwrap();
+    assert!(cid > 0, "{claim}");
+    assert_eq!(claim["interview_id"], "INT-01");
+    assert_eq!(claim["unit_id"], u4.as_str());
+    assert_eq!(claim["codes"], json!(["TECH-ADV"]));
+    assert_eq!(claim["provenance"], "SPONTANEOUS");
+
+    // Update: ev_level validated, then stored.
+    let mut upd = claim.clone();
+    upd["ev_level"] = json!("EV9");
+    let (st, e) = call(app, "PUT", &format!("/api/claims/{cid}"), Some(upd)).await;
+    assert_eq!(st, StatusCode::BAD_REQUEST, "{e}");
+    assert!(e["error"].as_str().unwrap().contains("ev_level"), "{e}");
+    let mut upd = claim.clone();
+    upd["ev_level"] = json!("EV2");
+    let (st, got) = call(app, "PUT", &format!("/api/claims/{cid}"), Some(upd)).await;
+    assert_eq!(st, StatusCode::OK, "{got}");
+    assert_eq!(got["claim_id"], cid);
+    assert_eq!(got["ev_level"], "EV2");
+
+    // Listings, per interview and per unit.
+    let (_, all) = call(app, "GET", &format!("{I}/claims"), None).await;
+    assert_eq!(all.as_array().unwrap().len(), 1, "{all}");
+    assert_eq!(all[0]["ev_level"], "EV2");
+    let (st, mine) = call(app, "GET", &format!("{I}/units/{u4}/claims"), None).await;
+    assert_eq!(st, StatusCode::OK, "{mine}");
+    assert_eq!(mine.as_array().unwrap().len(), 1);
+    let (_, rows) = call(app, "GET", &format!("{I}/phases/2/units"), None).await;
+    assert_eq!(
+        extra(row_of(&rows, &u4), "claims")
+            .as_array()
+            .unwrap()
+            .len(),
+        1
+    );
+
+    // Nothing to review while the claim agrees with the unit.
+    let (st, rev) = call(app, "GET", &format!("{I}/claims/review"), None).await;
+    assert_eq!(st, StatusCode::OK, "{rev}");
+    assert_eq!(rev, json!([]));
+
+    // Dropping TECH-ADV from the unit makes the claim a review item.
+    code_phase2(app, &u4, &["OUT-REALISED"]).await;
+    let (_, rev) = call(app, "GET", &format!("{I}/claims/review"), None).await;
+    let rev = rev.as_array().unwrap();
+    assert_eq!(rev.len(), 1, "{rev:?}");
+    assert_eq!(rev[0]["claim_id"], cid);
+    assert!(!rev[0]["reason"].as_str().unwrap().is_empty());
+
+    // Delete follows the conventions: 200 with a JSON body, or 204; either
+    // way the listings are empty afterwards.
+    let (st, d) = call(app, "DELETE", &format!("/api/claims/{cid}"), None).await;
+    assert!(
+        st == StatusCode::OK || st == StatusCode::NO_CONTENT,
+        "{st} {d}"
+    );
+    let (_, all) = call(app, "GET", &format!("{I}/claims"), None).await;
+    assert_eq!(all, json!([]));
+    let (_, mine) = call(app, "GET", &format!("{I}/units/{u4}/claims"), None).await;
+    assert_eq!(mine, json!([]));
+}
+
+#[tokio::test]
+async fn v4_rq_memo_and_saturation() {
+    let ctx = setup();
+    let app = &ctx.app;
+    let units = bootstrap_two_units(&ctx).await;
+    let u4 = units[3].clone();
+
+    // A memo never set is a 404; SQ1 is a question of the fixture codebook.
+    let (st, e) = call(app, "GET", "/api/research-questions/SQ1/memo", None).await;
+    assert_eq!(st, StatusCode::NOT_FOUND, "{e}");
+    assert_eq!(e["kind"], "not_found", "{e}");
+
+    // Unknown unit ids are refused.
+    let (st, e) = call(
+        app,
+        "PUT",
+        "/api/research-questions/SQ1/memo",
+        Some(json!({ "rq_id": "SQ1", "documented": "x", "units_for": ["INT-01-U999"] })),
+    )
+    .await;
+    assert_eq!(st, StatusCode::BAD_REQUEST, "{e}");
+    assert_eq!(e["kind"], "validation", "{e}");
+
+    // Round trip.
+    let (st, put) = call(
+        app,
+        "PUT",
+        "/api/research-questions/SQ1/memo",
+        Some(json!({
+            "rq_id": "SQ1",
+            "documented": "Accuracy gains are reported.",
+            "interpretation": "Advantage is perceived through inventory accuracy.",
+            "rivals": "Partner pressure.",
+            "limits": "One interview.",
+            "units_for": [u4],
+            "units_against": [],
+        })),
+    )
+    .await;
+    assert_eq!(st, StatusCode::OK, "{put}");
+    assert_eq!(put["rq_id"], "SQ1");
+    assert_eq!(put["units_for"], json!([u4]));
+    assert!(!put["updated_at"].as_str().unwrap().is_empty(), "{put}");
+    let (st, got) = call(app, "GET", "/api/research-questions/SQ1/memo", None).await;
+    assert_eq!(st, StatusCode::OK, "{got}");
+    assert_eq!(got["rq_id"], "SQ1");
+    assert_eq!(got["documented"], "Accuracy gains are reported.");
+    assert_eq!(got["rivals"], "Partner pressure.");
+    assert_eq!(got["units_for"], json!([u4]));
+    let (st, _) = call(app, "GET", "/api/research-questions/SQ2/memo", None).await;
+    assert_eq!(st, StatusCode::NOT_FOUND, "other questions stay unset");
+
+    // Saturation: the fixture interview comes first once it is coded.
+    code_phase2(app, &u4, &["TECH-ADV"]).await;
+    let (st, sat) = call(app, "GET", "/api/saturation", None).await;
+    assert_eq!(st, StatusCode::OK, "{sat}");
+    let rows = sat.as_array().unwrap();
+    assert!(!rows.is_empty(), "{sat}");
+    assert_eq!(rows[0]["interview_id"], "INT-01", "{sat}");
+    assert_eq!(rows[0]["order"], 1, "{sat}");
+    let first = rows[0]["codes_first_used"].as_array().unwrap();
+    assert!(first.contains(&json!("TECH-ADV")), "{sat}");
+}

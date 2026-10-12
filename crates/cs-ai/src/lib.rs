@@ -29,8 +29,9 @@ pub use analysis::cohen_kappa;
 pub use prompt::{part_unit_ids, parts_for_batch, phase_title};
 
 /// Identifier of the prompt template, journalised with every run. Version 3:
-/// phase 2 only, codes grouped by TOE attachment.
-pub const PROMPT_VERSION: &str = "CS-P04-EN v3.0";
+/// phase 2 only, codes grouped by TOE attachment. Version 3.1: unit ids found
+/// in code texts are redacted, so the codebook cannot reveal code origins.
+pub const PROMPT_VERSION: &str = "CS-P04-EN v3.1";
 /// Value the AI must put in the `schema` field of its answer.
 pub const OUTPUT_SCHEMA_ID: &str = "coding-studio/ai-coding/v1";
 

@@ -17,8 +17,8 @@ use axum::routing::{get, post, put};
 use axum::{Json, Router};
 use cs_model::phase::{phase1_codebook, phase2_codes, phase2_prompt_codes, PHASE_1, PHASE_2};
 use cs_model::{
-    AiRunMeta, Arbitration, ArbitrationChoice, Case, Code, CodeSet, CodingMap, CsError,
-    HumanCoding, ResolutionKind, Segmentation,
+    AiRunMeta, Arbitration, ArbitrationChoice, Case, Claim, Code, CodeSet, CodingMap, CsError,
+    HumanCoding, ResolutionKind, RqMemo, Segmentation, SpeakerRole, Unit,
 };
 use cs_store::{CodePatch, ResolveRequest, Store};
 use include_dir::{include_dir, Dir};
@@ -178,6 +178,32 @@ pub fn router(state: AppState) -> Router {
         .route("/api/cases/{case_id}", put(edit_case))
         .route(&format!("{I}/cases"), get(interview_cases).post(add_case))
         .route("/api/cross-case", get(cross_case))
+        .route(&format!("{I}/flags"), get(list_flags))
+        .route(&format!("{I}/units/{{unit_id}}/flags"), put(set_flags))
+        .route(
+            &format!("{I}/units/{{unit_id}}/corrections"),
+            get(list_corrections).post(add_correction),
+        )
+        .route(&format!("{I}/verification"), get(verification_state))
+        .route(
+            &format!("{I}/units/{{unit_id}}/verification"),
+            put(set_verification),
+        )
+        .route(&format!("{I}/claims"), get(list_claims).post(add_claim))
+        .route(
+            &format!("{I}/units/{{unit_id}}/claims"),
+            get(list_unit_claims),
+        )
+        .route(
+            "/api/claims/{claim_id}",
+            put(edit_claim).delete(remove_claim),
+        )
+        .route(&format!("{I}/claims/review"), get(claims_review))
+        .route(
+            "/api/research-questions/{rq}/memo",
+            get(get_rq_memo).put(put_rq_memo),
+        )
+        .route("/api/saturation", get(saturation_table))
         .route("/api/audit", get(audit))
         .route("/api/audit/verify", get(audit_verify))
         .fallback(static_file)
@@ -538,11 +564,11 @@ async fn units(
     let phase = parse_phase(&phase)?;
     let store = st.store();
     let seg = require_segmentation(&store, &id)?;
+    let units = current_units(&store, &id, &seg)?;
     let codings = store.human_codings(&id, phase)?;
     if phase == PHASE_1 {
         let allowed = phase1_codebook().codes;
-        let rows: Vec<Value> = seg
-            .units
+        let rows: Vec<Value> = units
             .iter()
             .map(|u| {
                 json!({
@@ -558,8 +584,21 @@ async fn units(
     let p1 = store.human_coding_map(&id, PHASE_1)?;
     let book = store.codebook()?;
     let labels = store.to_clarify_items(Some(&id), false)?;
-    let rows: Vec<Value> = seg
-        .units
+    let mut claims: BTreeMap<String, Vec<Claim>> = BTreeMap::new();
+    for claim in store.claims(&id)? {
+        claims.entry(claim.unit_id.clone()).or_default().push(claim);
+    }
+    let flags: BTreeMap<String, Vec<String>> = store
+        .unit_flags(&id)?
+        .into_iter()
+        .map(|f| (f.unit_id, f.flags))
+        .collect();
+    let verification: BTreeMap<String, Value> = store
+        .verification_status(&id)?
+        .into_iter()
+        .map(|s| (s.unit_id, json!({ "state": s.state, "stale": s.stale })))
+        .collect();
+    let rows: Vec<Value> = units
         .iter()
         .filter(|u| scope.contains(&u.unit_id) || codings.contains_key(&u.unit_id))
         .map(|u| {
@@ -572,10 +611,33 @@ async fn units(
                 "phase1": p1.get(&u.unit_id),
                 "in_scope": scope.contains(&u.unit_id),
                 "to_clarify": labels.iter().filter(|t| t.unit_id == u.unit_id).collect::<Vec<_>>(),
+                "claims": claims.get(&u.unit_id).cloned().unwrap_or_default(),
+                "flags": flags.get(&u.unit_id).cloned().unwrap_or_default(),
+                "verification": verification
+                    .get(&u.unit_id)
+                    .cloned()
+                    .unwrap_or_else(|| json!({ "state": "unverified", "stale": false })),
             })
         })
         .collect();
     Ok(Json(json!(rows)))
+}
+
+/// The units as they stand now: the segmentation with the latest correction of
+/// each unit overlaid. The segmentation itself is never rewritten.
+fn current_units(store: &Store, id: &str, seg: &Segmentation) -> Result<Vec<Unit>, ApiError> {
+    seg.units
+        .iter()
+        .map(|u| -> Result<Unit, ApiError> {
+            let mut unit = u.clone();
+            if let Some(c) = store.unit_corrections(id, &u.unit_id)?.pop() {
+                unit.text = c.text;
+                unit.role = c.role;
+                unit.corrected = true;
+            }
+            Ok(unit)
+        })
+        .collect()
 }
 
 #[derive(Deserialize, Default)]
@@ -969,6 +1031,189 @@ async fn edit_case(
 
 async fn cross_case(State(st): State<AppState>) -> ApiResult {
     Ok(Json(json!(st.store().cross_case()?)))
+}
+
+// ------------------------------------------- flags, corrections, verification
+
+async fn list_flags(State(st): State<AppState>, UrlPath(id): UrlPath<String>) -> ApiResult {
+    let store = st.store();
+    require_interview(&store, &id)?;
+    Ok(Json(json!(store.unit_flags(&id)?)))
+}
+
+#[derive(Deserialize, Default)]
+#[serde(default)]
+struct FlagsBody {
+    flags: Vec<String>,
+    co_constructed_kind: Option<String>,
+}
+
+async fn set_flags(
+    State(st): State<AppState>,
+    UrlPath((id, unit_id)): UrlPath<(String, String)>,
+    Json(body): Json<FlagsBody>,
+) -> ApiResult {
+    Ok(Json(json!(st.store().set_unit_flags(
+        &id,
+        &unit_id,
+        &body.flags,
+        body.co_constructed_kind.as_deref(),
+        &st.actor
+    )?)))
+}
+
+async fn list_corrections(
+    State(st): State<AppState>,
+    UrlPath((id, unit_id)): UrlPath<(String, String)>,
+) -> ApiResult {
+    Ok(Json(json!(st.store().unit_corrections(&id, &unit_id)?)))
+}
+
+#[derive(Deserialize)]
+struct CorrectionBody {
+    text: String,
+    role: SpeakerRole,
+    reason: String,
+}
+
+async fn add_correction(
+    State(st): State<AppState>,
+    UrlPath((id, unit_id)): UrlPath<(String, String)>,
+    Json(body): Json<CorrectionBody>,
+) -> ApiResult {
+    Ok(Json(json!(st.store().correct_unit(
+        &id,
+        &unit_id,
+        &body.text,
+        body.role,
+        &body.reason,
+        &st.actor
+    )?)))
+}
+
+async fn verification_state(State(st): State<AppState>, UrlPath(id): UrlPath<String>) -> ApiResult {
+    let store = st.store();
+    require_interview(&store, &id)?;
+    Ok(Json(json!({
+        "status": store.verification_status(&id)?,
+        "targets": store.verification_targets(&id)?,
+        "coverage": store.verification_coverage(&id)?,
+    })))
+}
+
+#[derive(Deserialize)]
+struct VerificationBody {
+    state: String,
+    #[serde(default)]
+    note: Option<String>,
+}
+
+async fn set_verification(
+    State(st): State<AppState>,
+    UrlPath((id, unit_id)): UrlPath<(String, String)>,
+    Json(body): Json<VerificationBody>,
+) -> ApiResult {
+    Ok(Json(json!(st.store().verify_unit(
+        &id,
+        &unit_id,
+        &body.state,
+        body.note.as_deref(),
+        &st.actor
+    )?)))
+}
+
+// ------------------------------------------------------- claims, memos, saturation
+
+async fn list_claims(State(st): State<AppState>, UrlPath(id): UrlPath<String>) -> ApiResult {
+    let store = st.store();
+    require_interview(&store, &id)?;
+    Ok(Json(json!(store.claims(&id)?)))
+}
+
+async fn list_unit_claims(
+    State(st): State<AppState>,
+    UrlPath((id, unit_id)): UrlPath<(String, String)>,
+) -> ApiResult {
+    let store = st.store();
+    require_interview(&store, &id)?;
+    Ok(Json(json!(store.unit_claims(&id, &unit_id)?)))
+}
+
+async fn add_claim(
+    State(st): State<AppState>,
+    UrlPath(id): UrlPath<String>,
+    Json(claim): Json<Claim>,
+) -> ApiResult {
+    Ok(Json(json!(st
+        .store()
+        .create_claim(&id, &claim, &st.actor)?)))
+}
+
+async fn edit_claim(
+    State(st): State<AppState>,
+    UrlPath(claim_id): UrlPath<i64>,
+    Json(claim): Json<Claim>,
+) -> ApiResult {
+    Ok(Json(json!(st
+        .store()
+        .update_claim(claim_id, &claim, &st.actor)?)))
+}
+
+async fn remove_claim(State(st): State<AppState>, UrlPath(claim_id): UrlPath<i64>) -> ApiResult {
+    st.store().delete_claim(claim_id, &st.actor)?;
+    Ok(Json(json!({ "deleted": claim_id })))
+}
+
+async fn claims_review(State(st): State<AppState>, UrlPath(id): UrlPath<String>) -> ApiResult {
+    let store = st.store();
+    require_interview(&store, &id)?;
+    let rows: Vec<Value> = store
+        .claims_to_review(&id)?
+        .into_iter()
+        .map(|(claim_id, reason)| json!({ "claim_id": claim_id, "reason": reason }))
+        .collect();
+    Ok(Json(json!(rows)))
+}
+
+#[derive(Deserialize, Default)]
+#[serde(default)]
+struct MemoBody {
+    documented: String,
+    interpretation: String,
+    rivals: String,
+    limits: String,
+    units_for: Vec<String>,
+    units_against: Vec<String>,
+}
+
+async fn get_rq_memo(State(st): State<AppState>, UrlPath(rq): UrlPath<String>) -> ApiResult {
+    let memo = st
+        .store()
+        .rq_memo(&rq)?
+        .ok_or_else(|| not_found(format!("no memo for research question {rq}")))?;
+    Ok(Json(json!(memo)))
+}
+
+async fn put_rq_memo(
+    State(st): State<AppState>,
+    UrlPath(rq): UrlPath<String>,
+    Json(body): Json<MemoBody>,
+) -> ApiResult {
+    let memo = RqMemo {
+        rq_id: rq,
+        documented: body.documented,
+        interpretation: body.interpretation,
+        rivals: body.rivals,
+        limits: body.limits,
+        units_for: body.units_for,
+        units_against: body.units_against,
+        updated_at: String::new(),
+    };
+    Ok(Json(json!(st.store().set_rq_memo(&memo, &st.actor)?)))
+}
+
+async fn saturation_table(State(st): State<AppState>) -> ApiResult {
+    Ok(Json(json!(st.store().saturation()?)))
 }
 
 // ------------------------------------------------------------------ AI side
