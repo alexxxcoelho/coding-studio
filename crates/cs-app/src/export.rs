@@ -8,7 +8,9 @@ use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
 use cs_model::phase::{PHASE_1, PHASE_2};
-use cs_model::{sha256_hex, Case, CsError, HumanCoding, ToClarify};
+use cs_model::{
+    sha256_hex, ArbitrationChoice, Case, CodeSet, CsError, HumanCoding, HumanSnapshot, ToClarify,
+};
 use cs_store::Store;
 use serde::Serialize;
 use serde_json::json;
@@ -35,6 +37,7 @@ pub struct CodingStatus {
     pub n_revised_after_ai: usize,
     pub n_to_clarify_open: usize,
     pub n_cases: usize,
+    pub n_snapshots: usize,
 }
 
 #[derive(Debug, Serialize)]
@@ -93,8 +96,144 @@ pub(crate) fn csv_field(value: &str) -> String {
     }
 }
 
+/// Codes of a set, sorted, joined with `;`.
+fn codes_list(codes: &CodeSet) -> String {
+    codes.iter().cloned().collect::<Vec<_>>().join(";")
+}
+
+/// Codes of a set, or `(none)` when empty.
+fn codes_or_none(codes: &CodeSet) -> String {
+    if codes.is_empty() {
+        "(none)".to_string()
+    } else {
+        codes_list(codes)
+    }
+}
+
 fn codes_text(c: &HumanCoding) -> String {
-    c.codes.iter().cloned().collect::<Vec<_>>().join(";")
+    codes_list(&c.codes)
+}
+
+fn opt_text(value: &Option<String>) -> &str {
+    value.as_deref().unwrap_or("")
+}
+
+/// One row per case, lists joined with `;`.
+fn cases_csv(cases: &[Case]) -> String {
+    let mut out = String::from(
+        "case_id,label,interview_id,interviews,decision,granularity,carrier_chosen,carriers_rejected,account_type,swiss_link,stage,outcome_status,n_units\n",
+    );
+    for c in cases {
+        let row = [
+            csv_field(&c.case_id),
+            csv_field(&c.label),
+            csv_field(&c.interview_id),
+            csv_field(&c.interviews.join(";")),
+            csv_field(opt_text(&c.decision)),
+            csv_field(opt_text(&c.granularity)),
+            csv_field(opt_text(&c.carrier_chosen)),
+            csv_field(&c.carriers_rejected.join(";")),
+            csv_field(opt_text(&c.account_type)),
+            csv_field(opt_text(&c.swiss_link)),
+            csv_field(opt_text(&c.stage)),
+            csv_field(opt_text(&c.outcome_status)),
+            c.units.len().to_string(),
+        ];
+        out.push_str(&row.join(","));
+        out.push('\n');
+    }
+    out
+}
+
+/// One row per attributed unit. The interview is the prefix before `-U`, as in the store.
+fn case_units_csv(cases: &[Case]) -> String {
+    let mut out = String::from("case_id,unit_id,interview_id\n");
+    for c in cases {
+        for unit in &c.units {
+            let interview = unit.rsplit_once("-U").map_or("", |(i, _)| i);
+            out.push_str(&format!(
+                "{},{},{}\n",
+                csv_field(&c.case_id),
+                csv_field(unit),
+                csv_field(interview)
+            ));
+        }
+    }
+    out
+}
+
+fn snapshot_csv(snap: &HumanSnapshot) -> String {
+    let mut out = String::from("unit_id,codes\n");
+    for (unit_id, codes) in &snap.codings {
+        out.push_str(&format!(
+            "{},{}\n",
+            csv_field(unit_id),
+            csv_field(&codes_list(codes))
+        ));
+    }
+    out
+}
+
+fn decision_text(choice: &ArbitrationChoice) -> String {
+    match choice {
+        ArbitrationChoice::Human => "candidate's coding kept".to_string(),
+        ArbitrationChoice::Ai { run_label } => format!("AI run {run_label} adopted"),
+        ArbitrationChoice::Custom => "new code set decided by the candidate".to_string(),
+    }
+}
+
+/// Units whose current coding differs from their snapshot, appended after the review log.
+fn revisions_md(items: &[cs_model::ReviewItem]) -> String {
+    let mut s = String::from("\n## Revisions since the snapshot\n\n");
+    s.push_str(
+        "Units whose current coding differs from the human reference frozen when their AI batch was generated. The AI answers were compared with the snapshot, not with these current codes.\n\n",
+    );
+    let revised: Vec<&cs_model::ReviewItem> =
+        items.iter().filter(|i| i.revised_since_snapshot).collect();
+    if revised.is_empty() {
+        s.push_str("None.\n");
+        return s;
+    }
+    for item in revised {
+        let decision = match &item.decision {
+            Some(a) => format!(
+                "{}, final codes {}",
+                decision_text(&a.choice),
+                codes_or_none(&a.final_codes)
+            ),
+            None => "pending".to_string(),
+        };
+        s.push_str(&format!(
+            "- `{}`: snapshot codes {}; current codes {}; decision: {}.\n",
+            item.unit_id,
+            codes_or_none(&item.human),
+            codes_or_none(&item.human_current),
+            decision
+        ));
+    }
+    s
+}
+
+/// The snapshot references of the complete runs, appended after the review log.
+fn snapshots_md(refs: &[cs_model::ReviewSnapshotRef]) -> String {
+    let mut s = String::from("\n## Snapshots\n\n");
+    s.push_str(
+        "The human reference of each complete run, frozen when its prompt batch was generated. Each SHA-256 is that of the snapshot codings in the matching human_snapshot_batch<id>.json.\n\n",
+    );
+    if refs.is_empty() {
+        s.push_str("None.\n");
+        return s;
+    }
+    s.push_str("| Run | Snapshot id | SHA-256 |\n|---|---|---|\n");
+    for r in refs {
+        s.push_str(&format!(
+            "| {} | {} | `{}` |\n",
+            r.run_label.replace('|', "\\|"),
+            r.snapshot_id,
+            r.sha256
+        ));
+    }
+    s
 }
 
 fn human_csv(order: &[String], codings: &BTreeMap<String, HumanCoding>) -> String {
@@ -185,6 +324,33 @@ pub(crate) fn cases_md(interview_id: &str, cases: &[Case]) -> String {
     }
     for c in cases {
         s.push_str(&format!("## {}, {}\n\n", c.case_id, c.label));
+        for (name, value) in [
+            ("Decision", &c.decision),
+            ("Granularity", &c.granularity),
+            ("Carrier chosen", &c.carrier_chosen),
+            ("Account type", &c.account_type),
+            ("Swiss link", &c.swiss_link),
+        ] {
+            if let Some(v) = value {
+                s.push_str(&format!("{name}: {v}\n"));
+            }
+        }
+        if !c.carriers_rejected.is_empty() {
+            s.push_str(&format!(
+                "Carriers rejected: {}\n",
+                c.carriers_rejected.join("; ")
+            ));
+        }
+        if c.units.is_empty() {
+            s.push_str("Attributed units: 0.\n");
+        } else {
+            s.push_str(&format!(
+                "Attributed units: {} ({}).\n",
+                c.units.len(),
+                c.units.join(", ")
+            ));
+        }
+        s.push('\n');
         if let Some(stage) = &c.stage {
             s.push_str(&format!("Stage: {stage}. "));
         }
@@ -209,6 +375,12 @@ pub(crate) fn cases_md(interview_id: &str, cases: &[Case]) -> String {
                 f.text.as_str()
             });
             s.push_str("\n\n");
+            if !f.contradictions.is_empty() {
+                s.push_str(&format!("Contradictions: {}\n\n", f.contradictions));
+            }
+            if !f.missing.is_empty() {
+                s.push_str(&format!("Missing: {}\n\n", f.missing));
+            }
             if !f.evidence.is_empty() {
                 s.push_str(&format!("Evidence: {}.\n\n", f.evidence.join(", ")));
             }
@@ -273,6 +445,7 @@ pub fn write_package(
     let (finals, _uncoded) = store.final_codings(interview_id)?;
     let to_clarify = store.to_clarify_items(Some(interview_id), false)?;
     let cases = store.cases(Some(interview_id))?;
+    let human_snaps = store.human_snapshots(interview_id)?;
     let (codebook_csv, _) = store.codebook_export()?;
     let events = store.audit_events(Some(interview_id))?;
     let chain = store.verify_chain()?;
@@ -348,9 +521,19 @@ pub fn write_package(
         )?;
         let items: Vec<cs_model::ReviewItem> =
             review.items.iter().map(|e| e.item.clone()).collect();
+        let mut review_md = cs_ai::render_review_md(&seg, &items, &history, &review.seeds);
+        review_md.push_str(&revisions_md(&items));
+        review_md.push_str(&snapshots_md(&review.snapshots));
+        w.write("phase2_review.md", review_md.as_bytes())?;
+    }
+    for snap in &human_snaps {
         w.write(
-            "phase2_review.md",
-            cs_ai::render_review_md(&seg, &items, &history, &review.seeds).as_bytes(),
+            &format!("human_snapshot_batch{}.csv", snap.batch_id),
+            snapshot_csv(snap).as_bytes(),
+        )?;
+        w.write(
+            &format!("human_snapshot_batch{}.json", snap.batch_id),
+            serde_json::to_string_pretty(snap)?.as_bytes(),
         )?;
     }
     w.write(
@@ -363,6 +546,8 @@ pub fn write_package(
         serde_json::to_string_pretty(&cases)?.as_bytes(),
     )?;
     w.write("cases.md", cases_md(interview_id, &cases).as_bytes())?;
+    w.write("cases.csv", cases_csv(&cases).as_bytes())?;
+    w.write("case_units.csv", case_units_csv(&cases).as_bytes())?;
     w.write("codebook.csv", codebook_csv.as_bytes())?;
 
     let mut jsonl = String::new();
@@ -390,6 +575,7 @@ pub fn write_package(
         n_revised_after_ai: p2.values().filter(|c| c.revised_after_ai).count(),
         n_to_clarify_open: to_clarify.iter().filter(|t| t.resolved.is_none()).count(),
         n_cases: cases.len(),
+        n_snapshots: human_snaps.len(),
     };
     w.write(
         "README.md",
@@ -445,10 +631,10 @@ fn readme(id: &str, folder: &str, seg: &cs_model::Segmentation, st: &CodingStatu
     ));
     s.push_str("Phase 1 is the candidate's provisional pre-classification of every unit against the three contexts of the TOE framework (TECH, ORG, ENV), plus CONTEXT for descriptive material and NA for the rest; it stays revisable and is not challenged by the AI. Phase 2 codes the units whose phase 1 category is not NA with concrete codes, each attached to a TOE context where relevant and marked as coming from the literature or from the field. A unit may carry several codes, or a provisional label to clarify that is later resolved into a new code or mapped to an existing one. An AI coder then challenges the detailed codes blind, from a generated prompt; the candidate reviews every disagreement and a random sample of agreements and keeps the final decision.\n\n");
     s.push_str(&format!(
-        "Status at export: phase 1, {} of {} units coded; phase 2, {} of {} units coded, {} AI run(s) of which {} complete, {} disagreement(s) and {} sampled agreement(s), {} decision(s); {} coding(s) revised after the AI answer; {} open label(s) to clarify; {} case(s).\n\n",
+        "Status at export: phase 1, {} of {} units coded; phase 2, {} of {} units coded, {} AI run(s) of which {} complete, {} disagreement(s) and {} sampled agreement(s), {} decision(s); {} coding(s) revised after the AI answer; {} open label(s) to clarify; {} case(s); {} human snapshot(s), one per prompt batch.\n\n",
         st.n_coded_phase1, st.n_units_phase1, st.n_coded_phase2, st.n_units_phase2, st.n_runs,
         st.n_complete_runs, st.n_disagreements, st.n_sampled, st.n_decided, st.n_revised_after_ai,
-        st.n_to_clarify_open, st.n_cases
+        st.n_to_clarify_open, st.n_cases, st.n_snapshots
     ));
     s.push_str("## Files\n\n");
     for (name, what) in [
@@ -461,10 +647,14 @@ fn readme(id: &str, folder: &str, seg: &cs_model::Segmentation, st: &CodingStatu
         ("phase2_coding_ai_run<id>_<label>.csv", "Codes per unit returned by that run, after validation."),
         ("phase2_ai_run<id>_<label>_part<n>_raw.txt", "The AI answer exactly as pasted, before any parsing."),
         ("phase2_agreement.md", "Exact agreement and Cohen's kappa per code, candidate against each run and runs against each other; reported, not optimised."),
-        ("phase2_review.md", "Every disagreement and every sampled agreement with the unit text, the competing codes, the decision and its rationale, and the sample seeds."),
+        ("phase2_review.md", "Every disagreement and every sampled agreement with the unit text, the competing codes, the decision and its rationale, and the sample seeds; then the units revised since their snapshot and the snapshot references."),
         ("phase2_coding_final.csv", "Final detailed coding: the review decision where one exists, otherwise the candidate's codes (`basis`)."),
         ("to_clarify.csv", "Every provisional label, its note, and how it was resolved (new code or mapped code)."),
-        ("cases.json, cases.md", "The case syntheses: trigger, alternatives, constraints, choice and result, each with the units that support it."),
+        ("human_snapshot_batch<id>.csv", "The candidate's phase 2 coding frozen when prompt batch <id> was generated, `unit_id,codes`: the reference the AI answers of that batch were compared with."),
+        ("human_snapshot_batch<id>.json", "The same snapshot with its SHA-256, the segmentation and codebook hashes, and its creation time."),
+        ("cases.json, cases.md", "The case syntheses: decision, granularity, carriers chosen and rejected, account type, Swiss link, stage and outcome status; for trigger, alternatives, constraints, choice and result, the text, the contradictions, what is missing and the evidence units; and the units attributed to the case, from any interview."),
+        ("cases.csv", "One row per case: identifiers, decision, granularity, carriers, account type, Swiss link, stage, outcome status and number of attributed units; lists joined with `;`."),
+        ("case_units.csv", "The units attributed to each case, `case_id,unit_id,interview_id`."),
         ("codebook.csv", "The codebook at export time: TOE attachment, origin, research questions, version."),
         ("audit_log.jsonl", "Every recorded action on this interview, one JSON event per line, each chained to the previous one by SHA-256."),
         ("audit_chain.json", "Result of the verification of the whole audit chain at export time."),

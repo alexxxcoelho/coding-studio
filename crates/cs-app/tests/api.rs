@@ -968,3 +968,111 @@ async fn native_picker_only_in_desktop_mode() {
     let (_, state) = call(&app, "GET", "/api/state", None).await;
     assert_eq!(state["native_dialogs"], json!(true));
 }
+
+#[tokio::test]
+async fn v4_export_lists_cases_and_snapshots() {
+    let ctx = setup();
+    let app = &ctx.app;
+    const I: &str = "/api/interviews/INT-01";
+    const P2: &str = "/api/interviews/INT-01/phases/2";
+    let units = bootstrap_two_units(&ctx).await;
+    let (u4, u6) = (units[3].clone(), units[5].clone());
+    code_phase2(app, &u4, &["TECH-ADV", "OUT-REALISED"]).await;
+    code_phase2(app, &u6, &["TECH-COST", "ORG-SKILLS"]).await;
+
+    // Freezing the batch takes the snapshot; a complete run gives the review.
+    let (st, parts) = call(
+        app,
+        "POST",
+        &format!("{P2}/prompts"),
+        Some(json!({ "batch_size": 2 })),
+    )
+    .await;
+    assert_eq!(st, StatusCode::OK, "{parts}");
+    let parts = parts.as_array().unwrap().clone();
+    let (st, run) = call(
+        app,
+        "POST",
+        &format!("{P2}/runs"),
+        Some(json!({ "run_label": "R1", "model_name": "model-a", "model_version": "1" })),
+    )
+    .await;
+    assert_eq!(st, StatusCode::OK, "{run}");
+    let run_id = run["run_id"].as_i64().unwrap();
+    let ai = |unit: &str| -> Vec<String> {
+        if unit == u4 {
+            codes(&["TECH-ADV", "OUT-REALISED"])
+        } else {
+            codes(&["TECH-COST"])
+        }
+    };
+    let (st, r) = call(
+        app,
+        "POST",
+        &format!("{P2}/runs/{run_id}/outputs"),
+        Some(json!({ "raw": answer(&parts[0], ai), "part": 1, "of": 1 })),
+    )
+    .await;
+    assert_eq!(st, StatusCode::OK, "{r}");
+    // U006 is revised after the freeze, so the review reports a revision.
+    code_phase2(app, &u6, &["TECH-COST"]).await;
+
+    // A case attributing units, with a decision and a contradiction.
+    let (st, case) = call(
+        app,
+        "POST",
+        &format!("{I}/cases"),
+        Some(json!({
+            "label": "Source tagging",
+            "units": [u6, u4],
+            "decision": "adopted",
+            "granularity": "item",
+            "carrier_chosen": "RAIN RFID",
+            "carriers_rejected": ["QR"],
+            "account_type": "first-hand",
+            "swiss_link": "Swiss retailer",
+            "trigger": {
+                "text": "Inventory accuracy",
+                "contradictions": "Cost is also cited",
+                "evidence": [u4],
+            },
+        })),
+    )
+    .await;
+    assert!(
+        st == StatusCode::OK || st == StatusCode::CREATED,
+        "{st} {case}"
+    );
+
+    let (st, exp) = call(app, "POST", &format!("{I}/export"), None).await;
+    assert_eq!(st, StatusCode::OK, "{exp}");
+    let dir = std::path::PathBuf::from(exp["dir"].as_str().unwrap());
+    let expected = [
+        "cases.csv",
+        "case_units.csv",
+        "human_snapshot_batch1.csv",
+        "human_snapshot_batch1.json",
+    ];
+    for f in expected {
+        assert!(dir.join(f).is_file(), "missing {f}");
+    }
+    let manifest: Value =
+        serde_json::from_str(&std::fs::read_to_string(dir.join("manifest.json")).unwrap()).unwrap();
+    let listed: Vec<&str> = manifest["files"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|f| f["name"].as_str().unwrap())
+        .collect();
+    for f in expected {
+        assert!(listed.contains(&f), "manifest lacks {f}");
+    }
+    let cases_csv = std::fs::read_to_string(dir.join("cases.csv")).unwrap();
+    assert_eq!(cases_csv.lines().count(), 2, "{cases_csv}");
+    let review_md = std::fs::read_to_string(dir.join("phase2_review.md")).unwrap();
+    assert!(review_md.contains("## Snapshots"), "{review_md}");
+    assert!(
+        review_md.contains("## Revisions since the snapshot"),
+        "{review_md}"
+    );
+}
