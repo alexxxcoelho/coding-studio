@@ -14,28 +14,48 @@ import { interviewHref } from "@/lib/router"
 import { cn } from "@/lib/utils"
 import type { PhaseSummary } from "@/lib/types"
 
-function PhaseCell({ s, open }: { s: PhaseSummary; open: boolean }) {
-  if (!open) return <span className="text-muted-foreground text-xs">not open</span>
-  if (s.n_units === 0) return <span className="text-muted-foreground text-xs">no unit</span>
-  const pct = s.n_units ? s.n_human_coded / s.n_units : 0
+function Bar({ value, done }: { value: number; done: boolean }) {
   return (
-    <div className="flex min-w-[11rem] flex-col gap-1">
+    <div className="bg-muted h-1.5 w-16 overflow-hidden rounded-full" aria-hidden>
+      <div className={cn("h-full", done ? "bg-ok" : "bg-primary")} style={{ width: `${value * 100}%` }} />
+    </div>
+  )
+}
+
+function Phase1Cell({ s }: { s: PhaseSummary }) {
+  if (s.n_units === 0) return <span className="text-muted-foreground text-xs">no unit</span>
+  return (
+    <div className="flex min-w-[9rem] items-center gap-2">
+      <Bar value={s.n_human_coded / s.n_units} done={s.human_complete} />
+      <span className="text-xs tabular-nums">
+        {s.n_human_coded}/{s.n_units}
+      </span>
+      <span className="text-muted-foreground text-xs">provisional</span>
+    </div>
+  )
+}
+
+function Phase2Cell({ s }: { s: PhaseSummary }) {
+  if (s.n_units === 0) return <span className="text-muted-foreground text-xs">no unit pre-classified yet</span>
+  return (
+    <div className="flex min-w-[12rem] flex-col gap-1">
       <div className="flex items-center gap-2">
-        <div className="bg-muted h-1.5 w-16 overflow-hidden rounded-full" aria-hidden>
-          <div className={cn("h-full", s.human_complete ? "bg-ok" : "bg-primary")} style={{ width: `${pct * 100}%` }} />
-        </div>
+        <Bar value={s.n_human_coded / s.n_units} done={s.human_complete} />
         <span className="text-xs tabular-nums">
           {s.n_human_coded}/{s.n_units} coded
         </span>
       </div>
-      <div className="text-muted-foreground flex gap-3 text-xs tabular-nums">
-        <span>{s.n_ai_runs_complete} AI run{s.n_ai_runs_complete === 1 ? "" : "s"}</span>
+      <div className="text-muted-foreground flex flex-wrap gap-x-3 text-xs tabular-nums">
+        <span>
+          {s.n_ai_runs_complete} AI run{s.n_ai_runs_complete === 1 ? "" : "s"}
+        </span>
         {s.n_divergences > 0 && (
           <span>
-            {s.n_arbitrated}/{s.n_divergences} decided
+            {s.n_arbitrated}/{s.n_divergences} reviewed
           </span>
         )}
-        {s.reconciled && <span className="text-ok font-medium">reconciled</span>}
+        {(s.n_to_clarify ?? 0) > 0 && <span className="text-inductive">{s.n_to_clarify} to clarify</span>}
+        {s.reconciled && <span className="text-ok font-medium">reviewed</span>}
       </div>
     </div>
   )
@@ -111,7 +131,7 @@ export function LibraryPage() {
             </Button>
           }
         >
-          Phase 2 needs the study-specific codes from the thesis coding.db.
+          Phase 2 needs the concrete codes: import them from the thesis coding.db, then refine them in the Codebook.
         </Banner>
       )}
 
@@ -133,8 +153,8 @@ export function LibraryPage() {
               <TableRow>
                 <TableHead>Interview</TableHead>
                 <TableHead className="text-right">Units</TableHead>
-                <TableHead>Phase 1, TOE contexts</TableHead>
-                <TableHead>Phase 2, study codes</TableHead>
+                <TableHead>Phase 1, TOE pre-classification</TableHead>
+                <TableHead>Phase 2, concrete codes</TableHead>
                 <TableHead>Next step</TableHead>
               </TableRow>
             </TableHeader>
@@ -154,10 +174,10 @@ export function LibraryPage() {
                     </TableCell>
                     <TableCell className="text-right tabular-nums">{s.n_units || "-"}</TableCell>
                     <TableCell>
-                      <PhaseCell s={s.phase1} open={s.n_units > 0} />
+                      <Phase1Cell s={s.phase1} />
                     </TableCell>
                     <TableCell>
-                      <PhaseCell s={s.phase2} open={s.phase1.reconciled} />
+                      <Phase2Cell s={s.phase2} />
                     </TableCell>
                     <TableCell>
                       <a href={next.href} className={cn("text-sm hover:underline", next.done ? "text-ok" : "text-primary")}>

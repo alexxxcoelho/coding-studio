@@ -3,8 +3,9 @@ import { useQuery } from "@tanstack/react-query"
 import { Banner, EmptyState } from "@/components/bits"
 import { AiPassTab } from "@/components/interview/ai-pass"
 import { AuditTab } from "@/components/interview/audit-export"
+import { CasesTab } from "@/components/interview/cases"
 import { CodingTab } from "@/components/interview/coding"
-import { ReconciliationTab } from "@/components/interview/reconciliation"
+import { ReviewTab } from "@/components/interview/review"
 import { SourcesTab } from "@/components/interview/sources"
 import { Skeleton } from "@/components/ui/skeleton"
 import { api, ApiError } from "@/lib/api"
@@ -12,27 +13,26 @@ import { interviewHref, type Tab } from "@/lib/router"
 import { cn } from "@/lib/utils"
 import type { Phase, PhaseSummary } from "@/lib/types"
 
-const TAB_LABELS: { tab: Tab; label: string; phased: boolean }[] = [
-  { tab: "sources", label: "Sources", phased: false },
-  { tab: "coding", label: "Coding", phased: true },
-  { tab: "ai", label: "AI pass", phased: true },
-  { tab: "reconciliation", label: "Reconciliation", phased: true },
-  { tab: "audit", label: "Audit and export", phased: false },
+const TAB_LABELS: { tab: Tab; label: string }[] = [
+  { tab: "sources", label: "Sources" },
+  { tab: "coding", label: "Coding" },
+  { tab: "ai", label: "AI challenge" },
+  { tab: "review", label: "Review" },
+  { tab: "cases", label: "Cases" },
+  { tab: "audit", label: "Audit and export" },
 ]
 
 const PHASES: { phase: Phase; title: string; sub: string }[] = [
-  { phase: 1, title: "Phase 1", sub: "TOE contexts" },
-  { phase: 2, title: "Phase 2", sub: "Study-specific codes" },
+  { phase: 1, title: "Phase 1", sub: "TOE pre-classification" },
+  { phase: 2, title: "Phase 2", sub: "Concrete codes" },
 ]
 
-function phaseNote(s: PhaseSummary, open: boolean): string {
-  if (!open) return "opens once phase 1 is reconciled"
-  if (s.reconciled) return "reconciled"
-  if (s.n_units === 0) return "no unit in scope"
-  return `${s.n_human_coded} of ${s.n_units} coded`
+function phaseNote(s: PhaseSummary, phase: Phase): string {
+  if (s.n_units === 0) return phase === 2 ? "no unit pre-classified yet" : "no unit"
+  return `${s.n_human_coded} of ${s.n_units} coded${phase === 1 ? ", provisional" : ""}`
 }
 
-export function InterviewPage({ id, tab, phase }: { id: string; tab: Tab; phase: Phase }) {
+export function InterviewPage({ id, tab, phase, unit = null }: { id: string; tab: Tab; phase: Phase; unit?: string | null }) {
   const detail = useQuery({ queryKey: ["interview", id], queryFn: () => api.interview(id) })
 
   if (detail.isLoading) return <Skeleton className="h-40 w-full" />
@@ -45,7 +45,7 @@ export function InterviewPage({ id, tab, phase }: { id: string; tab: Tab; phase:
     )
   }
   const d = detail.data!
-  const phased = TAB_LABELS.find((t) => t.tab === tab)?.phased ?? false
+  const phased = tab === "coding"
   const summaries = { 1: d.phase1, 2: d.phase2 } as const
 
   return (
@@ -63,7 +63,6 @@ export function InterviewPage({ id, tab, phase }: { id: string; tab: Tab; phase:
         {phased && (
           <div role="tablist" aria-label="Coding phase" className="bg-muted inline-flex rounded-lg p-1">
             {PHASES.map(({ phase: p, title, sub }) => {
-              const open = p === 1 || d.phase1.reconciled
               const active = p === phase
               return (
                 <a
@@ -74,13 +73,12 @@ export function InterviewPage({ id, tab, phase }: { id: string; tab: Tab; phase:
                   className={cn(
                     "flex flex-col rounded-md px-3.5 py-1.5 text-left leading-tight",
                     active ? "bg-card shadow-sm" : "hover:bg-card/50",
-                    !open && !active && "opacity-60",
                   )}
                 >
                   <span className="text-sm font-medium">
                     {title}, {sub}
                   </span>
-                  <span className="text-muted-foreground text-xs">{phaseNote(summaries[p], open)}</span>
+                  <span className="text-muted-foreground text-xs">{phaseNote(summaries[p], p)}</span>
                 </a>
               )
             })}
@@ -92,7 +90,7 @@ export function InterviewPage({ id, tab, phase }: { id: string; tab: Tab; phase:
         {TAB_LABELS.map(({ tab: t, label }) => (
           <a
             key={t}
-            href={interviewHref(id, t, phase)}
+            href={interviewHref(id, t, t === "coding" ? phase : 1)}
             aria-current={t === tab ? "page" : undefined}
             className={cn(
               "-mb-px border-b-2 px-3 py-2 text-sm",
@@ -100,6 +98,7 @@ export function InterviewPage({ id, tab, phase }: { id: string; tab: Tab; phase:
             )}
           >
             {label}
+            {(t === "ai" || t === "review") && <span className="text-muted-foreground ml-1 text-xs font-normal">phase 2</span>}
           </a>
         ))}
       </nav>
@@ -115,9 +114,10 @@ export function InterviewPage({ id, tab, phase }: { id: string; tab: Tab; phase:
       )}
 
       {tab === "sources" && <SourcesTab detail={d} />}
-      {tab === "coding" && <CodingTab id={id} phase={phase} detail={d} />}
-      {tab === "ai" && <AiPassTab id={id} phase={phase} />}
-      {tab === "reconciliation" && <ReconciliationTab id={id} phase={phase} />}
+      {tab === "coding" && <CodingTab key={phase} id={id} phase={phase} detail={d} initialUnit={unit} />}
+      {tab === "ai" && <AiPassTab id={id} />}
+      {tab === "review" && <ReviewTab id={id} />}
+      {tab === "cases" && <CasesTab id={id} detail={d} />}
       {tab === "audit" && <AuditTab id={id} />}
     </div>
   )

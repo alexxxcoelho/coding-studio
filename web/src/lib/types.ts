@@ -52,14 +52,25 @@ export interface Segmentation {
   warnings: string[]
 }
 
+/** TOE attachment of a concrete code. */
+export type Toe = "T" | "O" | "E"
+
+/** literature | field | legacy (phase 1 categories carry "phase1"). */
+export type CodeOrigin = "literature" | "field" | "legacy" | "phase1" | string
+
 export interface Code {
   code: string
+  /** Display family: TECH, ORG, ENV from the TOE attachment, otherwise OTHER. */
   family: string
   label: string
   definition: string
-  origin: string
+  origin: CodeOrigin
   active: boolean
   in_prompt: boolean
+  toe?: Toe | null
+  research_questions?: string[]
+  merged_into?: string | null
+  version?: number
   example?: string | null
   reason?: string | null
   created_at?: string | null
@@ -79,6 +90,8 @@ export interface HumanCoding {
   provenance: string | null
   memo: string | null
   excerpt: string | null
+  /** Set by the server: changed after an AI answer covered the unit. Ignored on input. */
+  revised_after_ai?: boolean
 }
 
 export interface AiRunMeta {
@@ -92,11 +105,16 @@ export interface AiRunMeta {
   prompt_id_version: string
   executed_at: string
   notes: string | null
+  /** Prompt batch the run answers; null = the latest batch. */
+  batch_id?: number | null
 }
 
 export interface PromptPart {
   interview_id: string
   phase: Phase
+  batch_id?: number
+  /** Codes offered in this batch (snapshot). */
+  codes?: string[]
   part: number
   of: number
   unit_ids: string[]
@@ -117,6 +135,8 @@ export interface AiRun {
   interview_id: string
   phase: Phase
   meta: AiRunMeta
+  batch_id?: number
+  unit_ids?: string[]
   codings: Record<string, string[]>
   parts_received: number[]
   parts_expected: number | null
@@ -164,12 +184,129 @@ export interface Arbitration {
   decided_at: string
 }
 
-export type FinalBasis = "agreed" | "arbitrated"
+export type FinalBasis = "candidate" | "reviewed" | "agreed" | "arbitrated"
 
 export interface FinalCoding {
   unit_id: string
   codes: string[]
   basis: FinalBasis
+}
+
+export interface Resolution {
+  kind: "new_code" | "mapped"
+  code: string
+  at: string
+  by: string
+  rationale: string | null
+}
+
+/** A provisional label put on a unit, waiting to become or join a code. */
+export interface ToClarify {
+  id: number
+  interview_id: string
+  unit_id: string
+  label: string
+  note: string
+  created_at: string
+  created_by: string
+  resolved: Resolution | null
+  /** Filled by the list endpoint. */
+  unit_text?: string
+}
+
+export interface ResearchQuestion {
+  id: string
+  text: string
+  ord: number
+}
+
+export interface CaseField {
+  text: string
+  evidence: string[]
+}
+
+export const CASE_FIELDS = ["trigger", "alternatives", "constraints", "choice", "result"] as const
+export type CaseFieldKey = (typeof CASE_FIELDS)[number]
+
+export interface Case {
+  case_id: string
+  interview_id: string
+  label: string
+  trigger: CaseField
+  alternatives: CaseField
+  constraints: CaseField
+  choice: CaseField
+  result: CaseField
+  stage: string | null
+  outcome_status: string | null
+  notes: string | null
+  updated_at?: string | null
+}
+
+export type ReviewKind = "disagreement" | "agreement_sample"
+
+export interface ReviewItem {
+  unit_id: string
+  kind: ReviewKind
+  human: string[]
+  ai: Record<string, string[]>
+  decision: Arbitration | null
+  unit: Unit
+  history?: Arbitration[]
+}
+
+export interface ReviewAnswer {
+  runs: string[]
+  items: ReviewItem[]
+  n_disagreements: number
+  n_sampled: number
+  n_decided: number
+  seeds: { run_label: string; seed: string | number }[]
+}
+
+export interface CrossCaseCell {
+  rq: string
+  case_id: string
+  codes: { code: string; units: string[] }[]
+}
+
+export interface CrossCaseAnswer {
+  questions: ResearchQuestion[]
+  cases: Case[]
+  cells: CrossCaseCell[]
+}
+
+/** A unit carrying a given code, anywhere in the corpus. */
+export interface CodeUnit {
+  interview_id: string
+  unit: Unit
+  coding: HumanCoding | null
+}
+
+export interface WrittenFiles {
+  files: { path: string; sha256: string; size: number }[]
+}
+
+export interface MergeAnswer {
+  codebook: Codebook
+  rewritten_codings: number
+  rewritten_decisions: number
+}
+
+export interface ResolveAnswer {
+  resolved: ToClarify[]
+  codebook: Codebook
+}
+
+/** Fields of a code the candidate may edit (omitted = unchanged). */
+export interface CodeEdit {
+  label?: string
+  definition?: string
+  toe?: Toe | null
+  research_questions?: string[]
+  example?: string | null
+  reason?: string | null
+  in_prompt?: boolean
 }
 
 export interface AuditEvent {
@@ -198,7 +335,9 @@ export interface PhaseSummary {
   n_ai_runs: number
   n_ai_runs_complete: number
   n_divergences: number
+  n_sampled?: number
   n_arbitrated: number
+  n_to_clarify?: number
   reconciled: boolean
 }
 
@@ -238,7 +377,6 @@ export interface InterviewDetail {
   segmentation: Segmentation | null
   phase1: PhaseSummary
   phase2: PhaseSummary
-  phase2_started: boolean
 }
 
 export interface FileView {
@@ -253,16 +391,17 @@ export interface PhaseState {
   phase: Phase
   summary: PhaseSummary
   guard: GuardStatus
-  reconciled: boolean
-  frozen: boolean
-  locked: boolean
 }
 
 export interface UnitRow {
   unit: Unit
   coding: HumanCoding | null
   allowed: Code[]
-  phase1_final: string[] | null
+  /** Phase 2: the unit's current phase 1 contexts. */
+  phase1?: string[] | null
+  /** Phase 2: false when phase 1 now says NA (coding kept, excluded from new prompts). */
+  in_scope?: boolean
+  to_clarify?: ToClarify[]
 }
 
 export interface AgreementAnswer {
@@ -286,9 +425,10 @@ export interface DivergencesAnswer {
 }
 
 export interface FinalAnswer {
-  reconciled: boolean
   finals: FinalCoding[]
-  pending: string[]
+  uncoded: string[]
+  n_decided: number
+  n_open_disagreements: number
 }
 
 export interface ExportAnswer {

@@ -3,12 +3,13 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useVirtualizer } from "@tanstack/react-virtual"
 import { toast } from "sonner"
 
-import { Banner, ChipList, CodeChip, CodeRail, EmptyState } from "@/components/bits"
+import { Banner, ChipList, CodeChip, CodeRail, EmptyState, PendingChip } from "@/components/bits"
 import { reportError } from "@/lib/notify"
 import { CodePicker } from "@/components/code-picker"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Progress } from "@/components/ui/progress"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -17,10 +18,11 @@ import { Textarea } from "@/components/ui/textarea"
 import { api } from "@/lib/api"
 import { addCode, codeForKey, EV_LEVELS, hotkeyFor, MODIFIERS, PROVENANCES, sameSet, toggleCode } from "@/lib/codes"
 import { roleLabel } from "@/lib/format"
+import { isCoded, knownLabels } from "@/lib/clarify"
 import { invalidateInterview } from "@/lib/queries"
 import { interviewHref } from "@/lib/router"
 import { cn } from "@/lib/utils"
-import type { Code, HumanCoding, InterviewDetail, Phase, UnitRow } from "@/lib/types"
+import type { Code, HumanCoding, InterviewDetail, Phase, ToClarify, UnitRow } from "@/lib/types"
 
 const NONE = "__none"
 
@@ -84,7 +86,7 @@ function OptionSelect({
 function Phase1Legend({ codes, open }: { codes: Code[]; open: boolean }) {
   return (
     <details className="bg-card rounded-md border px-4 py-2.5 text-sm" open={open}>
-      <summary className="cursor-pointer font-medium">The five phase 1 categories</summary>
+      <summary className="cursor-pointer font-medium">The phase 1 categories</summary>
       <dl className="mt-2 grid gap-x-6 gap-y-2 md:grid-cols-2">
         {codes.map((c) => (
           <div key={c.code} className="flex gap-2.5">
@@ -99,10 +101,89 @@ function Phase1Legend({ codes, open }: { codes: Code[]; open: boolean }) {
         ))}
       </dl>
       <p className="text-muted-foreground mt-2 text-xs">
-        NA when the unit is not relevant. Keys T, O, E, C, I and N code the unit, save it and move to the next one. For a unit that touches
+        NA when the unit is not relevant. Keys T, O, E, C and N code the unit, save it and move to the next one. For a unit that touches
         several categories, hold Shift to add each one without saving (Shift T, Shift E), then press the last letter or Ctrl/Cmd Enter.
       </p>
     </details>
+  )
+}
+
+/** Phase 1 contexts of a phase 2 row. */
+function contextsOf(row: UnitRow): string[] {
+  return row.phase1 ?? []
+}
+
+function openLabels(row: UnitRow): ToClarify[] {
+  return (row.to_clarify ?? []).filter((t) => !t.resolved)
+}
+
+function ClarifyDialog({
+  open,
+  onOpenChange,
+  unitId,
+  interviewId,
+  suggestions,
+}: {
+  open: boolean
+  onOpenChange: (v: boolean) => void
+  unitId: string
+  interviewId: string
+  suggestions: string[]
+}) {
+  const qc = useQueryClient()
+  const [label, setLabel] = useState("")
+  const [note, setNote] = useState("")
+  const add = useMutation({
+    mutationFn: () => api.addToClarify(interviewId, unitId, label.trim(), note.trim()),
+    onSuccess: () => {
+      toast.success(`Label "${label.trim()}" put on ${unitId}`)
+      setLabel("")
+      setNote("")
+      onOpenChange(false)
+      qc.invalidateQueries({ queryKey: ["to-clarify"] })
+      invalidateInterview(qc, interviewId)
+    },
+    onError: (e) => reportError(e, "Label not recorded"),
+  })
+  const listId = `labels-${unitId}`
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>To clarify</DialogTitle>
+          <DialogDescription>
+            A provisional label for what this unit says that no code captures yet. Later you turn the label into a new code or map it to an
+            existing one, for every unit that carries it.
+          </DialogDescription>
+        </DialogHeader>
+        <form
+          className="flex flex-col gap-3"
+          onSubmit={(e) => {
+            e.preventDefault()
+            if (label.trim()) add.mutate()
+          }}
+        >
+          <label className="flex flex-col gap-1 text-xs">
+            <span className="text-muted-foreground">Provisional label</span>
+            <Input autoFocus list={listId} value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Waiting for the partner to tag first" />
+            <datalist id={listId}>
+              {suggestions.map((l) => (
+                <option key={l} value={l} />
+              ))}
+            </datalist>
+          </label>
+          <label className="flex flex-col gap-1 text-xs">
+            <span className="text-muted-foreground">Short note</span>
+            <Textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} placeholder="What makes it hard to code, what it might be" />
+          </label>
+          <DialogFooter>
+            <Button type="submit" disabled={!label.trim() || add.isPending}>
+              Put the label on the unit
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   )
 }
 
@@ -116,10 +197,14 @@ function UnitEditor({
   onPrev,
   onNext,
   position,
+  interviewId,
+  suggestions,
 }: {
   row: UnitRow
   phase: Phase
   readOnly: boolean
+  interviewId: string
+  suggestions: string[]
   book: Code[]
   onSave: (draft: HumanCoding) => void
   saving: boolean
@@ -128,7 +213,9 @@ function UnitEditor({
   position: string
 }) {
   const [draft, setDraft] = useState<HumanCoding>(() => row.coding ?? emptyDraft(row.unit.unit_id))
+  const [clarifying, setClarifying] = useState(false)
   const textRef = useRef<HTMLDivElement>(null)
+  const labels = openLabels(row)
 
   const dirty = draftChanged(draft, row.coding)
   const set = <K extends keyof HumanCoding>(k: K, v: HumanCoding[K]) => setDraft((d) => ({ ...d, [k]: v }))
@@ -145,11 +232,13 @@ function UnitEditor({
   const save = useCallback(() => {
     if (readOnly) return
     if (!draft.codes.length) {
-      toast.error("Choose at least one code, or NA when none applies")
+      // A label to clarify is enough to move on in phase 2.
+      if (phase === 2 && labels.length) return onNext()
+      toast.error(phase === 2 ? "Choose a code, NA, or put a label to clarify (?)" : "Choose a category, or NA when none applies")
       return
     }
     onSave(draft)
-  }, [draft, onSave, readOnly])
+  }, [draft, onSave, readOnly, phase, labels.length, onNext])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -161,6 +250,11 @@ function UnitEditor({
       // Phase 1: a letter adds its category, saves and moves on; with Shift it
       // only toggles, for a unit that touches several contexts.
       if (readOnly || saving || e.metaKey || e.ctrlKey || e.altKey || e.repeat || isTyping(e.target)) return
+      if (phase === 2 && e.key === "?") {
+        e.preventDefault()
+        setClarifying(true)
+        return
+      }
       const code = codeForKey(
         e.key,
         phase,
@@ -179,6 +273,8 @@ function UnitEditor({
     window.addEventListener("keydown", onKey)
     return () => window.removeEventListener("keydown", onKey)
   }, [save, readOnly, saving, phase, row.allowed, draft, onSave])
+
+  const contexts = contextsOf(row)
 
   return (
     <div className="flex flex-col gap-3.5">
@@ -208,18 +304,47 @@ function UnitEditor({
         {row.unit.text}
       </div>
 
-      {phase === 2 && row.phase1_final && (
-        <div className="flex items-center gap-2 text-xs">
-          <span className="text-muted-foreground">Reconciled in phase 1</span>
-          <ChipList codes={row.phase1_final} book={book} />
+      {phase === 2 && (
+        <div className="flex flex-col gap-1.5 text-xs">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-muted-foreground">Pre-classified in phase 1</span>
+            <ChipList codes={contexts} book={book} empty="not yet" />
+            <a className="text-primary ml-auto hover:underline" href={interviewHref(interviewId, "coding", 1, row.unit.unit_id)}>
+              revise
+            </a>
+          </div>
+          {row.in_scope === false && (
+            <p className="text-warn">Phase 1 now says NA for this unit: its codes are kept but it leaves the next AI prompts.</p>
+          )}
+          {row.coding?.revised_after_ai && (
+            <p className="text-muted-foreground">Revised after the AI answer was imported; the audit trail records it.</p>
+          )}
         </div>
       )}
 
-      <CodePicker allowed={row.allowed} value={draft.codes} onChange={(c) => set("codes", c)} disabled={readOnly} phase={phase} />
-      <div className="flex min-h-6 items-center gap-2 text-xs">
+      <CodePicker
+        allowed={row.allowed}
+        value={draft.codes}
+        onChange={(c) => set("codes", c)}
+        disabled={readOnly}
+        phase={phase}
+        phase1Contexts={phase === 2 ? contexts : undefined}
+      />
+      <div className="flex min-h-6 flex-wrap items-center gap-2 text-xs">
         <span className="text-muted-foreground">Selected</span>
         <ChipList codes={draft.codes} book={book} empty="nothing yet" />
+        {labels.map((t) => (
+          <PendingChip key={t.id} label={t.label} note={t.note} />
+        ))}
+        {phase === 2 && !readOnly && (
+          <Button size="xs" variant="outline" className="ml-auto" onClick={() => setClarifying(true)} title="Put a provisional label (key ?)">
+            To clarify <kbd className="ml-0.5 font-mono opacity-70">?</kbd>
+          </Button>
+        )}
       </div>
+      {phase === 2 && (
+        <ClarifyDialog open={clarifying} onOpenChange={setClarifying} unitId={row.unit.unit_id} interviewId={interviewId} suggestions={suggestions} />
+      )}
 
       <div className="grid grid-cols-2 gap-2.5">
         <label className="col-span-2 flex flex-col gap-1 text-xs">
@@ -273,23 +398,37 @@ function UnitEditor({
   )
 }
 
-export function CodingTab({ id, phase, detail }: { id: string; phase: Phase; detail: InterviewDetail }) {
+export function CodingTab({
+  id,
+  phase,
+  detail,
+  initialUnit = null,
+}: {
+  id: string
+  phase: Phase
+  detail: InterviewDetail
+  initialUnit?: string | null
+}) {
   const qc = useQueryClient()
   const state = useQuery({ queryKey: ["phase", id, phase], queryFn: () => api.phase(id, phase) })
   const units = useQuery({ queryKey: ["units", id, phase], queryFn: () => api.units(id, phase) })
   const book = useQuery({ queryKey: ["codebook"], queryFn: api.codebook })
   const p1book = useQuery({ queryKey: ["codebook-phase1"], queryFn: api.phase1Codebook, enabled: phase === 1 })
+  const labelsQ = useQuery({ queryKey: ["to-clarify", "open"], queryFn: () => api.toClarify({ open: true }), enabled: phase === 2 })
   const [uncodedOnly, setUncodedOnly] = useState(false)
-  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [selectedId, setSelectedId] = useState<string | null>(initialUnit)
 
+  const coded = useCallback((r: UnitRow) => (phase === 2 ? isCoded(r.coding, r.to_clarify) : !!r.coding), [phase])
   const all = useMemo(() => units.data ?? [], [units.data])
-  const rows = useMemo(() => (uncodedOnly ? all.filter((r) => !r.coding) : all), [all, uncodedOnly])
+  const rows = useMemo(() => (uncodedOnly ? all.filter((r) => !coded(r) || r.unit.unit_id === selectedId) : all), [all, uncodedOnly, coded, selectedId])
   const selIndex = Math.max(0, rows.findIndex((r) => r.unit.unit_id === selectedId))
   const selected = rows[selIndex] ?? null
-  const codedCount = all.filter((r) => r.coding).length
+  const codedCount = all.filter(coded).length
   const codeBook = book.data?.codes ?? []
+  const suggestions = useMemo(() => knownLabels(labelsQ.data ?? []), [labelsQ.data])
 
-  const readOnly = !!state.data && (state.data.locked || state.data.frozen)
+  // v3: coding is never locked; changes after an AI answer are flagged, not refused.
+  const readOnly = false
 
   const scrollRef = useRef<HTMLDivElement>(null)
   const virtualizer = useVirtualizer({
@@ -302,12 +441,27 @@ export function CodingTab({ id, phase, detail }: { id: string; phase: Phase; det
   const go = useCallback(
     (delta: number) => {
       if (!rows.length) return
-      const i = Math.min(rows.length - 1, Math.max(0, selIndex + delta))
-      setSelectedId(rows[i].unit.unit_id)
-      virtualizer.scrollToIndex(i, { align: "auto" })
+      // With "uncoded only", the unit just coded leaves the list: the next
+      // uncoded one takes its place.
+      const pool = uncodedOnly ? rows.filter((r, i) => i === selIndex || !coded(r)) : rows
+      const at = pool.findIndex((r) => r.unit.unit_id === rows[selIndex]?.unit.unit_id)
+      const target = pool[Math.min(pool.length - 1, Math.max(0, at + delta))]
+      if (!target) return
+      setSelectedId(target.unit.unit_id)
+      const i = rows.indexOf(target)
+      if (i >= 0) virtualizer.scrollToIndex(i, { align: "auto" })
     },
-    [rows, selIndex, virtualizer],
+    [rows, selIndex, virtualizer, uncodedOnly, coded],
   )
+
+  // Jump to a unit given in the link (?unit=), once the rows are loaded.
+  const jumped = useRef(false)
+  useEffect(() => {
+    if (jumped.current || !initialUnit || !all.length) return
+    jumped.current = true
+    const i = rows.findIndex((r) => r.unit.unit_id === initialUnit)
+    if (i >= 0) virtualizer.scrollToIndex(i, { align: "center" })
+  }, [initialUnit, all.length, rows, virtualizer])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -351,34 +505,27 @@ export function CodingTab({ id, phase, detail }: { id: string; phase: Phase; det
   if (units.isLoading || state.isLoading) return <Skeleton className="h-96 w-full" />
   if (units.error) return <Banner tone="danger" title="Units could not be loaded">{units.error.message}</Banner>
 
-  const st = state.data!
-  if (phase === 2 && !detail.phase1.reconciled)
-    return (
-      <Banner
-        tone="lock"
-        title="Phase 2 opens once phase 1 is reconciled"
+  if (!all.length)
+    return phase === 2 ? (
+      <EmptyState
+        title="No unit pre-classified as relevant yet"
         action={
-          <Button size="sm" variant="outline" asChild>
-            <a href={interviewHref(id, "reconciliation", 1)}>Go to phase 1 reconciliation</a>
+          <Button asChild>
+            <a href={interviewHref(id, "coding", 1)}>Go to phase 1</a>
           </Button>
         }
       >
-        Phase 2 codes only the units found relevant in phase 1, after the AI pass and every divergence is decided.
-      </Banner>
+        Phase 2 codes the units that phase 1 placed in a TOE context or in CONTEXT. Any category other than NA brings a unit here.
+      </EmptyState>
+    ) : (
+      <EmptyState title="No unit to code">The segmentation holds no unit.</EmptyState>
     )
-  if (!all.length)
-    return <EmptyState title="No unit in the scope of this phase">Every unit was reconciled as NA in phase 1.</EmptyState>
 
   return (
     <div className="flex flex-col gap-4">
-      {st.frozen && (
-        <Banner tone="lock" title="Phase 1 is frozen">
-          Phase 2 has started, so phase 1 decisions can no longer change.
-        </Banner>
-      )}
-      {!st.frozen && st.locked && (
-        <Banner tone="lock" title="Your coding is locked">
-          An AI answer has been imported for this phase. Changes now go through the Reconciliation tab, with a written rationale.
+      {phase === 1 && (
+        <Banner tone="info" title="Provisional pre-classification: revisable at any time">
+          Phase 1 sorts units by TOE context to organise the detailed coding. It has no AI pass and nothing locks it.
         </Banner>
       )}
       {phase === 1 && p1book.data && <Phase1Legend codes={p1book.data.codes} open={codedCount === 0} />}
@@ -406,6 +553,8 @@ export function CodingTab({ id, phase, detail }: { id: string; phase: Phase; det
               {virtualizer.getVirtualItems().map((v) => {
                 const r = rows[v.index]
                 const active = r.unit.unit_id === selected?.unit.unit_id
+                const pending = openLabels(r)
+                const outOfScope = phase === 2 && r.in_scope === false
                 return (
                   <div
                     key={r.unit.unit_id}
@@ -417,6 +566,7 @@ export function CodingTab({ id, phase, detail }: { id: string; phase: Phase; det
                     className={cn(
                       "absolute inset-x-0 flex cursor-pointer gap-3 border-b px-3 py-2.5",
                       active ? "bg-accent/60" : "hover:bg-muted/50",
+                      outOfScope && "opacity-50",
                     )}
                     style={{ transform: `translateY(${v.start}px)` }}
                   >
@@ -426,13 +576,23 @@ export function CodingTab({ id, phase, detail }: { id: string; phase: Phase; det
                         <span className="ident">{r.unit.unit_id.split("-U").pop()}</span>
                         <span className="tabular-nums">{r.unit.timestamp}</span>
                         <span className={cn(r.unit.role === "interviewer" && "text-primary")}>{roleLabel(r.unit.role)}</span>
+                        {phase === 2 && contextsOf(r).length > 0 && (
+                          <span className="ident" title="Phase 1 pre-classification">
+                            {contextsOf(r).join(" ")}
+                          </span>
+                        )}
+                        {r.coding?.revised_after_ai && <span title="Revised after the AI answer">revised</span>}
+                        {outOfScope && <span className="text-warn">NA in phase 1 now</span>}
                       </div>
                       <p className={cn("verbatim text-[0.98rem]", !active && "line-clamp-3", r.unit.role === "interviewer" && "text-muted-foreground")}>
                         {r.unit.text}
                       </p>
-                      {r.coding && (
-                        <div className="mt-1.5">
-                          <ChipList codes={r.coding.codes} book={codeBook} />
+                      {(r.coding?.codes.length || pending.length > 0) && (
+                        <div className="mt-1.5 flex flex-wrap gap-1">
+                          {r.coding && r.coding.codes.length > 0 && <ChipList codes={r.coding.codes} book={codeBook} />}
+                          {pending.map((t) => (
+                            <PendingChip key={t.id} label={t.label} note={t.note} />
+                          ))}
                         </div>
                       )}
                     </div>
@@ -446,7 +606,7 @@ export function CodingTab({ id, phase, detail }: { id: string; phase: Phase; det
         <aside className="bg-card sticky top-4 max-h-[calc(100svh-2rem)] overflow-y-auto rounded-md border p-4">
           {selected ? (
             <UnitEditor
-              key={`${selected.unit.unit_id}:${JSON.stringify(selected.coding)}`}
+              key={`${selected.unit.unit_id}:${JSON.stringify(selected.coding)}:${openLabels(selected).length}`}
               row={selected}
               phase={phase}
               readOnly={readOnly}
@@ -456,6 +616,8 @@ export function CodingTab({ id, phase, detail }: { id: string; phase: Phase; det
               onPrev={() => go(-1)}
               onNext={() => go(1)}
               position={`${selIndex + 1} of ${rows.length}`}
+              interviewId={id}
+              suggestions={suggestions}
             />
           ) : (
             <p className="text-muted-foreground text-sm">Choose a unit to code it.</p>

@@ -1,6 +1,6 @@
 // Code sets, families and the comparison helpers used across screens.
 
-import type { Code } from "./types"
+import type { Code, Toe } from "./types"
 
 export const NA = "NA"
 
@@ -30,6 +30,7 @@ export const FAMILY_ORDER = [
   "STAGE",
   "CONTEXT",
   "INDUCTIVE",
+  "OTHER",
 ]
 
 const FAMILY_NAMES: Record<string, string> = {
@@ -42,6 +43,7 @@ const FAMILY_NAMES: Record<string, string> = {
   STAGE: "Stage",
   CONTEXT: "Context",
   INDUCTIVE: "Inductive",
+  OTHER: "Not attached to a TOE context",
 }
 
 export function familyName(family: string): string {
@@ -69,6 +71,8 @@ export function familyKey(family: string): string {
       return "context"
     case "INDUCTIVE":
       return "inductive"
+    case "OTHER":
+      return "outcome"
     default:
       return "na"
   }
@@ -79,7 +83,6 @@ export function familyOf(code: string, book?: Code[]): string {
   const known = book?.find((c) => c.code === code)
   if (known) return known.family
   if (code === NA) return "NA"
-  if (code === "INDUCTIVE-PENDING") return "INDUCTIVE"
   if (code.startsWith("TECH")) return "TECH"
   if (code.startsWith("ORG")) return "ORG"
   if (code.startsWith("ENV")) return "ENV"
@@ -97,7 +100,6 @@ export const PHASE1_HOTKEYS: Record<string, string> = {
   o: "ORG",
   e: "ENV",
   c: "CONTEXT",
-  i: "INDUCTIVE-PENDING",
   n: NA,
 }
 
@@ -145,6 +147,43 @@ export function matchesQuery(code: Code, query: string): boolean {
     .some((s) => s.toLowerCase().includes(q))
 }
 
+/** Family of a phase 1 context, by TOE letter. */
+export const TOE_FAMILY: Record<Toe, string> = { T: "TECH", O: "ORG", E: "ENV" }
+const TOE_NAME: Record<Toe, string> = { T: "Technological", O: "Organisational", E: "Environmental" }
+
+/** TOE attachment of a code: its `toe` field, else derived from its family. */
+export function toeOf(code: Code): Toe | null {
+  if (code.toe) return code.toe
+  if (code.family === "TECH") return "T"
+  if (code.family === "ORG") return "O"
+  if (code.family === "ENV") return "E"
+  return null
+}
+
+export interface ToeGroup {
+  key: Toe | "OTHER"
+  title: string
+  /** The unit was pre-classified in this context in phase 1. */
+  highlighted: boolean
+  codes: Code[]
+}
+
+/** Phase 2 picker groups: the TOE contexts of the unit's phase 1
+ * pre-classification first (highlighted), then the other contexts in T, O,
+ * E order, then codes attached to no context. Codebook order within. */
+export function groupByToe(codes: Code[], phase1: string[] = []): ToeGroup[] {
+  const mine = (["T", "O", "E"] as Toe[]).filter((t) => phase1.includes(TOE_FAMILY[t]))
+  const order: (Toe | "OTHER")[] = [...mine, ...(["T", "O", "E"] as Toe[]).filter((t) => !mine.includes(t)), "OTHER"]
+  return order
+    .map((key) => ({
+      key,
+      title: key === "OTHER" ? "Not attached to a TOE context" : `${TOE_NAME[key]} context`,
+      highlighted: key !== "OTHER" && mine.includes(key),
+      codes: codes.filter((c) => (toeOf(c) ?? "OTHER") === key),
+    }))
+    .filter((g) => g.codes.length > 0)
+}
+
 /** Groups codes by family in display order, keeping codebook order within. */
 export function groupByFamily(codes: Code[]): { family: string; codes: Code[] }[] {
   const map = new Map<string, Code[]>()
@@ -174,4 +213,20 @@ export function sameSet(a: string[], b: string[]): boolean {
   if (a.length !== b.length) return false
   const s = new Set(a)
   return b.every((x) => s.has(x))
+}
+
+/** Phase 2 codes the candidate can map a label to. */
+export function phase2Codes(codes: Code[]): Code[] {
+  return codes.filter((c) => c.active && !c.merged_into && c.origin !== "legacy" && c.origin !== "phase1")
+}
+
+/** Upper-case kebab key proposed from a label. */
+export function codeKeyFrom(label: string): string {
+  return label
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 40)
 }

@@ -17,9 +17,11 @@ import { invalidateInterview } from "@/lib/queries"
 import { interviewHref } from "@/lib/router"
 import type { AiRun, AiRunMeta, Phase, PromptPart, ValidationIssue } from "@/lib/types"
 
+/** Parts of the latest prompt batch (each generation is a new batch). */
 function latestSet(parts: PromptPart[]): PromptPart[] {
   if (!parts.length) return []
   const last = parts[parts.length - 1]
+  if (last.batch_id !== undefined) return parts.filter((p) => p.batch_id === last.batch_id)
   return parts.slice(-last.of).filter((p) => p.of === last.of && p.sha256)
 }
 
@@ -86,7 +88,7 @@ function Issues({ issues }: { issues: ValidationIssue[] }) {
   )
 }
 
-function ImportBox({ id, phase, run }: { id: string; phase: Phase; run: AiRun }) {
+function ImportBox({ id, run }: { id: string; run: AiRun }) {
   const qc = useQueryClient()
   const expected = run.parts_expected
   const nextPart = expected ? [...Array(expected).keys()].map((i) => i + 1).find((p) => !run.parts_received.includes(p)) : 1
@@ -94,7 +96,7 @@ function ImportBox({ id, phase, run }: { id: string; phase: Phase; run: AiRun })
   const [raw, setRaw] = useState("")
   const [issues, setIssues] = useState<ValidationIssue[]>([])
   const imp = useMutation({
-    mutationFn: () => api.importOutput(id, phase, run.run_id, raw, part, expected ?? undefined),
+    mutationFn: () => api.importOutput(id, run.run_id, raw, part, expected ?? undefined),
     onSuccess: (r) => {
       setRaw("")
       setIssues([])
@@ -136,7 +138,7 @@ function ImportBox({ id, phase, run }: { id: string; phase: Phase; run: AiRun })
   )
 }
 
-function RunForm({ id, phase, runs, batch }: { id: string; phase: Phase; runs: AiRun[]; batch: number }) {
+function RunForm({ id, runs, batch }: { id: string; runs: AiRun[]; batch: number }) {
   const qc = useQueryClient()
   const [meta, setMeta] = useState({
     run_label: `R${runs.length + 1}`,
@@ -162,8 +164,9 @@ function RunForm({ id, phase, runs, batch }: { id: string; phase: Phase; runs: A
         prompt_id_version: "",
         executed_at: new Date(meta.executed_at).toISOString(),
         notes: meta.notes.trim() || null,
+        batch_id: null,
       }
-      return api.createRun(id, phase, body)
+      return api.createRun(id, body)
     },
     onSuccess: (r) => {
       toast.success(`Run ${r.meta.run_label} recorded`)
@@ -206,15 +209,17 @@ function RunForm({ id, phase, runs, batch }: { id: string; phase: Phase; runs: A
   )
 }
 
-export function AiPassTab({ id, phase }: { id: string; phase: Phase }) {
+const phase: Phase = 2
+
+export function AiPassTab({ id }: { id: string }) {
   const qc = useQueryClient()
   const state = useQuery({ queryKey: ["phase", id, phase], queryFn: () => api.phase(id, phase) })
-  const prompts = useQuery({ queryKey: ["prompts", id, phase], queryFn: () => api.prompts(id, phase) })
-  const runs = useQuery({ queryKey: ["runs", id, phase], queryFn: () => api.runs(id, phase) })
+  const prompts = useQuery({ queryKey: ["prompts", id, phase], queryFn: () => api.prompts(id) })
+  const runs = useQuery({ queryKey: ["runs", id, phase], queryFn: () => api.runs(id) })
   const [batch, setBatch] = useState(60)
 
   const gen = useMutation({
-    mutationFn: () => api.generatePrompts(id, phase, batch),
+    mutationFn: () => api.generatePrompts(id, batch),
     onSuccess: (parts) => {
       qc.setQueryData<PromptPart[]>(["prompts", id, phase], (old) => [...(old ?? []), ...parts])
       toast.success(`${plural(parts.length, "prompt part")} generated and recorded`)
@@ -228,25 +233,24 @@ export function AiPassTab({ id, phase }: { id: string; phase: Phase }) {
   if (state.error) return <Banner tone="danger" title="Phase state unavailable">{state.error.message}</Banner>
   const st = state.data!
   if (st.guard.n_units === 0)
-    return phase === 2 ? (
-      <Banner
-        tone="lock"
-        title="Phase 2 opens once phase 1 is reconciled"
+    return (
+      <EmptyState
+        title="No unit to challenge yet"
         action={
-          <Button size="sm" variant="outline" asChild>
-            <a href={interviewHref(id, "reconciliation", 1)}>Go to phase 1 reconciliation</a>
+          <Button asChild>
+            <a href={interviewHref(id, "coding", 1)}>Go to phase 1</a>
           </Button>
         }
-      />
-    ) : (
-      <EmptyState title="No units yet">Segment a transcript in the Sources tab first.</EmptyState>
+      >
+        The AI challenges your concrete codes of phase 2. Pre-classify units in phase 1, then code them in phase 2.
+      </EmptyState>
     )
 
   return (
     <div className="flex flex-col gap-5">
       {st.guard.complete ? (
-        <Banner tone="ok" title="Your coding of this phase is complete">
-          AI answers can be imported. From the first import on, your coding of this phase is locked.
+        <Banner tone="ok" title="Your phase 2 coding covers every unit in scope">
+          AI answers can be imported. You can still change your codes afterwards: each change is flagged as revised after the AI answer.
         </Banner>
       ) : (
         <Banner
@@ -254,16 +258,15 @@ export function AiPassTab({ id, phase }: { id: string; phase: Phase }) {
           title={`Blind lock: ${plural(st.guard.missing.length, "unit")} left to code before any AI answer can be imported`}
           action={
             <Button size="sm" variant="outline" asChild>
-              <a href={interviewHref(id, "coding", phase)}>Continue coding</a>
+              <a href={interviewHref(id, "coding", 2)}>Continue coding</a>
             </Button>
           }
         >
-          Prompts can be generated now: they contain the units and the codebook, never your codes or memos.
+          Prompts can be generated now: they contain the units and the codebook, never your codes, phase 1 contexts, labels or memos.
         </Banner>
       )}
-      {st.frozen && <Banner tone="lock" title="Phase 1 is frozen">Phase 2 has started: no new run or import for phase 1.</Banner>}
 
-      <Section title="1. Generate the prompt" aside={phase === 1 ? "TOE contexts" : "study-specific codes, by family"}>
+      <Section title="1. Generate the prompt" aside="concrete codes, grouped by TOE context">
         <div className="flex flex-wrap items-end gap-3">
           <label className="flex flex-col gap-1 text-xs">
             <span className="text-muted-foreground">Units per part (0 = one part)</span>
@@ -322,17 +325,16 @@ export function AiPassTab({ id, phase }: { id: string; phase: Phase }) {
           </div>
         )}
         {st.guard.complete &&
-          !st.frozen &&
           (runs.data ?? [])
             .filter((r) => !r.complete)
             .map((r) => (
               <div key={r.run_id} className="mb-5 border-b pb-5">
                 <h3 className="mb-2 text-sm font-semibold">Paste the answer of {r.meta.run_label}</h3>
-                <ImportBox id={id} phase={phase} run={r} />
+                <ImportBox id={id} run={r} />
               </div>
             ))}
         {(runs.data?.length ?? 0) > 0 && <h3 className="mb-2 text-sm font-semibold">Record another run</h3>}
-        <RunForm key={runs.data?.length ?? 0} id={id} phase={phase} runs={runs.data ?? []} batch={batch} />
+        <RunForm key={runs.data?.length ?? 0} id={id} runs={runs.data ?? []} batch={batch} />
       </Section>
     </div>
   )

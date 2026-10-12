@@ -1,16 +1,22 @@
 // Tiny hash router: #/interviews, #/interviews/ECO-07/coding?phase=2,
-// #/codebook, #/audit. Hash routing keeps the embedded server stateless.
+// #/codebook, #/to-clarify, #/cross-case, #/audit. Hash routing keeps the
+// embedded server stateless. `?unit=ECO-07-U003` selects a unit in Coding.
 
 import { useSyncExternalStore } from "react"
 import type { Phase } from "./types"
 
-export type Tab = "sources" | "coding" | "ai" | "reconciliation" | "audit"
-export const TABS: Tab[] = ["sources", "coding", "ai", "reconciliation", "audit"]
+export type Tab = "sources" | "coding" | "ai" | "review" | "cases" | "audit"
+export const TABS: Tab[] = ["sources", "coding", "ai", "review", "cases", "audit"]
+
+/** Tabs that exist in phase 2 only (the AI challenges the detailed codes). */
+export const PHASE2_ONLY: Tab[] = ["ai", "review"]
 
 export type Route =
   | { page: "library" }
-  | { page: "interview"; id: string; tab: Tab; phase: Phase }
+  | { page: "interview"; id: string; tab: Tab; phase: Phase; unit: string | null }
   | { page: "codebook" }
+  | { page: "to-clarify" }
+  | { page: "cross-case" }
   | { page: "audit" }
 
 export function parseHash(hash: string): Route {
@@ -19,17 +25,31 @@ export function parseHash(hash: string): Route {
   const parts = path.split("/").filter(Boolean).map(decodeURIComponent)
   const params = new URLSearchParams(query)
   if (parts[0] === "interviews" && parts[1]) {
-    const tab = TABS.includes(parts[2] as Tab) ? (parts[2] as Tab) : "sources"
-    const phase: Phase = params.get("phase") === "2" ? 2 : 1
-    return { page: "interview", id: parts[1], tab, phase }
+    // v2 links to the reconciliation tab land on the review.
+    const raw = parts[2] === "reconciliation" ? "review" : parts[2]
+    const tab = TABS.includes(raw as Tab) ? (raw as Tab) : "sources"
+    const phase: Phase = PHASE2_ONLY.includes(tab) || params.get("phase") === "2" ? 2 : 1
+    return { page: "interview", id: parts[1], tab, phase, unit: params.get("unit") }
   }
   if (parts[0] === "codebook") return { page: "codebook" }
+  if (parts[0] === "to-clarify") return { page: "to-clarify" }
+  if (parts[0] === "cross-case") return { page: "cross-case" }
   if (parts[0] === "audit") return { page: "audit" }
   return { page: "library" }
 }
 
-export function interviewHref(id: string, tab: Tab = "sources", phase: Phase = 1): string {
-  return `#/interviews/${encodeURIComponent(id)}/${tab}${phase === 2 ? "?phase=2" : ""}`
+export function interviewHref(id: string, tab: Tab = "sources", phase: Phase = 1, unit?: string): string {
+  const q = new URLSearchParams()
+  if (phase === 2 && !PHASE2_ONLY.includes(tab)) q.set("phase", "2")
+  if (unit) q.set("unit", unit)
+  const qs = q.toString()
+  return `#/interviews/${encodeURIComponent(id)}/${tab}${qs ? `?${qs}` : ""}`
+}
+
+/** Link to a unit in the Coding tab of its interview. */
+export function unitHref(unitId: string, phase: Phase = 2): string {
+  const id = unitId.replace(/-U\d+$/, "")
+  return interviewHref(id, "coding", phase, unitId)
 }
 
 function subscribe(cb: () => void) {

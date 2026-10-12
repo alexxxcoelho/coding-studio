@@ -29,9 +29,9 @@ export function AuditTab({ id }: { id: string }) {
       <Section title="Export the audit package" aside="nothing is ever overwritten">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <p className="text-muted-foreground max-w-prose text-sm">
-            Writes a new dated folder next to the database: the units, both codings of each phase, every prompt and raw AI answer, the agreement
-            reports, the adjudication logs, the final codings when reconciled, the inductive log, this interview's audit events and a manifest of
-            SHA-256 hashes.
+            Writes a new dated folder next to the database: the units, the phase 1 pre-classification, your phase 2 coding (with changes made after
+            the AI answer flagged), every prompt and raw AI answer, the review and the final coding, the labels to clarify, the cases, the codebook,
+            this interview's audit events and a manifest of SHA-256 hashes.
           </p>
           <Button onClick={() => exp.mutate()} disabled={exp.isPending}>
             {exp.isPending ? "Writing..." : "Export the package"}

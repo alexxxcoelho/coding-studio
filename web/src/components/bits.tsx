@@ -45,6 +45,15 @@ export function ChipList({ codes, book, empty = "none" }: { codes: string[]; boo
   )
 }
 
+/** A provisional label to clarify (dashed chip). */
+export function PendingChip({ label, note, className }: { label: string; note?: string | null; className?: string }) {
+  return (
+    <span className={cn("chip-pending", className)} title={note ? `To clarify: ${note}` : "To clarify"}>
+      ? {label}
+    </span>
+  )
+}
+
 /** Margin rail: one band per family the unit carries; hatched when uncoded. */
 export function CodeRail({ codes, book }: { codes: string[] | null | undefined; book?: Code[] }) {
   if (!codes || !codes.length) return <span className="rail" data-state="empty" aria-hidden />

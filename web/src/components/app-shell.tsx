@@ -1,6 +1,6 @@
 import type { ReactNode } from "react"
 import { useQuery } from "@tanstack/react-query"
-import { BookMarked, FolderOpen, ScrollText, ShieldAlert, ShieldCheck } from "lucide-react"
+import { BookMarked, FolderOpen, Grid3x3, HelpCircle, ScrollText, ShieldAlert, ShieldCheck } from "lucide-react"
 
 import { ThemeSwitch } from "@/components/theme-switch"
 import { api } from "@/lib/api"
@@ -9,7 +9,9 @@ import { cn } from "@/lib/utils"
 
 const NAV = [
   { href: "#/interviews", page: "library", label: "Interviews", Icon: FolderOpen },
+  { href: "#/to-clarify", page: "to-clarify", label: "To clarify", Icon: HelpCircle },
   { href: "#/codebook", page: "codebook", label: "Codebook", Icon: BookMarked },
+  { href: "#/cross-case", page: "cross-case", label: "Cross-case", Icon: Grid3x3 },
   { href: "#/audit", page: "audit", label: "Audit trail", Icon: ScrollText },
 ] as const
 
@@ -21,6 +23,14 @@ export function Mark({ className }: { className?: string }) {
       style={{ boxShadow: "inset 0 0 0 3px var(--sidebar), inset 0 0 0 6px var(--primary)" }}
     />
   )
+}
+
+/** Number of open labels to clarify, shown in the sidebar. */
+function OpenLabels() {
+  const { data } = useQuery({ queryKey: ["to-clarify", "open"], queryFn: () => api.toClarify({ open: true }), refetchInterval: 60_000 })
+  const n = data?.filter((t) => !t.resolved).length ?? 0
+  if (!n) return null
+  return <span className="text-inductive ml-auto text-xs tabular-nums">{n}</span>
 }
 
 function ChainBadge() {
@@ -66,6 +76,7 @@ export function AppShell({ route, children }: { route: Route; children: ReactNod
             >
               <Icon className="size-4" aria-hidden />
               {label}
+              {page === "to-clarify" && <OpenLabels />}
             </a>
           ))}
         </nav>

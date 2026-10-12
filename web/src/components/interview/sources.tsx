@@ -62,7 +62,7 @@ export function SourcesTab({ detail }: { detail: InterviewDetail }) {
   const id = detail.entry.interview_id
   const [viewing, setViewing] = useState<string | null>(null)
   const seg = detail.segmentation
-  const coded = detail.phase1.n_human_coded > 0 || detail.phase2_started
+  const coded = detail.phase1.n_human_coded > 0 || detail.phase2.n_human_coded > 0
 
   const primary = useMutation({
     mutationFn: (rel: string) => api.setPrimary(id, rel),

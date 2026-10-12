@@ -8,10 +8,13 @@ import type {
   Arbitration,
   ArbitrationChoice,
   AuditEvent,
+  Case,
   ChainCheck,
   Code,
   Codebook,
-  DivergencesAnswer,
+  CodeEdit,
+  CodeUnit,
+  CrossCaseAnswer,
   ExportAnswer,
   FileView,
   FinalAnswer,
@@ -19,12 +22,18 @@ import type {
   InterviewDetail,
   InterviewEntry,
   InterviewSummary,
+  MergeAnswer,
   Phase,
   PhaseState,
   PromptPart,
+  ResearchQuestion,
+  ResolveAnswer,
+  ReviewAnswer,
   Segmentation,
+  ToClarify,
   UnitRow,
   ValidationIssue,
+  WrittenFiles,
 } from "./types"
 
 export type ErrorKind = "validation" | "guard" | "not_found" | "internal" | "network"
@@ -97,6 +106,8 @@ export async function request<T>(method: string, path: string, body?: unknown): 
 const enc = encodeURIComponent
 const iv = (id: string) => `/api/interviews/${enc(id)}`
 const ph = (id: string, p: Phase) => `${iv(id)}/phases/${p}`
+/** AI pass, review and final coding exist in phase 2 only. */
+const p2 = (id: string) => ph(id, 2)
 
 export const api = {
   state: () => request<AppState>("GET", "/api/state"),
@@ -117,26 +128,66 @@ export const api = {
     request<HumanCoding>("PUT", `${ph(id, p)}/coding/${enc(coding.unit_id)}`, coding),
   phase1Codebook: () => request<Codebook>("GET", "/api/codebook/phase1"),
 
-  generatePrompts: (id: string, p: Phase, batch_size: number) =>
-    request<PromptPart[]>("POST", `${ph(id, p)}/prompts`, { batch_size }),
-  prompts: (id: string, p: Phase) => request<PromptPart[]>("GET", `${ph(id, p)}/prompts`),
-  runs: (id: string, p: Phase) => request<AiRun[]>("GET", `${ph(id, p)}/runs`),
-  createRun: (id: string, p: Phase, meta: AiRunMeta) => request<AiRun>("POST", `${ph(id, p)}/runs`, meta),
-  importOutput: (id: string, p: Phase, runId: number, raw: string, part?: number, of?: number) =>
-    request<AiRun>("POST", `${ph(id, p)}/runs/${runId}/outputs`, { raw, part, of }),
+  // ---- AI pass (phase 2)
+  generatePrompts: (id: string, batch_size: number) => request<PromptPart[]>("POST", `${p2(id)}/prompts`, { batch_size }),
+  prompts: (id: string) => request<PromptPart[]>("GET", `${p2(id)}/prompts`),
+  runs: (id: string) => request<AiRun[]>("GET", `${p2(id)}/runs`),
+  createRun: (id: string, meta: AiRunMeta) => request<AiRun>("POST", `${p2(id)}/runs`, meta),
+  importOutput: (id: string, runId: number, raw: string, part?: number, of?: number) =>
+    request<AiRun>("POST", `${p2(id)}/runs/${runId}/outputs`, { raw, part, of }),
 
-  agreement: (id: string, p: Phase) => request<AgreementAnswer>("GET", `${ph(id, p)}/agreement`),
-  divergences: (id: string, p: Phase) => request<DivergencesAnswer>("GET", `${ph(id, p)}/divergences`),
-  arbitrate: (id: string, p: Phase, unitId: string, choice: ArbitrationChoice, final_codes: string[], rationale: string) =>
-    request<Arbitration>("PUT", `${ph(id, p)}/arbitration/${enc(unitId)}`, { choice, final_codes, rationale }),
-  final: (id: string, p: Phase) => request<FinalAnswer>("GET", `${ph(id, p)}/final`),
+  // ---- review (phase 2)
+  agreement: (id: string) => request<AgreementAnswer>("GET", `${iv(id)}/agreement`),
+  review: (id: string) => request<ReviewAnswer>("GET", `${iv(id)}/review`),
+  decide: (id: string, unitId: string, choice: ArbitrationChoice, final_codes: string[], rationale: string) =>
+    request<Arbitration>("PUT", `${iv(id)}/review/${enc(unitId)}`, { choice, final_codes, rationale }),
+  final: (id: string) => request<FinalAnswer>("GET", `${iv(id)}/final`),
 
+  // ---- to clarify
+  toClarify: (opts: { interviewId?: string; open?: boolean } = {}) => {
+    const q = new URLSearchParams()
+    if (opts.interviewId) q.set("interview_id", opts.interviewId)
+    if (opts.open !== undefined) q.set("open", String(opts.open))
+    const qs = q.toString()
+    return request<ToClarify[]>("GET", `/api/to-clarify${qs ? `?${qs}` : ""}`)
+  },
+  addToClarify: (id: string, unitId: string, label: string, note: string) =>
+    request<ToClarify>("POST", `${iv(id)}/units/${enc(unitId)}/to-clarify`, { label, note }),
+  editToClarify: (tid: number, label: string, note: string) =>
+    request<ToClarify>("PUT", `/api/to-clarify/${tid}`, { label, note }),
+  resolveToClarify: (
+    tid: number,
+    body: { kind: "new_code" | "mapped"; code: string; rationale: string; all_with_label: boolean; new_code?: Code },
+  ) => request<ResolveAnswer>("POST", `/api/to-clarify/${tid}/resolve`, body),
+
+  // ---- codebook
   codebook: () => request<Codebook>("GET", "/api/codebook"),
   importCodebook: (coding_db?: string) =>
     request<Codebook>("POST", "/api/codebook/import", coding_db ? { coding_db } : {}),
   addCode: (code: Code) => request<Codebook>("POST", "/api/codebook/codes", code),
+  editCode: (code: string, edit: CodeEdit) => request<Codebook>("PUT", `/api/codebook/codes/${enc(code)}`, edit),
+  mergeCode: (code: string, into: string, rationale: string) =>
+    request<MergeAnswer>("POST", `/api/codebook/codes/${enc(code)}/merge`, { into, rationale }),
+  setActive: (code: string, active: boolean) =>
+    request<Codebook>("POST", `/api/codebook/codes/${enc(code)}/active`, { active }),
   setInPrompt: (code: string, in_prompt: boolean) =>
     request<Codebook>("PUT", `/api/codebook/codes/${enc(code)}/in_prompt`, { in_prompt }),
+  codeUnits: (code: string) => request<CodeUnit[]>("GET", `/api/codebook/codes/${enc(code)}/units`),
+  exportCodebook: () => request<WrittenFiles>("POST", "/api/codebook/export"),
+
+  // ---- research questions
+  questions: () => request<ResearchQuestion[]>("GET", "/api/research-questions"),
+  addQuestion: (id: string, text: string) => request<ResearchQuestion[]>("POST", "/api/research-questions", { id, text }),
+  editQuestion: (id: string, text: string, ord?: number) =>
+    request<ResearchQuestion[]>("PUT", `/api/research-questions/${enc(id)}`, ord === undefined ? { text } : { text, ord }),
+  deleteQuestion: (qid: string) => request<ResearchQuestion[]>("DELETE", `/api/research-questions/${enc(qid)}`),
+
+  // ---- cases
+  cases: (id: string) => request<Case[]>("GET", `${iv(id)}/cases`),
+  allCases: () => request<Case[]>("GET", "/api/cases"),
+  addCase: (id: string, c: Partial<Case>) => request<Case>("POST", `${iv(id)}/cases`, c),
+  editCase: (c: Case) => request<Case>("PUT", `/api/cases/${enc(c.case_id)}`, c),
+  crossCase: () => request<CrossCaseAnswer>("GET", "/api/cross-case"),
 
   audit: (interviewId?: string) =>
     request<AuditEvent[]>("GET", interviewId ? `/api/audit?interview_id=${enc(interviewId)}` : "/api/audit"),
