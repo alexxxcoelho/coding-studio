@@ -1079,7 +1079,9 @@ fn blind_guard_blocks_import_until_the_part_is_coded() {
     s.set_human_coding(ID, 2, &hc(U2, &["TECH-ADV"]), ACTOR)
         .unwrap();
     let p = part(&s, &[U2, U3], &OFFERED, 1, 1);
-    let e = s.record_prompts(std::slice::from_ref(&p), ACTOR).unwrap_err();
+    let e = s
+        .record_prompts(std::slice::from_ref(&p), ACTOR)
+        .unwrap_err();
     assert_eq!(kind(&e), "validation");
     assert!(e.to_string().contains(U3), "{e}");
     assert!(s.prompts(ID).unwrap().is_empty());

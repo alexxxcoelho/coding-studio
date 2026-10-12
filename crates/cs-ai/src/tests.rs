@@ -718,6 +718,8 @@ fn reports_are_deterministic_and_dash_free() {
             unit_id: "ECO-16-U003".into(),
             kind: ReviewKind::Disagreement,
             human: set(&["ORG-CHAMPION"]),
+            human_current: set(&["ORG-CHAMPION"]),
+            revised_since_snapshot: false,
             ai: [("R1".to_string(), set(&["TECH-COST"]))]
                 .into_iter()
                 .collect(),
@@ -731,6 +733,8 @@ fn reports_are_deterministic_and_dash_free() {
             unit_id: "ECO-16-U002".into(),
             kind: ReviewKind::AgreementSample,
             human: set(&["TECH-COST"]),
+            human_current: set(&["TECH-COST"]),
+            revised_since_snapshot: false,
             ai: [("R1".to_string(), set(&["TECH-COST"]))]
                 .into_iter()
                 .collect(),

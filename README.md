@@ -69,16 +69,17 @@ The interface follows the system light or dark setting. The switch in the top ba
 2. Segmentation. Choose the primary transcript and segment it: one unit per continuous speaker turn, turns over 150 words split at sentence ends (the rule of `Scripts/segment_transcript.py`).
 3. Coding. Code each unit with one or more codes, or NA. Optional fields: sub-code, modifier, evidence level, provenance, memo, and a verbatim excerpt that must be an exact substring of the unit. Keyboard: `j` and `k` move, `/` filters codes, `Enter` toggles the highlighted code, `Ctrl Enter` saves and moves on.
 4. AI coding. Generate the prompt (optionally in parts), record the run (model, version, temperature, seed, context length, execution time), paste each answer. P-04 asks for three runs: R1 main model, R2 reworded prompt, R3 a second, open-weight model.
-5. Arbitration. Review agreement (exact agreement, Cohen's kappa per code) and decide every divergence with a written rationale. Then export the audit package from the Audit tab.
+5. Review. Decide every disagreement between the frozen reference and the run with a written rationale, and look at the recorded sample of agreements; agreement figures (exact agreement, Cohen's kappa per code) are reported, not optimised.
+6. Cases. Attribute units, from any interview, to each case (a decision about item-level identification), fill the descriptive fields and the five synthesis fields with what supports, contradicts and is missing; a case without attributed units is undocumented in the cross-case matrix. Then export the audit package from the Audit tab.
 
 ## Protocol guarantees
 
 These rules are enforced by the storage layer, not by the interface, and are covered by tests:
 
-- Blind guard. An AI answer is refused while any unit lacks the candidate's coding.
-- Coding lock. Once an AI answer is imported, the candidate's primary coding of that interview is frozen; changes go through arbitration.
+- Blind guard, at prompt time. A prompt batch cannot be generated while any of its units lacks the candidate's phase 2 coding, and generating it freezes a copy of that coding (`human_snapshots`, with the digests of the units and of the codebook) as the reference of every comparison with the answers to the batch. An AI answer is also refused while any unit of its part lacks the candidate's coding.
+- Immutable reference. The candidate's coding stays editable after the prompt and after the answer, but disagreements, the agreement sample and the agreement figures are computed on the frozen reference; a revised unit is shown with its frozen and its current coding and marked as revised. The initial comparison, the revisions and the final decision are three distinct records.
 - Frozen units. An interview cannot be segmented again once coding has started, so every code always refers to the same unit text.
-- Append-only, hash-chained log. Every write is recorded in the same transaction as the change. Each event carries the SHA-256 of the previous one; database triggers refuse any update or deletion of the log, of prompts, of AI answers and of arbitration records. The chain can be verified at any time from the interface.
+- Append-only, hash-chained log. Every write is recorded in the same transaction as the change. Each event carries the SHA-256 of the previous one; database triggers refuse any update or deletion of the log, of prompts, of frozen references, of AI answers and of arbitration records. The chain can be verified at any time from the interface.
 - Read-only codebook source. `coding.db` is opened read only; codes removed upstream are deactivated, never deleted.
 - Raw answers kept verbatim. Each AI answer is stored exactly as pasted, with its SHA-256, before anything is parsed from it.
 - Determinism. Segmentation and prompts are byte-identical for identical inputs; prompts and segmentations are bound together by hashes, and an answer built on another segmentation is refused.
@@ -100,6 +101,8 @@ These rules are enforced by the storage layer, not by the interface, and are cov
 | `agreement.md` | Exact agreement and kappa per code |
 | `adjudication_log.md` | Every divergence and its decision |
 | `coding_final.csv` | Final coding with its basis (agreed or arbitrated), once complete |
+| `human_snapshot_batch<id>.csv`, `.json` | The frozen reference of each prompt batch |
+| `cases.csv`, `case_units.csv`, `cases.json`, `cases.md` | Cases, their attributed units and their syntheses |
 | `audit_log.jsonl`, `audit_chain.json` | Events of the interview and chain verification |
 | `README.md`, `manifest.json` | Explanation, SHA-256 and size of every file |
 

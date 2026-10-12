@@ -111,3 +111,13 @@ Errors: status 400 (validation), 404 (not found), 409 (protocol guard), 500 (int
 | POST | `/api/interviews/{id}/export` | | `{dir, files: [{name, sha256, size}], manifest_sha256, status}` (`status`: unit, coding, run, review, label and case counts) |
 
 The interview export package holds `units.csv`, `phase1_contexts.csv`, `phase2_coding_human.csv` (with `revised_after_ai`), `phase2_human_full.csv`, `phase2_batch<b>_prompt_part<n>_of<m>_<hash>.txt`, per run `phase2_run<id>_<label>.json`, `phase2_coding_ai_run<id>_<label>.csv` and `phase2_ai_run<id>_<label>_part<n>_raw.txt`, `phase2_agreement.md` and `phase2_review.md` (once a run is complete), `phase2_coding_final.csv`, `to_clarify.csv`, `cases.json`, `cases.md`, `codebook.csv`, `audit_log.jsonl`, `audit_chain.json`, `manifest.json` and `README.md`. The codebook export writes `<db dir>/exports/codebook/<YYYY-MM-DD_HHMMSS>_codebook.csv` and `.sql`, never overwriting.
+
+## v4 additions (12.10.2026, cases across interviews, frozen reference)
+
+- `POST /api/interviews/{id}/phases/2/prompts` is refused (400, `validation`) while any unit of the batch lacks a phase 2 coding; the message lists the unit ids. In the same transaction the server writes the batch's `human_snapshots` row.
+- `GET /api/interviews/{id}/snapshots` -> `HumanSnapshot[]` `{snapshot_id, interview_id, batch_id, phase, segmentation_hash, codebook_hash, codings: {unit_id: codes[]}, sha256, created_at}`.
+- `GET /api/interviews/{id}/review`: items gain `human_current` and `revised_since_snapshot`; `human` is the frozen value; top-level `snapshots: [{run_label, snapshot_id, sha256}]`.
+- `GET /api/interviews/{id}/agreement`: `Candidate vs AI <run>` computed on the frozen reference of the run's batch.
+- Cases (`POST /api/interviews/{id}/cases`, `PUT /api/cases/{case_id}`, `GET /api/cases`, `GET /api/interviews/{id}/cases`): `Case` gains `units` (attributed unit ids, any interview), `interviews` (read-only), `decision`, `granularity`, `carrier_chosen`, `carriers_rejected`, `account_type`, `swiss_link`; `CaseField` gains `contradictions` and `missing`; evidence must be among `units` (400 otherwise). `GET /api/interviews/{id}/cases` also lists cases holding a unit of the interview.
+- `GET /api/cross-case`: cells gain `documented` (false, with empty `codes`, when the case has no attributed unit).
+- Export adds `cases.csv`, `case_units.csv`, `human_snapshot_batch<id>.csv` and `.json`, and two sections in `phase2_review.md` (revisions since the snapshot, snapshots).
