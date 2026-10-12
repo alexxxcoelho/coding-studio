@@ -7,6 +7,7 @@ import { CasesTab } from "@/components/interview/cases"
 import { CodingTab } from "@/components/interview/coding"
 import { ReviewTab } from "@/components/interview/review"
 import { SourcesTab } from "@/components/interview/sources"
+import { VerificationTab } from "@/components/interview/verification"
 import { Skeleton } from "@/components/ui/skeleton"
 import { api, ApiError } from "@/lib/api"
 import { interviewHref, type Tab } from "@/lib/router"
@@ -19,6 +20,7 @@ const TAB_LABELS: { tab: Tab; label: string }[] = [
   { tab: "ai", label: "AI challenge" },
   { tab: "review", label: "Review" },
   { tab: "cases", label: "Cases" },
+  { tab: "verification", label: "Verification" },
   { tab: "audit", label: "Audit and export" },
 ]
 
@@ -118,6 +120,7 @@ export function InterviewPage({ id, tab, phase, unit = null }: { id: string; tab
       {tab === "ai" && <AiPassTab id={id} />}
       {tab === "review" && <ReviewTab id={id} />}
       {tab === "cases" && <CasesTab id={id} detail={d} />}
+      {tab === "verification" && <VerificationTab id={id} />}
       {tab === "audit" && <AuditTab id={id} />}
     </div>
   )

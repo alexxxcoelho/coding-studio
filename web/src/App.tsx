@@ -1,11 +1,13 @@
 import { AppShell } from "@/components/app-shell"
 import { useRoute } from "@/lib/router"
+import { AnswersPage } from "@/pages/answers"
 import { AuditPage } from "@/pages/audit"
 import { CodebookPage } from "@/pages/codebook"
 import { CrossCasePage } from "@/pages/cross-case"
 import { ToClarifyPage } from "@/pages/to-clarify"
 import { InterviewPage } from "@/pages/interview"
 import { LibraryPage } from "@/pages/library"
+import { SaturationPage } from "@/pages/saturation"
 
 export default function App() {
   const route = useRoute()
@@ -16,6 +18,8 @@ export default function App() {
       {route.page === "codebook" && <CodebookPage />}
       {route.page === "to-clarify" && <ToClarifyPage />}
       {route.page === "cross-case" && <CrossCasePage />}
+      {route.page === "answers" && <AnswersPage />}
+      {route.page === "saturation" && <SaturationPage />}
       {route.page === "audit" && <AuditPage />}
     </AppShell>
   )

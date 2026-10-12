@@ -24,3 +24,11 @@ describe("router v3", () => {
     expect(parseHash("#/cross-case")).toEqual({ page: "cross-case" })
   })
 })
+
+describe("router v4", () => {
+  it("parses the verification tab and the answers and saturation pages", () => {
+    expect(parseHash(interviewHref("ECO-07", "verification"))).toMatchObject({ tab: "verification", phase: 1 })
+    expect(parseHash("#/answers")).toEqual({ page: "answers" })
+    expect(parseHash("#/saturation")).toEqual({ page: "saturation" })
+  })
+})

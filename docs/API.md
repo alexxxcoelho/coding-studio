@@ -121,3 +121,14 @@ The interview export package holds `units.csv`, `phase1_contexts.csv`, `phase2_c
 - Cases (`POST /api/interviews/{id}/cases`, `PUT /api/cases/{case_id}`, `GET /api/cases`, `GET /api/interviews/{id}/cases`): `Case` gains `units` (attributed unit ids, any interview), `interviews` (read-only), `decision`, `granularity`, `carrier_chosen`, `carriers_rejected`, `account_type`, `swiss_link`; `CaseField` gains `contradictions` and `missing`; evidence must be among `units` (400 otherwise). `GET /api/interviews/{id}/cases` also lists cases holding a unit of the interview.
 - `GET /api/cross-case`: cells gain `documented` (false, with empty `codes`, when the case has no attributed unit).
 - Export adds `cases.csv`, `case_units.csv`, `human_snapshot_batch<id>.csv` and `.json`, and two sections in `phase2_review.md` (revisions since the snapshot, snapshots).
+
+## Lot 2 additions (12.10.2026 evening, decisions D1 to D8)
+
+- Flags: `GET /api/interviews/{id}/flags`, `PUT /api/interviews/{id}/units/{unit_id}/flags` `{flags, co_constructed_kind?}` (closed list VERIFY, SECOND-HAND, UNFINISHED, CO-CONSTRUCTED; the kind, assent or content, is required with CO-CONSTRUCTED).
+- Corrections: `GET`/`POST /api/interviews/{id}/units/{unit_id}/corrections` `{text, role, reason}`; append-only overlay, the segmentation is never rewritten; `unit.corrected` and the current text appear in the phase unit rows.
+- Verification: `GET /api/interviews/{id}/verification` -> `{status: VerificationStatus[], targets: VerificationTarget[], coverage}`; `PUT /api/interviews/{id}/units/{unit_id}/verification` `{state: verified|unusable, note?}`; a correction makes the state unverified and stale.
+- Claims: `GET /api/interviews/{id}/claims`, `GET /api/interviews/{id}/units/{unit_id}/claims`, `POST /api/interviews/{id}/claims` (`Claim`, excerpt exact substring, codes among the unit's codes, closed lists EV0..EV4, provenances, roles), `PUT`/`DELETE /api/claims/{claim_id}`, `GET /api/interviews/{id}/claims/review` -> `[{claim_id, reason}]`.
+- Memos: `GET`/`PUT /api/research-questions/{id}/memo` (`RqMemo`, four parts, units for and against).
+- Saturation: `GET /api/saturation` -> `SaturationRow[]` (provisional).
+- Exports: per interview adds `units_verification.csv`, `unit_corrections.csv`, `claims.csv`, `ev_distribution.csv`, `provenance_distribution.csv`, `roles_distribution.csv`, `state.json` (digest of the whole state, generator version and git description) and `db_snapshot.sqlite`; `POST /api/export/cross-case` writes `answers.md`, `cross_case.csv`, `saturation.csv`, `saturation.md`, `cases.csv`, `state.json`, `manifest.json`, `README.md`.
+- Prompt version `CS-P04-EN v3.1`: unit identifiers found in code texts are redacted as `[unit]`.

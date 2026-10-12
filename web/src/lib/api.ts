@@ -10,10 +10,14 @@ import type {
   AuditEvent,
   Case,
   ChainCheck,
+  Claim,
+  ClaimInput,
+  ClaimReview,
   Code,
   Codebook,
   CodeEdit,
   CodeUnit,
+  CoConstructedKind,
   CrossCaseAnswer,
   ExportAnswer,
   FileView,
@@ -30,10 +34,17 @@ import type {
   ResearchQuestion,
   ResolveAnswer,
   ReviewAnswer,
+  RqMemo,
+  SaturationRow,
   Segmentation,
+  SpeakerRole,
   ToClarify,
+  UnitCorrection,
+  UnitFlags,
   UnitRow,
   ValidationIssue,
+  VerificationAnswer,
+  VerificationState,
   WrittenFiles,
 } from "./types"
 
@@ -195,4 +206,34 @@ export const api = {
     request<AuditEvent[]>("GET", interviewId ? `/api/audit?interview_id=${enc(interviewId)}` : "/api/audit"),
   verify: () => request<ChainCheck>("GET", "/api/audit/verify"),
   exportPackage: (id: string) => request<ExportAnswer>("POST", `${iv(id)}/export`),
+
+  // ---- unit flags, corrections, verification (phase independent, per interview)
+  flags: (id: string) => request<UnitFlags[]>("GET", `${iv(id)}/flags`),
+  setFlags: (id: string, unitId: string, flags: string[], co_constructed_kind: CoConstructedKind | null) =>
+    request<UnitFlags>("PUT", `${iv(id)}/units/${enc(unitId)}/flags`, { flags, co_constructed_kind }),
+  corrections: (id: string, unitId: string) => request<UnitCorrection[]>("GET", `${iv(id)}/units/${enc(unitId)}/corrections`),
+  correctUnit: (id: string, unitId: string, body: { text: string; role: SpeakerRole; reason: string }) =>
+    request<UnitCorrection>("POST", `${iv(id)}/units/${enc(unitId)}/corrections`, body),
+  verification: (id: string) => request<VerificationAnswer>("GET", `${iv(id)}/verification`),
+  verifyUnit: (id: string, unitId: string, state: VerificationState, note: string | null) =>
+    request<unknown>("PUT", `${iv(id)}/units/${enc(unitId)}/verification`, { state, note }),
+
+  // ---- claims
+  claims: (id: string) => request<Claim[]>("GET", `${iv(id)}/claims`),
+  claimsReview: (id: string) => request<ClaimReview[]>("GET", `${iv(id)}/claims/review`),
+  addClaim: (id: string, claim: ClaimInput) => request<Claim>("POST", `${iv(id)}/claims`, claim),
+  editClaim: (claimId: number, claim: ClaimInput) => request<Claim>("PUT", `/api/claims/${claimId}`, claim),
+  deleteClaim: (claimId: number) => request<{ deleted: number }>("DELETE", `/api/claims/${claimId}`),
+
+  // ---- research question memos: a question without memo answers 404, read here as null
+  rqMemo: (rq: string) =>
+    request<RqMemo>("GET", `/api/research-questions/${enc(rq)}/memo`).catch((e: unknown) => {
+      if (e instanceof ApiError && e.kind === "not_found") return null
+      throw e
+    }),
+  setRqMemo: (rq: string, memo: Omit<RqMemo, "rq_id" | "updated_at">) =>
+    request<RqMemo>("PUT", `/api/research-questions/${enc(rq)}/memo`, memo),
+
+  // ---- saturation
+  saturation: () => request<SaturationRow[]>("GET", "/api/saturation"),
 }

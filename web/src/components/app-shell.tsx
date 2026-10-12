@@ -1,6 +1,6 @@
 import type { ReactNode } from "react"
 import { useQuery } from "@tanstack/react-query"
-import { BookMarked, FolderOpen, Grid3x3, HelpCircle, ScrollText, ShieldAlert, ShieldCheck } from "lucide-react"
+import { BookMarked, FolderOpen, Grid3x3, HelpCircle, NotebookPen, ScrollText, ShieldAlert, ShieldCheck, TrendingUp } from "lucide-react"
 
 import { ThemeSwitch } from "@/components/theme-switch"
 import { api } from "@/lib/api"
@@ -12,6 +12,8 @@ const NAV = [
   { href: "#/to-clarify", page: "to-clarify", label: "To clarify", Icon: HelpCircle },
   { href: "#/codebook", page: "codebook", label: "Codebook", Icon: BookMarked },
   { href: "#/cross-case", page: "cross-case", label: "Cross-case", Icon: Grid3x3 },
+  { href: "#/answers", page: "answers", label: "Answers", Icon: NotebookPen },
+  { href: "#/saturation", page: "saturation", label: "Saturation", Icon: TrendingUp },
   { href: "#/audit", page: "audit", label: "Audit trail", Icon: ScrollText },
 ] as const
 

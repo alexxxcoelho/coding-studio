@@ -72,6 +72,9 @@ The interface follows the system light or dark setting. The switch in the top ba
 5. Review. Decide every disagreement between the frozen reference and the run with a written rationale, and look at the recorded sample of agreements; agreement figures (exact agreement, Cohen's kappa per code) are reported, not optimised.
 6. Cases. Attribute units, from any interview, to each case (a decision about item-level identification), fill the descriptive fields and the five synthesis fields with what supports, contradicts and is missing; a case without attributed units is undocumented in the cross-case matrix. Then export the audit package from the Audit tab.
 
+7. Claims and verification. On each unit, mark the exact passages that carry a statement and qualify them (evidence level, provenance, role in the decision); flag uncertain, second-hand, unfinished or co-constructed units; record corrections against the recording with a reason; mark units verified or unusable. The Verification tab lists what must be checked and the coverage reached.
+8. Answers. Keep a memo per research question (documented, interpretation, competing explanations, limits) and export the cross-case package (answers, matrix, saturation record).
+
 ## Protocol guarantees
 
 These rules are enforced by the storage layer, not by the interface, and are covered by tests:
@@ -81,6 +84,8 @@ These rules are enforced by the storage layer, not by the interface, and are cov
 - Frozen units. An interview cannot be segmented again once coding has started, so every code always refers to the same unit text.
 - Append-only, hash-chained log. Every write is recorded in the same transaction as the change. Each event carries the SHA-256 of the previous one; database triggers refuse any update or deletion of the log, of prompts, of frozen references, of AI answers and of arbitration records. The chain can be verified at any time from the interface.
 - Read-only codebook source. `coding.db` is opened read only; codes removed upstream are deactivated, never deleted.
+- Corrections never rewrite the segmentation: they are append-only overlays, and a corrected unit returns to the unverified state.
+- The prompt redacts unit identifiers found in code texts, so the codebook cannot reveal the candidate's coding of the challenged units.
 - Raw answers kept verbatim. Each AI answer is stored exactly as pasted, with its SHA-256, before anything is parsed from it.
 - Determinism. Segmentation and prompts are byte-identical for identical inputs; prompts and segmentations are bound together by hashes, and an answer built on another segmentation is refused.
 - Strict validation. An AI answer must name the right interview and segmentation, cover every unit of its part exactly once, and use only codes offered in the prompt or NA. All problems are reported at once.
@@ -103,6 +108,9 @@ These rules are enforced by the storage layer, not by the interface, and are cov
 | `coding_final.csv` | Final coding with its basis (agreed or arbitrated), once complete |
 | `human_snapshot_batch<id>.csv`, `.json` | The frozen reference of each prompt batch |
 | `cases.csv`, `case_units.csv`, `cases.json`, `cases.md` | Cases, their attributed units and their syntheses |
+| `claims.csv`, `ev_distribution.csv`, `provenance_distribution.csv`, `roles_distribution.csv` | Claims and their distributions (counting unit: the claim) |
+| `units_verification.csv`, `unit_corrections.csv` | Verification states, flags, corrections |
+| `state.json`, `db_snapshot.sqlite` | Digest of the whole state behind the package, generator version, database copy |
 | `audit_log.jsonl`, `audit_chain.json` | Events of the interview and chain verification |
 | `README.md`, `manifest.json` | Explanation, SHA-256 and size of every file |
 

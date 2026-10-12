@@ -5,8 +5,8 @@
 import { useSyncExternalStore } from "react"
 import type { Phase } from "./types"
 
-export type Tab = "sources" | "coding" | "ai" | "review" | "cases" | "audit"
-export const TABS: Tab[] = ["sources", "coding", "ai", "review", "cases", "audit"]
+export type Tab = "sources" | "coding" | "ai" | "review" | "cases" | "verification" | "audit"
+export const TABS: Tab[] = ["sources", "coding", "ai", "review", "cases", "verification", "audit"]
 
 /** Tabs that exist in phase 2 only (the AI challenges the detailed codes). */
 export const PHASE2_ONLY: Tab[] = ["ai", "review"]
@@ -17,6 +17,8 @@ export type Route =
   | { page: "codebook" }
   | { page: "to-clarify" }
   | { page: "cross-case" }
+  | { page: "answers" }
+  | { page: "saturation" }
   | { page: "audit" }
 
 export function parseHash(hash: string): Route {
@@ -34,6 +36,8 @@ export function parseHash(hash: string): Route {
   if (parts[0] === "codebook") return { page: "codebook" }
   if (parts[0] === "to-clarify") return { page: "to-clarify" }
   if (parts[0] === "cross-case") return { page: "cross-case" }
+  if (parts[0] === "answers") return { page: "answers" }
+  if (parts[0] === "saturation") return { page: "saturation" }
   if (parts[0] === "audit") return { page: "audit" }
   return { page: "library" }
 }

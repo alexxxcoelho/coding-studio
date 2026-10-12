@@ -6,6 +6,7 @@ import { toast } from "sonner"
 import { Banner, ChipList, CodeChip, CodeRail, EmptyState, PendingChip } from "@/components/bits"
 import { reportError } from "@/lib/notify"
 import { CodePicker } from "@/components/code-picker"
+import { QualificationPanel } from "@/components/interview/qualifications"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -283,6 +284,11 @@ function UnitEditor({
           <span className="ident font-semibold">{row.unit.unit_id}</span>
           <span className="text-muted-foreground tabular-nums">{row.unit.timestamp}</span>
           <Badge variant={row.unit.role === "respondent" ? "secondary" : "outline"}>{roleLabel(row.unit.role)}</Badge>
+          {row.unit.corrected && (
+            <Badge variant="outline" className="text-warn" title="The text or speaker comes from a correction; the segmentation is unchanged">
+              corrected
+            </Badge>
+          )}
         </div>
         <div className="flex items-center gap-1">
           <span className="text-muted-foreground mr-1 text-xs tabular-nums">{position}</span>
@@ -382,6 +388,8 @@ function UnitEditor({
           )}
         </label>
       </div>
+
+      {phase === 2 && <QualificationPanel interviewId={interviewId} row={row} textRef={textRef} />}
 
       {!readOnly && (
         <div className="flex items-center justify-between gap-2 border-t pt-3">
@@ -582,6 +590,8 @@ export function CodingTab({
                           </span>
                         )}
                         {r.coding?.revised_after_ai && <span title="Revised after the AI answer">revised</span>}
+                        {r.unit.corrected && <span className="text-warn">corrected</span>}
+                        {phase === 2 && r.flags && r.flags.length > 0 && <span title="Flags of the unit">{r.flags.join(", ")}</span>}
                         {outOfScope && <span className="text-warn">NA in phase 1 now</span>}
                       </div>
                       <p className={cn("verbatim text-[0.98rem]", !active && "line-clamp-3", r.unit.role === "interviewer" && "text-muted-foreground")}>

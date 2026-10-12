@@ -32,6 +32,7 @@ export interface InterviewEntry {
 }
 
 export type SpeakerRole = "interviewer" | "respondent" | "unknown"
+export const SPEAKER_ROLES: readonly SpeakerRole[] = ["interviewer", "respondent", "unknown"]
 
 export interface Unit {
   unit_id: string
@@ -40,6 +41,8 @@ export interface Unit {
   role: SpeakerRole
   timestamp: string
   text: string
+  /** Set by the server when the current text or role comes from a correction. */
+  corrected?: boolean
 }
 
 export interface Segmentation {
@@ -449,6 +452,120 @@ export interface UnitRow {
   /** Phase 2: false when phase 1 now says NA (coding kept, excluded from new prompts). */
   in_scope?: boolean
   to_clarify?: ToClarify[]
+  /** Phase 2: qualifications of the statement(s) inside the unit. */
+  claims?: Claim[]
+  /** Phase 2: current flags of the unit (subset of UNIT_FLAGS). */
+  flags?: string[]
+  /** Phase 2: state as computed by the server; `stale` when the unit changed since. */
+  verification?: { state: VerificationState; stale: boolean }
+}
+
+// ------------------------------------------------- verification, flags, claims
+
+/** Closed lists, mirrored from crates/cs-model/src/lib.rs. */
+export const UNIT_FLAGS = ["VERIFY", "SECOND-HAND", "UNFINISHED", "CO-CONSTRUCTED"] as const
+export type UnitFlag = (typeof UNIT_FLAGS)[number]
+export const CO_CONSTRUCTED_KINDS = ["assent", "content"] as const
+export type CoConstructedKind = (typeof CO_CONSTRUCTED_KINDS)[number]
+export const VERIFICATION_STATES = ["unverified", "verified", "unusable"] as const
+export type VerificationState = (typeof VERIFICATION_STATES)[number]
+export const CLAIM_ROLES = ["trigger", "retrospective-justification", "enabling-condition", "constraint", "undetermined"] as const
+export type ClaimRole = (typeof CLAIM_ROLES)[number]
+/** Reasons a unit is a verification target. */
+export type VerificationReason = "quoted" | "flagged" | "disagreement" | "case" | "sample"
+
+export interface UnitFlags {
+  interview_id: string
+  unit_id: string
+  flags: string[]
+  co_constructed_kind: CoConstructedKind | null
+  updated_at: string
+}
+
+export interface UnitCorrection {
+  correction_id: number
+  interview_id: string
+  unit_id: string
+  text: string
+  role: SpeakerRole
+  reason: string
+  created_at: string
+  created_by: string
+}
+
+export interface VerificationStatus {
+  unit_id: string
+  state: VerificationState
+  stale: boolean
+  at: string | null
+  by: string | null
+  note: string | null
+}
+
+export interface VerificationTarget {
+  unit_id: string
+  reasons: VerificationReason[]
+}
+
+export interface VerificationCoverage {
+  n_units: number
+  n_verified: number
+  n_unusable: number
+  n_stale: number
+  n_targets: number
+  n_targets_verified: number
+}
+
+export interface VerificationAnswer {
+  status: VerificationStatus[]
+  targets: VerificationTarget[]
+  coverage: VerificationCoverage
+}
+
+/** A qualification of a statement inside a unit. Excerpt is an exact substring of the unit text. */
+export interface Claim {
+  claim_id: number
+  interview_id: string
+  unit_id: string
+  excerpt: string
+  codes: string[]
+  ev_level: string | null
+  provenance: string | null
+  /** One of CLAIM_ROLES (typed as string so a future server value still renders). */
+  role: string | null
+  memo: string | null
+  created_at: string
+  updated_at: string
+}
+
+/** Body of a claim create or edit: server-set fields may be omitted. */
+export type ClaimInput = Pick<Claim, "unit_id" | "excerpt" | "codes" | "ev_level" | "provenance" | "role" | "memo"> &
+  Partial<Pick<Claim, "claim_id" | "interview_id">>
+
+export interface ClaimReview {
+  claim_id: number
+  reason: string
+}
+
+export interface RqMemo {
+  rq_id: string
+  documented: string
+  interpretation: string
+  rivals: string
+  limits: string
+  units_for: string[]
+  units_against: string[]
+  updated_at: string
+}
+
+export interface SaturationRow {
+  interview_id: string
+  order: number
+  first_coded_at: string
+  codes_first_used: string[]
+  field_codes_created: string[]
+  labels_opened: number
+  labels_resolved: number
 }
 
 export interface AgreementAnswer {

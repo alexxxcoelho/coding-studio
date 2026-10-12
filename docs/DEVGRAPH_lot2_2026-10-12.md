@@ -41,16 +41,18 @@ Source: `03_Method/generated/2026-10-12_METHOD_reference_v4.md` (decisions D1 to
 
 | id | task | scope | owner | depends | status |
 |---|---|---|---|---|---|
-| T12 | Model types C3 to C6 and schema tables + triggers | cs-model lib.rs, cs-store schema.sql | Haiku | none | todo |
-| T13 | Tests C3 (red) | cs-store tests/verification_v4.rs | Sonnet | T12 | todo |
-| T14 | Tests C4, C5, C6 (red) | cs-store tests/claims_v4.rs, tests/memos_saturation_v4.rs | Sonnet | T12 | todo |
-| T15 | Implement C3 | cs-store src/verification.rs (new), lib.rs (`current_unit`), coding.rs (excerpt check on current text) | Haiku | T13 | todo |
-| T16 | Implement C4, C5, C6 | cs-store src/claims.rs, src/memos.rs, src/saturation.rs (new), lib.rs mod decls | Haiku | T14 | todo |
-| T17 | API routes + api.rs tests | cs-app lib.rs, tests/api.rs | Sonnet then Haiku | T15, T16 | todo |
-| T18 | Exports C3 to C7, state.json, db snapshot; cs-ai redaction + sentinel test | cs-app export.rs, cs-ai prompt.rs + tests.rs | Haiku | T17 | todo |
-| T19 | Web: verification panel, claims editor, RQ memo page, saturation page | web/src | Haiku | T17 | todo |
-| T20 | Docs and full check, bundle | docs, all | orchestrator + Haiku run | T18, T19 | todo |
+| T12 | Model types C3 to C6 and schema tables + triggers | cs-model lib.rs, cs-store schema.sql | Haiku | none | green |
+| T13 | Tests C3 (red) | cs-store tests/verification_v4.rs | Sonnet | T12 | green |
+| T14 | Tests C4, C5, C6 (red) | cs-store tests/claims_v4.rs, tests/memos_saturation_v4.rs | Sonnet | T12 | green |
+| T15 | Implement C3 | cs-store src/verification.rs (new), lib.rs (`current_unit`), coding.rs (excerpt check on current text) | Haiku | T13 | green |
+| T16 | Implement C4, C5, C6 | cs-store src/claims.rs, src/memos.rs, src/saturation.rs (new), lib.rs mod decls | Haiku | T14 | green |
+| T17 | API routes + api.rs tests | cs-app lib.rs, tests/api.rs | Sonnet then Haiku | T15, T16 | green |
+| T18 | Exports C3 to C7, state.json, db snapshot; cs-ai redaction + sentinel test | cs-app export.rs, cs-ai prompt.rs + tests.rs | Haiku | T17 | green |
+| T19 | Web: verification panel, claims editor, RQ memo page, saturation page | web/src | Haiku | T17 | green |
+| T20 | Docs and full check, bundle | docs, all | orchestrator + Haiku run | T18, T19 | green |
 
 ## Log
 
 - 12.10 21:45 lot 2 opened after decisions D1 to D8.
+- 12.10 22:15 lot 2 green: cs-store 71, cs-app 11, cs-ai 26, cs-ingest 23, cs-model 9 tests; web 66 tests; clippy 0; web-dist rebuilt. Decisions recorded: D-011 (retroactive) and D-012 in the thesis Decision Log; reference method `03_Method/generated/2026-10-12_METHOD_reference_v4.md`.
+- Choices made by implementers, to keep in mind: unattributable field codes listed under interview "" in the saturation record (C6); corrected units also overlay phase 1 rows; `current_unit` stays crate-private, cs-app overlays corrections itself; claim codes validated against the unit's current coding; first export of an interview draws the verification sample seed.
