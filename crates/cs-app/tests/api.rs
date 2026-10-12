@@ -174,7 +174,7 @@ async fn two_phase_round_trip() {
     assert_eq!(st, StatusCode::OK);
     assert_eq!(
         names(&p1book["codes"]),
-        ["TECH", "ORG", "ENV", "INDUCTIVE-PENDING"]
+        ["TECH", "ORG", "ENV", "CONTEXT", "INDUCTIVE-PENDING"]
     );
     let (st, scan) = call(
         app,
@@ -221,7 +221,7 @@ async fn two_phase_round_trip() {
     assert_eq!(rows.as_array().unwrap().len(), 6);
     assert_eq!(
         names(&rows[0]["allowed"]),
-        ["TECH", "ORG", "ENV", "INDUCTIVE-PENDING"]
+        ["TECH", "ORG", "ENV", "CONTEXT", "INDUCTIVE-PENDING"]
     );
 
     let (st, parts) = call(
@@ -354,7 +354,7 @@ async fn two_phase_round_trip() {
     assert_eq!(st, StatusCode::OK, "{div}");
     assert_eq!(div["n_divergences"], 1);
     assert_eq!(div["items"][0]["divergence"]["unit_id"], u(3).as_str());
-    assert_eq!(names(&div["items"][0]["allowed"]).len(), 4);
+    assert_eq!(names(&div["items"][0]["allowed"]).len(), 5);
 
     let arb1 = format!("{P1}/arbitration/{}", u(3));
     let (st, _) = call(

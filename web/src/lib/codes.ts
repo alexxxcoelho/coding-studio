@@ -91,11 +91,12 @@ export function familyOf(code: string, book?: Code[]): string {
   return "INDUCTIVE"
 }
 
-/** Phase 1 single-key shortcuts: one letter per TOE category, plus NA. */
+/** Phase 1 single-key shortcuts: one letter per category, plus NA. */
 export const PHASE1_HOTKEYS: Record<string, string> = {
   t: "TECH",
   o: "ORG",
   e: "ENV",
+  c: "CONTEXT",
   i: "INDUCTIVE-PENDING",
   n: NA,
 }
@@ -115,6 +116,14 @@ export function codeForKey(key: string, phase: number, allowed: string[]): strin
   const code = PHASE1_HOTKEYS[key.toLowerCase()]
   if (!code) return null
   return code === NA || allowed.includes(code) ? code : null
+}
+
+/** Adds a code to a set (no removal). NA replaces everything; any other
+ * code removes NA. Result is sorted. */
+export function addCode(current: string[], code: string): string[] {
+  if (code === NA) return [NA]
+  if (current.includes(code)) return [...current].sort()
+  return [...current.filter((c) => c !== NA), code].sort()
 }
 
 /** Toggles a code in a set. NA is exclusive: choosing it clears the rest,

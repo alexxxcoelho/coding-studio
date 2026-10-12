@@ -691,12 +691,12 @@ fn phase1_prompt_uses_the_toe_contexts() {
     assert!(no_dash(&p.text));
     assert!(p.text.contains("Phase 1 of 2: TOE contexts"));
     assert!(p.text.contains("- \"phase\": 1"));
-    for code in ["TECH", "ORG", "ENV", "INDUCTIVE-PENDING"] {
+    for code in ["TECH", "ORG", "ENV", "CONTEXT", "INDUCTIVE-PENDING"] {
         assert!(p.text.contains(&format!("{{\"code\":\"{code}\"")), "{code}");
     }
     assert!(p
         .text
-        .contains("These 4 codes and NA are the only valid values."));
+        .contains("These 5 codes and NA are the only valid values."));
     assert!(!p.text.contains("allowed_codes"));
 
     // A round trip with several contexts on one unit.

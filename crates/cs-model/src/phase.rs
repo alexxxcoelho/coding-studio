@@ -1,8 +1,9 @@
 //! The two coding phases.
 //!
 //! Phase 1 codes every unit against the three contexts of the TOE framework
-//! (Tornatzky and Fleischer 1990, as summarised by Baker 2012), plus one closed
-//! category for relevant material outside the framework. The framework names
+//! (Tornatzky and Fleischer 1990, as summarised by Baker 2012), plus two closed
+//! categories: descriptive context of the account, and relevant material outside
+//! the framework. The framework names
 //! the contexts but prescribes no fixed list of factors within them; the
 //! factors are study-specific, so they belong to phase 2.
 //!
@@ -21,7 +22,7 @@ pub const PHASE_2: u8 = 2;
 
 /// Identifier of the phase 1 category set, stored with prompts and exports.
 pub const PHASE1_CODEBOOK_VERSION: &str =
-    "TOE-contexts v1.0 (draft, to be validated by the candidate)";
+    "TOE-contexts v1.1 (draft, to be validated by the candidate)";
 
 /// Families whose study-specific codes are reachable from a phase 1 code.
 pub const TOE_FAMILIES: [&str; 3] = ["TECH", "ORG", "ENV"];
@@ -29,6 +30,9 @@ pub const TOE_FAMILIES: [&str; 3] = ["TECH", "ORG", "ENV"];
 /// Families open to every relevant unit in phase 2, whatever its context.
 pub const CROSS_CUTTING_FAMILIES: [&str; 5] =
     ["OUTCOME", "TURNING-POINT", "TRANSFER", "STAGE", "CONTEXT"];
+
+/// Phase 1 code for descriptive material: respondent, organisation, scope.
+pub const CONTEXT: &str = "CONTEXT";
 
 /// Phase 1 code for relevant material outside the three contexts.
 pub const OUTSIDE_TOE: &str = "INDUCTIVE-PENDING";
@@ -68,6 +72,12 @@ pub fn phase1_codebook() -> Codebook {
                 "ENV",
                 "Environmental and interorganisational context",
                 "The setting in which the organisation operates: industry and market structure, competitors, customers, suppliers and value-chain partners (who tags, who pays, who mandates), technology suppliers and support, regulation and standards bodies.",
+            ),
+            c(
+                CONTEXT,
+                "CONTEXT",
+                "Context of the account",
+                "Descriptive information about the respondent, the organisation or the scope of the account: role, background, company, portfolio, which project, where and when. It explains nothing about adoption on its own: when the unit says why adoption advanced, stalled or failed, code TECH, ORG or ENV instead.",
             ),
             c(
                 OUTSIDE_TOE,
@@ -132,10 +142,10 @@ mod tests {
     }
 
     #[test]
-    fn phase1_has_the_three_contexts_and_the_outside_category() {
+    fn phase1_has_the_three_contexts_context_and_the_outside_category() {
         let book = phase1_codebook();
         let codes: Vec<&str> = book.codes.iter().map(|c| c.code.as_str()).collect();
-        assert_eq!(codes, ["TECH", "ORG", "ENV", OUTSIDE_TOE]);
+        assert_eq!(codes, ["TECH", "ORG", "ENV", CONTEXT, OUTSIDE_TOE]);
         assert!(book
             .codes
             .iter()

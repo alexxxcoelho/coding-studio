@@ -327,8 +327,10 @@ code that appears in an allowed_codes list."
 technology-organisation-environment (TOE) framework the unit speaks to: the technological \
 context (TECH), the organisational context (ORG) or the environmental and \
 interorganisational context (ENV). A unit that touches two or three contexts carries each \
-of them. INDUCTIVE-PENDING marks material that is relevant to the study but that none of \
-the three contexts accommodates. NA marks a unit that is not relevant."
+of them. CONTEXT marks descriptive information about the respondent, the organisation or \
+the scope of the account that explains nothing about adoption on its own. \
+INDUCTIVE-PENDING marks material that is relevant to the study but that none of the three \
+contexts accommodates. NA marks a unit that is not relevant."
         );
     }
     let _ = writeln!(t);

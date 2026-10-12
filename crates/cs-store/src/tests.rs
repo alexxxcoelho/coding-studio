@@ -1033,7 +1033,7 @@ fn allowed_codes_follow_the_reconciled_contexts() {
         .into_iter()
         .map(|c| c.code)
         .collect();
-    assert_eq!(p1, ["TECH", "ORG", "ENV", "INDUCTIVE-PENDING"]);
+    assert_eq!(p1, ["TECH", "ORG", "ENV", "CONTEXT", "INDUCTIVE-PENDING"]);
 
     reconcile_phase1(&s);
     assert_eq!(

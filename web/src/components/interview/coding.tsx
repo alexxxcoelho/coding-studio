@@ -15,7 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from "@/components/ui/skeleton"
 import { Textarea } from "@/components/ui/textarea"
 import { api } from "@/lib/api"
-import { codeForKey, EV_LEVELS, hotkeyFor, MODIFIERS, PROVENANCES, sameSet, toggleCode } from "@/lib/codes"
+import { addCode, codeForKey, EV_LEVELS, hotkeyFor, MODIFIERS, PROVENANCES, sameSet, toggleCode } from "@/lib/codes"
 import { roleLabel } from "@/lib/format"
 import { invalidateInterview } from "@/lib/queries"
 import { interviewHref } from "@/lib/router"
@@ -84,7 +84,7 @@ function OptionSelect({
 function Phase1Legend({ codes, open }: { codes: Code[]; open: boolean }) {
   return (
     <details className="bg-card rounded-md border px-4 py-2.5 text-sm" open={open}>
-      <summary className="cursor-pointer font-medium">The four phase 1 categories</summary>
+      <summary className="cursor-pointer font-medium">The five phase 1 categories</summary>
       <dl className="mt-2 grid gap-x-6 gap-y-2 md:grid-cols-2">
         {codes.map((c) => (
           <div key={c.code} className="flex gap-2.5">
@@ -99,8 +99,8 @@ function Phase1Legend({ codes, open }: { codes: Code[]; open: boolean }) {
         ))}
       </dl>
       <p className="text-muted-foreground mt-2 text-xs">
-        A unit may touch several contexts. NA when the unit is not relevant. Keys T, O, E, I and N toggle a category, Ctrl/Cmd Enter saves and
-        moves to the next unit.
+        NA when the unit is not relevant. Keys T, O, E, C, I and N code the unit, save it and move to the next one. For a unit that touches
+        several categories, hold Shift to add each one without saving (Shift T, Shift E), then press the last letter or Ctrl/Cmd Enter.
       </p>
     </details>
   )
@@ -158,21 +158,27 @@ function UnitEditor({
         save()
         return
       }
-      // Phase 1: T, O, E, I, N toggle a category, unless the user is typing.
-      if (readOnly || e.metaKey || e.ctrlKey || e.altKey || e.repeat || isTyping(e.target)) return
+      // Phase 1: a letter adds its category, saves and moves on; with Shift it
+      // only toggles, for a unit that touches several contexts.
+      if (readOnly || saving || e.metaKey || e.ctrlKey || e.altKey || e.repeat || isTyping(e.target)) return
       const code = codeForKey(
         e.key,
         phase,
         row.allowed.map((c) => c.code),
       )
-      if (code) {
-        e.preventDefault()
+      if (!code) return
+      e.preventDefault()
+      if (e.shiftKey) {
         setDraft((d) => ({ ...d, codes: toggleCode(d.codes, code) }))
+      } else {
+        const next = { ...draft, codes: addCode(draft.codes, code) }
+        setDraft(next)
+        onSave(next)
       }
     }
     window.addEventListener("keydown", onKey)
     return () => window.removeEventListener("keydown", onKey)
-  }, [save, readOnly, phase, row.allowed])
+  }, [save, readOnly, saving, phase, row.allowed, draft, onSave])
 
   return (
     <div className="flex flex-col gap-3.5">

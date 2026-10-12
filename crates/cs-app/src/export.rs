@@ -387,7 +387,7 @@ fn readme(id: &str, folder: &str, seg: &cs_model::Segmentation, phases: &[PhaseE
         "Interview folder: {folder}. Segmented source: {} (SHA-256 {}). Segmentation hash: {}. Rule: {}. Units: {}.\n\n",
         seg.source_rel_path, seg.source_sha256, seg.hash, seg.rule, seg.units.len()
     ));
-    s.push_str("Coding runs in two phases. Phase 1 codes every unit against the three contexts of the TOE framework (TECH, ORG, ENV), plus INDUCTIVE-PENDING for relevant material outside them and NA for the rest. Phase 2 codes only the units found relevant in the reconciled phase 1, with the study-specific codes of their contexts and the cross-cutting families. In each phase the candidate codes first, an AI coder then codes blind from a generated prompt, and every divergence is arbitrated with a written rationale.\n\n");
+    s.push_str("Coding runs in two phases. Phase 1 codes every unit against the three contexts of the TOE framework (TECH, ORG, ENV), plus CONTEXT for descriptive material about the respondent, the organisation or the scope of the account, INDUCTIVE-PENDING for relevant material outside the three contexts, and NA for the rest. Phase 2 codes only the units found relevant in the reconciled phase 1, with the study-specific codes of their contexts and the cross-cutting families. In each phase the candidate codes first, an AI coder then codes blind from a generated prompt, and every divergence is arbitrated with a written rationale.\n\n");
     for p in phases {
         s.push_str(&phase_status(p));
     }

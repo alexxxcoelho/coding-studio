@@ -31,7 +31,7 @@ pub use prompt::{part_unit_ids, parts_for_batch, phase_title};
 
 /// Identifier of the prompt template, journalised with every run. Version 2
 /// introduced the two coding phases.
-pub const PROMPT_VERSION: &str = "CS-P04-EN v2.0";
+pub const PROMPT_VERSION: &str = "CS-P04-EN v2.1";
 /// Value the AI must put in the `schema` field of its answer.
 pub const OUTPUT_SCHEMA_ID: &str = "coding-studio/ai-coding/v1";
 

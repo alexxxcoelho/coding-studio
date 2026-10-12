@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { codeForKey, diffCodes, familyOf, groupByFamily, hotkeyFor, matchesQuery, NA, sameSet, toggleCode } from "./codes"
+import { addCode, codeForKey, diffCodes, familyOf, groupByFamily, hotkeyFor, matchesQuery, NA, sameSet, toggleCode } from "./codes"
 import type { Code } from "./types"
 
 const code = (c: string, family: string, label = c): Code => ({
@@ -48,12 +48,13 @@ describe("diffCodes", () => {
 })
 
 describe("phase 1 hotkeys", () => {
-  const p1 = ["TECH", "ORG", "ENV", "INDUCTIVE-PENDING"]
+  const p1 = ["TECH", "ORG", "ENV", "CONTEXT", "INDUCTIVE-PENDING"]
   it("maps T O E I N to the four categories and NA, case-insensitive", () => {
     expect(codeForKey("t", 1, p1)).toBe("TECH")
     expect(codeForKey("O", 1, p1)).toBe("ORG")
     expect(codeForKey("e", 1, p1)).toBe("ENV")
-    expect(codeForKey("i", 1, p1)).toBe("INDUCTIVE-PENDING")
+    expect(codeForKey("c", 1, p1)).toBe("CONTEXT")
+    expect(codeForKey("I", 1, p1)).toBe("INDUCTIVE-PENDING")
     expect(codeForKey("n", 1, p1)).toBe(NA)
   })
   it("ignores other keys, phase 2 and codes the unit does not allow", () => {
@@ -74,5 +75,14 @@ describe("phase 1 hotkeys", () => {
     expect(codes).toEqual([NA])
     codes = toggleCode(codes, codeForKey("o", 1, p1)!)
     expect(codes).toEqual(["ORG"])
+  })
+})
+
+describe("addCode", () => {
+  it("adds without removing, NA replaces all, a code replaces NA", () => {
+    expect(addCode(["TECH"], "ENV")).toEqual(["ENV", "TECH"])
+    expect(addCode(["TECH"], "TECH")).toEqual(["TECH"])
+    expect(addCode(["TECH", "ENV"], NA)).toEqual([NA])
+    expect(addCode([NA], "ORG")).toEqual(["ORG"])
   })
 })
