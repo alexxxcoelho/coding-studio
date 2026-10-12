@@ -435,13 +435,19 @@ export interface ExportAnswer {
   dir: string
   files: { name: string; sha256: string; size: number }[]
   manifest_sha256?: string
-  phases?: {
-    phase: Phase
-    n_units: number
+  /** Coding status at export time (crates/cs-app/src/export.rs, CodingStatus). */
+  status?: {
+    n_units_phase1: number
+    n_coded_phase1: number
+    n_units_phase2: number
+    n_coded_phase2: number
     n_runs: number
     n_complete_runs: number
-    n_divergences: number
-    reconciled: boolean
-    pending_units: string[] | number
-  }[]
+    n_disagreements: number
+    n_sampled: number
+    n_decided: number
+    n_revised_after_ai: number
+    n_to_clarify_open: number
+    n_cases: number
+  }
 }
