@@ -12,7 +12,7 @@ import {
   CommandList,
 } from "@/components/ui/command"
 import { CodeChip } from "@/components/bits"
-import { familyName, groupByFamily, matchesQuery, NA, toggleCode } from "@/lib/codes"
+import { familyName, groupByFamily, hotkeyFor, matchesQuery, NA, toggleCode } from "@/lib/codes"
 import { cn } from "@/lib/utils"
 import type { Code } from "@/lib/types"
 
@@ -23,6 +23,7 @@ export function CodePicker({
   disabled,
   autoFocus,
   className,
+  phase,
 }: {
   allowed: Code[]
   value: string[]
@@ -30,7 +31,17 @@ export function CodePicker({
   disabled?: boolean
   autoFocus?: boolean
   className?: string
+  /** Shows the single-key shortcut of each code (phase 1). */
+  phase?: number
 }) {
+  const key = (code: string) => {
+    const k = phase ? hotkeyFor(code, phase) : null
+    return k ? (
+      <kbd className="text-muted-foreground ml-auto rounded border px-1.5 font-mono text-[0.7rem]" aria-label={`Shortcut ${k}`}>
+        {k}
+      </kbd>
+    ) : null
+  }
   const groups = groupByFamily(allowed)
   const toggle = (code: string) => {
     if (!disabled) onChange(toggleCode(value, code))
@@ -62,6 +73,7 @@ export function CodePicker({
                   <span className="text-muted-foreground truncate text-xs" title={c.definition}>
                     {c.label}
                   </span>
+                  {key(c.code)}
                 </CommandItem>
               )
             })}
@@ -72,6 +84,7 @@ export function CodePicker({
             <Check className={cn("size-3.5", value.includes(NA) ? "opacity-100" : "opacity-0")} aria-hidden />
             <CodeChip code={NA} family="NA" />
             <span className="text-muted-foreground text-xs">Not applicable, clears the other codes</span>
+            {key(NA)}
           </CommandItem>
         </CommandGroup>
       </CommandList>

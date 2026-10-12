@@ -91,6 +91,32 @@ export function familyOf(code: string, book?: Code[]): string {
   return "INDUCTIVE"
 }
 
+/** Phase 1 single-key shortcuts: one letter per TOE category, plus NA. */
+export const PHASE1_HOTKEYS: Record<string, string> = {
+  t: "TECH",
+  o: "ORG",
+  e: "ENV",
+  i: "INDUCTIVE-PENDING",
+  n: NA,
+}
+
+/** Letter shown next to a code, when it has a shortcut in this phase. */
+export function hotkeyFor(code: string, phase: number): string | null {
+  if (phase !== 1) return null
+  const hit = Object.entries(PHASE1_HOTKEYS).find(([, c]) => c === code)
+  return hit ? hit[0].toUpperCase() : null
+}
+
+/** Code toggled by a key press, or null. Only in phase 1, only for a code
+ * the unit allows (NA always). Case-insensitive; modifiers are the caller's
+ * concern. */
+export function codeForKey(key: string, phase: number, allowed: string[]): string | null {
+  if (phase !== 1 || key.length !== 1) return null
+  const code = PHASE1_HOTKEYS[key.toLowerCase()]
+  if (!code) return null
+  return code === NA || allowed.includes(code) ? code : null
+}
+
 /** Toggles a code in a set. NA is exclusive: choosing it clears the rest,
  * choosing any other code removes NA. Result is sorted. */
 export function toggleCode(current: string[], code: string): string[] {

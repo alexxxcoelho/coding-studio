@@ -15,7 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from "@/components/ui/skeleton"
 import { Textarea } from "@/components/ui/textarea"
 import { api } from "@/lib/api"
-import { EV_LEVELS, MODIFIERS, PROVENANCES, sameSet } from "@/lib/codes"
+import { codeForKey, EV_LEVELS, hotkeyFor, MODIFIERS, PROVENANCES, sameSet, toggleCode } from "@/lib/codes"
 import { roleLabel } from "@/lib/format"
 import { invalidateInterview } from "@/lib/queries"
 import { interviewHref } from "@/lib/router"
@@ -88,7 +88,8 @@ function Phase1Legend({ codes, open }: { codes: Code[]; open: boolean }) {
       <dl className="mt-2 grid gap-x-6 gap-y-2 md:grid-cols-2">
         {codes.map((c) => (
           <div key={c.code} className="flex gap-2.5">
-            <dt className="shrink-0">
+            <dt className="flex shrink-0 items-start gap-1.5">
+              <kbd className="text-muted-foreground rounded border px-1.5 font-mono text-[0.7rem]">{hotkeyFor(c.code, 1)}</kbd>
               <CodeChip code={c.code} family={c.family} />
             </dt>
             <dd className="text-muted-foreground text-xs leading-snug">
@@ -97,7 +98,10 @@ function Phase1Legend({ codes, open }: { codes: Code[]; open: boolean }) {
           </div>
         ))}
       </dl>
-      <p className="text-muted-foreground mt-2 text-xs">A unit may touch several contexts. NA when the unit is not relevant.</p>
+      <p className="text-muted-foreground mt-2 text-xs">
+        A unit may touch several contexts. NA when the unit is not relevant. Keys T, O, E, I and N toggle a category, Ctrl/Cmd Enter saves and
+        moves to the next unit.
+      </p>
     </details>
   )
 }
@@ -152,11 +156,23 @@ function UnitEditor({
       if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
         e.preventDefault()
         save()
+        return
+      }
+      // Phase 1: T, O, E, I, N toggle a category, unless the user is typing.
+      if (readOnly || e.metaKey || e.ctrlKey || e.altKey || e.repeat || isTyping(e.target)) return
+      const code = codeForKey(
+        e.key,
+        phase,
+        row.allowed.map((c) => c.code),
+      )
+      if (code) {
+        e.preventDefault()
+        setDraft((d) => ({ ...d, codes: toggleCode(d.codes, code) }))
       }
     }
     window.addEventListener("keydown", onKey)
     return () => window.removeEventListener("keydown", onKey)
-  }, [save])
+  }, [save, readOnly, phase, row.allowed])
 
   return (
     <div className="flex flex-col gap-3.5">
@@ -193,7 +209,7 @@ function UnitEditor({
         </div>
       )}
 
-      <CodePicker allowed={row.allowed} value={draft.codes} onChange={(c) => set("codes", c)} disabled={readOnly} />
+      <CodePicker allowed={row.allowed} value={draft.codes} onChange={(c) => set("codes", c)} disabled={readOnly} phase={phase} />
       <div className="flex min-h-6 items-center gap-2 text-xs">
         <span className="text-muted-foreground">Selected</span>
         <ChipList codes={draft.codes} book={book} empty="nothing yet" />

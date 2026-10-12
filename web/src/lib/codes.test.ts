@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { diffCodes, familyOf, groupByFamily, matchesQuery, NA, sameSet, toggleCode } from "./codes"
+import { codeForKey, diffCodes, familyOf, groupByFamily, hotkeyFor, matchesQuery, NA, sameSet, toggleCode } from "./codes"
 import type { Code } from "./types"
 
 const code = (c: string, family: string, label = c): Code => ({
@@ -44,5 +44,35 @@ describe("diffCodes", () => {
     ])
     expect(sameSet(["A", "B"], ["B", "A"])).toBe(true)
     expect(sameSet(["A"], ["A", "B"])).toBe(false)
+  })
+})
+
+describe("phase 1 hotkeys", () => {
+  const p1 = ["TECH", "ORG", "ENV", "INDUCTIVE-PENDING"]
+  it("maps T O E I N to the four categories and NA, case-insensitive", () => {
+    expect(codeForKey("t", 1, p1)).toBe("TECH")
+    expect(codeForKey("O", 1, p1)).toBe("ORG")
+    expect(codeForKey("e", 1, p1)).toBe("ENV")
+    expect(codeForKey("i", 1, p1)).toBe("INDUCTIVE-PENDING")
+    expect(codeForKey("n", 1, p1)).toBe(NA)
+  })
+  it("ignores other keys, phase 2 and codes the unit does not allow", () => {
+    expect(codeForKey("x", 1, p1)).toBeNull()
+    expect(codeForKey("Enter", 1, p1)).toBeNull()
+    expect(codeForKey("t", 2, ["TECH-ADV"])).toBeNull()
+    expect(codeForKey("t", 1, ["ORG"])).toBeNull()
+    expect(codeForKey("n", 1, [])).toBe(NA)
+  })
+  it("labels codes with their key in phase 1 only", () => {
+    expect(hotkeyFor("ENV", 1)).toBe("E")
+    expect(hotkeyFor(NA, 1)).toBe("N")
+    expect(hotkeyFor("ENV", 2)).toBeNull()
+  })
+  it("pressing T then N leaves only NA, then O replaces NA", () => {
+    let codes = toggleCode([], codeForKey("t", 1, p1)!)
+    codes = toggleCode(codes, codeForKey("n", 1, p1)!)
+    expect(codes).toEqual([NA])
+    codes = toggleCode(codes, codeForKey("o", 1, p1)!)
+    expect(codes).toEqual(["ORG"])
   })
 })
