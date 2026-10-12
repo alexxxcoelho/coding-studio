@@ -16,9 +16,13 @@
 //! `CsError::Validation`, unknown ids as `CsError::NotFound` (wrapped in anyhow).
 
 mod cases;
+mod claims;
 mod codebook;
 mod coding;
+mod memos;
 mod review;
+mod saturation;
+mod verification;
 
 pub use codebook::{CodePatch, MergeOutcome};
 pub use coding::ResolveRequest;
@@ -702,14 +706,19 @@ impl Store {
                 "{interview_id} has no segmentation yet; segment it first"
             ))
         })?;
-        seg.units
+        let mut unit = seg
+            .units
             .into_iter()
             .find(|u| u.unit_id == unit_id)
             .ok_or_else(|| {
                 validation(format!(
                     "unit {unit_id} is not in the current segmentation of {interview_id}"
                 ))
-            })
+            })?;
+        if let Some(latest) = self.corrections_where(interview_id, Some(unit_id))?.pop() {
+            verification::apply_correction(&mut unit, &latest);
+        }
+        Ok(unit)
     }
 
     // --------------------------------------------------------------- audit
