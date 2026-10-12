@@ -1,58 +1,106 @@
-# Coding Studio HTTP API (v2, two coding phases)
+# Coding Studio HTTP API (v3)
 
-Local JSON API served by `cs-app` on 127.0.0.1. The web UI (React, `web/`) is its only client. Types are those of `crates/cs-model/src/lib.rs`, serialised with serde (snake_case fields, enums in snake_case). `{phase}` is `1` (TOE contexts) or `2` (study-specific codes).
+Local JSON API served by `cs-app` on 127.0.0.1. The web UI (`web/`) is its only client. Design: `docs/DESIGN_V3.md`. Types are the serde forms of `crates/cs-model/src/lib.rs` (snake_case field names, snake_case enum values). Phase 1 is the candidate's provisional TOE pre-classification; phase 2 carries the concrete codes and is the only phase the AI challenges.
 
-Errors: status 400 (validation), 404 (not found), 409 (protocol guard), 500 (internal), 501 (native dialog unavailable), body `{"error": string, "kind": "validation"|"guard"|"not_found"|"internal", "issues"?: ValidationIssue[]}`.
+Errors: status 400 (validation), 404 (not found), 409 (protocol guard), 500 (internal), 501 (native dialog unavailable); body `{"error": string, "kind": "validation"|"guard"|"not_found"|"internal", "issues"?: ValidationIssue[]}`.
+
+## Types (JSON)
+
+- `Code`: `{code, family, label, definition, origin: "literature"|"field"|"legacy"|"phase1", toe: "T"|"O"|"E"|null, active, in_prompt, research_questions: string[], merged_into: string|null, version: number, example: string|null, reason: string|null, created_at: string|null}`. `family` is TECH, ORG or ENV from `toe`, otherwise OTHER (phase 1 categories carry their own name).
+- `Codebook`: `{source, codes: Code[]}`.
+- `Unit`: `{unit_id, seq, speaker_raw, role: "interviewer"|"respondent"|"unknown", timestamp, text}`.
+- `HumanCoding`: `{unit_id, codes: string[], subcode, modifier, ev_level, provenance, memo, excerpt, revised_after_ai: boolean}` (`revised_after_ai` is set by the server and ignored on input).
+- `ToClarify`: `{id, interview_id, unit_id, label, note, created_at, created_by, resolved: Resolution|null}`; `Resolution`: `{kind: "new_code"|"mapped", code, at, by, rationale: string|null}`.
+- `ResearchQuestion`: `{id, text, ord}`.
+- `CaseField`: `{text, evidence: string[] /* unit_ids */}`; `Case`: `{case_id, interview_id, label, trigger, alternatives, constraints, choice, result: CaseField, stage: string|null, outcome_status: string|null, notes: string|null, updated_at}`.
+- `ArbitrationChoice`: `{type: "human"}` | `{type: "ai", run_label}` | `{type: "custom"}`; `Arbitration`: `{unit_id, phase, choice, final_codes: string[], rationale, decided_by, decided_at}`.
+- `ReviewItem`: `{unit_id, kind: "disagreement"|"agreement_sample", human: string[], ai: {[run_label]: string[]}, decision: Arbitration|null}`.
+- `FinalCoding`: `{unit_id, codes, basis: "candidate"|"reviewed"}`.
+- `AiRunMeta`: `{run_label, model_name, model_version, temperature, seed, context_length, batch_size, prompt_id_version, executed_at, notes, batch_id: number|null}`.
+- `PromptPart`: `{interview_id, phase: 2, batch_id, codes: string[], part, of, unit_ids, segmentation_hash, codebook_hash, prompt_version, text, sha256}`.
+- `AiRun`: `{run_id, interview_id, phase: 2, meta, batch_id, unit_ids, codings: {[unit_id]: string[]}, parts_received, parts_expected, complete}`.
+- `PhaseSummary`: `{phase, n_units, n_human_coded, human_complete, n_ai_runs, n_ai_runs_complete, n_divergences, n_sampled, n_arbitrated, n_to_clarify, reconciled}` (phase 1 fills only the unit and coding counts; `reconciled` = at least one complete run and every disagreement decided).
+- `InterviewSummary`: `{interview_id, folder_name, n_sources, primary_source, n_units, n_warnings, phase1: PhaseSummary, phase2: PhaseSummary}`.
+- `GuardStatus`: `{phase, complete, n_units, missing: string[]}`.
 
 ## State and library
 
 | Method | Path | Body | Answer |
 |---|---|---|---|
-| GET | `/api/state` | | `{version, db_path, library_root, coding_db, actor, codebook_size, chain: ChainCheck, native_dialogs: bool}` |
+| GET | `/api/state` | | `{version, db_path, library_root, coding_db, actor, codebook_size, chain: ChainCheck, native_dialogs}` |
 | POST | `/api/pick` | `{kind: "folder"\|"file", title?}` | `{path: string\|null}` (501 in browser mode) |
 | POST | `/api/library/scan` | `{root?}` | `{root, interviews: InterviewSummary[]}` |
-| GET | `/api/interviews` | | `InterviewSummary[]` (with `phase1`, `phase2`: PhaseSummary) |
-| GET | `/api/interviews/{id}` | | `{entry: InterviewEntry, segmentation: Segmentation\|null, phase1: PhaseSummary, phase2: PhaseSummary, phase2_started: bool}` |
-| GET | `/api/interviews/{id}/file?path=rel` | | `{path, kind, sha256, changed_since_scan: bool, text}` (inventoried files only) |
+| GET | `/api/interviews` | | `InterviewSummary[]` |
+| GET | `/api/interviews/{id}` | | `{entry: InterviewEntry, segmentation: Segmentation\|null, phase1: PhaseSummary, phase2: PhaseSummary}` |
+| GET | `/api/interviews/{id}/file?path=rel` | | `{path, kind, sha256, changed_since_scan, text}` |
 | POST | `/api/interviews/{id}/primary` | `{rel_path}` | `InterviewEntry` |
 | POST | `/api/interviews/{id}/segment` | `{rel_path?}` | `Segmentation` |
 
-## Coding, per phase
+## Coding
 
 | Method | Path | Body | Answer |
 |---|---|---|---|
-| GET | `/api/interviews/{id}/phases/{phase}` | | `{phase, summary: PhaseSummary, guard: GuardStatus, reconciled: bool, frozen: bool, locked: bool}` where `locked` = human coding locked (AI output imported), `frozen` = phase 1 frozen because phase 2 started |
-| GET | `/api/interviews/{id}/phases/{phase}/units` | | `[{unit: Unit, coding: HumanCoding\|null, allowed: Code[], phase1_final: string[]\|null}]` for the units in scope, in order. `allowed` = codes the candidate may use on this unit (phase 1: the four TOE categories; phase 2: `phase2_allowed` with inductive codes). NA is always valid and not listed. `phase1_final` is filled in phase 2 |
-| PUT | `/api/interviews/{id}/phases/{phase}/coding/{unit_id}` | `HumanCoding` | `HumanCoding` |
-| GET | `/api/codebook/phase1` | | `Codebook` (the four phase 1 categories) |
+| GET | `/api/codebook/phase1` | | `Codebook` (TECH, ORG, ENV, CONTEXT) |
+| GET | `/api/interviews/{id}/phases/{p}` | | `{phase, summary: PhaseSummary, guard: GuardStatus}` |
+| GET | `/api/interviews/{id}/phases/1/units` | | `[{unit, coding: HumanCoding\|null, allowed: Code[]}]`, every unit; `allowed` = the four phase 1 categories (NA always valid besides) |
+| GET | `/api/interviews/{id}/phases/2/units` | | `[{unit, coding: HumanCoding\|null, allowed: Code[], phase1: string[]\|null, in_scope: boolean, to_clarify: ToClarify[]}]`: the units in scope (phase 1 category not NA) and the out-of-scope units that still carry a phase 2 coding, in segmentation order. `allowed` = every phase 2 code, those attached to the unit's phase 1 contexts first |
+| PUT | `/api/interviews/{id}/phases/{p}/coding/{unit_id}` | `HumanCoding` | `HumanCoding` as stored. Phase 1: TECH/ORG/ENV/CONTEXT or NA, always editable. Phase 2: phase 2 codes or NA; `codes` may be empty only if the unit has an open label to clarify |
 
-## AI pass, per phase
-
-| Method | Path | Body | Answer |
-|---|---|---|---|
-| POST | `/api/interviews/{id}/phases/{phase}/prompts` | `{batch_size}` | `PromptPart[]` (text included), recorded |
-| GET | `/api/interviews/{id}/phases/{phase}/prompts` | | `PromptPart[]` |
-| GET | `/api/interviews/{id}/phases/{phase}/runs` | | `AiRun[]` |
-| POST | `/api/interviews/{id}/phases/{phase}/runs` | `AiRunMeta` | `AiRun` (`prompt_id_version` defaults to the current prompt version) |
-| POST | `/api/interviews/{id}/phases/{phase}/runs/{run_id}/outputs` | `{raw, part?, of?}` | `AiRun` updated, or 400 with `issues` |
-
-## Reconciliation, per phase
+## Labels to clarify
 
 | Method | Path | Body | Answer |
 |---|---|---|---|
-| GET | `/api/interviews/{id}/phases/{phase}/agreement` | | `{reports: AgreementReport[], markdown}` (human vs each complete run, then runs pairwise) |
-| GET | `/api/interviews/{id}/phases/{phase}/divergences` | | `{items: [{divergence, unit, arbitration\|null, history: Arbitration[], allowed: Code[]}], n_divergences, n_decided, runs: string[]}` |
-| PUT | `/api/interviews/{id}/phases/{phase}/arbitration/{unit_id}` | `{choice: ArbitrationChoice, final_codes: string[], rationale}` | `Arbitration` |
-| GET | `/api/interviews/{id}/phases/{phase}/final` | | `{reconciled: bool, finals: FinalCoding[], pending: string[]}` |
+| GET | `/api/to-clarify?interview_id=&open=true` | | `[ToClarify & {unit_text}]` (both filters optional) |
+| POST | `/api/interviews/{id}/units/{unit_id}/to-clarify` | `{label, note}` | `ToClarify` (unit must be in phase 2 scope) |
+| PUT | `/api/to-clarify/{tid}` | `{label, note}` | `ToClarify` (open items only) |
+| POST | `/api/to-clarify/{tid}/resolve` | `{kind: "new_code"\|"mapped", code, rationale?, all_with_label: boolean, new_code?: Code}` | `{resolved: ToClarify[], codebook: Codebook}`. `new_code` creates `new_code` (origin field, definition required; `code` must equal `new_code.code`); `mapped` uses an existing phase 2 code. The code is added to the phase 2 coding of every resolved unit; `all_with_label` resolves every open item with the same label (trimmed, case-insensitive) across the corpus |
 
-## Codebook and inductive log
+## AI challenge (phase 2 only; phase 1 answers 400)
 
 | Method | Path | Body | Answer |
 |---|---|---|---|
-| GET | `/api/codebook` | | `Codebook` (local copy of coding.db codes plus the candidate's inductive codes) |
+| POST | `/api/interviews/{id}/phases/2/prompts` | `{batch_size}` | `PromptPart[]` of a new batch (units in scope, codes offered = phase 2 codes with `in_prompt`) |
+| GET | `/api/interviews/{id}/phases/2/prompts` | | `PromptPart[]`, every batch, oldest first |
+| GET | `/api/interviews/{id}/phases/2/runs` | | `AiRun[]` |
+| POST | `/api/interviews/{id}/phases/2/runs` | `AiRunMeta` | `AiRun` (`batch_id` null = latest batch; `prompt_id_version` empty = current prompt version) |
+| POST | `/api/interviews/{id}/phases/2/runs/{run_id}/outputs` | `{raw, part?, of?}` | `AiRun`, or 400 with `issues`. The answer is checked against the part of the run's batch (its units and its code snapshot). Blind guard (409): every unit of the part must be coded by the candidate first |
+
+## Review
+
+| Method | Path | Body | Answer |
+|---|---|---|---|
+| GET | `/api/interviews/{id}/review` | | `{runs: string[], items: [ReviewItem & {unit: Unit, history: Arbitration[]}], n_disagreements, n_sampled, n_decided, seeds: [{run_label, seed}]}`; disagreements first, then sampled agreements, each in segmentation order |
+| PUT | `/api/interviews/{id}/review/{unit_id}` | `{choice: ArbitrationChoice, final_codes: string[], rationale}` | `Arbitration`. Rationale required for a disagreement, optional for a sampled agreement |
+| GET | `/api/interviews/{id}/final` | | `{finals: FinalCoding[], uncoded: string[], n_decided, n_open_disagreements}` over the phase 2 scope |
+| GET | `/api/interviews/{id}/agreement` | | `{reports: AgreementReport[], markdown}` (candidate against each complete run, then runs pairwise) |
+
+## Codebook and research questions
+
+| Method | Path | Body | Answer |
+|---|---|---|---|
+| GET | `/api/codebook` | | `Codebook` |
 | POST | `/api/codebook/import` | `{coding_db?}` | `Codebook` |
-| POST | `/api/codebook/codes` | `Code` (origin `inductive`, family `INDUCTIVE`; `definition`, `reason` required, `example` optional) | `Codebook` |
+| POST | `/api/codebook/codes` | `Code` (`origin` literature or field, default field; `definition` required; `toe` T, O, E or null; `research_questions` must exist) | `Codebook` |
+| PUT | `/api/codebook/codes/{code}` | `{label?, definition?, toe?, research_questions?, example?, reason?, in_prompt?}` (omitted = unchanged; `toe: null` clears) | `Codebook` (version incremented) |
 | PUT | `/api/codebook/codes/{code}/in_prompt` | `{in_prompt}` | `Codebook` |
+| POST | `/api/codebook/codes/{code}/active` | `{active}` | `Codebook` |
+| POST | `/api/codebook/codes/{code}/merge` | `{into, rationale}` | `{codebook, rewritten_codings, rewritten_decisions}` |
+| GET | `/api/codebook/codes/{code}/units` | | `[{interview_id, unit: Unit, coding: HumanCoding}]`, every unit whose phase 2 coding carries the code |
+| POST | `/api/codebook/export` | | `{files: [{path, sha256, size}]}` (CSV and SQL for `05_Analysis/coding/coding.db`) |
+| GET | `/api/research-questions` | | `ResearchQuestion[]` |
+| POST | `/api/research-questions` | `{id, text}` | `ResearchQuestion[]` |
+| PUT | `/api/research-questions/{rq}` | `{text, ord?}` | `ResearchQuestion[]` |
+| DELETE | `/api/research-questions/{rq}` | | `ResearchQuestion[]` (409 while a code maps to it) |
+
+## Cases
+
+| Method | Path | Body | Answer |
+|---|---|---|---|
+| GET | `/api/cases` | | `Case[]` |
+| GET | `/api/interviews/{id}/cases` | | `Case[]` |
+| POST | `/api/interviews/{id}/cases` | `Case` (`case_id` empty = generated, e.g. ECO-05-C1) | `Case` |
+| PUT | `/api/cases/{case_id}` | `Case` | `Case` |
+| GET | `/api/cross-case` | | `{questions: ResearchQuestion[], cases: Case[], cells: [{rq, case_id, codes: [{code, units: string[]}]}]}` (codes mapped to the question found in the final phase 2 coding of the case's interview, or of its evidence units when the case lists any) |
 
 ## Audit and export
 
@@ -60,8 +108,6 @@ Errors: status 400 (validation), 404 (not found), 409 (protocol guard), 500 (int
 |---|---|---|---|
 | GET | `/api/audit?interview_id=` | | `AuditEvent[]` |
 | GET | `/api/audit/verify` | | `ChainCheck` |
-| POST | `/api/interviews/{id}/export` | | `{dir, files: [{name, sha256, size}], manifest_sha256, phases: [{phase, n_units, n_runs, n_complete_runs, n_divergences, reconciled, pending_units}]}` |
+| POST | `/api/interviews/{id}/export` | | `{dir, files: [{name, sha256, size}], manifest_sha256}` |
 
-The export package holds, per phase, `phase{p}_coding_human.csv`, `phase{p}_human_full.csv`, `phase{p}_coding_ai_run<id>_<label>.csv`, raw answers (`phase{p}_ai_run<id>_<label>_part<n>_raw.txt`), run metadata (`phase{p}_run<id>_<label>.json`), prompts (`phase{p}_prompt_part<n>_of<m>_<hash8>.txt`), `phase{p}_agreement.md`, `phase{p}_adjudication_log.md`, `phase{p}_coding_final.csv` when reconciled, plus `units.csv`, `inductive_log.csv`, `audit_log.jsonl`, `audit_chain.json`, `manifest.json` and `README.md`.
-
-Phase 2 prompts offer each unit `phase2_allowed(codebook, phase 1 final, without inductive codes)` minus the codes whose `in_prompt` is off; answers are checked against that same scope, rebuilt from the current state. Any path outside `/api` that is not a file of the embedded React build returns `index.html` (client-side routing); `/assets/*` is served immutable, `index.html` with `no-store`.
+The interview export package holds `units.csv`, `phase1_contexts.csv`, `phase2_coding_human.csv` (with `revised_after_ai`), `phase2_human_full.csv`, per run `phase2_coding_ai_run<id>_<label>.csv`, raw answers, run metadata, prompts, `phase2_agreement.md`, `phase2_review.md`, `phase2_coding_final.csv`, `to_clarify.csv`, `cases.json`, `cases.md`, `codebook.csv`, `audit_log.jsonl`, `audit_chain.json`, `manifest.json` and `README.md`.
