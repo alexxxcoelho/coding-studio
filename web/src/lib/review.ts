@@ -1,5 +1,6 @@
 // Review of the AI challenge: order and progress.
 
+import { sameSet } from "./codes"
 import type { ReviewItem } from "./types"
 
 const unitOrder = (a: ReviewItem, b: ReviewItem) => a.unit_id.localeCompare(b.unit_id, undefined, { numeric: true })
@@ -39,4 +40,19 @@ export function reviewProgress(items: ReviewItem[]): ReviewProgress {
 /** A rationale is required for a disagreement, optional for a sampled agreement. */
 export function rationaleRequired(item: ReviewItem): boolean {
   return item.kind === "disagreement"
+}
+
+/** What the review shows for the candidate's coding of an item: the frozen
+ * snapshot (the reference the decision is taken against), and the current
+ * coding when the candidate has revised it since the snapshot. */
+export interface CandidateView {
+  frozen: string[]
+  current: string[]
+  revised: boolean
+}
+
+export function candidateView(item: ReviewItem): CandidateView {
+  const current = item.human_current ?? item.human
+  const revised = item.revised_since_snapshot || !sameSet(item.human, current)
+  return { frozen: item.human, current, revised }
 }

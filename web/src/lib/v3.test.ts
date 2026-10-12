@@ -39,6 +39,8 @@ const ri = (id: string, kind: ReviewItem["kind"], decided = false): ReviewItem =
   unit_id: id,
   kind,
   human: ["A"],
+  human_current: ["A"],
+  revised_since_snapshot: false,
   ai: { R1: kind === "disagreement" ? ["B"] : ["A"] },
   decision: decided
     ? { unit_id: id, phase: 2, choice: { type: "human" }, final_codes: ["A"], rationale: "", decided_by: "c", decided_at: "" }
@@ -59,11 +61,19 @@ describe("review", () => {
   })
 })
 
-const field = (text = "", evidence: string[] = []) => ({ text, evidence })
+const field = (text = "", evidence: string[] = []) => ({ text, contradictions: "", missing: "", evidence })
 const kase = (id: string): Case => ({
   case_id: id,
   interview_id: id.replace(/-C\d+$/, ""),
   label: id,
+  units: ["X-U001"],
+  interviews: ["X"],
+  decision: null,
+  granularity: null,
+  carrier_chosen: null,
+  carriers_rejected: [],
+  account_type: null,
+  swiss_link: null,
   trigger: field("law"),
   alternatives: field(),
   constraints: field("", ["X-U001"]),
@@ -79,8 +89,8 @@ describe("cross-case", () => {
     questions: [{ id: "RQ1", text: "Why", ord: 1 }],
     cases: [kase("ECO-07-C1"), kase("RET-22-C1")],
     cells: [
-      { rq: "RQ1", case_id: "ECO-07-C1", codes: [{ code: "LEGAL", units: ["u1"] }, { code: "COST", units: ["u2", "u3"] }] },
-      { rq: "RQ1", case_id: "RET-22-C1", codes: [{ code: "LEGAL", units: ["u9"] }, { code: "SKILLS", units: [] }] },
+      { rq: "RQ1", case_id: "ECO-07-C1", documented: true, codes: [{ code: "LEGAL", units: ["u1"] }, { code: "COST", units: ["u2", "u3"] }] },
+      { rq: "RQ1", case_id: "RET-22-C1", documented: true, codes: [{ code: "LEGAL", units: ["u9"] }, { code: "SKILLS", units: [] }] },
     ],
   }
   it("finds a cell and sorts its codes by support", () => {

@@ -222,6 +222,11 @@ export interface ResearchQuestion {
 
 export interface CaseField {
   text: string
+  /** Where the data disagree, in the respondent's terms. */
+  contradictions: string
+  /** What the data do not tell, and would be needed to. */
+  missing: string
+  /** Unit ids that illustrate the text; each must be among the case's `units`. */
   evidence: string[]
 }
 
@@ -230,6 +235,7 @@ export type CaseFieldKey = (typeof CASE_FIELDS)[number]
 
 export interface Case {
   case_id: string
+  /** The interview the case was created from. */
   interview_id: string
   label: string
   trigger: CaseField
@@ -237,6 +243,19 @@ export interface Case {
   constraints: CaseField
   choice: CaseField
   result: CaseField
+  /** Units attributed to the case, from any interview. The cross-case matrix uses only these. */
+  units: string[]
+  /** Read-only: interviews derived by the server from `units` and `interview_id`. */
+  interviews: string[]
+  /** adopted | deferred | rejected, or free text. */
+  decision: string | null
+  /** item | batch | model, or free text. */
+  granularity: string | null
+  carrier_chosen: string | null
+  carriers_rejected: string[]
+  /** first-hand | reported | ecosystem | anticipation, or free text. */
+  account_type: string | null
+  swiss_link: string | null
   stage: string | null
   outcome_status: string | null
   notes: string | null
@@ -248,11 +267,36 @@ export type ReviewKind = "disagreement" | "agreement_sample"
 export interface ReviewItem {
   unit_id: string
   kind: ReviewKind
+  /** Frozen snapshot of the candidate's coding, taken when the batch was generated. */
   human: string[]
+  /** The candidate's coding now. Equals `human` unless revised since the snapshot. */
+  human_current: string[]
+  revised_since_snapshot: boolean
   ai: Record<string, string[]>
   decision: Arbitration | null
   unit: Unit
   history?: Arbitration[]
+}
+
+/** Pointer to the frozen human reference of one run. */
+export interface ReviewSnapshotRef {
+  run_label: string
+  snapshot_id: number
+  sha256: string
+}
+
+/** Frozen candidate coding of a batch, taken when its prompts were generated. */
+export interface HumanSnapshot {
+  snapshot_id: number
+  interview_id: string
+  batch_id: number
+  phase: Phase
+  segmentation_hash: string
+  codebook_hash: string
+  /** unit_id -> sorted codes (empty when the unit only carried an open label). */
+  codings: Record<string, string[]>
+  sha256: string
+  created_at: string
 }
 
 export interface ReviewAnswer {
@@ -262,11 +306,14 @@ export interface ReviewAnswer {
   n_sampled: number
   n_decided: number
   seeds: { run_label: string; seed: string | number }[]
+  snapshots: ReviewSnapshotRef[]
 }
 
 export interface CrossCaseCell {
   rq: string
   case_id: string
+  /** false when the case has no attributed unit; then `codes` is empty. */
+  documented: boolean
   codes: { code: string; units: string[] }[]
 }
 

@@ -15,6 +15,7 @@ import { api, ApiError } from "@/lib/api"
 import { dateTime, nowLocalInput, plural, shortHash } from "@/lib/format"
 import { invalidateInterview } from "@/lib/queries"
 import { interviewHref } from "@/lib/router"
+import { uncodedUnitIds } from "@/lib/crosscase"
 import type { AiRun, AiRunMeta, Phase, PromptPart, ValidationIssue } from "@/lib/types"
 
 /** Parts of the latest prompt batch (each generation is a new batch). */
@@ -225,7 +226,21 @@ export function AiPassTab({ id }: { id: string }) {
       toast.success(`${plural(parts.length, "prompt part")} generated and recorded`)
       qc.invalidateQueries({ queryKey: ["chain"] })
     },
-    onError: (e) => reportError(e, "Prompts not generated"),
+    onError: (e) => {
+      if (e instanceof ApiError && e.kind === "validation" && e.message.includes("not yet coded")) {
+        const ids = uncodedUnitIds(e.message)
+        toast.error(`Prompts not generated: ${plural(ids.length, "unit")} of the batch not yet coded`, {
+          description: [
+            ids.slice(0, 8).join(", ") + (ids.length > 8 ? `, and ${ids.length - 8} more` : ""),
+            "Code every unit of the batch first (the snapshot is taken now).",
+          ]
+            .filter(Boolean)
+            .join("\n"),
+        })
+        return
+      }
+      reportError(e, "Prompts not generated")
+    },
   })
   const parts = useMemo(() => latestSet(prompts.data ?? []), [prompts.data])
 
@@ -279,6 +294,7 @@ export function AiPassTab({ id }: { id: string }) {
             Every generation is recorded with its SHA-256. Paste each part in a new conversation of the AI tool, at temperature 0 when it lets you choose.
           </p>
         </div>
+        <p className="text-muted-foreground mt-2 text-xs">Generating the prompt freezes your current coding as the reference of the comparison.</p>
         {parts.length > 0 && (
           <div className="mt-4 flex flex-col gap-2">
             {parts.map((p) => (

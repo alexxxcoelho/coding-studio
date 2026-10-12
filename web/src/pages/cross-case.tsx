@@ -9,8 +9,9 @@ import { CodeChip, EmptyState, PageTitle, Section } from "@/components/bits"
 import { Skeleton } from "@/components/ui/skeleton"
 import { api } from "@/lib/api"
 import { familyOf } from "@/lib/codes"
-import { cellCodes, cellFor, FIELD_LABELS, sharedCodes } from "@/lib/crosscase"
+import { cellCodes, cellFor, cellState, FIELD_LABELS, sharedCodes } from "@/lib/crosscase"
 import { interviewHref, unitHref } from "@/lib/router"
+import { cn } from "@/lib/utils"
 import { CASE_FIELDS, type Case, type Code } from "@/lib/types"
 
 function CaseHead({ c }: { c: Case }) {
@@ -103,10 +104,14 @@ export function CrossCasePage() {
                         )}
                       </th>
                       {cases.map((c) => {
-                        const list = cellCodes(cellFor(d.cells, q.id, c.case_id))
+                        const cell = cellFor(d.cells, q.id, c.case_id)
+                        const state = cellState(cell)
+                        const list = cellCodes(cell)
                         return (
-                          <td key={c.case_id} className="border-b border-l px-3 py-3">
-                            {list.length === 0 ? (
+                          <td key={c.case_id} className={cn("border-b border-l px-3 py-3", state === "undocumented" && "bg-muted/50")}>
+                            {state === "undocumented" ? (
+                              <span className="text-muted-foreground text-xs italic">not documented</span>
+                            ) : state === "unmapped" ? (
                               <span className="text-muted-foreground text-xs">no code mapped to {q.id}</span>
                             ) : (
                               <ul className="flex flex-col gap-1.5">
@@ -130,6 +135,10 @@ export function CrossCasePage() {
               </tbody>
             </table>
           </div>
+          <p className="text-muted-foreground -mt-4 text-xs">
+            <span className="bg-muted/50 mr-1 rounded px-1 italic">not documented</span>
+            the case has no attributed unit, so the matrix says nothing on this question. "no code mapped" means its attributed units carry no code linked to the question.
+          </p>
 
           <Section title="Synthesis fields across cases" aside="as written in each case, with the number of units cited">
             <div className="-m-4 overflow-x-auto">

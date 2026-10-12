@@ -18,13 +18,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Textarea } from "@/components/ui/textarea"
 import { api } from "@/lib/api"
 import { diffCodes, familyOf, sameSet } from "@/lib/codes"
-import { dateTime, percent, plural, roleLabel } from "@/lib/format"
+import { dateTime, percent, plural, roleLabel, shortHash } from "@/lib/format"
 import { reportError } from "@/lib/notify"
 import { invalidateInterview } from "@/lib/queries"
-import { orderReview, rationaleRequired, reviewProgress } from "@/lib/review"
+import { candidateView, orderReview, rationaleRequired, reviewProgress } from "@/lib/review"
 import { interviewHref, unitHref } from "@/lib/router"
 import { cn } from "@/lib/utils"
-import type { AgreementReport, Arbitration, ArbitrationChoice, Code, ReviewItem } from "@/lib/types"
+import type { AgreementReport, Arbitration, ArbitrationChoice, Code, ReviewItem, ReviewSnapshotRef } from "@/lib/types"
 
 function choiceLabel(c: ArbitrationChoice): string {
   if (c.type === "human") return "Kept your coding"
@@ -35,7 +35,7 @@ function choiceLabel(c: ArbitrationChoice): string {
 function DiffRow({ label, codes, other, book }: { label: string; codes: string[]; other: string[][]; book: Code[] }) {
   const union = [...new Set(other.flat())]
   return (
-    <div className="grid grid-cols-[6.5rem_1fr] items-center gap-2 text-sm">
+    <div className="grid grid-cols-[8.5rem_1fr] items-center gap-2 text-sm">
       <span className="text-muted-foreground text-xs">{label}</span>
       <span className="flex flex-wrap gap-1">
         {codes.length === 0 && <span className="text-muted-foreground text-xs">no code</span>}
@@ -113,7 +113,16 @@ function ReviewCard({ id, item, runs, book }: { id: string; item: ReviewItem; ru
     onError: (e) => reportError(e, "Decision refused"),
   })
 
-  const sides: [string, string[]][] = [["Your coding", item.human], ...runs.map((r) => [`AI ${r}`, item.ai[r] ?? []] as [string, string[]])]
+  const view = candidateView(item)
+  const aiSides: [string, string[]][] = runs.map((r) => [`AI ${r}`, item.ai[r] ?? []])
+  const aiCodes = aiSides.map((s) => s[1])
+  // Rows: the frozen candidate and, when revised, the current candidate, each set
+  // against the AI codes; then each AI run set against the frozen candidate and the other runs.
+  const rows: { label: string; codes: string[]; other: string[][] }[] = [
+    { label: "Candidate (frozen)", codes: view.frozen, other: aiCodes },
+    ...(view.revised ? [{ label: "Current", codes: view.current, other: aiCodes }] : []),
+    ...aiSides.map(([label, codes], i) => ({ label, codes, other: [view.frozen, ...aiCodes.filter((_, j) => j !== i)] })),
+  ]
   const sample = item.kind !== "disagreement"
   const canSave = finalCodes.length > 0 && (!required || rationale.trim().length > 0) && !save.isPending
 
@@ -130,17 +139,20 @@ function ReviewCard({ id, item, runs, book }: { id: string; item: ReviewItem; ru
             {sample ? "sampled agreement: check that the shared reading holds" : "your coding differs from the AI"}
           </span>
         </div>
-        {decided ? (
-          <Badge className="bg-ok-soft text-ok">{sample ? "reviewed" : "decided"}</Badge>
-        ) : (
-          <Badge className={sample ? "bg-muted text-muted-foreground" : "bg-warn-soft text-warn"}>{sample ? "to look at" : "open"}</Badge>
-        )}
+        <div className="flex flex-wrap items-center gap-1.5">
+          {view.revised && <Badge variant="outline" className="text-warn border-warn/40">revised since snapshot</Badge>}
+          {decided ? (
+            <Badge className="bg-ok-soft text-ok">{sample ? "reviewed" : "decided"}</Badge>
+          ) : (
+            <Badge className={sample ? "bg-muted text-muted-foreground" : "bg-warn-soft text-warn"}>{sample ? "to look at" : "open"}</Badge>
+          )}
+        </div>
       </header>
       <div className="grid gap-4 p-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
         <p className="verbatim">{item.unit.text}</p>
         <div className="flex flex-col gap-2">
-          {sides.map(([label, codes], i) => (
-            <DiffRow key={label} label={label} codes={codes} other={sides.filter((_, j) => j !== i).map((s) => s[1])} book={book} />
+          {rows.map((row) => (
+            <DiffRow key={row.label} label={row.label} codes={row.codes} other={row.other} book={book} />
           ))}
           {!sample && <p className="text-muted-foreground text-xs">Outlined codes appear on one side only.</p>}
         </div>
@@ -219,6 +231,36 @@ function ReviewCard({ id, item, runs, book }: { id: string; item: ReviewItem; ru
   )
 }
 
+function SnapshotPanel({ refs, id }: { refs: ReviewSnapshotRef[]; id: string }) {
+  const snaps = useQuery({ queryKey: ["snapshots", id], queryFn: () => api.snapshots(id) })
+  if (!refs.length) return null
+  return (
+    <section className="bg-card rounded-md border px-4 py-3">
+      <h2 className="mb-2 text-sm font-semibold">Frozen references</h2>
+      <p className="text-muted-foreground mb-2 text-xs">
+        The candidate coding each run is compared with, frozen when its prompts were generated. Later changes show as revised.
+      </p>
+      <ul className="flex flex-col gap-1 text-xs">
+        {refs.map((s) => {
+          const taken = snaps.data?.find((x) => x.snapshot_id === s.snapshot_id)?.created_at
+          return (
+            <li key={`${s.run_label}-${s.snapshot_id}`} className="flex flex-wrap items-center gap-x-3 gap-y-0.5">
+              <span className="font-medium">{s.run_label}</span>
+              <span className="text-muted-foreground">
+                snapshot <span className="ident">{s.snapshot_id}</span>
+              </span>
+              <span className="text-muted-foreground">
+                SHA-256 <span className="ident">{shortHash(s.sha256, 12)}</span>
+              </span>
+              {taken && <span className="text-muted-foreground">taken {dateTime(taken)}</span>}
+            </li>
+          )
+        })}
+      </ul>
+    </section>
+  )
+}
+
 export function ReviewTab({ id }: { id: string }) {
   const review = useQuery({ queryKey: ["review", id], queryFn: () => api.review(id) })
   const agreement = useQuery({ queryKey: ["agreement", id], queryFn: () => api.agreement(id) })
@@ -279,6 +321,8 @@ export function ReviewTab({ id }: { id: string }) {
           Open only
         </label>
       </div>
+
+      <SnapshotPanel refs={r.snapshots ?? []} id={id} />
 
       {prog.complete && prog.disagreements > 0 && (
         <Banner tone="ok" title="Every disagreement is decided">

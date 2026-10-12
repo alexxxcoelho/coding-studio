@@ -19,6 +19,7 @@ import type {
   FileView,
   FinalAnswer,
   HumanCoding,
+  HumanSnapshot,
   InterviewDetail,
   InterviewEntry,
   InterviewSummary,
@@ -139,6 +140,7 @@ export const api = {
   // ---- review (phase 2)
   agreement: (id: string) => request<AgreementAnswer>("GET", `${iv(id)}/agreement`),
   review: (id: string) => request<ReviewAnswer>("GET", `${iv(id)}/review`),
+  snapshots: (id: string) => request<HumanSnapshot[]>("GET", `${iv(id)}/snapshots`),
   decide: (id: string, unitId: string, choice: ArbitrationChoice, final_codes: string[], rationale: string) =>
     request<Arbitration>("PUT", `${iv(id)}/review/${enc(unitId)}`, { choice, final_codes, rationale }),
   final: (id: string) => request<FinalAnswer>("GET", `${iv(id)}/final`),
