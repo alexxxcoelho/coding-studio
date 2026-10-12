@@ -66,6 +66,18 @@ CREATE TABLE IF NOT EXISTS research_questions (
     ord   INTEGER NOT NULL
 );
 
+-- Memo per research question; current state, every change is in audit_log.
+CREATE TABLE IF NOT EXISTS rq_memos (
+    rq_id           TEXT PRIMARY KEY REFERENCES research_questions(id),
+    documented      TEXT NOT NULL DEFAULT '',
+    interpretation  TEXT NOT NULL DEFAULT '',
+    rivals          TEXT NOT NULL DEFAULT '',
+    limits          TEXT NOT NULL DEFAULT '',
+    units_for       TEXT NOT NULL DEFAULT '[]',   -- JSON array of unit ids
+    units_against   TEXT NOT NULL DEFAULT '[]',   -- JSON array of unit ids
+    updated_at      TEXT NOT NULL
+);
+
 -- -------------------------------------------------------------- segmentation
 -- One row per version; the current segmentation is the latest seg_id.
 CREATE TABLE IF NOT EXISTS segmentations (
@@ -106,6 +118,59 @@ CREATE TABLE IF NOT EXISTS human_codings (
     revised_after_ai  INTEGER NOT NULL DEFAULT 0,
     updated_at        TEXT NOT NULL,
     PRIMARY KEY (interview_id, phase, unit_id)
+);
+
+-- ------------------------------------------- unit flags, corrections, verification
+-- Flags are current state (editable, audited). The segmentation is never
+-- rewritten: the current text and role of a unit come from its latest correction.
+CREATE TABLE IF NOT EXISTS unit_flags (
+    interview_id          TEXT NOT NULL REFERENCES interviews(interview_id),
+    unit_id               TEXT NOT NULL,
+    flags                 TEXT NOT NULL,     -- JSON array, subset of UNIT_FLAGS
+    co_constructed_kind   TEXT,              -- assent | content, only with CO-CONSTRUCTED
+    updated_at            TEXT NOT NULL,
+    PRIMARY KEY (interview_id, unit_id)
+);
+
+-- Append-only: the current text and role of a unit are those of its latest row.
+CREATE TABLE IF NOT EXISTS unit_corrections (
+    correction_id  INTEGER PRIMARY KEY AUTOINCREMENT,
+    interview_id   TEXT NOT NULL REFERENCES interviews(interview_id),
+    unit_id        TEXT NOT NULL,
+    text           TEXT NOT NULL,
+    role           TEXT NOT NULL,
+    reason         TEXT NOT NULL,
+    created_at     TEXT NOT NULL,
+    created_by     TEXT NOT NULL
+);
+
+-- Append-only: the current status is the latest row, downgraded to unverified
+-- when text_sha256 or role no longer match the current unit.
+CREATE TABLE IF NOT EXISTS unit_verifications (
+    verification_id  INTEGER PRIMARY KEY AUTOINCREMENT,
+    interview_id     TEXT NOT NULL REFERENCES interviews(interview_id),
+    unit_id          TEXT NOT NULL,
+    state            TEXT NOT NULL,     -- verified | unusable
+    text_sha256      TEXT NOT NULL,
+    role             TEXT NOT NULL,
+    note             TEXT,
+    created_at       TEXT NOT NULL,
+    created_by       TEXT NOT NULL
+);
+
+-- Qualifications per statement. Editable; deletion is audited, the audit row stays.
+CREATE TABLE IF NOT EXISTS claims (
+    claim_id      INTEGER PRIMARY KEY AUTOINCREMENT,
+    interview_id  TEXT NOT NULL REFERENCES interviews(interview_id),
+    unit_id       TEXT NOT NULL,
+    excerpt       TEXT NOT NULL,       -- exact substring of the current unit text
+    codes         TEXT NOT NULL,       -- JSON array, subset of the unit's current codes
+    ev_level      TEXT,                -- EV0..EV4
+    provenance    TEXT,                -- SPONTANEOUS | PROBED | DOCUMENT-DERIVED | RESEARCHER-INFERRED
+    role          TEXT,                -- trigger | retrospective-justification | enabling-condition | constraint | undetermined
+    memo          TEXT,
+    created_at    TEXT NOT NULL,
+    updated_at    TEXT NOT NULL
 );
 
 -- ------------------------------------------------------------ to clarify
@@ -259,6 +324,9 @@ CREATE INDEX IF NOT EXISTS idx_runs_interview ON ai_runs(interview_id);
 CREATE INDEX IF NOT EXISTS idx_outputs_run ON ai_outputs(run_id);
 CREATE INDEX IF NOT EXISTS idx_to_clarify_unit ON to_clarify(interview_id, unit_id);
 CREATE INDEX IF NOT EXISTS idx_cases_interview ON cases(interview_id);
+CREATE INDEX IF NOT EXISTS idx_claims_unit ON claims(interview_id, unit_id);
+CREATE INDEX IF NOT EXISTS idx_corrections_unit ON unit_corrections(interview_id, unit_id);
+CREATE INDEX IF NOT EXISTS idx_verifications_unit ON unit_verifications(interview_id, unit_id);
 
 -- ------------------------------------------------------- append-only guards
 CREATE TRIGGER IF NOT EXISTS audit_log_no_update BEFORE UPDATE ON audit_log
@@ -298,3 +366,13 @@ BEGIN SELECT RAISE(ABORT, 'append-only: to_clarify_resolutions'); END;
 
 CREATE TRIGGER IF NOT EXISTS to_clarify_no_delete BEFORE DELETE ON to_clarify
 BEGIN SELECT RAISE(ABORT, 'append-only: to_clarify'); END;
+
+CREATE TRIGGER IF NOT EXISTS unit_corrections_no_update BEFORE UPDATE ON unit_corrections
+BEGIN SELECT RAISE(ABORT, 'append-only: unit_corrections'); END;
+CREATE TRIGGER IF NOT EXISTS unit_corrections_no_delete BEFORE DELETE ON unit_corrections
+BEGIN SELECT RAISE(ABORT, 'append-only: unit_corrections'); END;
+
+CREATE TRIGGER IF NOT EXISTS unit_verifications_no_update BEFORE UPDATE ON unit_verifications
+BEGIN SELECT RAISE(ABORT, 'append-only: unit_verifications'); END;
+CREATE TRIGGER IF NOT EXISTS unit_verifications_no_delete BEFORE DELETE ON unit_verifications
+BEGIN SELECT RAISE(ABORT, 'append-only: unit_verifications'); END;

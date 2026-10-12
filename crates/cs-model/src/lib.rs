@@ -165,6 +165,10 @@ pub struct Unit {
     pub role: SpeakerRole,
     pub timestamp: String,
     pub text: String,
+    /// True when the current text or role comes from a unit correction, not from
+    /// the segmentation. Set by the store; ignored on input.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub corrected: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -565,6 +569,152 @@ pub struct ToClarify {
     pub created_at: String,
     pub created_by: String,
     pub resolved: Option<Resolution>,
+}
+
+// ------------------------------------------- verification, claims, memos, saturation
+
+/// Closed list of unit flags.
+pub const UNIT_FLAGS: [&str; 4] = ["VERIFY", "SECOND-HAND", "UNFINISHED", "CO-CONSTRUCTED"];
+/// Required with the CO-CONSTRUCTED flag, refused otherwise.
+pub const CO_CONSTRUCTED_KINDS: [&str; 2] = ["assent", "content"];
+/// `unverified` is computed (no row, or a stale row); only the other two are stored.
+pub const VERIFICATION_STATES: [&str; 3] = ["unverified", "verified", "unusable"];
+pub const EV_LEVELS: [&str; 5] = ["EV0", "EV1", "EV2", "EV3", "EV4"];
+pub const PROVENANCES: [&str; 4] = [
+    "SPONTANEOUS",
+    "PROBED",
+    "DOCUMENT-DERIVED",
+    "RESEARCHER-INFERRED",
+];
+pub const CLAIM_ROLES: [&str; 5] = [
+    "trigger",
+    "retrospective-justification",
+    "enabling-condition",
+    "constraint",
+    "undetermined",
+];
+
+/// Flags set on a unit (current state, editable).
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub struct UnitFlags {
+    pub interview_id: String,
+    pub unit_id: String,
+    /// Subset of `UNIT_FLAGS`.
+    pub flags: Vec<String>,
+    /// `assent` | `content`, set only with `CO-CONSTRUCTED`.
+    pub co_constructed_kind: Option<String>,
+    pub updated_at: String,
+}
+
+/// One correction of a unit's text or role (append-only).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct UnitCorrection {
+    pub correction_id: i64,
+    pub interview_id: String,
+    pub unit_id: String,
+    pub text: String,
+    pub role: SpeakerRole,
+    pub reason: String,
+    pub created_at: String,
+    pub created_by: String,
+}
+
+/// Current verification status of a unit, computed from the latest row.
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub struct VerificationStatus {
+    pub unit_id: String,
+    /// One of `VERIFICATION_STATES`.
+    pub state: String,
+    /// True when the row no longer matches the current text or role.
+    pub stale: bool,
+    pub at: Option<String>,
+    pub by: Option<String>,
+    pub note: Option<String>,
+}
+
+/// A unit that must be verified, with the reasons it was selected.
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub struct VerificationTarget {
+    pub unit_id: String,
+    /// `quoted`, `flagged`, `disagreement`, `case`, `sample`.
+    pub reasons: Vec<String>,
+}
+
+/// Verification counts for one interview.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub struct VerificationCoverage {
+    pub n_units: usize,
+    pub n_verified: usize,
+    pub n_unusable: usize,
+    pub n_stale: usize,
+    pub n_targets: usize,
+    pub n_targets_verified: usize,
+}
+
+/// A qualification of a statement inside a unit (editable).
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub struct Claim {
+    #[serde(default)]
+    pub claim_id: i64,
+    #[serde(default)]
+    pub interview_id: String,
+    pub unit_id: String,
+    /// Exact substring of the unit's current text.
+    pub excerpt: String,
+    /// Subset of the unit's current phase 2 codes; may be empty.
+    #[serde(default)]
+    pub codes: CodeSet,
+    /// One of `EV_LEVELS`.
+    #[serde(default)]
+    pub ev_level: Option<String>,
+    /// One of `PROVENANCES`.
+    #[serde(default)]
+    pub provenance: Option<String>,
+    /// One of `CLAIM_ROLES`.
+    #[serde(default)]
+    pub role: Option<String>,
+    #[serde(default)]
+    pub memo: Option<String>,
+    #[serde(default)]
+    pub created_at: String,
+    #[serde(default)]
+    pub updated_at: String,
+}
+
+/// Memo of one research question, written across interviews.
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub struct RqMemo {
+    pub rq_id: String,
+    #[serde(default)]
+    pub documented: String,
+    #[serde(default)]
+    pub interpretation: String,
+    #[serde(default)]
+    pub rivals: String,
+    #[serde(default)]
+    pub limits: String,
+    /// Unit ids supporting the answer; must exist in their interview's current segmentation.
+    #[serde(default)]
+    pub units_for: Vec<String>,
+    /// Unit ids against the answer; same rule.
+    #[serde(default)]
+    pub units_against: Vec<String>,
+    #[serde(default)]
+    pub updated_at: String,
+}
+
+/// One interview's row of the saturation table (provisional, see export header).
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub struct SaturationRow {
+    pub interview_id: String,
+    pub order: u32,
+    pub first_coded_at: String,
+    /// Codes whose first use in the corpus is in this interview.
+    pub codes_first_used: Vec<String>,
+    /// Field codes created while this interview was in play.
+    pub field_codes_created: Vec<String>,
+    pub labels_opened: u32,
+    pub labels_resolved: u32,
 }
 
 // --------------------------------------------------- questions and cases

@@ -100,6 +100,7 @@ fn segmentation(texts: &[&str]) -> Segmentation {
             },
             timestamp: format!("00:0{i}"),
             text: t.to_string(),
+            corrected: false,
         })
         .collect();
     Segmentation {
@@ -1524,3 +1525,6 @@ fn audit_filter_by_interview() {
 // v4 modules (dev graph 12.10.2026); each may use the fixtures above through `super::*`.
 mod cases_v4;
 mod snapshots_v4;
+mod claims_v4;
+mod memos_saturation_v4;
+mod verification_v4;

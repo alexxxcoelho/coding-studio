@@ -20,6 +20,7 @@ fn unit(id: &str, seq: u32, role: SpeakerRole, raw: &str, text: &str) -> Unit {
         role,
         timestamp: format!("00:{seq:02}"),
         text: text.to_string(),
+        corrected: false,
     }
 }
 

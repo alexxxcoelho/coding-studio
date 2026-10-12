@@ -682,6 +682,7 @@ impl Store {
                 role: enum_from::<SpeakerRole>(&role)?,
                 timestamp,
                 text,
+                corrected: false,
             });
         }
         Ok(Some(Segmentation {

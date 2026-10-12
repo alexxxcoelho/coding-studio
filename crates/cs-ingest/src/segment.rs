@@ -80,6 +80,7 @@ pub fn segment(interview_id: &str, turns: &[Turn]) -> Vec<Unit> {
                 role: turn.role,
                 timestamp: turn.timestamp.clone(),
                 text: chunk,
+                corrected: false,
             });
         }
     }
