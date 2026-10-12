@@ -2,16 +2,16 @@
 
 Not an entry of `03_Method/Decision_Log_2026-07-09.md`. The log ends at D-010 while P-04 already cites D-011: check the numbering before assigning one.
 
-## D-0xx, Coding in two phases, TOE contexts first
+## D-0xx, Coding with a provisional TOE pass, concrete codes and an AI challenger
 
-Date: 2026-10-10
+Date: 2026-10-12 (replaces the draft of 2026-10-10)
 
-Decision. The coding of each interview runs in two phases. Phase 1 codes every unit against the three TOE contexts only (TECH, ORG, ENV), plus CONTEXT for descriptive material about the respondent, the organisation or the scope of the account (no explanatory role: a unit that says why adoption advanced, stalled or failed is coded TECH, ORG or ENV), INDUCTIVE-PENDING for relevant material outside the three contexts, and NA. The candidate codes first, a language model codes blind (P-04), agreement is computed and every divergence is arbitrated. Phase 2 codes only the units reconciled as relevant, with the study-specific codes of codebook v0.2 restricted to the families reconciled in phase 1, plus the cross-cutting families (outcome, turning point, transfer, stage, context), followed by a second blind model pass and a second arbitration. Inductive codes are created by the candidate alone in phase 2 and recorded in an inductive log (definition, example, reason, date).
+Decision. TOE remains the theoretical frame. The coding of each interview works in two passes. The first pass is a provisional pre-classification of every unit by the candidate (TECH, ORG, ENV, CONTEXT for descriptive material, or NA); it stays revisable and is not submitted to a second coder. The second pass codes the units that are not NA with concrete codes naming mechanisms (for example legal obligation, customer requirement, lack of skills, cost without benefit for the payer), each attached to a TOE context where relevant and marked as coming from the literature or from the field; a unit may carry several codes. When no code fits, the candidate records a provisional label with a short note ("to clarify"), later turned into a new field code or mapped to an existing one. A language model challenges the concrete codes blind, without seeing the candidate's coding; the candidate reviews every disagreement and a recorded random sample of agreements (at least five, or a tenth) and keeps the final decision. Agreement figures are reported, not optimised. Each interview is then synthesised by case (trigger, alternatives, constraints, choice, result, each backed by units), and the cases are compared by research question through the mapping of codes to questions.
 
-Reason. Tornatzky and Fleischer (1990), as summarised by Baker (2012), define the three contexts but no fixed list of factors within them; the factors are study-specific. Coding the contexts first makes inter-coder agreement measurable on a small, stable category set, and confines the finer judgements to units already reconciled as relevant.
+Reason. Tornatzky and Fleischer (1990), as summarised by Baker (2012), define the three contexts but no fixed list of factors within them; the explanatory content of the thesis lies in the concrete mechanisms and in how they combine within cases, not in the frequency of each context. The AI pass is used to improve the interpretation of the detailed codes, which is where readings can diverge.
 
-Change from codebook v0.2. Section 5 applied the study-specific codes in the first cycle. They move to phase 2. Section 12 ("TOE-informed first cycle, inductive log and second-cycle cross-case synthesis") was submitted to the supervisor: to be reported to him.
+Change from codebook v0.2 and from the draft of 2026-10-10. The study-specific codes are applied in the second pass to every relevant unit, no longer restricted by the first-pass context; INDUCTIVE-PENDING is replaced by labels to clarify; the first pass is no longer reconciled with an AI pass. Section 12 of codebook v0.2 ("TOE-informed first cycle, inductive log and second-cycle cross-case synthesis") was submitted to the supervisor: to be reported to him. The method chapter and the mapping of codes to research questions are to be updated after the procedure has been tried on two or three interviews.
 
-Open point. Threshold of recurrence for retaining an inductive code as a theme (for example two cases): to be decided and recorded.
+Open points. The list of concrete codes after the trial on two or three interviews; the research questions used for the cross-case comparison.
 
-Instrument. Coding Studio (`00_Tools/CodingStudio`) enforces the order of phases and the locks; see `docs/METHOD.md`.
+Instrument. Coding Studio (`00_Tools/CodingStudio`) records each step and enforces the order of operations; see `docs/METHOD.md`.
