@@ -266,7 +266,7 @@ ENGLISH_JS = r"""
     if (r.width < 1 || r.height < 1) continue;
     for (const tok of t.nodeValue.split(/\s+/)) {
       if (/[_0-9\-\/\.@]/.test(tok.replace(/[.,;:!?)]+$/, ''))) continue;
-      const w = tok.replace(/^[("«]+|[.,;:!?)"»]+$/g, '').toLowerCase();
+      const raw = tok.replace(/^[("«]+|[.,;:!?)"»]+$/g, ''); if (raw.length > 1 && raw === raw.toUpperCase()) continue; const w = raw.toLowerCase();
       if (set.has(w)) found.set(w, (found.get(w) || t.nodeValue.trim().slice(0, 70)));
     }
   }
@@ -278,7 +278,7 @@ ENGLISH_JS = r"""
       if (!v) continue;
       for (const tok of v.split(/\s+/)) {
         if (/[_0-9\-\/\.@]/.test(tok.replace(/[.,;:!?)]+$/, ''))) continue;
-        const w = tok.replace(/^[("«]+|[.,;:!?)"»]+$/g, '').toLowerCase();
+        const raw = tok.replace(/^[("«]+|[.,;:!?)"»]+$/g, ''); if (raw.length > 1 && raw === raw.toUpperCase()) continue; const w = raw.toLowerCase();
         if (set.has(w)) found.set(w, a + ': ' + v.slice(0, 70));
       }
     }
@@ -325,9 +325,15 @@ def capture(browser, base: str, out: Path, viewport: str, system: str, choice: s
         errors.clear()
         entry = {"route": route["name"], "viewport": viewport, "system": system, "choice": choice, "problems": []}
         try:
-            page.goto("about:blank")  # a hash-only change would keep the previous screen and its dialogs
-            _goto(route["hash"])(page, base)
-            _settle(page)
+            for attempt in (1, 2):  # the dev server sometimes answers a cold page late: one retry
+                try:
+                    page.goto("about:blank")  # a hash-only change would keep the previous screen and its dialogs
+                    _goto(route["hash"])(page, base)
+                    _settle(page)
+                    break
+                except Exception:
+                    if attempt == 2:
+                        raise
             page.evaluate(f"document.documentElement.style.background = '{MATERIAL[eff]}'")
             if "act" in route:
                 route["act"](page)
@@ -347,8 +353,8 @@ def capture(browser, base: str, out: Path, viewport: str, system: str, choice: s
                 entry["problems"].append({"check": f"contrast:{f['kind']}", "detail": f"{f['sel']} \"{f['text']}\" text {f['fg']} on {f['bg']}"})
             for f in page.evaluate(LAYOUT_JS):
                 entry["problems"].append({"check": f"layout:{f['kind']}", "detail": f["detail"]})
-            for word, ctx in page.evaluate(ENGLISH_JS, {"words": ENGLISH["words"], "skip": ENGLISH["skip"]}):
-                entry["problems"].append({"check": "i18n:english", "detail": f"\"{word}\" in: {ctx}"})
+            for word, where in page.evaluate(ENGLISH_JS, {"words": ENGLISH["words"], "skip": ENGLISH["skip"]}):
+                entry["problems"].append({"check": "i18n:english", "detail": f"\"{word}\" in: {where}"})
             for e in errors:
                 if "404" in e and "Failed to load resource" in e:
                     continue  # a question without memo answers 404 by design, read as null

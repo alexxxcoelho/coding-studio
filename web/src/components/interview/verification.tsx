@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { api } from "@/lib/api"
-import { coverageShare, REASON_HELP, targetRows } from "@/lib/qualifications"
+import { coverageShare, REASON_HELP, REASON_LABEL, targetRows } from "@/lib/qualifications"
 import { percent, dateTime } from "@/lib/format"
 import { unitHref } from "@/lib/router"
 import type { VerificationReason } from "@/lib/types"
@@ -70,7 +70,7 @@ export function VerificationTab({ id }: { id: string }) {
                       <span className="flex flex-wrap gap-1">
                         {r.reasons.map((reason) => (
                           <span key={reason} className="bg-muted rounded px-1.5 py-0.5 text-xs" title={REASON_HELP[reason]}>
-                            {reason}
+                            {REASON_LABEL[reason]}
                           </span>
                         ))}
                       </span>
@@ -107,7 +107,7 @@ export function VerificationTab({ id }: { id: string }) {
           {REASONS.map((r) => (
             <div key={r} className="flex gap-2.5 text-sm">
               <dt className="shrink-0">
-                <span className="bg-muted rounded px-1.5 py-0.5 text-xs">{r}</span>
+                <span className="bg-muted rounded px-1.5 py-0.5 text-xs">{REASON_LABEL[r]}</span>
               </dt>
               <dd className="text-muted-foreground text-xs leading-snug">{REASON_HELP[r]}</dd>
             </div>

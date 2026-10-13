@@ -78,6 +78,14 @@ export function verificationTone(v: { state: VerificationState; stale: boolean }
   return "muted"
 }
 
+export const REASON_LABEL: Record<VerificationReason, string> = {
+  quoted: "citée",
+  flagged: "signalée",
+  disagreement: "désaccord",
+  case: "cas",
+  sample: "échantillon",
+}
+
 export const REASON_HELP: Record<VerificationReason, string> = {
   quoted: "Un extrait du codage humain ou une affirmation cite cette unité.",
   flagged: "L'unité porte le drapeau VERIFY.",
