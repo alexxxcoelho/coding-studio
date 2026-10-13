@@ -313,3 +313,37 @@ fn a_theme_can_be_deleted_and_keeps_its_history() {
         "the history stays readable"
     );
 }
+
+#[test]
+fn gap_1_a_passage_starting_at_zero_is_not_the_whole_unit() {
+    let (s, _d) = ready();
+    let (p, _) = s
+        .create_passage(
+            &NewPassage {
+                interview_id: ID.into(),
+                unit_id: U2.into(),
+                start: Some(0),
+                end: Some(8),
+                offset_unit: OffsetUnit::Scalar,
+                text: None,
+            },
+            ACTOR,
+        )
+        .unwrap();
+    assert_eq!(p.text, "The tags");
+    assert!(!p.whole_unit, "starts at 0 but stops before the end");
+    let (whole, _) = s
+        .create_passage(
+            &NewPassage {
+                interview_id: ID.into(),
+                unit_id: U2.into(),
+                start: None,
+                end: None,
+                offset_unit: OffsetUnit::Scalar,
+                text: None,
+            },
+            ACTOR,
+        )
+        .unwrap();
+    assert!(whole.whole_unit);
+}

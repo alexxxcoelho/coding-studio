@@ -1538,6 +1538,7 @@ mod study_config_v5;
 mod verification_v4;
 
 // V1 lot 5 (Analyse and Write) and the API gaps of the same lot.
+mod l5_gaps;
 mod l5_schema;
 mod l5_study_text;
 mod l5_themes;

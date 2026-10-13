@@ -22,6 +22,7 @@ mod claims;
 mod codebook;
 mod codetree;
 mod coding;
+mod library;
 mod memos;
 mod passages;
 mod project;
@@ -33,8 +34,15 @@ mod themes;
 mod verification;
 
 pub use codebook::{CodePatch, ImportReport, MergeOutcome};
-pub use codetree::{CodeUpdate, NewCodeFromPassage, ResolvedCode, Revision};
+pub use codetree::{
+    CodeMemoVersion, CodeUpdate, NewCode, NewCodeFromPassage, ResolvedCode, Revision,
+    UndoCreateOutcome,
+};
 pub use coding::ResolveRequest;
+pub use library::{
+    LibraryProgress, LibraryReview, LibraryRow, LibraryTotals, PassageQualify, UnitMark,
+    MARK_TO_REVIEW,
+};
 pub use passages::{NewPassage, PassageFilter};
 pub use project::{
     AttributeView, ChecklistItemView, ChecklistView, MemoAnswer, MemoOverrides, MemoQuestionView,

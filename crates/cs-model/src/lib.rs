@@ -715,6 +715,10 @@ pub struct Claim {
     pub role: Option<String>,
     #[serde(default)]
     pub memo: Option<String>,
+    /// Nature of the evidence: an id of the project list `evidence_natures`.
+    /// Values saved before the list was editable stay readable.
+    #[serde(default)]
+    pub nature: Option<String>,
     #[serde(default)]
     pub created_at: String,
     #[serde(default)]

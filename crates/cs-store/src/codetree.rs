@@ -360,11 +360,13 @@ impl Store {
         for (id, a) in aliases(&self.conn)? {
             alias_map.entry(id).or_default().push(a);
         }
+        let mut memos = self.current_code_memos()?;
         Ok(found
             .into_iter()
             .map(
                 |(c, code_id, name, parent_id, includes, excludes, origin_p, example_p)| CodeNode {
                     aliases: alias_map.remove(&code_id).unwrap_or_default(),
+                    memo: memos.remove(&code_id).unwrap_or_default(),
                     merged_into: c.merged_into.as_ref().and_then(|t| id_of.get(t).cloned()),
                     code_id,
                     token: c.code,
@@ -886,57 +888,33 @@ impl Store {
         req: &NewCodeFromPassage,
         actor: &str,
     ) -> Result<(CodeNode, cs_model::passage::Passage)> {
-        let name = check_display_name(&req.name)?;
-        let definition = req.definition.trim();
-        if definition.is_empty() {
-            return Err(validation("a code needs a definition"));
-        }
-        let f = fold(&name);
-        let taken = rows(&self.conn)?
-            .iter()
-            .any(|r| fold(&r.name) == f || fold(&r.token) == f)
-            || aliases(&self.conn)?
-                .iter()
-                .any(|(_, a)| fold(&a.alias) == f);
-        if taken {
-            return Err(validation(format!("the name {name} is already used")));
-        }
-        let parent_id = match req
-            .parent_id
-            .as_deref()
-            .map(str::trim)
-            .filter(|p| !p.is_empty())
-        {
-            None => None,
-            Some(p) => {
-                let row = rows(&self.conn)?
-                    .into_iter()
-                    .find(|r| r.code_id == p || r.token == p)
-                    .ok_or_else(|| validation(format!("unknown parent code {p}")))?;
-                if row.merged_into.is_some() {
-                    return Err(validation(format!(
-                        "code {} was merged and cannot be a parent",
-                        row.code_id
-                    )));
-                }
-                Some(row.code_id)
-            }
-        };
-        let questions = self.check_questions(&req.research_questions)?;
+        let (name, definition, parent_id, questions) = self.validate_new_code(
+            &req.name,
+            &req.definition,
+            req.parent_id.as_deref(),
+            &req.research_questions,
+        )?;
+        let definition = definition.as_str();
         if req.passage_id.is_none() && req.passage.is_none() {
             return Err(validation(
                 "give the passage to code: an existing passage_id or a selection",
             ));
         }
         let tx = self.conn.unchecked_transaction()?;
+        let mut passage_created = false;
         let passage_id = match (&req.passage_id, &req.passage) {
             (Some(id), _) => {
                 self.passage(id)?;
                 id.clone()
             }
-            (None, Some(sel)) => self.create_passage_in(&tx, sel, actor)?.0,
+            (None, Some(sel)) => {
+                let (id, created) = self.create_passage_in(&tx, sel, actor)?;
+                passage_created = created;
+                id
+            }
             (None, None) => unreachable!("checked above"),
         };
+
         let passage = self.passage(&passage_id)?;
         let code_id = Self::next_code_id(&tx)?;
         let ord = tx
@@ -985,6 +963,7 @@ impl Store {
                 "parent_id": parent_id,
                 "passage_id": passage_id,
                 "unit_id": passage.unit_id,
+                "passage_created": passage_created,
                 "codebook_version": rev,
             }),
         )?;
@@ -1075,4 +1054,365 @@ fn strip(n: &CodeNode) -> serde_json::Value {
         o.remove("counts");
     }
     v
+}
+
+/// A code made without a passage: the codebook entry alone.
+#[derive(Debug, Clone, Default, Deserialize)]
+pub struct NewCode {
+    pub name: String,
+    pub definition: String,
+    #[serde(default)]
+    pub includes: String,
+    #[serde(default)]
+    pub excludes: String,
+    #[serde(default)]
+    pub parent_id: Option<String>,
+    #[serde(default)]
+    pub research_questions: Vec<String>,
+    #[serde(default)]
+    pub memo: String,
+    #[serde(default)]
+    pub reason: Option<String>,
+}
+
+/// What an undo of "create a code from a passage" did.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+pub struct UndoCreateOutcome {
+    pub code_id: String,
+    pub passage_id: String,
+    pub coding_removed: bool,
+    pub code_deleted: bool,
+    /// Why the code stays, when it does.
+    pub code_kept_because: Vec<String>,
+    pub passage_deleted: bool,
+}
+
+/// One version of the memo of a code.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+pub struct CodeMemoVersion {
+    pub memo_id: i64,
+    pub code_id: String,
+    pub text: String,
+    pub at: String,
+    pub by: String,
+}
+
+impl Store {
+    /// Name, definition, parent and questions of a new code, checked.
+    fn validate_new_code(
+        &self,
+        name: &str,
+        definition: &str,
+        parent: Option<&str>,
+        questions: &[String],
+    ) -> Result<(String, String, Option<String>, Vec<String>)> {
+        let name = check_display_name(name)?;
+        let definition = definition.trim();
+        if definition.is_empty() {
+            return Err(validation("a code needs a definition"));
+        }
+        let f = fold(&name);
+        let taken = rows(&self.conn)?
+            .iter()
+            .any(|r| fold(&r.name) == f || fold(&r.token) == f)
+            || aliases(&self.conn)?
+                .iter()
+                .any(|(_, a)| fold(&a.alias) == f);
+        if taken {
+            return Err(validation(format!("the name {name} is already used")));
+        }
+        let parent_id = match parent.map(str::trim).filter(|p| !p.is_empty()) {
+            None => None,
+            Some(p) => {
+                let row = rows(&self.conn)?
+                    .into_iter()
+                    .find(|r| r.code_id == p || r.token == p)
+                    .ok_or_else(|| validation(format!("unknown parent code {p}")))?;
+                if row.merged_into.is_some() {
+                    return Err(validation(format!(
+                        "code {} was merged and cannot be a parent",
+                        row.code_id
+                    )));
+                }
+                Some(row.code_id)
+            }
+        };
+        let questions = self.check_questions(questions)?;
+        Ok((name, definition.to_string(), parent_id, questions))
+    }
+
+    /// Latest memo of every code that has one.
+    pub(crate) fn current_code_memos(&self) -> Result<BTreeMap<String, String>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT code_id, text FROM code_memo_history
+             WHERE memo_id IN (SELECT MAX(memo_id) FROM code_memo_history GROUP BY code_id)",
+        )?;
+        let out = stmt
+            .query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?)))?
+            .collect::<rusqlite::Result<_>>()?;
+        Ok(out)
+    }
+
+    /// Creates a code in the codebook without any passage. The name is the
+    /// given name; the stable id is the only key.
+    pub fn create_code_v1(&self, req: &NewCode, actor: &str) -> Result<CodeNode> {
+        let (name, definition, parent_id, questions) = self.validate_new_code(
+            &req.name,
+            &req.definition,
+            req.parent_id.as_deref(),
+            &req.research_questions,
+        )?;
+        let memo = req.memo.trim().to_string();
+        let tx = self.conn.unchecked_transaction()?;
+        let code_id = Self::next_code_id(&tx)?;
+        let ord = tx
+            .query_row(
+                "SELECT COALESCE(MAX(ord), 0) FROM codes WHERE local = 1",
+                [],
+                |r| r.get::<_, i64>(0),
+            )?
+            .max(100_000)
+            + 1;
+        tx.execute(
+            "INSERT INTO codes (code, family, label, definition, origin, toe, active, in_prompt,
+               research_questions, version, ord, local, example, reason, created_at,
+               code_id, name, parent_id, includes, excludes, origin_passage_id, example_passage_id)
+             VALUES (?1, 'OTHER', '', ?2, 'field', NULL, 1, 1, ?3, 1, ?4, 1, NULL, ?5, ?6,
+               ?1, ?7, ?8, ?9, ?10, NULL, NULL)",
+            params![
+                code_id,
+                definition,
+                crate::to_json(&questions),
+                ord,
+                clean_opt(&req.reason),
+                now(),
+                name,
+                parent_id,
+                req.includes.trim(),
+                req.excludes.trim(),
+            ],
+        )?;
+        if !memo.is_empty() {
+            tx.execute(
+                "INSERT INTO code_memo_history (code_id, text, at, by) VALUES (?1, ?2, ?3, ?4)",
+                params![code_id, memo, now(), actor],
+            )?;
+        }
+        let rev = bump_revision(&tx, actor, "create", Some(&code_id))?;
+        append_event(
+            &tx,
+            actor,
+            "codebook.code.create",
+            None,
+            Some(&code_id),
+            json!({
+                "code_id": code_id,
+                "name": name,
+                "definition": definition,
+                "includes": req.includes.trim(),
+                "excludes": req.excludes.trim(),
+                "parent_id": parent_id,
+                "research_questions": questions,
+                "memo": memo,
+                "codebook_version": rev,
+            }),
+        )?;
+        tx.commit()?;
+        self.code_node(&code_id)
+    }
+
+    /// Sets the memo of a code. Each change is a new version in the history;
+    /// the codebook version does not move (a memo is not a definition).
+    pub fn set_code_memo(&self, key: &str, text: &str, actor: &str) -> Result<CodeNode> {
+        let row = self.find_exact(key)?;
+        let text = text.trim().to_string();
+        if text.chars().count() > 20_000 {
+            return Err(validation("a code memo is at most 20000 characters"));
+        }
+        let before = self
+            .current_code_memos()?
+            .remove(&row.code_id)
+            .unwrap_or_default();
+        if before == text {
+            return self.code_node(&row.code_id);
+        }
+        let tx = self.conn.unchecked_transaction()?;
+        tx.execute(
+            "INSERT INTO code_memo_history (code_id, text, at, by) VALUES (?1, ?2, ?3, ?4)",
+            params![row.code_id, text, now(), actor],
+        )?;
+        append_event(
+            &tx,
+            actor,
+            "codebook.code.memo",
+            None,
+            Some(&row.code_id),
+            json!({"code_id": row.code_id, "before": before, "after": text}),
+        )?;
+        tx.commit()?;
+        self.code_node(&row.code_id)
+    }
+
+    /// Every version of the memo of a code, oldest first.
+    pub fn code_memo_history(&self, key: &str) -> Result<Vec<CodeMemoVersion>> {
+        let row = self.find_exact(key)?;
+        let mut stmt = self.conn.prepare(
+            "SELECT memo_id, code_id, text, at, by FROM code_memo_history
+             WHERE code_id = ?1 ORDER BY memo_id",
+        )?;
+        let out = stmt
+            .query_map([&row.code_id], |r| {
+                Ok(CodeMemoVersion {
+                    memo_id: r.get(0)?,
+                    code_id: r.get(1)?,
+                    text: r.get(2)?,
+                    at: r.get(3)?,
+                    by: r.get(4)?,
+                })
+            })?
+            .collect::<rusqlite::Result<_>>()?;
+        Ok(out)
+    }
+
+    /// Undoes "create a code from a passage": removes the coding the call made,
+    /// the code when nothing else uses it, and the passage when that call made
+    /// it and nothing else uses it. One transaction, one audit event.
+    pub fn undo_create_code_from_passage(
+        &self,
+        key: &str,
+        actor: &str,
+    ) -> Result<UndoCreateOutcome> {
+        let row = self.find_exact(key)?;
+        let code_id = row.code_id.clone();
+        let created = self
+            .audit_events(None)?
+            .into_iter()
+            .find(|e| {
+                e.action == "codebook.code.create_from_passage"
+                    && e.target.as_deref() == Some(code_id.as_str())
+            })
+            .ok_or_else(|| validation(format!("code {code_id} was not created from a passage")))?;
+        let passage_id = created.detail["passage_id"]
+            .as_str()
+            .unwrap_or_default()
+            .to_string();
+        let passage_made = created.detail["passage_created"].as_bool().unwrap_or(false);
+        let coding: Option<i64> = self
+            .conn
+            .query_row(
+                "SELECT coding_id FROM passage_codings
+                 WHERE passage_id = ?1 AND code_id = ?2 AND removed_at IS NULL",
+                params![passage_id, code_id],
+                |r| r.get(0),
+            )
+            .ok();
+        // Other uses of the code.
+        let mut kept: Vec<String> = Vec::new();
+        let count = |sql: &str, p: &[&dyn rusqlite::ToSql]| -> Result<i64> {
+            Ok(self.conn.query_row(sql, p, |r| r.get(0))?)
+        };
+        if count(
+            "SELECT COUNT(*) FROM passage_codings pc JOIN passages p USING (passage_id)
+             WHERE pc.code_id = ?1 AND pc.removed_at IS NULL AND p.deleted_at IS NULL
+               AND pc.passage_id <> ?2",
+            &[&code_id, &passage_id],
+        )? > 0
+        {
+            kept.push("coded_elsewhere".into());
+        }
+        if count(
+            "SELECT COUNT(*) FROM codes WHERE parent_id = ?1",
+            &[&code_id],
+        )? > 0
+        {
+            kept.push("has_children".into());
+        }
+        if count(
+            "SELECT COUNT(*) FROM codes WHERE merged_into = ?1",
+            &[&row.token],
+        )? > 0
+        {
+            kept.push("received_a_merge".into());
+        }
+        if count(
+            "SELECT COUNT(*) FROM theme_codes tc JOIN themes t USING (theme_id)
+             WHERE tc.code_id = ?1 AND t.deleted_at IS NULL",
+            &[&code_id],
+        )? > 0
+        {
+            kept.push("used_by_a_theme".into());
+        }
+        if count(
+            "SELECT COUNT(*) FROM code_aliases WHERE code_id = ?1 AND reason <> 'legacy_token'",
+            &[&code_id],
+        )? > 0
+        {
+            kept.push("has_aliases".into());
+        }
+        if count(
+            "SELECT COUNT(*) FROM to_clarify_resolutions WHERE code = ?1",
+            &[&row.token],
+        )? > 0
+        {
+            kept.push("used_in_resolutions".into());
+        }
+        let delete_code = kept.is_empty();
+        let mut passage_deleted = false;
+        let tx = self.conn.unchecked_transaction()?;
+        if let Some(coding_id) = coding {
+            tx.execute(
+                "UPDATE passage_codings SET removed_at = ?2, removed_by = ?3,
+                   remove_reason = 'undo create code'
+                 WHERE coding_id = ?1",
+                params![coding_id, now(), actor],
+            )?;
+        }
+        if passage_made && !passage_id.is_empty() {
+            let other: i64 = tx.query_row(
+                "SELECT (SELECT COUNT(*) FROM passage_codings WHERE passage_id = ?1 AND removed_at IS NULL)
+                      + (SELECT COUNT(*) FROM passage_links WHERE passage_id = ?1 AND removed_at IS NULL)",
+                [&passage_id],
+                |r| r.get(0),
+            )?;
+            if other == 0 {
+                tx.execute(
+                    "UPDATE passages SET deleted_at = ?2, deleted_by = ?3,
+                       delete_reason = 'undo create code'
+                     WHERE passage_id = ?1 AND deleted_at IS NULL",
+                    params![passage_id, now(), actor],
+                )?;
+                passage_deleted = true;
+            }
+        }
+        if delete_code {
+            tx.execute("DELETE FROM code_aliases WHERE code_id = ?1", [&code_id])?;
+            tx.execute("DELETE FROM codes WHERE code_id = ?1", [&code_id])?;
+            bump_revision(&tx, actor, "undo_create", Some(&code_id))?;
+        }
+        append_event(
+            &tx,
+            actor,
+            "codebook.code.undo_create_from_passage",
+            None,
+            Some(&code_id),
+            json!({
+                "code_id": code_id,
+                "name": row.name,
+                "passage_id": passage_id,
+                "coding_removed": coding.is_some(),
+                "code_deleted": delete_code,
+                "code_kept_because": kept,
+                "passage_deleted": passage_deleted,
+            }),
+        )?;
+        tx.commit()?;
+        Ok(UndoCreateOutcome {
+            code_id,
+            passage_id,
+            coding_removed: coding.is_some(),
+            code_deleted: delete_code,
+            code_kept_because: kept,
+            passage_deleted,
+        })
+    }
 }
