@@ -1546,6 +1546,7 @@ mod verification_v4;
 mod v2_code_search;
 mod v2_code_stats;
 mod v2_common;
+mod v2_cooccurrence;
 mod v2_fulltext;
 mod v2_lists_f09;
 

@@ -207,3 +207,64 @@ pub(crate) fn state_parts(
     }
     Ok(parts)
 }
+
+/// `relation,group,kind,code_a_id,code_a_name,code_b_id,code_b_name,passages,units,interviews,passage_pairs,jaccard`:
+/// the co-occurrence of codes (F-56) over the given interviews, for the three
+/// relations, in one group. Not causation: a description of the coding.
+pub(crate) fn cooccurrence_csv(store: &Store, interview_ids: &[String]) -> Result<String> {
+    use cs_store::{CoRequest, Relation};
+    let mut out = String::from(
+        "relation,group,kind,code_a_id,code_a_name,code_b_id,code_b_name,passages,units,interviews,passage_pairs,jaccard\n",
+    );
+    for (relation, name) in [
+        (Relation::SamePassage, "same_passage"),
+        (Relation::Overlap, "overlap"),
+        (Relation::SameUnit, "same_unit"),
+    ] {
+        let m = store.cooccurrence(&CoRequest {
+            relation,
+            interviews: interview_ids.to_vec(),
+            ..Default::default()
+        })?;
+        let names: std::collections::BTreeMap<&str, &str> = m
+            .codes
+            .iter()
+            .map(|c| (c.code_id.as_str(), c.name.as_str()))
+            .collect();
+        for g in &m.groups {
+            for d in &g.diagonal {
+                out.push_str(&row(&[
+                    name.into(),
+                    g.key.clone(),
+                    "single".into(),
+                    d.code_id.clone(),
+                    names.get(d.code_id.as_str()).copied().unwrap_or("").into(),
+                    String::new(),
+                    String::new(),
+                    d.passages.to_string(),
+                    d.units.to_string(),
+                    d.interviews.to_string(),
+                    String::new(),
+                    String::new(),
+                ]));
+            }
+            for c in &g.cells {
+                out.push_str(&row(&[
+                    name.into(),
+                    g.key.clone(),
+                    "pair".into(),
+                    c.a.clone(),
+                    names.get(c.a.as_str()).copied().unwrap_or("").into(),
+                    c.b.clone(),
+                    names.get(c.b.as_str()).copied().unwrap_or("").into(),
+                    String::new(),
+                    c.units.to_string(),
+                    c.interviews.to_string(),
+                    c.passage_pairs.to_string(),
+                    format!("{:.4}", c.jaccard),
+                ]));
+            }
+        }
+    }
+    Ok(out)
+}

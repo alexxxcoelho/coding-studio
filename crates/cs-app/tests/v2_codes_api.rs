@@ -177,3 +177,84 @@ async fn f55_full_text_search_with_filters_and_highlights() {
         assert!(s == StatusCode::BAD_REQUEST || s == StatusCode::NOT_FOUND, "{uri}: {s}");
     }
 }
+
+#[tokio::test]
+async fn f56_cooccurrence_matrix_and_drill_down() {
+    let ctx = setup().await;
+    with_sector(&ctx).await;
+    let adv = code_id(&ctx.app, "TECH-ADV").await;
+    let cost = code_id(&ctx.app, "TECH-COST").await;
+    let skills = code_id(&ctx.app, "ORG-SKILLS").await;
+    let u = unit_ids(&ctx.app, "INT-01").await;
+    let p1 = passage(&ctx, "INT-01", 1, &adv).await;
+    ok(&ctx.app, "POST", &format!("/api/passages/{p1}/codings"), Some(json!({"code": cost}))).await;
+    passage(&ctx, "INT-01", 3, &adv).await;
+    passage(&ctx, "INT-01", 3, &skills).await;
+    passage(&ctx, "INT-02", 1, &adv).await;
+    let _ = u;
+
+    let m = ok(&ctx.app, "GET", "/api/codes/cooccurrence?relation=same_passage", None).await;
+    let cells = m["groups"][0]["cells"].as_array().unwrap();
+    assert_eq!(cells.len(), 2);
+    assert_eq!(cells[0]["units"], 1);
+    assert!(m["note"].as_str().unwrap().contains("not causation"));
+    let m = ok(&ctx.app, "GET", "/api/codes/cooccurrence?relation=same_unit&group_by=interview", None).await;
+    assert_eq!(m["groups"].as_array().unwrap().len(), 2);
+    let m = ok(&ctx.app, "GET", "/api/codes/cooccurrence?group_by=attribute&attribute=sector", None).await;
+    assert_eq!(m["groups"][0]["key"], "public");
+    let d = ok(
+        &ctx.app,
+        "GET",
+        &format!("/api/codes/cooccurrence/passages?a={adv}&b={skills}&relation=same_unit"),
+        None,
+    )
+    .await;
+    assert_eq!(d["n_units"], 1);
+    assert_eq!(d["items"][0]["pairs"].as_array().unwrap().len(), 1);
+    for uri in [
+        "/api/codes/cooccurrence?relation=near",
+        "/api/codes/cooccurrence?group_by=attribute",
+        "/api/codes/cooccurrence/passages?a=TECH-ADV",
+        "/api/codes/cooccurrence?codes=NOPE",
+    ] {
+        let (s, _) = call(&ctx.app, "GET", uri, None).await;
+        assert!(s == StatusCode::BAD_REQUEST || s == StatusCode::NOT_FOUND, "{uri}: {s}");
+    }
+}
+
+#[tokio::test]
+async fn f56_co_occurrence_csv_is_exported_and_in_the_manifest() {
+    let ctx = setup().await;
+    let adv = code_id(&ctx.app, "TECH-ADV").await;
+    let cost = code_id(&ctx.app, "TECH-COST").await;
+    let p1 = passage(&ctx, "INT-01", 1, &adv).await;
+    ok(&ctx.app, "POST", &format!("/api/passages/{p1}/codings"), Some(json!({"code": cost}))).await;
+    for (uri, key) in [
+        ("/api/interviews/INT-01/export", "dir"),
+        ("/api/export/cross-case", "folder"),
+    ] {
+        let exp = ok(&ctx.app, "POST", uri, None).await;
+        let dir = std::path::PathBuf::from(exp[key].as_str().unwrap());
+        let csv = std::fs::read_to_string(dir.join("co-occurrence.csv")).unwrap();
+        let mut lines = csv.lines();
+        assert_eq!(
+            lines.next().unwrap(),
+            "relation,group,kind,code_a_id,code_a_name,code_b_id,code_b_name,passages,units,interviews,passage_pairs,jaccard"
+        );
+        let pair = csv
+            .lines()
+            .find(|l| l.starts_with("same_passage,all,pair,"))
+            .unwrap_or_else(|| panic!("no pair row: {csv}"));
+        assert!(pair.contains(&adv) && pair.contains(&cost) && pair.ends_with(",1,1,1,1.0000"), "{pair}");
+        assert!(csv.lines().any(|l| l.starts_with("same_unit,all,single,")));
+        let manifest: Value =
+            serde_json::from_str(&std::fs::read_to_string(dir.join("manifest.json")).unwrap()).unwrap();
+        assert!(manifest["files"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|e| e["name"] == "co-occurrence.csv"));
+        let readme = std::fs::read_to_string(dir.join("README.md")).unwrap();
+        assert!(readme.contains("`co-occurrence.csv`") || readme.contains("co-occurrence.csv"));
+    }
+}

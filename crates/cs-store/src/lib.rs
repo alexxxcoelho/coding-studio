@@ -21,6 +21,7 @@ mod cases;
 mod claims;
 mod codebook;
 mod codesearch;
+mod cooccurrence;
 mod codestats;
 mod codetree;
 mod coding;
@@ -45,6 +46,10 @@ mod verification;
 mod writing;
 
 pub use codebook::{CodePatch, ImportReport, MergeOutcome};
+pub use cooccurrence::{
+    CoCell, CoCode, CoDiagonal, CoGroup, CoItem, CoMatrix, CoOverlap, CoPair, CoPassage, CoRequest,
+    Relation,
+};
 pub use codesearch::{CodeHit, CodeMatch, CodeSearch, CodeSearchOptions};
 pub use codetree::{
     CodeMemoVersion, CodeUpdate, NewCode, NewCodeFromPassage, ResolvedCode, Revision,

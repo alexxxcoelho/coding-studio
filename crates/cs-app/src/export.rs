@@ -1002,6 +1002,10 @@ pub fn write_package(
     w.write("memos.json", &crate::export_v1::memos_json(store, &ids)?)?;
     w.write("review.json", &crate::export_v1::review_json(store, &ids)?)?;
     w.write(
+        "co-occurrence.csv",
+        crate::export_v1::cooccurrence_csv(store, &ids)?.as_bytes(),
+    )?;
+    w.write(
         "study_config.json",
         &crate::export_v1::study_config_json(store)?,
     )?;
@@ -1140,6 +1144,7 @@ fn readme(id: &str, folder: &str, seg: &cs_model::Segmentation, st: &CodingStatu
         ("attributes.csv", "The interview attribute values, `interview_id,attribute_id,label,kind,value`, one row per attribute that has a value."),
         ("memos.json", "The familiarisation memo of each interview (template and version, the interview's own added, removed and reworded questions, answers with their time) and its end-of-interview checklist (items, checked flags with time, note)."),
         ("review.json", "Review (lot 4): the candidate concepts the model proposed with their decisions (create, map or reject, with reason and time), the digest, the categories and the number of entries of the pseudonymisation list (never the names), the harmonisation worklist (merge, redefinition, new sub-code) and the review state of each interview. Candidate texts are kept as the model saw them, pseudonymised."),
+        ("co-occurrence.csv", "Code co-occurrence (F-56), `relation,group,kind,code_a_id,code_a_name,code_b_id,code_b_name,passages,units,interviews,passage_pairs,jaccard`, for the three relations `same_passage`, `overlap` and `same_unit`, over the interviews of the package. `kind` is `single` for a code alone (`passages`, `units` and `interviews` of the code) and `pair` for two codes (turns, interviews and passage pairs, counted apart; `jaccard` is the turns with both codes over the turns with either). Codes are listed in codebook order and a pair once. It describes how the coding falls together, not causation or prevalence; the reserved code Plus tard is left out."),
         ("review.json", "Review (lot 4): the candidate concepts the model proposed with their decisions (create, map or reject, with reason and time), the digest, the categories and the number of entries of the pseudonymisation list (never the names), the harmonisation worklist (merge, redefinition, new sub-code) and the review state of each interview. Candidate texts are kept as the model saw them, pseudonymised."),
         ("study_config.json", "The study configuration as a project template: study description and settings, research questions, attribute definitions, memo templates, checklist, theme checks, evidence natures, link types, matrix dimensions and interpretive framework. It holds no interview data."),
         ("audit_log.jsonl", "Every recorded action on this interview, one JSON event per line, each chained to the previous one by SHA-256."),
@@ -1186,6 +1191,7 @@ fn cross_case_readme(
         ("attributes.csv", "The interview attribute values of every interview, `interview_id,attribute_id,label,kind,value`, one row per attribute that has a value."),
         ("memos.json", "The familiarisation memo of every interview (template and version, the interview's own added, removed and reworded questions, answers with their time) and its end-of-interview checklist (items, checked flags with time, note)."),
         ("study_config.json", "The study configuration as a project template: study description and settings, research questions, attribute definitions, memo templates, checklist, theme checks, evidence natures, link types, matrix dimensions and interpretive framework. It holds no interview data."),
+        ("co-occurrence.csv", "Code co-occurrence (F-56), `relation,group,kind,code_a_id,code_a_name,code_b_id,code_b_name,passages,units,interviews,passage_pairs,jaccard`, for the three relations `same_passage`, `overlap` and `same_unit`, over the interviews of the package. `kind` is `single` for a code alone (`passages`, `units` and `interviews` of the code) and `pair` for two codes (turns, interviews and passage pairs, counted apart; `jaccard` is the turns with both codes over the turns with either). Codes are listed in codebook order and a pair once. It describes how the coding falls together, not causation or prevalence; the reserved code Plus tard is left out."),
         ("state.json", "The human state of every interview, canonical, with its SHA-256 and the generator."),
         ("manifest.json", "SHA-256 and size of every file above, with the tool version and the export time."),
     ]
@@ -1258,6 +1264,10 @@ pub fn write_cross_case(
     w.write(
         "review.json",
         &crate::export_v1::review_json(store, &interview_ids)?,
+    )?;
+    w.write(
+        "co-occurrence.csv",
+        crate::export_v1::cooccurrence_csv(store, &interview_ids)?.as_bytes(),
     )?;
     w.write(
         "study_config.json",
