@@ -303,6 +303,10 @@
     border-radius: 14px;
     box-shadow: 0 1px 4px rgba(0, 0, 0, .06);
   }
+  /* Top row of the sidebar: the toggle sits on the line of the traffic lights and of the toolbar title. */
+  .sb-top { height: 24px; margin-bottom: 12px; }
+  .sb-toggle { width: 28px; height: 28px; display: grid; place-items: center; border: 0; border-radius: 7px; background: transparent; color: var(--label2); cursor: pointer; padding: 0; flex: none; }
+  .sb-toggle:hover { background: var(--fill); color: var(--label); }
   .sb-h { font-size: 11px; font-weight: 600; color: var(--label2); padding: 14px 8px 4px; }
   .it {
     display: flex; align-items: center; gap: 8px; min-height: 28px; padding: 0 8px; border-radius: 7px;
@@ -498,8 +502,11 @@ html[data-vibrancy="on"] .app-win { background: transparent; }
 html[data-vibrancy="on"] .app-ct { background: var(--bg); border-radius: 12px; }
 /* The traffic lights of the overlay title bar sit in the top left corner. */
 html[data-vibrancy="on"] .sb { padding-top: 0; }
-html[data-vibrancy="on"] .app-win[data-collapsed="true"] .tb { padding-left: 84px; }
-html[data-vibrancy="on"] .sb { background: transparent; border-color: transparent; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
+html[data-vibrancy="on"] .app-win[data-collapsed="true"] .tb { padding-left: 80px; }
+/* Same 52px line as the toolbar, which starts at the same height: the traffic lights (crates/cs-desktop, traffic_light_position) are centred on it. */
+html[data-vibrancy="on"] .sb-top { height: 52px; margin-bottom: 0; padding-left: 78px; }
+/* A light tint of the app theme over the native material: the labels keep their contrast even if the material and the theme ever disagree. */
+html[data-vibrancy="on"] .sb { background: color-mix(in srgb, var(--sb) 55%, transparent); border-color: transparent; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
 
 /* Verbatims are read, not scanned: a book serif with generous leading. */
 .verbatim {

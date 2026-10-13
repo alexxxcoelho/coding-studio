@@ -81,8 +81,8 @@ export function Sidebar({
 
   return (
     <nav className="sb flex h-full w-[232px] shrink-0 flex-col gap-px px-2.5 pt-3 pb-2.5" aria-label="Barre latérale">
-      <div className="flex h-6 items-center justify-end px-1.5 pb-3" data-tauri-drag-region>
-        <button type="button" className="text-label2 flex cursor-pointer border-0 bg-transparent p-0" onClick={onToggle} aria-label="Masquer la barre latérale" title="Masquer la barre latérale">
+      <div className="sb-top flex items-center justify-end px-1.5" data-tauri-drag-region>
+        <button type="button" className="sb-toggle" onClick={onToggle} aria-label="Masquer la barre latérale" title="Masquer la barre latérale">
           <SidebarIcon />
         </button>
       </div>

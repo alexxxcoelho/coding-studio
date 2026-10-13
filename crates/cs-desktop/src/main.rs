@@ -102,7 +102,11 @@ fn main_window_builder(
     let builder = builder
         .title_bar_style(tauri::TitleBarStyle::Overlay)
         .hidden_title(true)
-        .traffic_light_position(tauri::LogicalPosition::new(22.0, 13.0))
+        // tao sets the title bar container to (button height + y), so the
+        // buttons are centred about y points from the top (measured: y = 13
+        // gave a centre at 14). The web layer draws a 52 px toolbar line that
+        // starts 8 px down (app-win padding): centre 34, hence y = 33.
+        .traffic_light_position(tauri::LogicalPosition::new(22.0, 33.0))
         .transparent(true);
     builder
 }

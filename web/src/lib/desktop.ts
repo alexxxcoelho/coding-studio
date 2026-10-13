@@ -55,3 +55,16 @@ export function takeMenuAction(action: MenuAction): boolean {
   pending = null
   return true
 }
+
+/**
+ * Aligns the native window appearance (title bar, vibrancy material of the
+ * sidebar) with the theme chosen in Réglages. Without it, "Clair" on a Mac in
+ * dark mode leaves a dark sidebar material under light text. `null` follows
+ * the system. Does nothing outside Tauri.
+ */
+export function syncNativeTheme(theme: "light" | "dark" | null, w: object = window): Promise<void> {
+  if (!inTauri(w)) return Promise.resolve()
+  return import("@tauri-apps/api/window")
+    .then(({ getCurrentWindow }) => getCurrentWindow().setTheme(theme))
+    .catch(() => undefined)
+}
