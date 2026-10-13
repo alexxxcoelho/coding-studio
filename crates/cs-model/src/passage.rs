@@ -188,12 +188,75 @@ pub struct CodeAlias {
 /// Counts of a code, never mixing passages and interviews. The roll-up
 /// figures include the passages of all descendants (a passage counted once).
 /// The reserved code "Plus tard" is not counted anywhere.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct CodeCounts {
     pub passages: usize,
     pub interviews: usize,
     pub passages_rollup: usize,
     pub interviews_rollup: usize,
+    /// Distinct cases whose attributed units carry a passage of the code (F-45).
+    #[serde(default)]
+    pub cases: usize,
+    #[serde(default)]
+    pub cases_rollup: usize,
+    /// Per interview attribute: the number of distinct values found on the
+    /// interviews of the code (F-45). Interviews without a value count in none.
+    #[serde(default)]
+    pub attribute_values: std::collections::BTreeMap<String, usize>,
+    #[serde(default)]
+    pub attribute_values_rollup: std::collections::BTreeMap<String, usize>,
+}
+
+/// One value of an interview attribute and the distinct interviews of the code
+/// that carry it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ValueCount {
+    pub value: String,
+    pub interviews: usize,
+}
+
+/// Distinct values of one attribute among the interviews of a code.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AttributeStat {
+    pub attribute_id: String,
+    pub label: String,
+    pub distinct_values: usize,
+    pub values: Vec<ValueCount>,
+    /// Interviews of the code that have no value for the attribute.
+    pub interviews_without_value: usize,
+}
+
+/// Counts of a code on one scope (the code alone, or with its descendants).
+/// Passages, interviews and cases are counted apart and never added.
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub struct StatBlock {
+    pub passages: usize,
+    pub interviews: usize,
+    pub cases: usize,
+    pub interview_ids: Vec<String>,
+    pub case_ids: Vec<String>,
+    pub attributes: Vec<AttributeStat>,
+}
+
+/// Restriction of the counts to the interviews whose attribute has a value.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct StatFilter {
+    pub attribute: String,
+    pub value: String,
+}
+
+/// Answer of the per-code statistics route (F-45).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CodeStats {
+    pub code_id: String,
+    pub name: String,
+    /// The code alone.
+    pub own: StatBlock,
+    /// The code with all its descendants (a passage counted once).
+    pub rollup: StatBlock,
+    /// Restriction in force (`attribute`, `value`), when any.
+    pub filter: Option<StatFilter>,
+    pub note: String,
 }
 
 /// A code as the V1 interface sees it: stable id, free display name, aliases,

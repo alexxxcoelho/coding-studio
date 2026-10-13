@@ -20,6 +20,7 @@ mod analysis_schema;
 mod cases;
 mod claims;
 mod codebook;
+mod codestats;
 mod codetree;
 mod coding;
 mod final_audit;

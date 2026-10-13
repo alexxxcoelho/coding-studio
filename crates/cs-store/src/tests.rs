@@ -1543,6 +1543,8 @@ mod study_config_v5;
 mod verification_v4;
 
 // V2 (codes and search).
+mod v2_code_stats;
+mod v2_common;
 mod v2_lists_f09;
 
 // V1 lot 5 (Analyse and Write) and the API gaps of the same lot.
