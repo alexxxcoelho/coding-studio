@@ -37,12 +37,12 @@ desktop-dev:
 web:
 	mkdir -p "$(WEB_BUILD)"
 	rsync -a --delete --exclude node_modules --exclude dist web/ "$(WEB_BUILD)/"
-	cd "$(WEB_BUILD)" && pnpm install --frozen-lockfile && pnpm build
+	cd "$(WEB_BUILD)" && pnpm install --frozen-lockfile && CS_GUIDE_DIR=$(abspath docs/guide) pnpm build
 	rsync -a --delete "$(WEB_BUILD)/dist/" crates/cs-app/web-dist/
 web-test:
 	mkdir -p "$(WEB_BUILD)"
 	rsync -a --delete --exclude node_modules --exclude dist web/ "$(WEB_BUILD)/"
-	cd "$(WEB_BUILD)" && pnpm install --frozen-lockfile && pnpm exec vitest run && pnpm lint
+	cd "$(WEB_BUILD)" && pnpm install --frozen-lockfile && CS_GUIDE_DIR=$(abspath docs/guide) pnpm exec vitest run && pnpm lint
 web-dev:
 	rsync -a --delete --exclude node_modules --exclude dist web/ "$(WEB_BUILD)/"
-	cd "$(WEB_BUILD)" && pnpm install --frozen-lockfile && pnpm dev
+	cd "$(WEB_BUILD)" && pnpm install --frozen-lockfile && CS_GUIDE_DIR=$(abspath docs/guide) pnpm dev
