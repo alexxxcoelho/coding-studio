@@ -1,6 +1,6 @@
 1
 00:00:01,000 --> 00:00:03,200
-Dos Santos Alexandre: Hello there.
+Interviewer Person A: Hello there.
 
 2
 00:00:03,500 --> 00:00:05,000
@@ -12,4 +12,4 @@ And thanks for having me.
 
 4
 00:00:09,000 --> 00:00:10,500
-Dos Santos Alexandre: How are you today?
+Interviewer Person A: How are you today?

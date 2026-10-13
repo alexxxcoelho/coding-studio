@@ -100,7 +100,7 @@ pub use transcripts::{
 };
 pub use writing::{
     FrameworkCellReading, FrameworkReading, FrameworkRow, FrameworkTable, PartEdit, PartState,
-    QuestionSynthesis, ThemeWriting,
+    QuestionSynthesis, ThemeWriting, WriteupBlock, WriteupCite, WriteupDoc,
 };
 
 use std::collections::BTreeMap;
@@ -367,6 +367,7 @@ impl Store {
         conn.execute_batch(SCHEMA)?;
         analysis_schema::migrate(&conn)?;
         review_schema::migrate(&conn)?;
+        cases::migrate_case_fields(&conn)?;
         transcripts::migrate(&conn)?;
         audio::migrate(&conn)?;
         codeops::migrate(&conn)?;

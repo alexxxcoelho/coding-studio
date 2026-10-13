@@ -434,15 +434,15 @@ mod tests {
     use super::*;
 
     fn names() -> Vec<String> {
-        vec!["Dos Santos Alexandre".to_string()]
+        vec!["Interviewer Person A".to_string()]
     }
 
     #[test]
     fn vtt_merges_cues_and_assigns_roles() {
-        let vtt = "WEBVTT\n\nabc/15-0\n00:01:53.169 --> 00:01:53.689\n<v Dos Santos Alexandre>Hello!</v>\n\n\
+        let vtt = "WEBVTT\n\nabc/15-0\n00:01:53.169 --> 00:01:53.689\n<v Interviewer Person A>Hello!</v>\n\n\
 abc/16-0\n00:01:54.569 --> 00:01:56.649\n<v Roueche C&#233;line >Hey, good\nmorning.</v>\n\n\
 abc/16-1\n00:01:56.649 --> 00:01:58.000\n<v Roueche C&#233;line >How are you?</v>\n\n\
-abc/17-0\n00:01:59.009 --> 00:02:00.000\n<v Dos Santos Alexandre>Fine.</v>\n";
+abc/17-0\n00:01:59.009 --> 00:02:00.000\n<v Interviewer Person A>Fine.</v>\n";
         let (turns, warnings) = parse_vtt(vtt, &names());
         assert!(warnings.is_empty());
         assert_eq!(turns.len(), 3);
@@ -456,7 +456,7 @@ abc/17-0\n00:01:59.009 --> 00:02:00.000\n<v Dos Santos Alexandre>Fine.</v>\n";
 
     #[test]
     fn vtt_three_speakers_are_unknown_unless_interviewer() {
-        let vtt = "WEBVTT\n\n00:00:01.000 --> 00:00:02.000\n<v A>x</v>\n\n00:00:03.000 --> 00:00:04.000\n<v B>y</v>\n\n00:00:05.000 --> 00:00:06.000\n<v Dos Santos Alexandre>z</v>\n";
+        let vtt = "WEBVTT\n\n00:00:01.000 --> 00:00:02.000\n<v A>x</v>\n\n00:00:03.000 --> 00:00:04.000\n<v B>y</v>\n\n00:00:05.000 --> 00:00:06.000\n<v Interviewer Person A>z</v>\n";
         let (turns, _) = parse_vtt(vtt, &names());
         assert_eq!(turns[0].role, SpeakerRole::Unknown);
         assert_eq!(turns[2].role, SpeakerRole::Interviewer);

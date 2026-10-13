@@ -49,8 +49,8 @@ pub fn default_interviewer_names() -> Vec<String> {
         .collect()
 }
 
-/// Normalises an interview ID from a folder name: `ECO33_RomanEppenberger` -> `ECO-33`,
-/// `ECO35-Schwarz` -> `ECO-35`, `RET-22_von-Grone` -> `RET-22`. `None` when no ID.
+/// Normalises an interview ID from a folder name: `INT33_RomanEppenberger` -> `INT-33`,
+/// `INT35-Schwarz` -> `INT-35`, `INT-44_von-Grone` -> `INT-44`. `None` when no ID.
 pub fn parse_interview_id(folder_name: &str) -> Option<String> {
     scan::parse_interview_id(folder_name)
 }
@@ -274,20 +274,20 @@ mod tests {
     #[test]
     fn build_segmentation_hashes_and_refuses_non_transcripts() {
         let dir = tempfile::tempdir().unwrap();
-        let folder = dir.path().join("ECO-16_Yan");
+        let folder = dir.path().join("INT-16_Yan");
         std::fs::create_dir_all(folder.join("04_parts")).unwrap();
         std::fs::write(
             folder.join("01_transcript_raw.vtt"),
-            "WEBVTT\n\n00:00:01.000 --> 00:00:02.000\n<v Dos Santos Alexandre>Hello.</v>\n\n00:00:03.000 --> 00:00:04.000\n<v Youshuo Yan>Hi there.</v>\n",
+            "WEBVTT\n\n00:00:01.000 --> 00:00:02.000\n<v Interviewer Person A>Hello.</v>\n\n00:00:03.000 --> 00:00:04.000\n<v Youshuo Yan>Hi there.</v>\n",
         )
         .unwrap();
         std::fs::write(folder.join("04_parts/b_summary.md"), "summary").unwrap();
         let lib = scan_library(dir.path()).unwrap();
         let entry = &lib[0];
-        let names = default_interviewer_names();
+        let names = vec!["Interviewer Person A".to_string()];
         let seg = build_segmentation(entry, "01_transcript_raw.vtt", &names).unwrap();
         assert_eq!(seg.units.len(), 2);
-        assert_eq!(seg.units[1].unit_id, "ECO-16-U002");
+        assert_eq!(seg.units[1].unit_id, "INT-16-U002");
         assert_eq!(seg.hash, Segmentation::units_hash(&seg.units));
         assert_eq!(seg.rule, SEGMENTATION_RULE);
         assert_eq!(

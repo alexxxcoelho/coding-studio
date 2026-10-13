@@ -490,3 +490,37 @@ The worklist holds the live passages that carried the original at the time of th
 ### Exports
 
 `co-occurrence.csv` in the interview and cross-case packages (and in their manifest and README): `relation,group,kind,code_a_id,code_a_name,code_b_id,code_b_name,passages,units,interviews,passage_pairs,jaccard`, for the three relations; `kind` is `single` or `pair`.
+
+## V2 exports and CLI
+
+### Write-up, anonymised export, whole project (F-104, F-102, F-101)
+
+| Method | Path | Answer |
+|---|---|---|
+| GET | `/api/writing/export.docx` | The write-up as a Word document (`writeup.docx`) |
+| POST | `/api/export/anonymised` | `{scope: interview or cross-case or writeup, interview_id?, researcher_names?, researcher_label?}` writes a pseudonymised copy of the package under `exports/`; `{dir, files, manifest_sha256, replacements: {person, organisation, researcher}, left_out}`; the names themselves are never returned |
+| GET | `/api/project/bundle` | The whole project as one `.csproj.zip` (database snapshot, source transcripts, template, configuration, state, audit chain, `manifest.json`); header `x-export-sha256` |
+| POST | `/api/project/bundle/import?apply=&target=` | The body is the bundle. Without `apply`, a dry run: the digests, the chain of the bundle and of the database, the state digest and the counts are checked and nothing is written. With `apply`, the bundle is restored; `target` is the path of a new database, absent the current one, which must be empty. `{ok, files, checks...}` |
+
+### Example project (F-113)
+
+| Method | Path | Answer |
+|---|---|---|
+| POST | `/api/example/load` | Body `{library?}`: the folder the two example transcripts are copied to (created if needed), absent a folder in the system temporary directory. Into an empty database only (409 otherwise, nothing changed): the example project template, the transcripts of `examples/library` scanned and segmented, the ten codes of `examples/codebook.csv` and three coded passages of `INT-01`. `{library, interview_id, interviews, units, codes, passages, research_questions}` |
+
+### Command line (F-109)
+
+`coding-studio --db <file> [options] <command>`. Without a command, or with `serve`, the server starts as before. Every other command opens the database, calls the same routes as the UI in process (no port is opened) and exits. `--json` prints the result as JSON; an error prints `{"ok": false, "error"}` with `--json`, a line on standard error otherwise, and the exit code is 1. `--library`, `--actor` and `--interviewer-name` apply as for the server.
+
+| Command | Does |
+|---|---|
+| `scan [--root DIR]` | `POST /api/library/scan` |
+| `segment ID [--source REL]` | `POST /api/interviews/{id}/segment` |
+| `export ID\|all [--anonymised] [--format md\|docx] [--researcher-name N]...` | `md` (default): the package of one interview, or of every interview and the cross-case package with `all` (an interview without segmentation is reported and the exit code is 1). `--anonymised`: `POST /api/export/anonymised`. `--format docx`: the write-up, with `all` only, not with `--anonymised` |
+| `verify` | Audit chain and the digests of every `exports/**/manifest.json` against the files beside it. Exit code 1 when the chain is broken or a file is missing or changed |
+| `project export [--out PATH]`, `project import FILE [--apply] [--target DB]` | The bundle; import is a dry run unless `--apply` |
+| `qdpx export [--out PATH] [--highlights]`, `qdpx import FILE [--apply]` | REFI-QDA project; import is a dry run unless `--apply` |
+| `config export [--out PATH]`, `config import FILE [--force]` | The study configuration as JSON |
+| `example load [--library DIR]` | `POST /api/example/load` |
+
+Files go to `--out`, or to the `exports` folder beside the database.

@@ -196,6 +196,53 @@ impl AttributeDef {
     }
 }
 
+/// Definition of a case (decision) field: a project-defined characteristic of
+/// a decision, stored by id in `Case::characteristics` (F-87).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CaseFieldDef {
+    pub id: String,
+    pub label: String,
+    pub kind: AttributeKind,
+    /// Values of a `choice` field, in display order.
+    #[serde(default)]
+    pub choices: Vec<String>,
+}
+
+impl CaseFieldDef {
+    /// Validates and normalises a value; `Ok(None)` for an empty value.
+    pub fn check_value(&self, raw: &str) -> Result<Option<String>, CsError> {
+        AttributeDef {
+            id: self.id.clone(),
+            label: self.label.clone(),
+            kind: self.kind,
+            choices: self.choices.clone(),
+            shared_with_model: false,
+        }
+        .check_value(raw)
+        .map_err(|e| match e {
+            CsError::Validation(m) => CsError::Validation(m.replacen("attribute", "case field", 1)),
+            other => other,
+        })
+    }
+}
+
+/// Fields of the first study, kept as legacy case fields: (id, label, kind).
+/// A database that holds values in them gets these definitions on migration.
+pub const LEGACY_CASE_FIELDS: [(&str, &str, AttributeKind); 8] = [
+    ("decision", "Decision", AttributeKind::Text),
+    ("granularity", "Granularity", AttributeKind::Text),
+    ("carrier_chosen", "Carrier chosen", AttributeKind::Text),
+    (
+        "carriers_rejected",
+        "Carriers rejected",
+        AttributeKind::Text,
+    ),
+    ("account_type", "Account type", AttributeKind::Text),
+    ("swiss_link", "Swiss link", AttributeKind::Text),
+    ("stage", "Stage", AttributeKind::Text),
+    ("outcome_status", "Outcome status", AttributeKind::Text),
+];
+
 /// `YYYY-MM-DD` with a real calendar day.
 pub fn valid_date(s: &str) -> bool {
     let b = s.as_bytes();
@@ -269,6 +316,10 @@ pub struct ProjectConfig {
     pub evidence_natures: Vec<ListItem>,
     #[serde(default = "default_link_types")]
     pub link_types: Vec<ListItem>,
+    /// Fields of a case (decision), defined by the project (F-87). Empty: the
+    /// characteristics of a case are free key/value pairs.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub case_fields: Vec<CaseFieldDef>,
     /// Custom matrix dimensions (for example "who imposes", "who pays").
     #[serde(default)]
     pub matrix_dimensions: Vec<ListItem>,
@@ -374,6 +425,7 @@ impl Default for ProjectConfig {
     fn default() -> Self {
         ProjectConfig {
             attributes: Vec::new(),
+            case_fields: Vec::new(),
             memo_templates: default_templates(),
             checklist: default_checklist(),
             theme_checks: default_theme_checks(),
@@ -509,6 +561,43 @@ impl ProjectConfig {
                 }
             }
         }
+        // case fields
+        let mut seen = BTreeSet::new();
+        for f in &self.case_fields {
+            push(check_ids(
+                "case field",
+                std::iter::once(f.id.as_str()),
+                &mut seen,
+            ));
+            push(check_label(&format!("case field {}", f.id), &f.label));
+            if f.kind == AttributeKind::Choice {
+                if f.choices.is_empty() {
+                    push(invalid(format!(
+                        "case field {}: a choice needs values",
+                        f.id
+                    )));
+                }
+                let mut vals = BTreeSet::new();
+                for c in &f.choices {
+                    if c.trim().is_empty() || c.trim() != c || c.contains('\n') {
+                        push(invalid(format!(
+                            "case field {}: choice {c:?} is empty or has stray spaces",
+                            f.id
+                        )));
+                    } else if !vals.insert(c.clone()) {
+                        push(invalid(format!(
+                            "case field {}: duplicate choice {c}",
+                            f.id
+                        )));
+                    }
+                }
+            } else if !f.choices.is_empty() {
+                push(invalid(format!(
+                    "case field {}: only a choice field has values",
+                    f.id
+                )));
+            }
+        }
         // memo templates
         if self.memo_templates.is_empty() {
             push(invalid("memo templates: the list is empty".into()));
@@ -589,6 +678,10 @@ impl ProjectConfig {
     /// The default memo template.
     pub fn default_template(&self) -> Option<&MemoTemplate> {
         self.memo_templates.iter().find(|t| t.default)
+    }
+
+    pub fn case_field(&self, id: &str) -> Option<&CaseFieldDef> {
+        self.case_fields.iter().find(|f| f.id == id)
     }
 
     pub fn attribute(&self, id: &str) -> Option<&AttributeDef> {

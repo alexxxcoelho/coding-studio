@@ -168,11 +168,45 @@ fn opt_text(value: &Option<String>) -> &str {
     value.as_deref().unwrap_or("")
 }
 
-/// One row per case, lists joined with `;`.
-fn cases_csv(cases: &[Case]) -> String {
+/// Case fields beyond the eight legacy columns: the project's fields in
+/// their order, then any other characteristic found in the cases (id, label).
+pub(crate) fn extra_case_fields(
+    cases: &[Case],
+    defs: &[cs_model::project::CaseFieldDef],
+) -> Vec<(String, String)> {
+    let legacy: Vec<&str> = cs_model::project::LEGACY_CASE_FIELDS
+        .iter()
+        .map(|(id, _, _)| *id)
+        .collect();
+    let mut out: Vec<(String, String)> = defs
+        .iter()
+        .filter(|d| !legacy.contains(&d.id.as_str()))
+        .map(|d| (d.id.clone(), d.label.clone()))
+        .collect();
+    let mut others: BTreeSet<&str> = BTreeSet::new();
+    for c in cases {
+        for k in c.characteristics.keys() {
+            if !legacy.contains(&k.as_str()) && !out.iter().any(|(id, _)| id == k) {
+                others.insert(k);
+            }
+        }
+    }
+    out.extend(others.into_iter().map(|k| (k.to_string(), k.to_string())));
+    out
+}
+
+/// One row per case, lists joined with `;`. The eight columns of the first
+/// study stay where they were; the project's own case fields follow `n_units`
+/// as `field:<id>` columns.
+fn cases_csv(cases: &[Case], defs: &[cs_model::project::CaseFieldDef]) -> String {
+    let extra = extra_case_fields(cases, defs);
     let mut out = String::from(
-        "case_id,label,interview_id,interviews,decision,granularity,carrier_chosen,carriers_rejected,account_type,swiss_link,stage,outcome_status,n_units\n",
+        "case_id,label,interview_id,interviews,decision,granularity,carrier_chosen,carriers_rejected,account_type,swiss_link,stage,outcome_status,n_units",
     );
+    for (id, _) in &extra {
+        out.push_str(&format!(",{}", csv_field(&format!("field:{id}"))));
+    }
+    out.push('\n');
     for c in cases {
         let row = [
             csv_field(&c.case_id),
@@ -189,6 +223,12 @@ fn cases_csv(cases: &[Case]) -> String {
             csv_field(opt_text(&c.outcome_status)),
             c.units.len().to_string(),
         ];
+        let mut row = row.to_vec();
+        for (id, _) in &extra {
+            row.push(csv_field(
+                c.characteristics.get(id).map_or("", |v| v.as_str()),
+            ));
+        }
         out.push_str(&row.join(","));
         out.push('\n');
     }
@@ -366,7 +406,12 @@ fn to_clarify_csv(items: &[ToClarify]) -> String {
 }
 
 /// Markdown synthesis of the cases of one interview.
-pub(crate) fn cases_md(interview_id: &str, cases: &[Case]) -> String {
+pub(crate) fn cases_md(
+    interview_id: &str,
+    cases: &[Case],
+    defs: &[cs_model::project::CaseFieldDef],
+) -> String {
+    let extra = extra_case_fields(cases, defs);
     let mut s = format!("# Case syntheses, {interview_id}\n\n");
     if cases.is_empty() {
         s.push_str("No case recorded.\n");
@@ -390,6 +435,11 @@ pub(crate) fn cases_md(interview_id: &str, cases: &[Case]) -> String {
                 "Carriers rejected: {}\n",
                 c.carriers_rejected.join("; ")
             ));
+        }
+        for (id, label) in &extra {
+            if let Some(v) = c.characteristics.get(id).filter(|v| !v.is_empty()) {
+                s.push_str(&format!("{label}: {v}\n"));
+            }
         }
         if c.units.is_empty() {
             s.push_str("Attributed units: 0.\n");
@@ -650,7 +700,7 @@ fn state_parts(store: &Store, interview_ids: &[String], cases: &[Case]) -> Resul
 }
 
 /// `state.json` bytes and the SHA-256 of the canonical state they carry.
-fn state_document(
+pub(crate) fn state_document(
     store: &Store,
     interview_ids: &[String],
     cases: &[Case],
@@ -667,7 +717,7 @@ fn state_document(
 }
 
 /// Copies the whole database to `path` with `VACUUM INTO`. The path is quoted for SQL.
-fn write_snapshot(store: &Store, path: &Path) -> Result<()> {
+pub(crate) fn write_snapshot(store: &Store, path: &Path) -> Result<()> {
     let quoted = path.display().to_string().replace('\'', "''");
     store
         .connection()
@@ -827,12 +877,46 @@ pub(crate) fn target_dir(base: &Path, name: &str) -> PathBuf {
     }
 }
 
+/// What a package writer does besides writing the files. The anonymised
+/// export builds its source package without logging it and without the
+/// database snapshot, which cannot be pseudonymised.
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct PackageOpts {
+    pub log: bool,
+    pub snapshot: bool,
+}
+
+impl PackageOpts {
+    pub const NORMAL: PackageOpts = PackageOpts {
+        log: true,
+        snapshot: true,
+    };
+}
+
 pub fn write_package(
     store: &Store,
     interview_id: &str,
     base: &Path,
     db_path: &Path,
     actor: &str,
+) -> Result<ExportResult> {
+    write_package_with(
+        store,
+        interview_id,
+        base,
+        db_path,
+        actor,
+        PackageOpts::NORMAL,
+    )
+}
+
+pub(crate) fn write_package_with(
+    store: &Store,
+    interview_id: &str,
+    base: &Path,
+    db_path: &Path,
+    actor: &str,
+    opts: PackageOpts,
 ) -> Result<ExportResult> {
     let entry = store
         .interview(interview_id)?
@@ -981,8 +1065,12 @@ pub fn write_package(
         "cases.json",
         serde_json::to_string_pretty(&cases)?.as_bytes(),
     )?;
-    w.write("cases.md", cases_md(interview_id, &cases).as_bytes())?;
-    w.write("cases.csv", cases_csv(&cases).as_bytes())?;
+    let case_defs = store.project_config()?.case_fields;
+    w.write(
+        "cases.md",
+        cases_md(interview_id, &cases, &case_defs).as_bytes(),
+    )?;
+    w.write("cases.csv", cases_csv(&cases, &case_defs).as_bytes())?;
     w.write("case_units.csv", case_units_csv(&cases).as_bytes())?;
     w.write("codebook.csv", codebook_csv.as_bytes())?;
     let ids = [interview_id.to_string()];
@@ -1016,8 +1104,10 @@ pub fn write_package(
 
     let (state_bytes, state_sha) = state_document(store, &[interview_id.to_string()], &cases)?;
     w.write("state.json", &state_bytes)?;
-    write_snapshot(store, &dir.join("db_snapshot.sqlite"))?;
-    w.register("db_snapshot.sqlite")?;
+    if opts.snapshot {
+        write_snapshot(store, &dir.join("db_snapshot.sqlite"))?;
+        w.register("db_snapshot.sqlite")?;
+    }
 
     let mut jsonl = String::new();
     for e in &events {
@@ -1072,19 +1162,21 @@ pub fn write_package(
     let manifest_sha = sha256_hex(&manifest_bytes);
     w.write("manifest.json", &manifest_bytes)?;
 
-    store.log(
-        actor,
-        "export.package",
-        Some(interview_id),
-        Some(&dir.display().to_string()),
-        json!({
-            "dir": dir.display().to_string(),
-            "manifest_sha256": manifest_sha,
-            "state_sha256": state_sha,
-            "n_files": w.files.len(),
-            "status": status,
-        }),
-    )?;
+    if opts.log {
+        store.log(
+            actor,
+            "export.package",
+            Some(interview_id),
+            Some(&dir.display().to_string()),
+            json!({
+                "dir": dir.display().to_string(),
+                "manifest_sha256": manifest_sha,
+                "state_sha256": state_sha,
+                "n_files": w.files.len(),
+                "status": status,
+            }),
+        )?;
+    }
 
     Ok(ExportResult {
         dir: dir.display().to_string(),
@@ -1217,6 +1309,16 @@ pub fn write_cross_case(
     db_path: &Path,
     actor: &str,
 ) -> Result<CrossCaseExport> {
+    write_cross_case_with(store, base, db_path, actor, PackageOpts::NORMAL)
+}
+
+pub(crate) fn write_cross_case_with(
+    store: &Store,
+    base: &Path,
+    db_path: &Path,
+    actor: &str,
+    opts: PackageOpts,
+) -> Result<CrossCaseExport> {
     let cross = store.cross_case()?;
     let saturation = store.saturation()?;
     let memos: Vec<Option<RqMemo>> = cross
@@ -1247,7 +1349,10 @@ pub fn write_cross_case(
     w.write("cross_case.csv", cross_case_csv(&cross.cells).as_bytes())?;
     w.write("saturation.csv", saturation_csv(&saturation).as_bytes())?;
     w.write("saturation.md", saturation_md(&saturation).as_bytes())?;
-    w.write("cases.csv", cases_csv(&cross.cases).as_bytes())?;
+    w.write(
+        "cases.csv",
+        cases_csv(&cross.cases, &store.project_config()?.case_fields).as_bytes(),
+    )?;
     let (codebook_csv, _) = store.codebook_export()?;
     w.write("codebook.csv", codebook_csv.as_bytes())?;
     let passages = crate::export_v1::all_passages(store, &interview_ids)?;
@@ -1316,17 +1421,19 @@ pub fn write_cross_case(
     });
     w.write("manifest.json", &serde_json::to_vec_pretty(&manifest)?)?;
 
-    store.log(
-        actor,
-        "export.cross_case",
-        None,
-        Some(&dir.display().to_string()),
-        json!({
-            "dir": dir.display().to_string(),
-            "state_sha256": state_sha,
-            "n_files": w.files.len(),
-        }),
-    )?;
+    if opts.log {
+        store.log(
+            actor,
+            "export.cross_case",
+            None,
+            Some(&dir.display().to_string()),
+            json!({
+                "dir": dir.display().to_string(),
+                "state_sha256": state_sha,
+                "n_files": w.files.len(),
+            }),
+        )?;
+    }
 
     Ok(CrossCaseExport {
         folder: dir.display().to_string(),
@@ -1350,6 +1457,10 @@ fn writeup_readme(state_sha: &str) -> String {
     s.push_str("Every number is computed from the codings at export time. Nothing here was proposed by the tool: themes, cell values, texts and verdicts are the researcher's. The final audit records its seed, so the draw can be replayed.\n\n## Files\n\n");
     for (name, what) in crate::export_analysis::README_LINES.iter().chain([
         &(
+            "writeup.docx",
+            "The write-up as a Word document: headings, parts, quotations as block quotes with a footnote (interview, unit), the framework table, the final audit and a list of references.",
+        ),
+        &(
             "state.json",
             "The human state of the study, canonical, with its SHA-256 and the generator.",
         ),
@@ -1371,6 +1482,16 @@ pub fn write_writeup(
     db_path: &Path,
     actor: &str,
 ) -> Result<WriteupExport> {
+    write_writeup_with(store, base, db_path, actor, PackageOpts::NORMAL)
+}
+
+pub(crate) fn write_writeup_with(
+    store: &Store,
+    base: &Path,
+    db_path: &Path,
+    actor: &str,
+    opts: PackageOpts,
+) -> Result<WriteupExport> {
     let interview_ids: Vec<String> = store
         .summaries()?
         .into_iter()
@@ -1386,6 +1507,7 @@ pub fn write_writeup(
         files: Vec::new(),
     };
     crate::export_analysis::write_files(&mut w, store)?;
+    w.write("writeup.docx", &crate::docx::render(&store.writeup_doc()?)?)?;
     w.write("state.json", &state_bytes)?;
     w.write("README.md", writeup_readme(&state_sha).as_bytes())?;
     let manifest = json!({
@@ -1403,13 +1525,15 @@ pub fn write_writeup(
         "files": w.files,
     });
     w.write("manifest.json", &serde_json::to_vec_pretty(&manifest)?)?;
-    store.log(
-        actor,
-        "export.writeup",
-        None,
-        Some(&dir.display().to_string()),
-        json!({"dir": dir.display().to_string(), "state_sha256": state_sha, "n_files": w.files.len()}),
-    )?;
+    if opts.log {
+        store.log(
+            actor,
+            "export.writeup",
+            None,
+            Some(&dir.display().to_string()),
+            json!({"dir": dir.display().to_string(), "state_sha256": state_sha, "n_files": w.files.len()}),
+        )?;
+    }
     Ok(WriteupExport {
         dir: dir.display().to_string(),
         files: w.files,

@@ -160,7 +160,7 @@ impl SpeakerRole {
 /// One speaker turn as read from a source, before segmentation.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Turn {
-    /// Label exactly as written in the source (`INT`, `Dos Santos Alexandre`, `S1`).
+    /// Label exactly as written in the source (`INT`, `Interviewer Person A`, `S1`).
     pub speaker_raw: String,
     pub role: SpeakerRole,
     /// Start mark as written, normalised to `mm:ss` or `hh:mm:ss`; `P01`.. for written responses.

@@ -165,3 +165,11 @@ A passage that needs review does not move: it stays `stale` with its old offsets
 
 **Co-occurrence (F-56).** Three relations: `same_passage` (two codes on one passage), `overlap` (two passages of one turn whose spans overlap), `same_unit` (two codes anywhere in one turn). Counts are of units and interviews; `passage_pairs` counts the pairs of passages; `jaccard` is shared units over units carrying either code. With `rollup` a code stands for itself and its descendants; a parent and its own descendant are not paired. Grouped by interview or by an interview attribute. `co-occurrence.csv` in the exports (interview and cross-case packages).
 
+
+## 17. V2 exports, command line and example (F-15, F-101, F-102, F-104, F-109, F-113)
+
+- A new project holds no value of an author's study: the default id prefix is `INT`, the default interviewer labels are `Interviewer`, `Intervieweur` and `Intervieweuse`. A study lists its own prefixes and labels in its configuration; nothing else in the tool refers to a corpus.
+- The command line and the UI share one implementation: a subcommand sends the request to the router in process. A new route is therefore available to the CLI by adding a subcommand, and no export logic lives in `main.rs`.
+- Exit codes: 0 when the command did what it was asked, 1 for any error, a failed `verify` (broken chain, missing or changed file), a refused bundle and an `export all` in which one interview could not be exported. `--json` output is one JSON document on standard output.
+- `verify` recomputes the SHA-256 of each file listed in a `manifest.json` under `exports/` and compares it with the manifest; it does not rewrite anything.
+- The example loads only into an empty project (no interview, code, passage, theme or case). The loaded data is the fictional content of `examples/`, embedded in the binary, so the action works from an installed app.

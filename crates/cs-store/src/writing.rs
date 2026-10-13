@@ -522,71 +522,240 @@ impl Store {
             rows,
         })
     }
+}
 
+/// One citation of the write-up: a linked passage, numbered in order of first use.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct WriteupCite {
+    pub n: usize,
+    pub interview_id: String,
+    pub unit_id: String,
+    /// The exact quotation, whitespace collapsed to single spaces.
+    pub quote: String,
+    pub note: String,
+}
+
+impl WriteupCite {
+    /// `interview, unité unit` (the reference as printed in a footnote).
+    pub fn reference(&self) -> String {
+        format!("{}, unité {}", self.interview_id, self.unit_id)
+    }
+}
+
+/// A block of the write-up, independent of the output format.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum WriteupBlock {
+    Heading {
+        level: u8,
+        text: String,
+    },
+    /// `cites` are the numbers of the citations that support the paragraph.
+    Para {
+        text: String,
+        italic: bool,
+        cites: Vec<usize>,
+    },
+    Table {
+        header: Vec<String>,
+        rows: Vec<Vec<String>>,
+    },
+    Bullet {
+        text: String,
+    },
+}
+
+/// The write-up as blocks and citations; rendered to Markdown or to docx.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct WriteupDoc {
+    pub blocks: Vec<WriteupBlock>,
+    pub cites: Vec<WriteupCite>,
+}
+
+impl WriteupDoc {
+    /// The same document with `f` applied to every text (headings, paragraphs,
+    /// cells, quotations, notes). Interview and unit ids are kept.
+    pub fn map_text(&self, f: &dyn Fn(&str) -> String) -> WriteupDoc {
+        let blocks = self
+            .blocks
+            .iter()
+            .map(|b| match b {
+                WriteupBlock::Heading { level, text } => WriteupBlock::Heading {
+                    level: *level,
+                    text: f(text),
+                },
+                WriteupBlock::Para {
+                    text,
+                    italic,
+                    cites,
+                } => WriteupBlock::Para {
+                    text: f(text),
+                    italic: *italic,
+                    cites: cites.clone(),
+                },
+                WriteupBlock::Table { header, rows } => WriteupBlock::Table {
+                    header: header.iter().map(|h| f(h)).collect(),
+                    rows: rows
+                        .iter()
+                        .map(|r| r.iter().map(|c| f(c)).collect())
+                        .collect(),
+                },
+                WriteupBlock::Bullet { text } => WriteupBlock::Bullet { text: f(text) },
+            })
+            .collect();
+        let cites = self
+            .cites
+            .iter()
+            .map(|c| WriteupCite {
+                n: c.n,
+                interview_id: c.interview_id.clone(),
+                unit_id: c.unit_id.clone(),
+                quote: f(&c.quote),
+                note: f(&c.note),
+            })
+            .collect();
+        WriteupDoc { blocks, cites }
+    }
+
+    /// Markdown with the citations as footnotes: interview, unit, exact quotation.
+    pub fn to_markdown(&self) -> String {
+        let mut md = String::new();
+        for (i, b) in self.blocks.iter().enumerate() {
+            match b {
+                WriteupBlock::Heading { level, text } => {
+                    md.push_str(&format!("{} {text}\n\n", "#".repeat(*level as usize)));
+                }
+                WriteupBlock::Para {
+                    text,
+                    italic,
+                    cites,
+                } => {
+                    let marks: String = cites.iter().map(|n| format!("[^{n}]")).collect();
+                    if *italic {
+                        md.push_str(&format!("_{text}_\n\n"));
+                    } else {
+                        md.push_str(&format!("{text}{marks}\n\n"));
+                    }
+                }
+                WriteupBlock::Table { header, rows } => {
+                    md.push('|');
+                    for h in header {
+                        md.push_str(&format!(" {h} |"));
+                    }
+                    md.push_str("\n|");
+                    for _ in header {
+                        md.push_str("---|");
+                    }
+                    md.push('\n');
+                    for r in rows {
+                        md.push('|');
+                        for c in r {
+                            md.push_str(&format!(" {c} |"));
+                        }
+                        md.push('\n');
+                    }
+                    md.push('\n');
+                }
+                WriteupBlock::Bullet { text } => {
+                    md.push_str(&format!("- {text}\n"));
+                    if !matches!(self.blocks.get(i + 1), Some(WriteupBlock::Bullet { .. })) {
+                        md.push('\n');
+                    }
+                }
+            }
+        }
+        if !self.cites.is_empty() {
+            md.push_str("---\n\n");
+            for c in &self.cites {
+                let mut line = format!("{} : « {} »", c.reference(), c.quote);
+                if !c.note.is_empty() {
+                    line.push_str(&format!(" ({})", c.note));
+                }
+                md.push_str(&format!("[^{}]: {line}\n", c.n));
+            }
+        }
+        md
+    }
+}
+
+impl Store {
     // ------------------------------------------------ export
 
-    /// The write-up in Markdown: retained themes in the document order, their
+    /// The write-up as blocks: retained themes in the document order, their
     /// five parts, the syntheses, the framework table, the final audit. Each
-    /// linked passage is a footnote: interview, unit, exact quotation.
-    pub fn writeup_markdown(&self) -> Result<String> {
+    /// linked passage is a citation: interview, unit, exact quotation.
+    pub fn writeup_doc(&self) -> Result<WriteupDoc> {
         let cfg = self.study_config()?;
-        let mut notes: Vec<String> = Vec::new();
+        let mut cites: Vec<WriteupCite> = Vec::new();
         let mut note_of: BTreeMap<String, usize> = BTreeMap::new();
-        let mut cite = |l: &LinkView| -> String {
+        let mut cite = |l: &LinkView| -> usize {
             let key = l.passage.passage_id.clone();
-            let n = *note_of.entry(key).or_insert_with(|| {
+            *note_of.entry(key).or_insert_with(|| {
                 let quote = l
                     .passage
                     .text
                     .split_whitespace()
                     .collect::<Vec<_>>()
                     .join(" ");
-                let mut line = format!(
-                    "{}, unité {} : « {} »",
-                    l.passage.interview_id, l.passage.unit_id, quote
-                );
-                if !l.note.is_empty() {
-                    line.push_str(&format!(" ({})", l.note));
-                }
-                notes.push(line);
-                notes.len()
-            });
-            format!("[^{n}]")
+                let n = cites.len() + 1;
+                cites.push(WriteupCite {
+                    n,
+                    interview_id: l.passage.interview_id.clone(),
+                    unit_id: l.passage.unit_id.clone(),
+                    quote,
+                    note: l.note.clone(),
+                });
+                n
+            })
         };
-        let mut md = String::new();
+        let mut blocks: Vec<WriteupBlock> = Vec::new();
+        let heading = |level: u8, text: String| WriteupBlock::Heading { level, text };
+        let para = |text: String| WriteupBlock::Para {
+            text,
+            italic: false,
+            cites: Vec::new(),
+        };
         let title = if cfg.study_name.trim().is_empty() {
             "Rédaction".to_string()
         } else {
             format!("{} : rédaction", cfg.study_name.trim())
         };
-        md.push_str(&format!("# {title}\n\n"));
+        blocks.push(heading(1, title));
         let retained = self.themes(Some("retained"))?;
         if retained.is_empty() {
-            md.push_str("Aucun thème retenu pour l'instant.\n\n");
+            blocks.push(para("Aucun thème retenu pour l'instant.".into()));
         }
         for t in &retained {
             let w = self.theme_writing(&t.theme_id)?;
-            md.push_str(&format!("## {}\n\n", t.title));
+            blocks.push(heading(2, t.title.clone()));
             for (key, part_title) in THEME_PARTS {
                 let p = &w.parts[key];
-                md.push_str(&format!("### {part_title}\n\n"));
+                blocks.push(heading(3, part_title.to_string()));
                 if p.text.is_empty() {
-                    md.push_str("_Partie non rédigée._\n\n");
+                    blocks.push(WriteupBlock::Para {
+                        text: "Partie non rédigée.".into(),
+                        italic: true,
+                        cites: Vec::new(),
+                    });
                 } else {
-                    let marks: String = p.links.iter().map(&mut cite).collect();
-                    md.push_str(&format!("{}{}\n\n", p.text, marks));
+                    let marks: Vec<usize> = p.links.iter().map(&mut cite).collect();
+                    blocks.push(WriteupBlock::Para {
+                        text: p.text.clone(),
+                        italic: false,
+                        cites: marks,
+                    });
                 }
                 if let Some(n) = &p.nature_label {
-                    md.push_str(&format!("Nature de la preuve : {n}.\n\n"));
+                    blocks.push(para(format!("Nature de la preuve : {n}.")));
                 }
             }
         }
         let questions = self.research_questions()?;
         if !questions.is_empty() {
-            md.push_str("## Synthèse par question de recherche\n\n");
+            blocks.push(heading(2, "Synthèse par question de recherche".into()));
             for q in &questions {
                 let s = self.question_synthesis(&q.id)?;
-                md.push_str(&format!("### {} : {}\n\n", s.rq_id, s.text));
+                blocks.push(heading(3, format!("{} : {}", s.rq_id, s.text)));
                 let answering: Vec<&str> = s
                     .themes
                     .iter()
@@ -594,35 +763,38 @@ impl Store {
                     .map(|t| t.title.as_str())
                     .collect();
                 if !answering.is_empty() {
-                    md.push_str(&format!(
-                        "Thèmes qui y répondent : {}.\n\n",
+                    blocks.push(para(format!(
+                        "Thèmes qui y répondent : {}.",
                         answering.join(" ; ")
-                    ));
+                    )));
                 }
                 if s.answer.is_empty() {
-                    md.push_str("_Synthèse non rédigée._\n\n");
+                    blocks.push(WriteupBlock::Para {
+                        text: "Synthèse non rédigée.".into(),
+                        italic: true,
+                        cites: Vec::new(),
+                    });
                 } else {
-                    let marks: String = s.links.iter().map(&mut cite).collect();
-                    md.push_str(&format!("{}{}\n\n", s.answer, marks));
+                    let marks: Vec<usize> = s.links.iter().map(&mut cite).collect();
+                    blocks.push(WriteupBlock::Para {
+                        text: s.answer.clone(),
+                        italic: false,
+                        cites: marks,
+                    });
                 }
                 if !s.limits.is_empty() {
-                    md.push_str(&format!("Limites : {}\n\n", s.limits));
+                    blocks.push(para(format!("Limites : {}", s.limits)));
                 }
             }
         }
         if let Ok(table) = self.framework_table() {
-            md.push_str("## Lecture par le cadre interprétatif\n\n");
-            md.push_str("| Thème |");
-            for d in &table.dimensions {
-                md.push_str(&format!(" {} |", d.label));
-            }
-            md.push_str(" Hors cadre |\n|---|");
-            for _ in &table.dimensions {
-                md.push_str("---|");
-            }
-            md.push_str("---|\n");
+            blocks.push(heading(2, "Lecture par le cadre interprétatif".into()));
+            let mut header = vec!["Thème".to_string()];
+            header.extend(table.dimensions.iter().map(|d| d.label.clone()));
+            header.push("Hors cadre".into());
+            let mut rows = Vec::new();
             for r in &table.rows {
-                md.push_str(&format!("| {} |", r.title.replace('|', "/")));
+                let mut row = vec![r.title.replace('|', "/")];
                 for d in &table.dimensions {
                     let c = r.reading.cells.get(&d.id).cloned().unwrap_or_default();
                     let cell = match (c.explains, c.note.is_empty()) {
@@ -631,7 +803,7 @@ impl Store {
                         (false, true) => "n'explique pas".to_string(),
                         (false, false) => format!("n'explique pas : {}", c.note),
                     };
-                    md.push_str(&format!(" {} |", cell.replace(['|', '\n'], " ")));
+                    row.push(cell.replace(['|', '\n'], " "));
                 }
                 let out = if r.reading.out_of_frame {
                     if r.reading.out_of_frame_note.is_empty() {
@@ -642,16 +814,17 @@ impl Store {
                 } else {
                     "non".to_string()
                 };
-                md.push_str(&format!(" {} |\n", out.replace(['|', '\n'], " ")));
+                row.push(out.replace(['|', '\n'], " "));
+                rows.push(row);
             }
-            md.push('\n');
+            blocks.push(WriteupBlock::Table { header, rows });
         }
         if let Some(a) = self.latest_final_audit()? {
-            md.push_str("## Audit final\n\n");
-            md.push_str(&format!(
-                "Tirage de {} affirmations, graine `{}`.\n\n",
+            blocks.push(heading(2, "Audit final".into()));
+            blocks.push(para(format!(
+                "Tirage de {} affirmations, graine `{}`.",
                 a.n, a.seed
-            ));
+            )));
             for c in &a.claims {
                 let verdict = c
                     .verdict
@@ -665,19 +838,16 @@ impl Store {
                         }
                     })
                     .unwrap_or_else(|| "pas encore jugée".to_string());
-                md.push_str(&format!(
-                    "- {} : {} Verdict : {}.\n",
-                    c.part_title, c.sentence, verdict
-                ));
-            }
-            md.push('\n');
-        }
-        if !notes.is_empty() {
-            md.push_str("---\n\n");
-            for (i, n) in notes.iter().enumerate() {
-                md.push_str(&format!("[^{}]: {}\n", i + 1, n));
+                blocks.push(WriteupBlock::Bullet {
+                    text: format!("{} : {} Verdict : {}.", c.part_title, c.sentence, verdict),
+                });
             }
         }
-        Ok(md)
+        Ok(WriteupDoc { blocks, cites })
+    }
+
+    /// The write-up in Markdown (see [`Store::writeup_doc`]).
+    pub fn writeup_markdown(&self) -> Result<String> {
+        Ok(self.writeup_doc()?.to_markdown())
     }
 }

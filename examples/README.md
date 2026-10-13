@@ -27,3 +27,7 @@ curl -X POST http://127.0.0.1:7878/api/codebook/import \
 ```
 
 Keep experiments in a throw-away database, as above, so that the example stays clean.
+
+## Load everything at once
+
+`coding-studio --db /tmp/example.db example load` (or `POST /api/example/load`, or the same action in the app) fills an empty database with the template, both transcripts, the codebook and three coded passages of `INT-01`. It refuses a database that already holds data.

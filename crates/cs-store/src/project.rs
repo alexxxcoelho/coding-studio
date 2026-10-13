@@ -263,6 +263,26 @@ impl Store {
                 }
             }
         }
+        if !after.case_fields.is_empty() {
+            for case in self.cases(None)? {
+                for (k, v) in &case.characteristics {
+                    match after.case_field(k) {
+                        None => out.push(format!(
+                            "case field {k} is used by {} and cannot be left out of the list",
+                            case.case_id
+                        )),
+                        Some(def) => {
+                            if let Err(e) = def.check_value(v) {
+                                out.push(format!(
+                                    "case field {k}: the value {v:?} of {} would no longer be allowed ({e})",
+                                    case.case_id
+                                ));
+                            }
+                        }
+                    }
+                }
+            }
+        }
         // Origins and roles in use on passages (F-09).
         let mut stmt = self.conn.prepare(
             "SELECT origin, role, COUNT(*) FROM passages WHERE deleted_at IS NULL
@@ -1006,6 +1026,7 @@ fn report_config(before: &ProjectConfig, after: &ProjectConfig, out: &mut Vec<Te
     };
     for part in [
         "attributes",
+        "case_fields",
         "memo_templates",
         "checklist",
         "theme_checks",

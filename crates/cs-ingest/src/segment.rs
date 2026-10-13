@@ -116,10 +116,10 @@ mod tests {
 
     #[test]
     fn short_turn_is_one_unit_and_ids_are_padded() {
-        let units = segment("ECO-16", &[turn("Hello."), turn("  "), turn("World.")]);
+        let units = segment("INT-16", &[turn("Hello."), turn("  "), turn("World.")]);
         assert_eq!(units.len(), 2);
-        assert_eq!(units[0].unit_id, "ECO-16-U001");
-        assert_eq!(units[1].unit_id, "ECO-16-U002");
+        assert_eq!(units[0].unit_id, "INT-16-U001");
+        assert_eq!(units[1].unit_id, "INT-16-U002");
         assert_eq!(units[1].seq, 2);
     }
 

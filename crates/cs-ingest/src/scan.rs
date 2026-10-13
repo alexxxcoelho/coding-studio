@@ -172,7 +172,7 @@ fn scan_folder(id: String, folder: &Path) -> Result<InterviewEntry> {
         if looks_offline(&bytes) {
             offline.insert(rel.clone());
             warnings.push(format!(
-                "{rel}: file looks offline (kDrive online-only?), empty or zero bytes"
+                "{rel}: file looks offline (synchronised folder?), empty or zero bytes"
             ));
         }
         let meta = item.metadata().ok();
@@ -251,25 +251,23 @@ mod tests {
     #[test]
     fn interview_ids_are_normalised() {
         assert_eq!(
-            parse_interview_id("ECO33_RomanEppenberger").as_deref(),
-            Some("ECO-33")
+            parse_interview_id("INT33_RomanEppenberger").as_deref(),
+            Some("INT-33")
         );
         assert_eq!(
-            parse_interview_id("ECO35-Schwarz").as_deref(),
-            Some("ECO-35")
+            parse_interview_id("INT35-Schwarz").as_deref(),
+            Some("INT-35")
         );
         assert_eq!(
-            parse_interview_id("RET-22_von-Grone").as_deref(),
-            Some("RET-22")
+            parse_interview_id("INT-44_von-Grone").as_deref(),
+            Some("INT-44")
         );
         assert_eq!(
-            parse_interview_id("ECO-05_Vieweger").as_deref(),
-            Some("ECO-05")
+            parse_interview_id("INT-05_Vieweger").as_deref(),
+            Some("INT-05")
         );
-        assert_eq!(
-            parse_interview_id("ADJ-01_Bilal").as_deref(),
-            Some("ADJ-01")
-        );
+        // The default accepts the INT prefix only; a study lists its own.
+        assert_eq!(parse_interview_id("ADJ-01_Bilal"), None);
         assert_eq!(parse_interview_id("eco-05"), None);
         assert_eq!(parse_interview_id("Pasted clipping"), None);
     }
@@ -315,7 +313,7 @@ mod tests {
     fn scan_builds_inventory_primary_and_warnings() {
         let dir = tempfile::tempdir().unwrap();
         let root = dir.path();
-        let a = root.join("ECO33_Roman");
+        let a = root.join("INT33_Roman");
         write(&a.join("01_transcript_raw.vtt"), b"WEBVTT\n");
         write(&a.join("EMBA - Interview - Roman.vtt"), b"WEBVTT\n");
         write(
@@ -328,26 +326,26 @@ mod tests {
         write(&a.join("vtt2md.py"), b"x");
         write(&a.join(".DS_Store"), b"x");
         write(&a.join("meeting.mp4"), b"x");
-        let b = root.join("RET-22_von-Grone");
+        let b = root.join("INT-44_von-Grone");
         write(&b.join("01_transcript_raw_B.txt"), b"[00:01] S1: b");
         write(&b.join("01_transcript_raw_A.txt"), b"[00:01] S1: a");
         write(&b.join("04_interview_record.md"), &[0u8; 16]);
-        let dup = root.join("ECO-33_Duplicate");
+        let dup = root.join("INT-33_Duplicate");
         write(&dup.join("01_transcript_raw.vtt"), b"WEBVTT\n");
         write(&root.join("stray.textClipping"), b"x");
         fs::create_dir_all(root.join("No ID folder")).unwrap();
 
         let lib = scan_library(root).unwrap();
         let ids: Vec<_> = lib.iter().map(|e| e.interview_id.as_str()).collect();
-        assert_eq!(ids, vec!["ECO-33", "RET-22"]);
+        assert_eq!(ids, vec!["INT-33", "INT-44"]);
 
         let eco = &lib[0];
-        // `ECO-33_Duplicate` sorts before `ECO33_Roman`, so it is the one kept.
-        assert_eq!(eco.folder_name, "ECO-33_Duplicate");
+        // `INT-33_Duplicate` sorts before `INT33_Roman`, so it is the one kept.
+        assert_eq!(eco.folder_name, "INT-33_Duplicate");
         assert!(eco
             .warnings
             .iter()
-            .any(|w| w.contains("duplicate interview ID ECO-33")));
+            .any(|w| w.contains("duplicate interview ID INT-33")));
 
         let ret = &lib[1];
         assert_eq!(
@@ -365,7 +363,7 @@ mod tests {
     #[test]
     fn scan_prefers_cleaned_markdown_then_raw_vtt_and_reports_skips() {
         let dir = tempfile::tempdir().unwrap();
-        let a = dir.path().join("ECO33_Roman");
+        let a = dir.path().join("INT33_Roman");
         write(&a.join("EMBA - Interview - Roman.vtt"), b"WEBVTT\n");
         write(&a.join("01_transcript_raw.vtt"), b"WEBVTT\n");
         write(&a.join("meeting.mp4"), b"x");

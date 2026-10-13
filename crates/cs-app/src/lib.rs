@@ -3,10 +3,15 @@
 //! protocol rules live in `cs-store`, `cs-ai` and `cs-model`, never here.
 //! The contract is documented in `docs/API.md`.
 
+pub mod bundle;
+pub mod cli;
+pub mod docx;
 mod error;
+pub mod example;
 mod export;
 mod export_analysis;
 mod export_v1;
+pub mod export_v2;
 mod lexicon;
 mod providers;
 mod qdpx;
@@ -14,6 +19,7 @@ mod v1;
 mod v1_analysis;
 mod v1_project;
 mod v1_review;
+mod v2;
 mod v2_audio;
 mod v2_codes;
 mod v2_transcripts;
@@ -242,6 +248,7 @@ pub fn router(state: AppState) -> Router {
         .merge(v1_review::routes())
         .merge(qdpx::routes())
         .merge(v1_analysis::routes())
+        .merge(v2::routes())
         .merge(v2_codes::routes())
         .merge(v2_transcripts::routes())
         .merge(v2_audio::routes())

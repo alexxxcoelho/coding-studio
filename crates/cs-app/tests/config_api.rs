@@ -19,7 +19,7 @@ use tower::ServiceExt;
 
 const CLEANED: &str = "---\ninterview_id: INT-01\nstatus: test fixture\n---\n\n# INT-01, cleaned and diarised transcript\n\nKey: INT = interviewer, RESP = respondent.\n\n---\n\n**INT `[00:01]`:** Thank you for your time. Could you describe your role?\n\n**RESP `[00:05]`:** I run the logistics of a mid-sized retailer and our supplier tags every carton at the source.\n\n**INT `[00:20]`:** What made the business case work?\n\n**RESP `[00:24]`:** The inventory accuracy went from sixty to ninety-eight percent in one year.\n\n**INT `[00:40]`:** And the costs?\n\n**RESP `[00:43]`:** Tags were expensive at first, and our team lacked the skills for the ERP integration.\n";
 
-const VTT: &str = "WEBVTT\n\nabc/1-0\n00:00:01.000 --> 00:00:03.000\n<v Dos Santos Alexandre>Hello, can you hear me?</v>\n\nabc/2-0\n00:00:04.000 --> 00:00:08.000\n<v Jane Roe>Yes, perfectly. We use RFID in two stores and we tag every carton that arrives at the dock before it goes to the shelf.</v>\n\nabc/3-0\n00:00:09.000 --> 00:00:12.000\n<v Dos Santos Alexandre>Why only two?</v>\n\nabc/4-0\n00:00:13.000 --> 00:00:18.000\n<v Jane Roe>Our partner did not want to tag at source.</v>\n";
+const VTT: &str = "WEBVTT\n\nabc/1-0\n00:00:01.000 --> 00:00:03.000\n<v Interviewer Person A>Hello, can you hear me?</v>\n\nabc/2-0\n00:00:04.000 --> 00:00:08.000\n<v Jane Roe>Yes, perfectly. We use RFID in two stores and we tag every carton that arrives at the dock before it goes to the shelf.</v>\n\nabc/3-0\n00:00:09.000 --> 00:00:12.000\n<v Interviewer Person A>Why only two?</v>\n\nabc/4-0\n00:00:13.000 --> 00:00:18.000\n<v Jane Roe>Our partner did not want to tag at source.</v>\n";
 
 fn make_codebook(path: &Path) {
     let conn = rusqlite::Connection::open(path).unwrap();
@@ -67,7 +67,7 @@ fn setup() -> Ctx {
         db_path: db.clone(),
         coding_db: Some(coding_db.clone()),
         actor: "candidate".into(),
-        interviewer_names: vec!["Dos Santos Alexandre".into()],
+        interviewer_names: vec!["Interviewer Person A".into()],
         picker: None,
     };
     Ctx {
@@ -167,7 +167,7 @@ async fn get_config_returns_the_default_study_config() {
     assert_eq!(v, serde_json::to_value(StudyConfig::default()).unwrap());
     assert_eq!(v["framework"], "toe");
     assert_eq!(v["max_words"], 150);
-    assert_eq!(v["id_prefixes"], json!(["INT", "ECO", "RET", "ADJ"]));
+    assert_eq!(v["id_prefixes"], json!(["INT"]));
     assert_eq!(v["prompt_template"]["version"], "CS-P04-EN v3.1");
     assert_eq!(
         names(&v["phase1_categories"]),
@@ -400,7 +400,7 @@ async fn scan_uses_the_configured_id_prefixes() {
     let ctx = setup();
     std::fs::create_dir_all(ctx.root.join("XYZ-05_Custom")).unwrap();
     std::fs::write(ctx.root.join("XYZ-05_Custom/01_transcript_raw.vtt"), VTT).unwrap();
-    assert_eq!(ids(&scan(&ctx).await), ["ECO-02", "INT-01"]);
+    assert_eq!(ids(&scan(&ctx).await), ["INT-01"]);
 
     let mut cfg = StudyConfig::default();
     cfg.id_prefixes = vec!["XYZ".into()];
@@ -412,6 +412,13 @@ async fn scan_uses_the_configured_id_prefixes() {
 #[tokio::test]
 async fn segmentation_uses_the_configured_interviewers_and_max_words() {
     let ctx = setup();
+    let base = StudyConfig {
+        id_prefixes: vec!["INT".into(), "ECO".into()],
+        interviewers: vec!["Interviewer Person A".into()],
+        ..StudyConfig::default()
+    };
+    let (st, v) = put_config(&ctx.app, &base).await;
+    assert_eq!(st, StatusCode::OK, "{v}");
     scan(&ctx).await;
     let (_, seg) = call(&ctx.app, "POST", "/api/interviews/ECO-02/segment", None).await;
     assert_eq!(seg["units"].as_array().unwrap().len(), 4);
@@ -419,6 +426,7 @@ async fn segmentation_uses_the_configured_interviewers_and_max_words() {
 
     // Changing the segmentation settings applies to the next segmentation.
     let mut cfg = StudyConfig::default();
+    cfg.id_prefixes = vec!["INT".into(), "ECO".into()];
     cfg.interviewers = vec!["Jane Roe".into()];
     cfg.max_words = 20;
     let (st, v) = put_config(&ctx.app, &cfg).await;
