@@ -39,14 +39,59 @@ jobs:
       - name: Format
         run: cargo fmt --all -- --check
 
-      # cs-desktop needs GTK (Linux) and the Tauri toolchain; it is built and
-      # tested locally with `make desktop-check`. The same commands run on every
-      # platform: the unix-only provider tests are gated with #![cfg(unix)].
+      # cs-desktop needs GTK (Linux) and the Tauri toolchain; it is compiled by
+      # the `desktop` job below (macOS) and locally with `make desktop-check`.
+      # The same commands run on every platform: the unix-only provider tests are gated with #![cfg(unix)].
       - name: Clippy
         run: cargo clippy --workspace --exclude cs-desktop --all-targets -- -D warnings
 
       - name: Tests
         run: cargo test --workspace --exclude cs-desktop
+
+  # The desktop shell (Tauri 2) is the app Alex runs, and it cannot be built on
+  # the Linux runner without GTK. macOS is its target platform, so it is
+  # compiled, linted, tested and bundled here on every push.
+  desktop:
+    name: Desktop app (macOS)
+    runs-on: macos-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+
+      - name: Rust stable with rustfmt and clippy
+        run: |
+          rustup toolchain install stable --profile minimal --component rustfmt --component clippy
+          rustup default stable
+          rustc --version
+
+      # Caches target/ and the installed cargo-tauri binary.
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+
+      # The CLI is 2.12.x, like the `tauri` crate in Cargo.lock (2.12.3).
+      - name: Tauri CLI
+        run: |
+          cargo install tauri-cli --version 2.12.2 --locked
+          cargo tauri --version
+
+      - name: Format
+        run: cargo fmt -p cs-desktop -- --check
+
+      - name: Check
+        run: cargo check -p cs-desktop --all-targets --locked
+
+      - name: Clippy
+        run: cargo clippy -p cs-desktop --all-targets --locked -- -D warnings
+
+      - name: Tests
+        run: cargo test -p cs-desktop --locked
+
+      # The web build embedded in cs-app is verified by the `web` job, so the
+      # beforeBuildCommand (make web: pnpm + rsync) is skipped here.
+      - name: Bundle the .app
+        working-directory: crates/cs-desktop
+        run: cargo tauri build --bundles app --config '{"build":{"beforeBuildCommand":""}}'
 
   web:
     name: Web interface
