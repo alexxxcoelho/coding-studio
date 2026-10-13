@@ -22,12 +22,14 @@ mod coding;
 mod memos;
 mod review;
 mod saturation;
+mod simple;
 mod study_config;
 mod verification;
 
 pub use codebook::{CodePatch, ImportReport, MergeOutcome};
 pub use coding::ResolveRequest;
 pub use review::{Review, ReviewEntry};
+pub use simple::SimpleProgress;
 
 use std::collections::BTreeMap;
 use std::path::Path;
@@ -561,26 +563,6 @@ impl Store {
         )?)
     }
 
-    /// Any candidate coding, in any phase.
-    fn has_human_coding(&self, interview_id: &str) -> Result<bool> {
-        let n: i64 = self.conn.query_row(
-            "SELECT COUNT(*) FROM human_codings WHERE interview_id = ?1",
-            [interview_id],
-            |r| r.get(0),
-        )?;
-        Ok(n > 0)
-    }
-
-    /// Any label to clarify.
-    fn has_to_clarify(&self, interview_id: &str) -> Result<bool> {
-        let n: i64 = self.conn.query_row(
-            "SELECT COUNT(*) FROM to_clarify WHERE interview_id = ?1",
-            [interview_id],
-            |r| r.get(0),
-        )?;
-        Ok(n > 0)
-    }
-
     /// Any AI output.
     fn has_ai_output(&self, interview_id: &str) -> Result<bool> {
         let n: i64 = self.conn.query_row(
@@ -591,8 +573,42 @@ impl Store {
         Ok(n > 0)
     }
 
-    /// Saves a new segmentation version. Refused once coding exists; a segmentation
-    /// identical to the current one is a silent no-op.
+    /// With an imported AI output, a re-segmentation may add units but not
+    /// change or drop a unit that an AI run has answered (text and role kept).
+    fn check_answered_units_kept(
+        &self,
+        interview_id: &str,
+        current: Option<&Segmentation>,
+        units: &[Unit],
+    ) -> Result<()> {
+        let answered: std::collections::BTreeSet<String> = self
+            .ai_runs(interview_id)?
+            .into_iter()
+            .filter(|r| !r.parts_received.is_empty())
+            .flat_map(|r| r.unit_ids)
+            .collect();
+        let Some(current) = current else {
+            return Ok(());
+        };
+        for unit_id in answered {
+            let before = current.units.iter().find(|u| u.unit_id == unit_id);
+            let after = units.iter().find(|u| u.unit_id == unit_id);
+            let same = matches!((before, after), (Some(b), Some(a)) if a.text == b.text && a.role == b.role);
+            if !same {
+                return Err(guard_err(format!(
+                    "segmentation of {interview_id} is locked: unit {unit_id} was answered by an AI run and would change"
+                )));
+            }
+        }
+        Ok(())
+    }
+
+    /// Saves a new segmentation version. Candidate codings are kept (units keep
+    /// their codings by unit id) and the units without a phase 1 coding get one
+    /// automatically (see `simple`), audited once as `coding.auto_phase1`. Once
+    /// an AI output exists, the units it answered must keep their text and role
+    /// (see `check_answered_units_kept`). A segmentation identical to the current
+    /// one is a silent no-op.
     pub fn save_segmentation(&self, seg: &Segmentation, actor: &str) -> Result<()> {
         let id = seg.interview_id.as_str();
         self.require_interview(id)?;
@@ -608,11 +624,10 @@ impl Store {
         if current.as_ref().is_some_and(|c| c.hash == seg.hash) {
             return Ok(());
         }
-        if self.has_human_coding(id)? || self.has_ai_output(id)? || self.has_to_clarify(id)? {
-            return Err(guard_err(format!(
-                "segmentation of {id} is locked: coding already exists for its units"
-            )));
+        if self.has_ai_output(id)? {
+            self.check_answered_units_kept(id, current.as_ref(), &seg.units)?;
         }
+        let categories = self.study_config()?.effective_categories();
         let tx = self.conn.unchecked_transaction()?;
         tx.execute(
             "INSERT INTO segmentations (interview_id, source_rel_path, source_sha256, rule, hash, warnings, saved_at)
@@ -620,6 +635,7 @@ impl Store {
             params![id, seg.source_rel_path, seg.source_sha256, seg.rule, seg.hash, to_json(&seg.warnings), now()],
         )?;
         let seg_id = tx.last_insert_rowid();
+        let filled = simple::fill_phase1(&tx, id, &seg.units, &categories)?;
         {
             let mut stmt = tx.prepare(
                 "INSERT INTO units (seg_id, unit_id, seq, speaker_raw, role, timestamp, text)
@@ -655,6 +671,21 @@ impl Store {
                 "warnings": seg.warnings,
             }),
         )?;
+        if filled.n_filled > 0 {
+            append_event(
+                &tx,
+                actor,
+                "coding.auto_phase1",
+                Some(id),
+                Some(id),
+                json!({
+                    "n_filled": filled.n_filled,
+                    "n_na": filled.n_na,
+                    "n_context": filled.n_context,
+                    "n_kept": filled.n_kept,
+                }),
+            )?;
+        }
         tx.commit()?;
         Ok(())
     }

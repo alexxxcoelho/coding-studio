@@ -92,12 +92,8 @@ fn segmentation(texts: &[&str]) -> Segmentation {
         .map(|(i, t)| Unit {
             unit_id: format!("{ID}-U{:03}", i + 1),
             seq: i as u32 + 1,
-            speaker_raw: if i % 2 == 0 { "INT" } else { "RESP" }.into(),
-            role: if i % 2 == 0 {
-                SpeakerRole::Interviewer
-            } else {
-                SpeakerRole::Respondent
-            },
+            speaker_raw: "RESP".into(),
+            role: SpeakerRole::Respondent,
             timestamp: format!("00:0{i}"),
             text: t.to_string(),
             corrected: false,
@@ -788,7 +784,8 @@ fn coded_after_phase1(s: &Store) {
 #[test]
 fn phase2_scope_follows_phase1() {
     let (s, _d) = ready();
-    assert!(s.phase_units(ID, 2).unwrap().is_empty());
+    // Automatic phase 1 (CONTEXT on each respondent unit): all three in scope.
+    assert_eq!(s.phase_units(ID, 2).unwrap(), [U1, U2, U3]);
     phase1(&s);
     assert_eq!(s.phase_units(ID, 2).unwrap(), [U2, U3]);
     let e = s
@@ -895,9 +892,10 @@ fn edits_after_the_ai_answer_are_flagged() {
 #[test]
 fn guard_reports_missing_units() {
     let (s, _d) = ready();
+    // Automatic phase 1: complete as soon as the segmentation is saved.
     let g = s.guard(ID, 1).unwrap();
-    assert!(!g.complete);
-    assert_eq!(g.missing.len(), 3);
+    assert!(g.complete);
+    assert!(g.missing.is_empty());
     phase1(&s);
     assert!(s.guard(ID, 1).unwrap().complete);
     let g = s.guard(ID, 2).unwrap();
@@ -1457,16 +1455,16 @@ fn append_only_tables_refuse_update_and_delete() {
 }
 
 #[test]
-fn resegmentation_refused_once_coding_exists() {
+fn resegmentation_allowed_with_candidate_coding() {
     let (s, _d) = ready();
     s.save_segmentation(&segmentation(&["One.", "Two."]), ACTOR)
         .unwrap();
     assert_eq!(s.segmentation(ID).unwrap().unwrap().units.len(), 2);
     s.set_human_coding(ID, 1, &hc(U1, &["NA"]), ACTOR).unwrap();
-    let e = s
-        .save_segmentation(&segmentation(&["A.", "B.", "C."]), ACTOR)
-        .unwrap_err();
-    assert_eq!(kind(&e), "guard");
+    s.save_segmentation(&segmentation(&["A.", "B.", "C."]), ACTOR)
+        .unwrap();
+    assert_eq!(s.segmentation(ID).unwrap().unwrap().units.len(), 3);
+    assert_eq!(s.human_codings(ID, 1).unwrap()[U1].codes, set(&["NA"]));
 }
 
 #[test]
@@ -1474,9 +1472,10 @@ fn write_and_audit_are_atomic() {
     // A failing domain write leaves neither a row nor an event.
     let (s, _d) = ready();
     let n = actions(&s).len();
+    let before = s.human_coding_map(ID, 1).unwrap();
     let _ = s.set_human_coding(ID, 1, &hc(U2, &["UNKNOWN"]), ACTOR);
     assert_eq!(actions(&s).len(), n);
-    assert!(s.human_codings(ID, 1).unwrap().is_empty());
+    assert_eq!(s.human_coding_map(ID, 1).unwrap(), before);
 }
 
 #[test]
@@ -1527,6 +1526,7 @@ mod cases_v4;
 mod claims_v4;
 mod codebook_import_v5;
 mod memos_saturation_v4;
+mod simple_v5;
 mod snapshots_v4;
 #[allow(clippy::field_reassign_with_default)]
 mod study_config_v5;

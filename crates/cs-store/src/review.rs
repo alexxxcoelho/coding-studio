@@ -76,6 +76,12 @@ impl Store {
             .iter()
             .flat_map(|p| p.unit_ids.iter().cloned())
             .collect();
+        let interviewers = self.interviewer_units(&interview_id)?;
+        if let Some(u) = batch_units.iter().find(|u| interviewers.contains(*u)) {
+            return Err(validation(format!(
+                "{u} is an interviewer turn: it is out of phase 2 scope and cannot enter a prompt"
+            )));
+        }
         let coded = self.coded_units(&interview_id, PHASE_2)?;
         let missing: Vec<&String> = batch_units.iter().filter(|u| !coded.contains(*u)).collect();
         if !missing.is_empty() {
@@ -674,11 +680,13 @@ impl Store {
 
     /// Units compared with the AI, in segmentation order: those of the complete runs' batches.
     fn compared_units(&self, interview_id: &str) -> Result<Vec<String>> {
+        let interviewers = self.interviewer_units(interview_id)?;
         let in_runs: BTreeSet<String> = self
             .ai_runs(interview_id)?
             .into_iter()
             .filter(|r| r.complete)
             .flat_map(|r| r.unit_ids)
+            .filter(|u| !interviewers.contains(u))
             .collect();
         Ok(self
             .segmentation(interview_id)?

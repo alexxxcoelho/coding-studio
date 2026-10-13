@@ -34,7 +34,7 @@ Errors: status 400 (validation), 404 (not found), 409 (protocol guard), 500 (int
 | GET | `/api/interviews/{id}` | | `{entry: InterviewEntry, segmentation: Segmentation\|null, phase1: PhaseSummary, phase2: PhaseSummary}` |
 | GET | `/api/interviews/{id}/file?path=rel` | | `{path, kind, sha256, changed_since_scan, text}` |
 | POST | `/api/interviews/{id}/primary` | `{rel_path}` | `InterviewEntry` |
-| POST | `/api/interviews/{id}/segment` | `{rel_path?}` | `Segmentation` |
+| POST | `/api/interviews/{id}/segment` | `{rel_path?}` | `Segmentation`. Saving a segmentation fills the phase 1 coding of every unit that has none (automatic, audited once as `coding.auto_phase1`, see below). Re-segmenting keeps every candidate coding by unit id and is refused only when an AI run has answered a unit whose text or role would change |
 
 ## Coding
 
@@ -43,8 +43,9 @@ Errors: status 400 (validation), 404 (not found), 409 (protocol guard), 500 (int
 | GET | `/api/codebook/phase1` | | `Codebook` (TECH, ORG, ENV, CONTEXT) |
 | GET | `/api/interviews/{id}/phases/{p}` | | `{phase, summary: PhaseSummary, guard: GuardStatus}` |
 | GET | `/api/interviews/{id}/phases/1/units` | | `[{unit, coding: HumanCoding\|null, allowed: Code[]}]`, every unit; `allowed` = the four phase 1 categories (NA always valid besides) |
-| GET | `/api/interviews/{id}/phases/2/units` | | `[{unit, coding: HumanCoding\|null, allowed: Code[], phase1: string[]\|null, in_scope: boolean, to_clarify: ToClarify[]}]`: the units in scope (phase 1 category not NA) and the out-of-scope units that still carry a phase 2 coding, in segmentation order. `allowed` = every phase 2 code, those attached to the unit's phase 1 contexts first |
-| PUT | `/api/interviews/{id}/phases/{p}/coding/{unit_id}` | `HumanCoding` | `HumanCoding` as stored. Phase 1: TECH/ORG/ENV/CONTEXT or NA, always editable. Phase 2: phase 2 codes or NA; `codes` may be empty only if the unit has an open label to clarify |
+| GET | `/api/interviews/{id}/phases/2/units` | | `[{unit, coding: HumanCoding\|null, allowed: Code[], phase1: string[]\|null, in_scope: boolean, to_clarify: ToClarify[]}]`: the units in scope (phase 1 category not NA, never an interviewer turn) and the out-of-scope units that still carry a phase 2 coding, in segmentation order. `allowed` = every phase 2 code, those attached to the unit's phase 1 contexts first |
+| GET | `/api/interviews/{id}/simple` | | `SimpleProgress`: `{n_respondent_units, n_relevant, n_coded, n_batches, n_runs_complete, n_disagreements, n_decided, n_sample, n_sample_reviewed, done}`. `n_respondent_units` counts the units whose role is not interviewer; `n_relevant` the units in phase 2 scope; `n_coded` the relevant units coded in phase 2; `done` when every relevant unit is coded and covered by a complete run, and every disagreement and sample item is decided. 404 for an unknown interview |
+| PUT | `/api/interviews/{id}/phases/{p}/coding/{unit_id}` | `HumanCoding`, or the shorthand `{relevant: bool}` (phase 1 only) | `HumanCoding` as stored. Phase 1: TECH/ORG/ENV/CONTEXT or NA, always editable. Shorthand `{relevant: false}` stores NA; `{relevant: true}` stores CONTEXT unless the unit already carries a category other than NA, which is kept. Phase 2: phase 2 codes or NA; `codes` may be empty only if the unit has an open label to clarify. An interviewer unit cannot be relevant, and `relevant` in phase 2 is refused (400) |
 
 ## Labels to clarify
 
@@ -110,7 +111,13 @@ Errors: status 400 (validation), 404 (not found), 409 (protocol guard), 500 (int
 | GET | `/api/audit/verify` | | `ChainCheck` |
 | POST | `/api/interviews/{id}/export` | | `{dir, files: [{name, sha256, size}], manifest_sha256, status}` (`status`: unit, coding, run, review, label and case counts) |
 
-The interview export package holds `units.csv`, `phase1_contexts.csv`, `phase2_coding_human.csv` (with `revised_after_ai`), `phase2_human_full.csv`, `phase2_batch<b>_prompt_part<n>_of<m>_<hash>.txt`, per run `phase2_run<id>_<label>.json`, `phase2_coding_ai_run<id>_<label>.csv` and `phase2_ai_run<id>_<label>_part<n>_raw.txt`, `phase2_agreement.md` and `phase2_review.md` (once a run is complete), `phase2_coding_final.csv`, `to_clarify.csv`, `cases.json`, `cases.md`, `codebook.csv`, `audit_log.jsonl`, `audit_chain.json`, `manifest.json` and `README.md`. The codebook export writes `<db dir>/exports/codebook/<YYYY-MM-DD_HHMMSS>_codebook.csv` and `.sql`, never overwriting.
+The phase 1 export `phase1_contexts.csv` has the columns `unit_id,codes,derived_contexts`. `derived_contexts` lists the TOE contexts of the unit's current phase 2 codes, joined with `;` in the order TECH, ORG, ENV (`CONTEXT` when no code is attached to a context, empty for an interviewer turn or an NA unit). The interview export package holds `units.csv`, `phase1_contexts.csv`, `phase2_coding_human.csv` (with `revised_after_ai`), `phase2_human_full.csv`, `phase2_batch<b>_prompt_part<n>_of<m>_<hash>.txt`, per run `phase2_run<id>_<label>.json`, `phase2_coding_ai_run<id>_<label>.csv` and `phase2_ai_run<id>_<label>_part<n>_raw.txt`, `phase2_agreement.md` and `phase2_review.md` (once a run is complete), `phase2_coding_final.csv`, `to_clarify.csv`, `cases.json`, `cases.md`, `codebook.csv`, `audit_log.jsonl`, `audit_chain.json`, `manifest.json` and `README.md`. The codebook export writes `<db dir>/exports/codebook/<YYYY-MM-DD_HHMMSS>_codebook.csv` and `.sql`, never overwriting.
+
+## v5 additions (simple view)
+
+- Automatic phase 1: saving a segmentation codes every unit that has no phase 1 coding (interviewer turns NA, the others CONTEXT, or the first unattached category when CONTEXT is not configured), in one audit event `coding.auto_phase1` with detail `{n_filled, n_na, n_context, n_kept}`. Those codings carry `modifier = "auto"`; the config guard (phase 1 category names) and the re-segmentation lock ignore them. A candidate's write replaces the marker.
+- Interviewer units are out of phase 2 scope: `phase_units(2)` excludes them, `POST /phases/2/prompts` refuses a batch containing one (400, the unit named), and they are never verification targets, review items or agreement samples.
+- `GET /api/interviews/{id}/simple`: see the Coding table.
 
 ## v4 additions (12.10.2026, cases across interviews, frozen reference)
 

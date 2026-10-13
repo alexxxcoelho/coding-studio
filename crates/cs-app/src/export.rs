@@ -120,6 +120,32 @@ pub(crate) fn csv_field(value: &str) -> String {
     }
 }
 
+/// `unit_id,codes,derived_contexts` for the units with a phase 1 coding, in
+/// segmentation order. `derived_contexts` comes from the phase 2 codes (see
+/// `Store::phase2_context_for_unit`).
+fn phase1_contexts_csv(
+    store: &Store,
+    interview_id: &str,
+    p1: &cs_model::CodingMap,
+    all_units: &[String],
+) -> Result<String> {
+    let mut out = String::from("unit_id,codes,derived_contexts\n");
+    for unit_id in all_units {
+        if let Some(codes) = p1.get(unit_id) {
+            let derived = store
+                .phase2_context_for_unit(interview_id, unit_id)?
+                .join(";");
+            out.push_str(&format!(
+                "{},{},{}\n",
+                csv_field(unit_id),
+                csv_field(&codes_list(codes)),
+                csv_field(&derived)
+            ));
+        }
+    }
+    Ok(out)
+}
+
 /// Codes of a set, sorted, joined with `;`.
 fn codes_list(codes: &CodeSet) -> String {
     codes.iter().cloned().collect::<Vec<_>>().join(";")
@@ -867,7 +893,7 @@ pub fn write_package(
     let p1_map = store.human_coding_map(interview_id, PHASE_1)?;
     w.write(
         "phase1_contexts.csv",
-        cs_ai::coding_csv(&p1_map, &all_units).as_bytes(),
+        phase1_contexts_csv(store, interview_id, &p1_map, &all_units)?.as_bytes(),
     )?;
     w.write(
         "phase2_coding_human.csv",
@@ -1067,7 +1093,7 @@ fn readme(id: &str, folder: &str, seg: &cs_model::Segmentation, st: &CodingStatu
         ("ev_distribution.csv, provenance_distribution.csv, roles_distribution.csv", "Distinct claims per value of evidence level, provenance and role, `value,n_claims`."),
         ("state.json", "The human state behind the package, canonical, with its SHA-256 and the generator (see Immutable state)."),
         ("db_snapshot.sqlite", "A consistent copy of the whole database at export time, taken with VACUUM INTO (see Immutable state)."),
-        ("phase1_contexts.csv", "The provisional TOE pre-classification, `unit_id,codes`."),
+        ("phase1_contexts.csv", "The provisional TOE pre-classification, `unit_id,codes,derived_contexts`: `derived_contexts` lists the TOE contexts (TECH, ORG, ENV) attached to the unit's phase 2 codes, `;`-separated in that order, or CONTEXT when no code is attached; empty for interviewer turns and NA units."),
         ("phase2_coding_human.csv", "The candidate's detailed coding, `unit_id,codes,revised_after_ai`; the last column is 1 when the coding was changed after an AI answer covering the unit."),
         ("phase2_human_full.csv", "The same coding with every field: sub-code, modifier, evidence level, provenance, memo and verbatim excerpt."),
         ("phase2_batch<b>_prompt_part<n>_of<m>_<hash>.txt", "Each prompt generated for the AI coder, byte for byte, by batch; the hash prefix is the start of its SHA-256."),

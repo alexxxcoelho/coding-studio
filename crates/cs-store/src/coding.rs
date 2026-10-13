@@ -6,8 +6,8 @@ use std::collections::{BTreeMap, BTreeSet};
 use anyhow::Result;
 use cs_model::phase::{is_phase2_code, is_relevant, phase2_codes_for_categories};
 use cs_model::{
-    check_code_set, Code, CodeSet, CodingMap, HumanCoding, Resolution, ResolutionKind, ToClarify,
-    NA, PHASE_1, PHASE_2,
+    check_code_set, Code, CodeSet, CodingMap, HumanCoding, Resolution, ResolutionKind, SpeakerRole,
+    ToClarify, NA, PHASE_1, PHASE_2,
 };
 use rusqlite::{params, Connection, OptionalExtension};
 use serde_json::json;
@@ -89,7 +89,8 @@ impl Store {
     // --------------------------------------------------------------- scope
 
     /// Units in scope for a phase, in segmentation order. Phase 1: every unit.
-    /// Phase 2: the units whose current phase 1 category is not NA.
+    /// Phase 2: the units whose current phase 1 category is not NA, never an
+    /// interviewer turn.
     pub fn phase_units(&self, interview_id: &str, phase: u8) -> Result<Vec<String>> {
         check_phase(phase)?;
         let Some(seg) = self.segmentation(interview_id)? else {
@@ -102,6 +103,7 @@ impl Store {
         Ok(seg
             .units
             .into_iter()
+            .filter(|u| !matches!(u.role, SpeakerRole::Interviewer))
             .filter(|u| p1.get(&u.unit_id).is_some_and(is_relevant))
             .map(|u| u.unit_id)
             .collect())

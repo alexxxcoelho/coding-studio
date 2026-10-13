@@ -416,7 +416,13 @@ impl Store {
         let Some(seg) = self.segmentation(interview_id)? else {
             return Ok(Vec::new());
         };
-        let order: Vec<String> = seg.units.iter().map(|u| u.unit_id.clone()).collect();
+        // Interviewer turns are never verification targets.
+        let order: Vec<String> = seg
+            .units
+            .iter()
+            .filter(|u| !matches!(u.role, SpeakerRole::Interviewer))
+            .map(|u| u.unit_id.clone())
+            .collect();
         let mut tags: Vec<(String, &'static str)> = Vec::new();
 
         let mut stmt = self.conn.prepare(

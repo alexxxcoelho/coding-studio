@@ -1215,7 +1215,8 @@ async fn v4_procedure_end_to_end() {
         .map(|t| t["unit_id"].as_str().unwrap_or("").to_string())
         .collect();
     let other = targets.len() - sample_ids.len();
-    let remaining = 16 - other;
+    // Interviewer turns are never targets: the eight respondent units are the pool.
+    let remaining = 8 - other;
     let expected = 5usize.max(remaining.div_ceil(10)).min(remaining);
     rep.eq(
         sample_ids.len(),

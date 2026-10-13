@@ -139,6 +139,7 @@ pub fn router(state: AppState) -> Router {
         .route(&format!("{I}/segment"), post(segment))
         .route(&format!("{I}/export"), post(export_package))
         .route(P, get(phase_state))
+        .route(&format!("{I}/simple"), get(simple_progress))
         .route(&format!("{P}/units"), get(units))
         .route(&format!("{P}/coding/{{unit_id}}"), put(set_coding))
         .route(
@@ -412,6 +413,12 @@ async fn api_state(State(st): State<AppState>) -> ApiResult {
         "framework": cfg.framework,
         "study_name": cfg.study_name,
     })))
+}
+
+/// Counts of the three-step header of the simple view.
+async fn simple_progress(State(st): State<AppState>, UrlPath(id): UrlPath<String>) -> ApiResult {
+    let store = st.store();
+    Ok(Json(json!(store.simple_progress(&id)?)))
 }
 
 // ------------------------------------------------------------ study config
@@ -715,6 +722,9 @@ struct CodingBody {
     provenance: Option<String>,
     memo: Option<String>,
     excerpt: Option<String>,
+    /// Phase 1 shorthand for the simple view: `false` stores NA, `true` stores
+    /// CONTEXT unless a TOE category is already set. Refused in phase 2.
+    relevant: Option<bool>,
 }
 
 async fn set_coding(
@@ -723,6 +733,13 @@ async fn set_coding(
     Json(body): Json<CodingBody>,
 ) -> ApiResult {
     let phase = parse_phase(&phase)?;
+    if let Some(relevant) = body.relevant {
+        let store = st.store();
+        require_interview(&store, &id)?;
+        return Ok(Json(json!(
+            store.set_relevance(&id, phase, &unit_id, relevant, &st.actor)?
+        )));
+    }
     let coding = HumanCoding {
         unit_id,
         codes: body.codes,
