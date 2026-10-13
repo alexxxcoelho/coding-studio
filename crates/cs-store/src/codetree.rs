@@ -124,6 +124,14 @@ fn aliases(conn: &Connection) -> Result<Vec<(String, CodeAlias)>> {
     Ok(out)
 }
 
+/// Display name of every code by stable id.
+pub(crate) fn code_names(conn: &Connection) -> Result<BTreeMap<String, String>> {
+    Ok(rows(conn)?
+        .into_iter()
+        .map(|r| (r.code_id, r.name))
+        .collect())
+}
+
 fn fold(s: &str) -> String {
     s.trim().to_lowercase()
 }

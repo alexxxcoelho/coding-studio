@@ -21,6 +21,7 @@ mod codebook;
 mod codetree;
 mod coding;
 mod memos;
+mod passages;
 mod review;
 mod saturation;
 mod simple;
@@ -30,6 +31,7 @@ mod verification;
 pub use codebook::{CodePatch, ImportReport, MergeOutcome};
 pub use codetree::{CodeUpdate, ResolvedCode, Revision};
 pub use coding::ResolveRequest;
+pub use passages::{NewPassage, PassageFilter};
 pub use review::{Review, ReviewEntry};
 pub use simple::SimpleProgress;
 
