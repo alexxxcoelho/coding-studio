@@ -3,15 +3,18 @@
 // for Plus tard, copy it as a quotation, delete it.
 
 import { useState, type CSSProperties } from "react"
+import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { X } from "lucide-react"
 import { toast } from "sonner"
 
 import { shortId } from "@/components/coder/turn"
-import { TEXTAREA } from "@/components/settings/fields"
+import { NativeSelect, TEXTAREA } from "@/components/settings/fields"
 import { Button } from "@/components/ui/button"
+import { analysisApi, PASSAGE_ORIGINS, PASSAGE_ROLES } from "@/lib/analysis-api"
 import { codeColor, LATER_ID } from "@/lib/code-tree"
 import { dateTime } from "@/lib/format"
-import type { CodingActions } from "@/lib/hooks"
+import { invalidatePassages, type CodingActions } from "@/lib/hooks"
+import { reportError } from "@/lib/notify"
 import type { Passage } from "@/lib/types"
 
 export function quotation(p: Passage): string {
@@ -42,6 +45,44 @@ function LaterNote({ passage, onSave }: { passage: Passage; onSave: (note: strin
         onChange={(e) => setDraft(e.target.value)}
         onBlur={() => draft !== coding.note && onSave(draft)}
       />
+    </>
+  )
+}
+
+/** Origin and role of the passage (guide, "Qualifier une citation"): saved at once, empty clears. */
+function Qualification({ passage }: { passage: Passage }) {
+  const qc = useQueryClient()
+  const save = useMutation({
+    mutationFn: (q: { origin?: string | null; role?: string | null }) => analysisApi.qualifyPassage(passage.passage_id, q),
+    onSuccess: () => invalidatePassages(qc, passage.interview_id),
+    onError: (e) => reportError(e, "Qualification non enregistrée"),
+  })
+  if (passage.passage_id.startsWith("tmp-")) return null
+  return (
+    <>
+      <div className="hs">Qualification</div>
+      <label className="flex flex-col gap-1 text-xs">
+        <span className="l2">Origine du propos</span>
+        <NativeSelect aria-label="Origine du propos" value={passage.origin ?? ""} disabled={save.isPending} onChange={(e) => save.mutate({ origin: e.target.value || null })}>
+          <option value="">Non renseignée</option>
+          {PASSAGE_ORIGINS.map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
+          ))}
+        </NativeSelect>
+      </label>
+      <label className="flex flex-col gap-1 text-xs">
+        <span className="l2">Rôle dans la décision</span>
+        <NativeSelect aria-label="Rôle dans la décision" value={passage.role ?? ""} disabled={save.isPending} onChange={(e) => save.mutate({ role: e.target.value || null })}>
+          <option value="">Non renseigné</option>
+          {PASSAGE_ROLES.map((r) => (
+            <option key={r.value} value={r.value}>
+              {r.label}
+            </option>
+          ))}
+        </NativeSelect>
+      </label>
     </>
   )
 }
@@ -124,6 +165,8 @@ export function DetailPanel({
       </div>
 
       <LaterNote passage={passage} onSave={(note) => onNote(passage, note)} />
+
+      <Qualification passage={passage} />
 
       <div className="hs">Citation</div>
       <div className="r8" style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>

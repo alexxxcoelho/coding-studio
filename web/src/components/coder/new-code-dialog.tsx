@@ -13,7 +13,9 @@ import { Input } from "@/components/ui/input"
 import { TEXTAREA } from "@/components/settings/fields"
 import { ApiError, api } from "@/lib/api"
 import { codeName, isApplicable } from "@/lib/code-tree"
+import { analysisApi } from "@/lib/analysis-api"
 import { invalidatePassages } from "@/lib/hooks"
+import type { UndoStack } from "@/lib/undo"
 import type { CodeNode } from "@/lib/types"
 
 export interface NewCodeTarget {
@@ -34,11 +36,14 @@ export function NewCodeDialog({
   interviewId,
   target,
   codes,
+  undo,
   onClose,
 }: {
   interviewId: string
   target: NewCodeTarget | null
   codes: CodeNode[]
+  /** Where the reverse of the creation goes (Cmd or Ctrl and Z in the Coder). */
+  undo?: UndoStack
   onClose: () => void
 }) {
   const qc = useQueryClient()
@@ -77,6 +82,8 @@ export function NewCodeDialog({
             }),
       }),
     onSuccess: async (res) => {
+      // Undo removes the code, and the passage when this call made it (POST /api/codes/{id}/undo-create).
+      undo?.push({ label: `Code « ${res.code.name} » créé`, run: () => analysisApi.undoCreateCode(res.code.code_id) })
       const also = (target?.alsoPassageIds ?? []).filter((pid) => pid !== res.passage.passage_id)
       const done = await Promise.allSettled(also.map((pid) => api.addCoding(pid, res.code.code_id)))
       const failed = done.filter((d) => d.status === "rejected").length

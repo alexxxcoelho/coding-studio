@@ -544,7 +544,7 @@ export function CoderPage({ id, unit: askedUnit = null }: { id: string; unit?: s
         <span style={{ marginLeft: "auto" }}>Sans sélection, le code couvre le tour entier</span>
       </div>
 
-      <NewCodeDialog interviewId={id} target={newCode} codes={codes} onClose={() => setNewCode(null)} />
+      <NewCodeDialog interviewId={id} target={newCode} codes={codes} undo={undo} onClose={() => setNewCode(null)} />
     </>
   )
 }
