@@ -23,10 +23,15 @@ use serde_json::json;
 mod analysis;
 mod parse;
 mod prompt;
+pub mod providers;
 mod report;
 
 pub use analysis::cohen_kappa;
 pub use prompt::{part_unit_ids, parts_for_batch, phase_title};
+pub use providers::{
+    providers_from_config, Execution, IsolationReport, ModelProvider, ProviderDescription,
+    ProviderKind, ProviderRequest, ProviderResponse, ProvidersConfig,
+};
 
 /// Identifier of the prompt template, journalised with every run. Version 3:
 /// phase 2 only, codes grouped by TOE attachment. Version 3.1: unit ids found

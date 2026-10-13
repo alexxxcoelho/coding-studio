@@ -8,3 +8,7 @@ license.workspace = true
 cs-model.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+anyhow.workspace = true
+chrono.workspace = true
+tempfile.workspace = true
+ureq = { version = "3", features = ["json", "rustls"] }
