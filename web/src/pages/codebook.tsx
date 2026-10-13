@@ -9,6 +9,10 @@ import { useMemo, useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 
+import { CodeStats } from "@/components/codebook/code-stats"
+import { CodeJournal, JournalDialog } from "@/components/codebook/journal"
+import { SplitDialog } from "@/components/codebook/split-dialog"
+import { WorklistDialog } from "@/components/codebook/worklist"
 import { EmptyState, PageTitle } from "@/components/bits"
 import { Alerts, Field, NativeSelect, TEXTAREA } from "@/components/settings/fields"
 import { Capsule, CapsuleItem, ToolbarActions, ToolbarSearch } from "@/components/toolbar"
@@ -58,7 +62,8 @@ export function CodebookPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [dragId, setDragId] = useState<string | null>(null)
   const [dropId, setDropId] = useState<string | null>(null)
-  const [dialog, setDialog] = useState<"new" | "history" | "csv" | null>(null)
+  const [dialog, setDialog] = useState<"new" | "history" | "csv" | "journal" | null>(null)
+  const [worklist, setWorklist] = useState<number | null>(null)
 
   const codes = useMemo(() => codesQ.data?.codes ?? [], [codesQ.data])
   const found = useCodeSearchRows(codes, search, { layout: "tree", collapsed })
@@ -103,6 +108,8 @@ export function CodebookPage() {
       <ToolbarActions>
         <Capsule>
           <CapsuleItem onClick={() => setDialog("history")}>Historique</CapsuleItem>
+          <span className="vs" />
+          <CapsuleItem onClick={() => setDialog("journal")}>Journal</CapsuleItem>
           <span className="vs" />
           <CapsuleItem onClick={() => setDialog("csv")}>Importer CSV…</CapsuleItem>
         </Capsule>
@@ -233,7 +240,7 @@ export function CodebookPage() {
         </section>
         {selected && (
           <aside className="insp insp-sticky" style={{ flexBasis: 340 }} aria-label={selected.name}>
-            <Inspector key={`${selected.code_id}:${selected.version}`} code={selected} codes={codes} questions={questionsQ.data ?? []} onMerged={() => setSelectedId(null)} />
+            <Inspector key={`${selected.code_id}:${selected.version}`} code={selected} codes={codes} questions={questionsQ.data ?? []} onMerged={() => setSelectedId(null)} onWorklist={setWorklist} />
           </aside>
         )}
       </div>
@@ -241,6 +248,8 @@ export function CodebookPage() {
       <NewCodeDialog open={dialog === "new"} onClose={() => setDialog(null)} codes={codes} onCreated={(id) => setSelectedId(id)} />
       <HistoryDialog open={dialog === "history"} onClose={() => setDialog(null)} />
       <CsvDialog open={dialog === "csv"} onClose={() => setDialog(null)} />
+      <JournalDialog open={dialog === "journal"} onClose={() => setDialog(null)} onOpenWorklist={setWorklist} />
+      <WorklistDialog opId={worklist} onClose={() => setWorklist(null)} />
     </>
   )
 }
@@ -252,11 +261,49 @@ function Inspector({
   codes,
   questions,
   onMerged,
+  onWorklist,
 }: {
   code: CodeNode
   codes: CodeNode[]
   questions: { id: string; text: string }[]
   onMerged: () => void
+  onWorklist: (opId: number) => void
+}) {
+  const [part, setPart] = useState<"sheet" | "stats" | "journal">("sheet")
+  return (
+    <div className="insp-in">
+      <div className="seg" role="tablist" aria-label="Fiche du code" style={{ alignSelf: "stretch", display: "flex" }}>
+        {(
+          [
+            ["sheet", "Fiche"],
+            ["stats", "Chiffres"],
+            ["journal", "Journal"],
+          ] as const
+        ).map(([k, label]) => (
+          <button key={k} type="button" role="tab" aria-selected={part === k} className={cn("s", part === k && "on")} style={{ flex: 1 }} onClick={() => setPart(k)}>
+            {label}
+          </button>
+        ))}
+      </div>
+      {part === "sheet" && <CodeSheet code={code} codes={codes} questions={questions} onMerged={onMerged} onWorklist={onWorklist} />}
+      {part === "stats" && <CodeStats codeId={code.code_id} />}
+      {part === "journal" && <CodeJournal code={code.code_id} onOpenWorklist={onWorklist} empty="Ce code n'a été ni fusionné ni scindé." />}
+    </div>
+  )
+}
+
+function CodeSheet({
+  code,
+  codes,
+  questions,
+  onMerged,
+  onWorklist,
+}: {
+  code: CodeNode
+  codes: CodeNode[]
+  questions: { id: string; text: string }[]
+  onMerged: () => void
+  onWorklist: (opId: number) => void
 }) {
   const refresh = useInvalidateCodes()
   const [name, setName] = useState(code.name)
@@ -267,6 +314,7 @@ function Inspector({
   const [memo, setMemo] = useState(code.memo ?? "")
   const [alias, setAlias] = useState("")
   const [mergeOpen, setMergeOpen] = useState(false)
+  const [splitOpen, setSplitOpen] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const locked = code.system || code.code_id === LATER_ID
 
@@ -326,7 +374,7 @@ function Inspector({
   const nameClash = name.trim() !== code.name && codes.some((c) => c.code_id !== code.code_id && c.name.toLowerCase() === name.trim().toLowerCase())
 
   return (
-    <div className="insp-in">
+    <>
       <div className="r8" style={{ justifyContent: "space-between" }}>
         <span className="r8">
           <span className="sw" style={{ ["--k" as string]: codeColor(code.code_id) }} />
@@ -437,6 +485,9 @@ function Inspector({
           <Button variant="outline" onClick={() => setMergeOpen(true)}>
             Fusionner dans…
           </Button>
+          <Button variant="outline" disabled={!code.active || !!code.merged_into} onClick={() => setSplitOpen(true)}>
+            Scinder…
+          </Button>
           <Button style={{ marginLeft: "auto" }} disabled={!dirty || !name.trim() || !definition.trim() || nameClash || save.isPending} onClick={() => save.mutate()}>
             Enregistrer
           </Button>
@@ -444,7 +495,8 @@ function Inspector({
       )}
       <span className="small l2">Chaque action est datée et motivée. Fusionner recode les passages en gardant la trace.</span>
       <MergeDialog open={mergeOpen} code={code} codes={codes} onClose={() => setMergeOpen(false)} onMerged={onMerged} />
-    </div>
+      <SplitDialog open={splitOpen} code={code} codes={codes} onClose={() => setSplitOpen(false)} onSplit={onWorklist} />
+    </>
   )
 }
 
