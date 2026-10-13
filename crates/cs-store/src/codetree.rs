@@ -642,7 +642,7 @@ impl Store {
                 &tx,
                 &row.code_id,
                 "redefine",
-                "definition, includes or excludes changed",
+                "définition, inclusions ou exclusions modifiées",
                 actor,
             )?;
         }
@@ -1258,7 +1258,7 @@ impl Store {
                 tx,
                 parent,
                 "new_subcode",
-                &format!("new sub-code {name}"),
+                &format!("nouveau sous-code {name}"),
                 actor,
             )?;
         }

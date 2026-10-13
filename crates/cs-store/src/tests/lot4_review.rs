@@ -146,6 +146,7 @@ fn a_merge_moves_the_passage_codings_and_asks_for_a_reread() {
     let units: Vec<&str> = items.iter().map(|i| i.unit_id.as_str()).collect();
     assert_eq!(units, vec![U2], "only the unit whose coding changed");
     assert_eq!(items[0].cause, "merge");
+    assert_eq!(items[0].detail, "TECH-ADV fusionné dans ORG-SKILLS");
     assert_eq!(items[0].status, "open");
     assert_eq!(items[0].code_name, "ORG-SKILLS");
     assert_eq!(items[0].text, "The tags paid back within a year.");
@@ -188,6 +189,10 @@ fn a_redefinition_and_a_new_sub_code_open_items_but_a_rename_does_not() {
     assert!(items
         .iter()
         .all(|i| i.cause == "redefine" && i.code_id == id));
+    // The detail is shown as it is by the French interface.
+    assert!(items
+        .iter()
+        .all(|i| i.detail == "définition, inclusions ou exclusions modifiées"));
 
     // A second redefinition does not duplicate the open items.
     s.update_code(
@@ -243,7 +248,7 @@ fn a_redefinition_and_a_new_sub_code_open_items_but_a_rename_does_not() {
     );
     assert!(items
         .iter()
-        .any(|i| i.cause == "new_subcode" && i.status == "open"));
+        .any(|i| i.cause == "new_subcode" && i.status == "open" && i.detail == "nouveau sous-code Avantage financier"));
 }
 
 fn candidate(label: &str, units: &[&str]) -> CandidateConcept {
