@@ -77,6 +77,11 @@ pub enum SourceKind {
     BudgieMarkdown,
     /// Written answer received by email (no speaker turns, paragraphs).
     WrittenResponse,
+    /// Word document (`.docx`) transcript: paragraphs, speaker from a `Name:`
+    /// prefix or a leading bold run.
+    Docx,
+    /// PDF transcript with a text layer; a scanned PDF without text is not segmentable.
+    Pdf,
     /// `04_parts/b_summary.md`: interview summary (read-only context, never sent to the AI).
     Summary,
     /// `04_parts/a_record_sheet.md` or `04_interview_record.md`.
@@ -97,6 +102,8 @@ impl SourceKind {
                 | SourceKind::CleanedMarkdown
                 | SourceKind::BudgieMarkdown
                 | SourceKind::WrittenResponse
+                | SourceKind::Docx
+                | SourceKind::Pdf
         )
     }
 }

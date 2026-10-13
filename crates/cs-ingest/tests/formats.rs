@@ -5,7 +5,10 @@
 use std::io::{Cursor, Write};
 use std::path::{Path, PathBuf};
 
-use cs_ingest::{classify, default_interviewer_names, parse_document, parse_source};
+use cs_ingest::{
+    build_segmentation, classify, default_interviewer_names, parse_document, parse_source,
+    scan_library,
+};
 use cs_model::{SourceKind, SpeakerRole, Turn};
 
 type Row = (String, String, SpeakerRole, String);
@@ -329,4 +332,74 @@ fn unknown_extension_is_a_clear_error() {
 fn missing_file_is_an_error() {
     let err = parse_document(Path::new("/nonexistent/interview.docx"), &[]).unwrap_err();
     assert!(format!("{err:#}").contains("cannot read"), "{err:#}");
+}
+
+// ------------------------------------------------- library scan and segmentation
+
+/// One interview folder holding a single file, under a fresh library root.
+fn library_with(file_name: &str, bytes: &[u8]) -> tempfile::TempDir {
+    let dir = tempfile::tempdir().unwrap();
+    let folder = dir.path().join("ECO33_RomanEppenberger");
+    std::fs::create_dir_all(&folder).unwrap();
+    std::fs::write(folder.join(file_name), bytes).unwrap();
+    dir
+}
+
+#[test]
+fn docx_only_interview_is_scanned_and_segmentable() {
+    let bytes = docx_bytes(&[
+        vec![("[00:01:02] Dos Santos Alexandre: Hello there.", false)],
+        vec![("Roueche Celine", true), (": Hi, good morning.", false)],
+        vec![("Dos Santos Alexandre: How are you today?", false)],
+    ]);
+    let lib = library_with("EMBA - Interview - Roman.docx", &bytes);
+    let entries = scan_library(lib.path()).unwrap();
+    let entry = &entries[0];
+
+    let docx = entry
+        .sources
+        .iter()
+        .find(|s| s.rel_path == "EMBA - Interview - Roman.docx")
+        .unwrap();
+    assert_eq!(docx.kind, SourceKind::Docx);
+    assert_eq!(
+        entry.primary_source.as_deref(),
+        Some("EMBA - Interview - Roman.docx")
+    );
+
+    let seg = build_segmentation(
+        entry,
+        "EMBA - Interview - Roman.docx",
+        &default_interviewer_names(),
+    )
+    .unwrap();
+    assert_eq!(seg.units.len(), 3);
+}
+
+#[test]
+fn text_pdf_only_interview_is_scanned_and_segmentable() {
+    let bytes = std::fs::read(fixture("interview_text_layer.pdf")).unwrap();
+    let lib = library_with("EMBA - Interview - Roman.pdf", &bytes);
+    let entries = scan_library(lib.path()).unwrap();
+    let entry = &entries[0];
+
+    let pdf = entry
+        .sources
+        .iter()
+        .find(|s| s.rel_path == "EMBA - Interview - Roman.pdf")
+        .unwrap();
+    assert_eq!(pdf.kind, SourceKind::Pdf);
+    assert_eq!(
+        entry.primary_source.as_deref(),
+        Some("EMBA - Interview - Roman.pdf")
+    );
+    assert!(!entry.warnings.iter().any(|w| w.contains("skipped")));
+
+    let seg = build_segmentation(
+        entry,
+        "EMBA - Interview - Roman.pdf",
+        &default_interviewer_names(),
+    )
+    .unwrap();
+    assert_eq!(seg.units.len(), 3);
 }

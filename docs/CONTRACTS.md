@@ -69,3 +69,7 @@ Four states are distinguished everywhere, in the tool's exports as in the manusc
 - `memos.json`: `{interviews: [{interview_id, memo, checklist}]}`. `memo` carries the template id and version the answers were written with, the interview's own added, removed and reworded questions, and each answer with its time. `checklist` carries the items of the study configuration with their checked time, and the note.
 - `study_config.json`: the project template (`docs/API.md`, "Project template"): study settings, research questions, attribute definitions, memo templates, lists and framework. No interview data and no secret. Importing it into another project reproduces the configuration.
 - The interpretive framework belongs to Analyse and Write. It is not in `codebook.csv`, not in the prompt, and not in any coding table.
+
+## 11. Accepted transcript formats
+
+- Accepted transcript formats: md, txt, vtt, srt, docx, pdf with text layer. A PDF without a text layer is inventoried but yields no turns.

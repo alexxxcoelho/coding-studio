@@ -40,6 +40,8 @@ pub fn classify(rel_path: &str) -> SourceKind {
     match ext {
         // SRT cues are read by the subtitle reader, dispatched on the extension.
         "vtt" | "srt" => SourceKind::Vtt,
+        "docx" => SourceKind::Docx,
+        "pdf" => SourceKind::Pdf,
         "txt" if name.contains("transcript") => SourceKind::TimestampedText,
         "md" => {
             if name.starts_with("02_transcript_cleaned_diarised") {
@@ -78,7 +80,6 @@ fn skip_reason(name: &str) -> Option<Option<&'static str>> {
         "py" | "pyc" => Some(None),
         "mp4" | "m4a" | "wav" | "mp3" | "mov" => Some(Some("media")),
         "zip" => Some(Some("archive")),
-        "pdf" => Some(Some("pdf")),
         "budgie" => Some(Some("Budgie project file")),
         "textclipping" => Some(Some("macOS clipping")),
         _ => None,
@@ -93,11 +94,13 @@ fn primary_rank(source: &SourceFile) -> Option<(u8, String)> {
     let name = source.rel_path.to_lowercase();
     let rank = match source.kind {
         SourceKind::CleanedMarkdown => 0,
-        SourceKind::Vtt if name == "01_transcript_raw.vtt" => 1,
-        SourceKind::Vtt => 2,
-        SourceKind::BudgieMarkdown => 3,
-        SourceKind::TimestampedText => 4,
-        SourceKind::WrittenResponse => 5,
+        SourceKind::Docx => 1,
+        SourceKind::Pdf => 2,
+        SourceKind::Vtt if name == "01_transcript_raw.vtt" => 3,
+        SourceKind::Vtt => 4,
+        SourceKind::BudgieMarkdown => 5,
+        SourceKind::TimestampedText => 6,
+        SourceKind::WrittenResponse => 7,
         _ => return None,
     };
     Some((rank, name))
@@ -299,6 +302,8 @@ mod tests {
         assert_eq!(classify("04_interview_record.md"), SourceKind::RecordSheet);
         assert_eq!(classify("04_parts/c_toe_coding.md"), SourceKind::ToeCoding);
         assert_eq!(classify("07_pipeline_log.md"), SourceKind::Other);
+        assert_eq!(classify("EMBA - Interview - Roman.docx"), SourceKind::Docx);
+        assert_eq!(classify("EMBA - Interview - Roman.PDF"), SourceKind::Pdf);
     }
 
     fn write(p: &Path, content: &[u8]) {

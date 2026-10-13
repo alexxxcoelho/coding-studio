@@ -12,6 +12,7 @@
 //! - DOCX (`.docx`): paragraphs; speaker from a `Name:` prefix or a leading bold run.
 //! - Text-layer PDF (`.pdf`): one line per PDF line; a PDF without text is read as no turns, with a warning.
 //! - Markdown and text kinds listed in `SourceKind` (cleaned, Budgie, timestamped text, written answers).
+//! - DOCX and text-layer PDF are read through `SourceKind::Docx` and `SourceKind::Pdf`.
 //!
 //! Start times come from the file when present, otherwise `--:--`.
 //!
@@ -60,8 +61,8 @@ pub fn classify(rel_path: &str) -> SourceKind {
 /// Scans `root`: every direct sub-folder with an interview ID becomes an entry,
 /// sorted by ID. Files are inventoried recursively with their SHA-256, except
 /// `archive/`, `sources/`, `__pycache__/`, `generated/`, hidden files and
-/// scripts (skipped silently) and media, zip, pdf, `.budgie` and clippings
-/// (skipped with a warning). Empty or zero-filled files are reported as
+/// scripts (skipped silently) and media, zip, `.budgie` and clippings
+/// (skipped with a warning). DOCX and PDF files are inventoried as transcripts. Empty or zero-filled files are reported as
 /// probably offline and never proposed as the primary transcript.
 pub fn scan_library(root: &Path) -> Result<Vec<InterviewEntry>> {
     scan::scan_library(root)
@@ -82,6 +83,12 @@ pub fn parse_source(
         .into());
     }
     let bytes = std::fs::read(path).with_context(|| format!("cannot read {}", path.display()))?;
+    // Binary containers are not decoded as text first.
+    match kind {
+        SourceKind::Docx => return formats::parse_docx(&bytes, interviewer_names),
+        SourceKind::Pdf => return formats::parse_pdf(&bytes, interviewer_names),
+        _ => {}
+    }
     let (content, mut warnings) = decode(&bytes);
     let (turns, more) = match kind {
         SourceKind::Vtt if has_extension(path, "srt") => {
@@ -92,6 +99,7 @@ pub fn parse_source(
         SourceKind::CleanedMarkdown => parse::parse_cleaned_markdown(&content),
         SourceKind::BudgieMarkdown => parse::parse_budgie_markdown(&content),
         SourceKind::WrittenResponse => parse::parse_written_response(&content),
+        SourceKind::Docx | SourceKind::Pdf => unreachable!("read as binary above"),
         _ => unreachable!("checked by is_transcript"),
     };
     warnings.extend(more);

@@ -21,13 +21,15 @@ const KIND_LABEL: Record<SourceKind, string> = {
   cleaned_markdown: "Transcription épurée",
   budgie_markdown: "Export Budgie Echo",
   written_response: "Réponse écrite",
+  docx: "Transcription Word (DOCX)",
+  pdf: "Transcription PDF",
   summary: "Synthèse",
   record_sheet: "Fiche d'enregistrement",
   toe_coding: "Codage antérieur",
   other: "Autre",
 }
 
-const TRANSCRIPT: SourceKind[] = ["vtt", "timestamped_text", "cleaned_markdown", "budgie_markdown", "written_response"]
+const TRANSCRIPT: SourceKind[] = ["vtt", "timestamped_text", "cleaned_markdown", "budgie_markdown", "written_response", "docx", "pdf"]
 
 function FileViewer({ id, path, onClose }: { id: string; path: string | null; onClose: () => void }) {
   const file = useQuery({ queryKey: ["file", id, path], queryFn: () => api.file(id, path!), enabled: !!path })
