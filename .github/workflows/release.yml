@@ -49,6 +49,22 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Signing secrets present (names only, never values)
+        env:
+          S1: ${{ secrets.APPLE_CERTIFICATE != '' }}
+          S2: ${{ secrets.APPLE_CERTIFICATE_PASSWORD != '' }}
+          S3: ${{ secrets.APPLE_SIGNING_IDENTITY != '' }}
+          S4: ${{ secrets.APPLE_ID != '' }}
+          S5: ${{ secrets.APPLE_PASSWORD != '' }}
+          S6: ${{ secrets.APPLE_TEAM_ID != '' }}
+        run: |
+          echo "APPLE_CERTIFICATE: $S1"
+          echo "APPLE_CERTIFICATE_PASSWORD: $S2"
+          echo "APPLE_SIGNING_IDENTITY: $S3"
+          echo "APPLE_ID: $S4"
+          echo "APPLE_PASSWORD: $S5"
+          echo "APPLE_TEAM_ID: $S6"
+
       - name: Version of the tree
         id: version
         run: |
