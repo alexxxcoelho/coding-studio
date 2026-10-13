@@ -1,0 +1,262 @@
+{
+  "format": "coding-studio-project-template",
+  "project_config": {
+    "attributes": [
+      {
+        "choices": [
+          "communale",
+          "scolaire",
+          "associative"
+        ],
+        "id": "library_kind",
+        "kind": "choice",
+        "label": "Type de bibliothèque",
+        "shared_with_model": true
+      },
+      {
+        "choices": [],
+        "id": "volunteers",
+        "kind": "number",
+        "label": "Nombre de bénévoles",
+        "shared_with_model": false
+      },
+      {
+        "choices": [],
+        "id": "interview_date",
+        "kind": "date",
+        "label": "Date de l'entretien",
+        "shared_with_model": false
+      },
+      {
+        "choices": [
+          "vécu",
+          "projet",
+          "opinion",
+          "observation indirecte"
+        ],
+        "id": "statement_status",
+        "kind": "choice",
+        "label": "Statut du propos",
+        "shared_with_model": false
+      }
+    ],
+    "checklist": [
+      {
+        "id": "turns_seen",
+        "label": "Tous les tours du répondant vus"
+      },
+      {
+        "id": "later_handled",
+        "label": "Codes Plus tard traités ou assumés"
+      },
+      {
+        "id": "code_memos",
+        "label": "Mémos des nouveaux codes écrits"
+      },
+      {
+        "id": "next_questions",
+        "label": "Questions pour les suivants notées"
+      }
+    ],
+    "evidence_natures": [
+      {
+        "id": "first_hand",
+        "label": "Récit de première main"
+      },
+      {
+        "id": "reported",
+        "label": "Propos rapporté"
+      },
+      {
+        "id": "figure_estimate",
+        "label": "Chiffre estimé"
+      },
+      {
+        "id": "quoted_document",
+        "label": "Document cité"
+      },
+      {
+        "id": "opinion",
+        "label": "Opinion"
+      }
+    ],
+    "interpretive_framework": null,
+    "link_types": [
+      {
+        "id": "supports",
+        "label": "soutient"
+      },
+      {
+        "id": "nuances",
+        "label": "nuance"
+      },
+      {
+        "id": "conditions",
+        "label": "conditionne"
+      },
+      {
+        "id": "mechanism",
+        "label": "mécanisme"
+      },
+      {
+        "id": "exception",
+        "label": "exception"
+      },
+      {
+        "id": "contradicts",
+        "label": "contredit"
+      }
+    ],
+    "matrix_dimensions": [
+      {
+        "id": "who_imposes",
+        "label": "Qui impose"
+      },
+      {
+        "id": "who_pays",
+        "label": "Qui paie"
+      }
+    ],
+    "memo_templates": [
+      {
+        "default": true,
+        "id": "default",
+        "name": "Par défaut",
+        "questions": [
+          {
+            "id": "q1",
+            "text": "Que raconte le répondant ?"
+          },
+          {
+            "id": "q2",
+            "text": "Qu'est-ce qui m'a surpris ?"
+          },
+          {
+            "id": "q3",
+            "text": "Quelles contradictions apparaissent ?"
+          },
+          {
+            "id": "q4",
+            "text": "Que demander aux entretiens suivants ?"
+          }
+        ],
+        "version": 1
+      },
+      {
+        "default": false,
+        "id": "library",
+        "name": "Bibliothèque",
+        "questions": [
+          {
+            "id": "l1",
+            "text": "Comment fonctionne le prêt aujourd'hui ?"
+          },
+          {
+            "id": "l2",
+            "text": "Qui décide du système, et qui paie ?"
+          },
+          {
+            "id": "l3",
+            "text": "Que dit la personne du réseau ?"
+          }
+        ],
+        "version": 1
+      }
+    ],
+    "theme_checks": [
+      {
+        "id": "coherence",
+        "label": "Cohérence des passages"
+      },
+      {
+        "id": "distinct",
+        "label": "Distinction des autres thèmes"
+      },
+      {
+        "id": "title_asserts",
+        "label": "Un titre qui affirme"
+      },
+      {
+        "id": "centrality",
+        "label": "Centralité pour au moins une question de recherche"
+      },
+      {
+        "id": "observations",
+        "label": "Plusieurs observations, ou un cas unique justifié"
+      },
+      {
+        "id": "nuance",
+        "label": "Des données qui nuancent"
+      },
+      {
+        "id": "extent",
+        "label": "Des passages qui soutiennent exactement l'étendue de l'affirmation"
+      }
+    ]
+  },
+  "research_questions": [
+    {
+      "id": "Q1",
+      "text": "Pourquoi une petite bibliothèque change-t-elle de système de prêt ?"
+    },
+    {
+      "id": "Q2",
+      "text": "Qu'est-ce qui rend le changement difficile ?"
+    },
+    {
+      "id": "Q3",
+      "text": "Quel rôle joue le réseau de bibliothèques ?"
+    }
+  ],
+  "study_config": {
+    "framework": "toe",
+    "id_prefixes": [
+      "INT",
+      "ECO",
+      "RET",
+      "ADJ"
+    ],
+    "interviewers": [
+      "Dos Santos Alexandre",
+      "Alexandre Dos Santos",
+      "Alexandre Dos Santos Coelho",
+      "Alex"
+    ],
+    "max_words": 150,
+    "phase1_categories": [
+      {
+        "attachment": "T",
+        "code": "TECH",
+        "definition": "Characteristics of RFID or of other technologies, in use at the firm or available on the market, as they bear on adoption or use: benefits over the status quo, cost and investment, complexity, fit with existing systems and data, read performance, data quality, standards.",
+        "label": "Technological context"
+      },
+      {
+        "attachment": "O",
+        "code": "ORG",
+        "definition": "Characteristics and resources of the adopting organisation: executive sponsorship, champions, structure and decision rights, skills and expertise, budget and staff time, redesign of work processes, size and slack.",
+        "label": "Organisational context"
+      },
+      {
+        "attachment": "E",
+        "code": "ENV",
+        "definition": "The setting in which the organisation operates: industry and market structure, competitors, customers, suppliers and value-chain partners (who tags, who pays, who mandates), technology suppliers and support, regulation and standards bodies.",
+        "label": "Environmental and interorganisational context"
+      },
+      {
+        "attachment": null,
+        "code": "CONTEXT",
+        "definition": "Descriptive information about the respondent, the organisation or the scope of the account: role, background, company, portfolio, which project, where and when. It explains nothing about adoption on its own: when the unit says why adoption advanced, stalled or failed, code TECH, ORG or ENV instead.",
+        "label": "Context of the account"
+      }
+    ],
+    "prompt_template": {
+      "codebook_intro": "One code per line, as JSON with the fields code, label and definition. These {count} codes and NA are the only valid values.",
+      "footer": "1. Use ONLY the codes of the codebook, written exactly as listed. You may not create, merge or rename codes.\n2. If no code applies, answer NA. NA is a valid and frequent answer; never force a code for the sake of completeness. NA is never combined with another code.\n3. A unit may carry several codes.\n4. Code what is SAID in the unit, not what you infer from the context of the interview. A unit that could not be coded on its own is coded NA.\n5. Interviewer turns (speaker INT) are coded NA by default, unless the interviewer reports a fact from the field in that turn.\n6. Write no comment, no justification and no memo.\n7. Process EVERY unit listed under UNITS, in order, without omitting any: one entry per unit, no unit twice, no unit that is not listed.",
+      "header": "# Coding Studio: blind secondary coding\n\nDetailed coding with concrete codes\n\n## Role\n\nYou are a secondary coder on a qualitative study. You apply a closed codebook. You do not produce analysis, you do not build themes, and you do not interpret beyond the assignment of codes.\n\n## Task\n\nFor each unit listed under UNITS, assign the code or codes of the codebook that apply. The codes name concrete mechanisms, such as a legal obligation, a customer requirement or a lack of skills. They are grouped by the context of the technology-organisation-environment (TOE) framework they belong to; the grouping is there for orientation only, and any code may apply to any unit.",
+      "units_intro": "One unit per line, as JSON with the fields unit_id, speaker (INT = interviewer, RESP = respondent, any other label is the speaker label of the source), timestamp and text. Characters may appear as JSON escapes; read them as the characters they encode.",
+      "version": "CS-P04-EN v3.1"
+    },
+    "study_name": "Petite bibliothèque et changement de système de prêt (étude fictive)"
+  },
+  "version": 1
+}
