@@ -3,7 +3,7 @@
 // failed save keeps the text and says so. `createAutosaver` is the logic with no
 // React in it; `useAutosavedText` binds it to a textarea.
 
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useState } from "react"
 
 export type SaveStatus = "idle" | "pending" | "saving" | "saved" | "error"
 
@@ -18,6 +18,8 @@ export interface Autosaver<T> {
   pending: () => T | undefined
   /** Takes `value` as the saved one (the server's copy changed under us). */
   reset: (value: T) => void
+  /** Replaces the function that sends a value (the caller's closure changed). */
+  setSave: (save: (value: T) => Promise<unknown>) => void
 }
 
 export function createAutosaver<T>(opts: {
@@ -31,6 +33,7 @@ export function createAutosaver<T>(opts: {
   let timer: ReturnType<typeof setTimeout> | undefined
   let inflight: Promise<void> | null = null
   let status: SaveStatus = "idle"
+  let send = opts.save
 
   const setStatus = (s: SaveStatus) => {
     if (s === status) return
@@ -53,7 +56,7 @@ export function createAutosaver<T>(opts: {
     setStatus("saving")
     inflight = (async () => {
       try {
-        await opts.save(value)
+        await send(value)
         saved = value
         if (pending === value) pending = undefined
         setStatus(pending === undefined ? "saved" : "pending")
@@ -92,6 +95,9 @@ export function createAutosaver<T>(opts: {
     reset(value) {
       saved = value
     },
+    setSave(save) {
+      send = save
+    },
   }
 }
 
@@ -103,11 +109,10 @@ export function useAutosavedText(serverValue: string, save: (value: string) => P
   const [value, setValue] = useState(serverValue)
   const [status, setStatus] = useState<SaveStatus>("idle")
   const [seen, setSeen] = useState(serverValue)
-  const saveRef = useRef(save)
+  const [saver] = useState(() => createAutosaver<string>({ delay, initial: serverValue, save, onStatus: setStatus }))
   useEffect(() => {
-    saveRef.current = save
+    saver.setSave(save)
   })
-  const [saver] = useState(() => createAutosaver<string>({ delay, initial: serverValue, save: (v) => saveRef.current(v), onStatus: setStatus }))
 
   if (serverValue !== seen) {
     setSeen(serverValue)
