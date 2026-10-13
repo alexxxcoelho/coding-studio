@@ -1,3 +1,5 @@
+> Superseded by `docs/SPEC.md` (13 October 2026). Kept for the record of the decision wording.
+
 # Draft decision for the Decision Log (to review, number and copy by the candidate)
 
 Not an entry of `03_Method/Decision_Log_2026-07-09.md`. The log ends at D-010 while P-04 already cites D-011: check the numbering before assigning one.

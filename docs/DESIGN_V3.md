@@ -1,3 +1,5 @@
+> Superseded by `docs/SPEC.md` (13 October 2026). Kept for the record of the design decisions.
+
 # Coding Studio v3: provisional TOE, concrete codes, AI as challenger, case synthesis
 
 Supersedes the two-phase locking design of v2. Decided by the candidate on 2026-10-12, following supervisor-style guidance: keep TOE and the tool, change mostly the coding.
