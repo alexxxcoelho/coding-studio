@@ -12,6 +12,7 @@ use sha2::{Digest, Sha256};
 pub mod config;
 pub mod passage;
 pub mod phase;
+pub mod project;
 pub mod reconcile;
 
 pub use config::{Category, FrameworkPreset, PromptTemplate, StudyConfig};
