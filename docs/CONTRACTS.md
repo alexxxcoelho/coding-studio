@@ -106,3 +106,16 @@ Exchange with NVivo, MAXQDA and ATLAS.ti through the REFI-QDA standard: a codebo
 - Final audit: three claims drawn with a recorded seed (SHA-256 ordering of the claim keys), replayable; verdicts (supported, to_nuance, to_withdraw) are appended to a log, never overwritten.
 - Files added to the cross-case and write-up packages, all in `manifest.json`: `themes.csv` (`theme_id,order,title,status,proposition,code_ids,code_names,research_questions,passages,interviews,checks_done,checks_total,created_at,updated_at`), `theme_sheets.json`, `matrix.csv` (`view_id,view_name,row_key,row_label,col_key,col_label,passages,interviews,value,value_label,summary,passages_linked_by_hand`), `links.csv` (`link_id,passage_id,interview_id,unit_id,target_kind,target_id,part,link_type,note,quote,verification,created_at,created_by`), `final_audit.json`, `decisions.csv` (`decision_id,interview_id,name,outcome,outcome_label,decision_as_written,characteristics,units,passages`), `decisions.json`; `writeup.md` in the write-up package (footnotes: interview, unit, exact quotation).
 - `state.json` parts gain `themes`, `writing_versions`, `links`, `matrix`, `final_audit`, `unit_marks`, and `memo` in the `code_tree` nodes; the state digest moves with them.
+
+## 14. Review: prompt, pseudonymisation, candidates, harmonisation (V1 lot 4)
+
+- The prompt is a pure function of the configuration, the codebook, the offered units and the pseudonymisation list. It never contains a human code, memo or highlight, and never an interviewer unit as a unit to code; the interviewer turn appears only as context in `## Interviewer questions`. Its SHA-256, the configuration digest and the pseudonymisation digest are in the audit.
+- The human reference is frozen (table and event) before the prompt is generated, in the same transaction. A later edit of the human coding never alters a snapshot.
+- Pseudonymisation is one project list, kind person or organisation. It is applied to everything sent to a model and reversed only for display. The audit and the exports keep the list digest, the categories and the counts, never the names. Free text is outside its reach and every view says so.
+- A candidate concept is a proposal. Its quotes are checked word for word against the pseudonymised unit before it is stored. Create, map and reject each need a reason, are appended to `concept_decisions` and change no coding; `create` makes a code in the same transaction.
+- A unit is coded with X when any passage in it has X. The rows written by the sync carry `source = passages`; a hand coding of the unit is never removed by a sync, only overwritten when passages exist.
+- A merge, a redefinition (definition, includes, excludes) and a new sub-code open harmonisation items, one open item per interview, unit and code. Resolutions are `confirmed` or `corrected`.
+- Review state per interview: `not_done`, `in_progress`, `complete`, with a declaration sentence for the documents of the study.
+- Schema version 7. `review_schema::migrate` runs on every open and is idempotent for a database at any version below 7.
+- Files: `review.json` in the interview and cross-case packages, and the `review` part of `state.json`.
+
