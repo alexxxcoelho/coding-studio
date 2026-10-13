@@ -1304,6 +1304,7 @@
   "persons.report_dry_problems": "The file has problems, nothing will be written.",
   "persons.report_file": "File",
   "persons.report_groups": "Groups that will be created:",
+  "persons.report_groups_done": "Groups created:",
   "persons.report_header": "Header",
   "persons.report_problem": "Problem",
   "persons.report_problems": "Problems in the file",

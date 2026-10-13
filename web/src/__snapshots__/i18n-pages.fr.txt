@@ -35,7 +35,7 @@ Tous
 [title] Rescanner le dossier
 Importer des transcriptions…
 [aria-label] Exporter
-Exporter
+[title] Exporter
 [aria-label] Rechercher
 [placeholder] Rechercher
 [aria-label] Aide pour cet écran
@@ -548,7 +548,7 @@ Tous
 [title] Rescanner le dossier
 Importer des transcriptions…
 [aria-label] Exporter
-Exporter
+[title] Exporter
 [aria-label] Rechercher
 [placeholder] Rechercher
 [aria-label] Aide pour cet écran

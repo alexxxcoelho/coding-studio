@@ -120,7 +120,7 @@ function Report({ r }: { r: ImportReport }) {
       </p>
       {r.groups_to_create.length > 0 && (
         <p className="small l2 m-0">
-          {t("persons.report_groups")} {r.groups_to_create.join(", ")}
+          {r.applied ? t("persons.report_groups_done") : t("persons.report_groups")} {r.groups_to_create.join(", ")}
         </p>
       )}
       {r.problems.length > 0 && (
@@ -135,7 +135,7 @@ function Report({ r }: { r: ImportReport }) {
             {r.problems.map((p, i) => (
               <tr key={i}>
                 <td>{p.row === 0 ? t("persons.report_file") : p.row === 1 ? t("persons.report_header") : p.row}</td>
-                <td style={{ color: "var(--red-text)" }}>{plainImportMessage(p.message)}</td>
+                <td>{plainImportMessage(p.message)}</td>
               </tr>
             ))}
           </tbody>

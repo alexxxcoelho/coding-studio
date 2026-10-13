@@ -323,7 +323,7 @@
 
   /* Unified toolbar */
   .tb { min-height: 52px; display: flex; align-items: center; gap: 10px; padding: 4px 12px 4px 18px; flex-wrap: wrap; }
-  .ttl { display: flex; flex-direction: column; line-height: 1.2; margin-right: auto; flex: 1 1 0; min-width: 140px; }
+  .ttl { display: flex; flex-direction: column; line-height: 1.2; margin-right: auto; flex: 1 1 0; min-width: 108px; }
     .ttl span { font-size: 11px; color: var(--label2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 46ch; }
   .cap {
     display: inline-flex; align-items: center; background: var(--glass); border: .5px solid var(--glass-edge); border-radius: 999px;
@@ -374,7 +374,8 @@
   .tbl tbody tr:nth-child(even) td { background: var(--alt); }
   .tbl td:first-child { border-radius: 7px 0 0 7px; }
   .tbl td:last-child { border-radius: 0 7px 7px 0; }
-  .tbl tr.sel td, .tbl tr[data-state="selected"] td { background: var(--accent-fill); color: var(--on-accent); }
+  .tbl.nostripe tbody tr:nth-child(even):not(.sel):not([data-state="selected"]) td { background: transparent; }
+  .tbl tbody tr.sel td, .tbl tbody tr[data-state="selected"] td { background: var(--accent-fill); color: var(--on-accent); }
   .tbl tr.sel .l2, .tbl tr[data-state="selected"] .l2 { color: rgba(255, 255, 255, .82); }
 
   .switch { width: 34px; height: 20px; border-radius: 999px; background: var(--fill2); position: relative; display: inline-block; flex: none; border: 0; padding: 0; cursor: pointer; }

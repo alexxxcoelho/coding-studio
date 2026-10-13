@@ -111,14 +111,14 @@ export function PersonsPage({ initialId = null }: { initialId?: string | null })
           {selectedGroup && (
             <div className="flex flex-col gap-1.5" role="group" aria-label={t("persons.selected_group", { name: selectedGroup.name })}>
               {selectedGroup.description && <p className="small l2 m-0">{selectedGroup.description}</p>}
-              <div className="r8">
-                <Button variant="outline" onClick={() => setDialog("edit-group")}>
+              <div className="flex flex-wrap gap-1">
+                <Button variant="outline" size="sm" onClick={() => setDialog("edit-group")}>
                   {t("persons.edit_group_button")}
                 </Button>
-                <Button variant="outline" onClick={() => setDialog("new-group")}>
+                <Button variant="outline" size="sm" onClick={() => setDialog("new-group")}>
                   {t("persons.add_subgroup")}
                 </Button>
-                <Button variant="ghost" onClick={() => setDialog("delete-group")}>
+                <Button variant="ghost" size="sm" onClick={() => setDialog("delete-group")}>
                   {t("common.supprimer")}
                 </Button>
               </div>

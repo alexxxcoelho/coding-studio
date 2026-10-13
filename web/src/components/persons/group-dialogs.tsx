@@ -2,6 +2,7 @@
 // reassignment of the sub-groups and members when the group is not empty.
 
 import { useState } from "react"
+import { flushSync } from "react-dom"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 
@@ -131,9 +132,10 @@ export function DeleteGroupDialog({
   const remove = useMutation({
     mutationFn: () => personsApi.deleteGroup(group.group_id, empty ? undefined : target),
     onSuccess: async () => {
+      // Leave the deleted group before the lists are fetched again, or they ask for it.
+      flushSync(onDeleted)
       await invalidateRegister(qc)
       toast.success(t("persons.group_deleted", { name: group.name }))
-      onDeleted()
       onClose()
     },
     onError: (e) => setError(plainError(e)),

@@ -2,6 +2,7 @@
 // steps, filters En cours / Prêts / Tous, rescan, search, and the Fiche of the
 // selected interview in the inspector.
 
+import { Download } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
@@ -132,8 +133,8 @@ export function LibraryPage() {
           <span className="vs" />
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <CapsuleItem aria-label={t("persons.export_menu")} aria-haspopup="menu">
-                {t("persons.export_menu")}
+              <CapsuleItem aria-label={t("persons.export_menu")} title={t("persons.export_menu")} aria-haspopup="menu">
+                <Download size={15} aria-hidden="true" />
               </CapsuleItem>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">

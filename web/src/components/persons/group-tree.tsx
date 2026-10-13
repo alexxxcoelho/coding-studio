@@ -72,7 +72,7 @@ export function GroupTree({
   }
 
   return (
-    <table className="tbl ol" aria-label={t("persons.group_tree")}>
+    <table className="tbl ol nostripe" aria-label={t("persons.group_tree")}>
       <thead>
         <tr>
           <th>{t("persons.groups")}</th>
