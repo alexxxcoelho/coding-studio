@@ -156,6 +156,8 @@ fn gap_5_the_library_progress_is_one_call() {
     assert_eq!(row.respondent_units, 3);
     assert_eq!(row.relevant + row.not_relevant, 3);
     assert_eq!(row.coded, 0);
+    assert_eq!(row.units_coded, 0);
+    assert_eq!(row.units_later, 0);
     assert_eq!(row.to_review, 1);
     assert_eq!(row.review.state, "none");
     assert!(row.memo_total > 0);
@@ -163,6 +165,15 @@ fn gap_5_the_library_progress_is_one_call() {
     assert_eq!(lib.totals.interviews, 1);
     assert_eq!(lib.totals.to_review, 1);
     assert_eq!(lib.totals.units, 3);
+}
+
+#[test]
+fn gap_5_the_library_progress_counts_the_units_coded_in_the_coder() {
+    let (s, _d) = ready();
+    s.create_code_from_passage(&from_passage("Freins", selection(U1, 0, 4)), ACTOR)
+        .unwrap();
+    let lib = s.library_progress().unwrap();
+    assert_eq!(lib.interviews[0].units_coded, 1);
 }
 
 // ------------------------------------------------------------------ gap 6

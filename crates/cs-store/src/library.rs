@@ -47,6 +47,11 @@ pub struct LibraryRow {
     pub not_relevant: usize,
     /// Relevant units the candidate has coded.
     pub coded: usize,
+    /// Respondent units that carry a passage with a real code (what the Coder
+    /// shows as coded); `coded` counts the phase 2 grid instead.
+    pub units_coded: usize,
+    /// Respondent units parked under "Plus tard" and carrying no real code.
+    pub units_later: usize,
     /// Respondent units marked "to review".
     pub to_review: usize,
     pub memo_answered: usize,
@@ -210,6 +215,24 @@ impl Store {
                 .filter(|q| q.answer.as_ref().is_some_and(|a| !a.text.trim().is_empty()))
                 .count();
             let to_review = self.unit_marks(&id)?.len();
+            let respondents: std::collections::BTreeSet<String> =
+                self.respondent_unit_ids(&id)?.into_iter().collect();
+            let mut with_code = std::collections::BTreeSet::new();
+            let mut with_later = std::collections::BTreeSet::new();
+            for p in self.passages(&crate::PassageFilter {
+                interview_id: Some(id.clone()),
+                ..Default::default()
+            })? {
+                if p.stale || !respondents.contains(&p.unit_id) {
+                    continue;
+                }
+                if p.codings.iter().any(|c| !c.system) {
+                    with_code.insert(p.unit_id.clone());
+                } else if p.codings.iter().any(|c| c.code_id == cs_model::passage::LATER_ID) {
+                    with_later.insert(p.unit_id.clone());
+                }
+            }
+            let units_later = with_later.difference(&with_code).count();
             let review_state = if simple.n_runs_complete == 0 {
                 "none"
             } else if simple.n_decided == simple.n_disagreements
@@ -226,6 +249,8 @@ impl Store {
                 relevant: simple.n_relevant,
                 not_relevant: simple.n_respondent_units.saturating_sub(simple.n_relevant),
                 coded: simple.n_coded,
+                units_coded: with_code.len(),
+                units_later,
                 to_review,
                 memo_answered,
                 memo_total,
