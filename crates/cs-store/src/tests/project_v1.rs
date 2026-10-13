@@ -540,7 +540,7 @@ fn the_framework_is_configuration_only_and_never_reaches_the_codebook() {
         .code_nodes()
         .unwrap()
         .iter()
-        .all(|n| n.toe == None || !n.name.contains("Utilité")));
+        .all(|n| n.toe.is_none() || !n.name.contains("Utilité")));
     // No framework again.
     cfg.interpretive_framework = None;
     s.set_project_config(&cfg, ACTOR).unwrap();

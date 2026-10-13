@@ -1,3 +1,4 @@
+#![allow(clippy::field_reassign_with_default)]
 use cs_model::project::*;
 
 fn attr(id: &str, kind: AttributeKind, choices: &[&str]) -> AttributeDef {

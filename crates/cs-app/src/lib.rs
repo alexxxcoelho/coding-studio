@@ -5,6 +5,7 @@
 
 mod error;
 mod export;
+mod export_v1;
 mod providers;
 mod v1;
 mod v1_project;

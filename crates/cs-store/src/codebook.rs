@@ -816,8 +816,16 @@ impl Store {
     pub fn codebook_export(&self) -> Result<(String, String)> {
         let book = self.codebook()?;
         let mut csv = String::from(
-            "code,label,definition,toe,origin,active,in_prompt,research_questions,merged_into,version,example,reason,created_at\n",
+            "code,label,definition,toe,origin,active,in_prompt,research_questions,merged_into,version,example,reason,created_at,code_id,name,parent_id,aliases,includes,excludes\n",
         );
+        // V1: stable id, name, parent and aliases (the code tree). The columns
+        // come last, so a reader of the older layout is unaffected.
+        let nodes: BTreeMap<String, cs_model::passage::CodeNode> = self
+            .code_nodes()?
+            .into_iter()
+            .filter(|n| !n.system)
+            .map(|n| (n.token.clone(), n))
+            .collect();
         let mut sql = String::from(
             "-- Codebook exported by Coding Studio. Apply to 05_Analysis/coding/coding.db.\nBEGIN;\n",
         );
@@ -838,6 +846,29 @@ impl Store {
                     csv_field(c.example.as_deref().unwrap_or("")),
                     csv_field(c.reason.as_deref().unwrap_or("")),
                     csv_field(c.created_at.as_deref().unwrap_or("")),
+                    csv_field(nodes.get(&c.code).map_or("", |n| n.code_id.as_str())),
+                    csv_field(nodes.get(&c.code).map_or("", |n| n.name.as_str())),
+                    csv_field(
+                        nodes
+                            .get(&c.code)
+                            .and_then(|n| n.parent_id.as_deref())
+                            .unwrap_or(""),
+                    ),
+                    csv_field(
+                        &nodes
+                            .get(&c.code)
+                            .map(|n| {
+                                n.aliases
+                                    .iter()
+                                    .filter(|a| !a.alias.eq_ignore_ascii_case(&n.name))
+                                    .map(|a| a.alias.as_str())
+                                    .collect::<Vec<_>>()
+                                    .join(";")
+                            })
+                            .unwrap_or_default(),
+                    ),
+                    csv_field(nodes.get(&c.code).map_or("", |n| n.includes.as_str())),
+                    csv_field(nodes.get(&c.code).map_or("", |n| n.excludes.as_str())),
                 ]
                 .join(","),
             );

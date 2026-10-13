@@ -346,3 +346,27 @@ fn merging_reparents_the_children_of_the_merged_code() {
     s.merge_code("ORG-SKILLS", "TECH-ADV", "r", ACTOR).unwrap();
     assert_eq!(node(&s, &kid).parent_id.as_deref(), Some(into.as_str()));
 }
+
+#[test]
+fn codes_imported_from_csv_get_ids_names_and_a_revision() {
+    let dir = TempDir::new().unwrap();
+    let path = dir.path().join("book.csv");
+    std::fs::write(
+        &path,
+        "code,definition\nALPHA,First code\nBETA-ONE,Second code\n",
+    )
+    .unwrap();
+    let s = Store::open_in_memory().unwrap();
+    let v0 = s.codebook_version().unwrap();
+    s.import_codebook_csv(&path, ACTOR).unwrap();
+    let nodes: Vec<_> = s
+        .code_nodes()
+        .unwrap()
+        .into_iter()
+        .filter(|n| !n.system)
+        .collect();
+    assert_eq!(nodes.len(), 2);
+    assert_eq!(nodes[0].code_id, "C-0001");
+    assert_eq!(nodes[1].name, "BETA-ONE");
+    assert_eq!(s.codebook_version().unwrap(), v0 + 1);
+}

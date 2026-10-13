@@ -385,6 +385,10 @@ impl Store {
                 ],
             )?;
         }
+        crate::codetree::backfill_identity(&tx)?;
+        if !added.is_empty() || !updated.is_empty() {
+            crate::codetree::bump_revision(&tx, actor, "import", None)?;
+        }
         append_event(
             &tx,
             actor,

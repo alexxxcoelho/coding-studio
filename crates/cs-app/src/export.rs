@@ -630,7 +630,7 @@ fn state_parts(store: &Store, interview_ids: &[String], cases: &[Case]) -> Resul
             }));
         }
     }
-    let parts = json!({
+    let mut parts = json!({
         "human_phase1": phase1,
         "human_phase2": phase2,
         "claims": claims,
@@ -641,6 +641,11 @@ fn state_parts(store: &Store, interview_ids: &[String], cases: &[Case]) -> Resul
         "verifications": verifications,
         "codebook": store.codebook()?,
     });
+    if let Some(map) = parts.as_object_mut() {
+        for (k, v) in crate::export_v1::state_parts(store, interview_ids)? {
+            map.insert(k.to_string(), v);
+        }
+    }
     Ok(canonical(&parts))
 }
 
@@ -980,6 +985,25 @@ pub fn write_package(
     w.write("cases.csv", cases_csv(&cases).as_bytes())?;
     w.write("case_units.csv", case_units_csv(&cases).as_bytes())?;
     w.write("codebook.csv", codebook_csv.as_bytes())?;
+    let ids = [interview_id.to_string()];
+    let passages = crate::export_v1::all_passages(store, &ids)?;
+    w.write(
+        "passages.csv",
+        crate::export_v1::passages_csv(&passages).as_bytes(),
+    )?;
+    w.write(
+        "highlights.csv",
+        crate::export_v1::highlights_csv(&passages).as_bytes(),
+    )?;
+    w.write(
+        "attributes.csv",
+        crate::export_v1::attributes_csv(store, &ids)?.as_bytes(),
+    )?;
+    w.write("memos.json", &crate::export_v1::memos_json(store, &ids)?)?;
+    w.write(
+        "study_config.json",
+        &crate::export_v1::study_config_json(store)?,
+    )?;
 
     let (state_bytes, state_sha) = state_document(store, &[interview_id.to_string()], &cases)?;
     w.write("state.json", &state_bytes)?;
@@ -1109,7 +1133,12 @@ fn readme(id: &str, folder: &str, seg: &cs_model::Segmentation, st: &CodingStatu
         ("cases.json, cases.md", "The case syntheses: decision, granularity, carriers chosen and rejected, account type, Swiss link, stage and outcome status; for trigger, alternatives, constraints, choice and result, the text, the contradictions, what is missing and the evidence units; and the units attributed to the case, from any interview."),
         ("cases.csv", "One row per case: identifiers, decision, granularity, carriers, account type, Swiss link, stage, outcome status and number of attributed units; lists joined with `;`."),
         ("case_units.csv", "The units attributed to each case, `case_id,unit_id,interview_id`."),
-        ("codebook.csv", "The codebook at export time: TOE attachment, origin, research questions, version."),
+        ("codebook.csv", "The codebook at export time: TOE attachment, origin, research questions, version, then the code tree: `code_id` (stable), `name` (editable), `parent_id`, `aliases` joined with `;`, `includes`, `excludes`."),
+        ("passages.csv", "Every passage (a selected part of a turn), highlights included: `passage_id,interview_id,unit_id,start,end,text,kind,code_ids,code_names,later,later_note,stale,anchor_digest,created_at,created_by`. Positions count Unicode characters from 0, end excluded. `later` is 1 for the reserved code Plus tard, which is not in `code_ids` and counts in no analysis. `stale` is 1 when the turn text no longer matches `anchor_digest`."),
+        ("highlights.csv", "The passages that carry no code yet, `passage_id,interview_id,unit_id,start,end,text,stale,created_at,created_by`."),
+        ("attributes.csv", "The interview attribute values, `interview_id,attribute_id,label,kind,value`, one row per attribute that has a value."),
+        ("memos.json", "The familiarisation memo of each interview (template and version, the interview's own added, removed and reworded questions, answers with their time) and its end-of-interview checklist (items, checked flags with time, note)."),
+        ("study_config.json", "The study configuration as a project template: study description and settings, research questions, attribute definitions, memo templates, checklist, theme checks, evidence natures, link types, matrix dimensions and interpretive framework. It holds no interview data."),
         ("audit_log.jsonl", "Every recorded action on this interview, one JSON event per line, each chained to the previous one by SHA-256."),
         ("audit_chain.json", "Result of the verification of the whole audit chain at export time."),
         ("manifest.json", "SHA-256 and size of every file above, with the tool version and the export time."),
@@ -1141,13 +1170,19 @@ fn cross_case_readme(
         questions.len()
     ));
     s.push_str("The answers are written by research question: the question, the four memo parts (documented, interpretation, rivals, limits), and the units for and against. The cross-case matrix lists, for each question and case, the codes found in the units attributed to that case. The saturation table orders the interviews by their first phase 2 coding and is provisional: the enrichment of meaning is not computed.\n\n");
-    s.push_str("Immutable state. `state.json` holds the human state of every interview (both phases of coding, claims, cases, case units, decisions, flags, verifications and codebook) as canonical JSON. Its `sha256` field is the SHA-256 of that canonical JSON. Each interview package carries its own `db_snapshot.sqlite`.\n\n");
+    s.push_str("Immutable state. `state.json` holds the human state of every interview (both phases of coding, claims, cases, case units, decisions, flags, verifications, codebook, passages, code tree, attribute values, memos, checklists and project configuration) as canonical JSON. Its `sha256` field is the SHA-256 of that canonical JSON. Each interview package carries its own `db_snapshot.sqlite`.\n\n");
     s.push_str("## Files\n\n");
     for (name, what) in [
         ("answers.md", "One section per research question: the text, the four memo parts, the units for and against the answer; `no memo yet` when absent."),
         ("cross_case.csv", "The cross-case matrix, `rq,case_id,documented,code,units`: one row per code found in a case for a question; `documented` is 1 when the case has attributed units."),
         ("saturation.csv, saturation.md", "The provisional saturation table: codes first used, field codes created and labels opened and resolved, per interview in order of first coding."),
         ("cases.csv", "One row per case, as in the interview packages."),
+        ("codebook.csv", "The codebook with its code tree, as in the interview packages."),
+        ("passages.csv", "Every passage of every interview (a selected part of a turn), highlights included: `passage_id,interview_id,unit_id,start,end,text,kind,code_ids,code_names,later,later_note,stale,anchor_digest,created_at,created_by`. Positions count Unicode characters from 0, end excluded. `later` is 1 for the reserved code Plus tard, which is not in `code_ids` and counts in no analysis. `stale` is 1 when the turn text no longer matches `anchor_digest`."),
+        ("highlights.csv", "The passages that carry no code yet, `passage_id,interview_id,unit_id,start,end,text,stale,created_at,created_by`."),
+        ("attributes.csv", "The interview attribute values of every interview, `interview_id,attribute_id,label,kind,value`, one row per attribute that has a value."),
+        ("memos.json", "The familiarisation memo of every interview (template and version, the interview's own added, removed and reworded questions, answers with their time) and its end-of-interview checklist (items, checked flags with time, note)."),
+        ("study_config.json", "The study configuration as a project template: study description and settings, research questions, attribute definitions, memo templates, checklist, theme checks, evidence natures, link types, matrix dimensions and interpretive framework. It holds no interview data."),
         ("state.json", "The human state of every interview, canonical, with its SHA-256 and the generator."),
         ("manifest.json", "SHA-256 and size of every file above, with the tool version and the export time."),
     ] {
@@ -1195,6 +1230,29 @@ pub fn write_cross_case(
     w.write("saturation.csv", saturation_csv(&saturation).as_bytes())?;
     w.write("saturation.md", saturation_md(&saturation).as_bytes())?;
     w.write("cases.csv", cases_csv(&cross.cases).as_bytes())?;
+    let (codebook_csv, _) = store.codebook_export()?;
+    w.write("codebook.csv", codebook_csv.as_bytes())?;
+    let passages = crate::export_v1::all_passages(store, &interview_ids)?;
+    w.write(
+        "passages.csv",
+        crate::export_v1::passages_csv(&passages).as_bytes(),
+    )?;
+    w.write(
+        "highlights.csv",
+        crate::export_v1::highlights_csv(&passages).as_bytes(),
+    )?;
+    w.write(
+        "attributes.csv",
+        crate::export_v1::attributes_csv(store, &interview_ids)?.as_bytes(),
+    )?;
+    w.write(
+        "memos.json",
+        &crate::export_v1::memos_json(store, &interview_ids)?,
+    )?;
+    w.write(
+        "study_config.json",
+        &crate::export_v1::study_config_json(store)?,
+    )?;
     w.write("state.json", &state_bytes)?;
     w.write(
         "README.md",

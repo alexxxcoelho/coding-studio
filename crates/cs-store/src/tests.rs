@@ -1529,6 +1529,7 @@ mod codes_from_passage_v1;
 mod codes_v1;
 mod memos_saturation_v4;
 mod passages_v1;
+#[allow(clippy::field_reassign_with_default)]
 mod project_v1;
 mod simple_v5;
 mod snapshots_v4;
