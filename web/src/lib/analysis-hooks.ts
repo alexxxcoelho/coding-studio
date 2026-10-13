@@ -17,11 +17,12 @@ export const akeys = {
   frameworkTable: ["framework-table"] as const,
   matrix: (c: MatrixConfig) => ["matrix", c] as const,
   matrixViews: ["matrix-views"] as const,
-  cell: (row: string, col: string) => ["matrix-cell", row, col] as const,
+  cell: (row: string, col: string, filter?: MatrixConfig["filter"]) => ["matrix-cell", row, col, filter ?? null] as const,
   writing: (id: string) => ["writing", id] as const,
   synthesis: (rq: string) => ["synthesis", rq] as const,
   finalAudit: ["final-audit"] as const,
   cases: ["cases-all"] as const,
+  decisions: ["decisions"] as const,
   questions: ["questions"] as const,
   interviews: ["interviews"] as const,
 }
@@ -35,6 +36,7 @@ export const useThemeWriting = (id: string | null) =>
 export const useFrameworkReading = (id: string | null, enabled = true) =>
   useQuery({ queryKey: akeys.framework(id ?? ""), queryFn: () => analysisApi.frameworkReading(id!), enabled: !!id && enabled })
 export const useCasesAll = () => useQuery({ queryKey: akeys.cases, queryFn: api.allCases })
+export const useDecisions = () => useQuery({ queryKey: akeys.decisions, queryFn: analysisApi.decisions })
 export const useQuestions = () => useQuery({ queryKey: akeys.questions, queryFn: api.questions })
 
 export function useMatrix(config: MatrixConfig, project: ProjectConfig | undefined) {

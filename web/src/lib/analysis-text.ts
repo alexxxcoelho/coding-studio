@@ -13,18 +13,18 @@ export function passageRef(p: { interview_id: string; unit_id: string }): string
   return `${p.interview_id} U${n}`
 }
 
-/** The outcome of a documented decision in words, whether stored as `adopt` or `adopted`. */
-export function outcomeLabel(decision: string | null): string {
-  const d = (decision ?? "").toLowerCase()
+/** The outcome of a documented decision in words (`adopt`, `defer`, `reject`; the earlier `adopted` forms are understood). */
+export function outcomeLabel(outcome: string | null): string {
+  const d = (outcome ?? "").toLowerCase()
   if (d.startsWith("adopt")) return "Adopter"
   if (d.startsWith("defer") || d.startsWith("différ")) return "Différer"
   if (d.startsWith("reject") || d.startsWith("refus")) return "Refuser"
-  return decision || "Issue non renseignée"
+  return outcome || "Issue non renseignée"
 }
 
 /** A decision is documented only by the units attributed to it. */
-export function isDocumented(c: Pick<Case, "units">): boolean {
-  return c.units.length > 0
+export function isDocumented(c: Pick<Case, "units"> & { passages?: string[] }): boolean {
+  return c.units.length > 0 || (c.passages?.length ?? 0) > 0
 }
 
 /** The chip of a link in the text: `ECO-07 U018 soutient`. */

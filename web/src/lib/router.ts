@@ -1,5 +1,5 @@
 // Tiny hash router: #/interviews, #/interviews/ECO-07/coding?phase=2,
-// #/codebook, #/to-clarify, #/cross-case, #/audit, #/guide/coder-detail. Hash routing keeps the
+// #/codebook, #/to-clarify, #/analyser, #/audit, #/guide/coder-detail. Hash routing keeps the
 // embedded server stateless. `?unit=ECO-07-U003` selects a unit in Coding.
 
 import { useSyncExternalStore } from "react"
@@ -16,8 +16,6 @@ export type Route =
   | { page: "interview"; id: string; tab: Tab; phase: Phase; unit: string | null }
   | { page: "codebook" }
   | { page: "to-clarify" }
-  | { page: "cross-case" }
-  | { page: "answers" }
   | { page: "saturation" }
   | { page: "settings" }
   | { page: "audit" }
@@ -41,8 +39,9 @@ export function parseHash(hash: string): Route {
   }
   if (parts[0] === "codebook") return { page: "codebook" }
   if (parts[0] === "to-clarify") return { page: "to-clarify" }
-  if (parts[0] === "cross-case") return { page: "cross-case" }
-  if (parts[0] === "answers") return { page: "answers" }
+  // The English pages are gone: their old links land on the screens that replaced them.
+  if (parts[0] === "cross-case") return { page: "analyser" }
+  if (parts[0] === "answers") return { page: "rediger" }
   if (parts[0] === "saturation") return { page: "saturation" }
   if (parts[0] === "settings") return { page: "settings" }
   if (parts[0] === "audit") return { page: "audit" }

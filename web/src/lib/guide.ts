@@ -53,11 +53,9 @@ export function screenForRoute(route: Route): string {
     case "lexique":
       return "coder"
     case "analyser":
-    case "cross-case":
     case "saturation":
       return "analyser"
     case "rediger":
-    case "answers":
       return "rediger"
     case "to-clarify":
       return "revoir-decisions"

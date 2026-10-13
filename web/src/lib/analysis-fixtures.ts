@@ -2,6 +2,7 @@
 
 import type {
   AuditClaim,
+  DecisionRecord,
   FinalAudit,
   MatrixResult,
   PassageBrief,
@@ -171,4 +172,10 @@ export const audit = (claims: AuditClaim[]): FinalAudit => ({ audit_id: 4, seed:
 export const cases: Case[] = [
   { case_id: "ECO-05-C1", interview_id: "ECO-05", label: "Commune X, nouveau système de prêt", decision: "adopted", units: ["ECO-05-U001"], interviews: ["ECO-05"] } as unknown as Case,
   { case_id: "RET-22-C1", interview_id: "RET-22", label: "RET-22, projet textile", decision: "rejected", units: [], interviews: ["RET-22"] } as unknown as Case,
+]
+
+/** The same decisions as `/api/decisions` answers them: `name` and `outcome` in the words of the guide. */
+export const decisions: DecisionRecord[] = [
+  { ...cases[0], decision_id: "ECO-05-C1", name: "Commune X, nouveau système de prêt", outcome: "adopt", outcome_label: "adopter", passages: [], characteristics: {} } as unknown as DecisionRecord,
+  { ...cases[1], decision_id: "RET-22-C1", name: "RET-22, projet textile", outcome: "reject", outcome_label: "refuser", passages: [], characteristics: {} } as unknown as DecisionRecord,
 ]

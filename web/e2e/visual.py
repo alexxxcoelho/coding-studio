@@ -131,8 +131,6 @@ ROUTES: list[dict] = [
     {"name": "audit", "hash": "/audit"},
     {"name": "saturation", "hash": "/saturation"},
     {"name": "to-clarify", "hash": "/to-clarify"},
-    {"name": "cross-case", "hash": "/cross-case"},
-    {"name": "answers", "hash": "/answers"},
     {"name": "analyser", "hash": "/analyser"},
     {"name": "rediger", "hash": "/rediger"},
     {"name": "dialog-reglages-general", "hash": "/interviews", "act": _open_settings_tab("Général")},

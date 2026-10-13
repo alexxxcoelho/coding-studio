@@ -2,7 +2,7 @@ import { act, cleanup, fireEvent, screen, waitFor, within } from "@testing-libra
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from "vitest"
 
 import { analysisApi } from "@/lib/analysis-api"
-import { audit, cases, claim, link, project, projectWithFramework, themePassages, themeSummaries, writing } from "@/lib/analysis-fixtures"
+import { audit, cases, decisions, claim, link, project, projectWithFramework, themePassages, themeSummaries, writing } from "@/lib/analysis-fixtures"
 import { mockApi, renderWithClient } from "@/test-utils"
 
 import { RedigerPage } from "./rediger"
@@ -26,6 +26,7 @@ function setup(projectConfig = project) {
     .on("GET", "/api/cases", { body: cases })
     .on("GET", "/api/interviews", { body: [] })
   fn("themes").mockResolvedValue(themeSummaries)
+  fn("decisions").mockResolvedValue(decisions)
   fn("themeWriting").mockResolvedValue(writing({ parts: { ...writing().parts, mechanism_evidence: { text: "Le groupe exige le marquage.", nature: null, updated_at: null, links: [link(18, "mechanism_evidence")] } } }))
   fn("themePassages").mockResolvedValue(themePassages)
 }

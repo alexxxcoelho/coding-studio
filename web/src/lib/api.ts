@@ -36,7 +36,6 @@ import type {
   CodeUnit,
   CoConstructedKind,
   CodebookImportAnswer,
-  CrossCaseAnswer,
   ExportAnswer,
   FileView,
   FinalAnswer,
@@ -277,7 +276,6 @@ export const api = {
   allCases: () => request<Case[]>("GET", "/api/cases"),
   addCase: (id: string, c: Partial<Case>) => request<Case>("POST", `${iv(id)}/cases`, c),
   editCase: (c: Case) => request<Case>("PUT", `/api/cases/${enc(c.case_id)}`, c),
-  crossCase: () => request<CrossCaseAnswer>("GET", "/api/cross-case"),
 
   audit: (interviewId?: string) =>
     request<AuditEvent[]>("GET", interviewId ? `/api/audit?interview_id=${enc(interviewId)}` : "/api/audit"),

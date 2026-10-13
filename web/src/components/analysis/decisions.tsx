@@ -11,35 +11,37 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
 import { api } from "@/lib/api"
-import { akeys, useCasesAll } from "@/lib/analysis-hooks"
+import { analysisApi, DECISION_OUTCOMES, type DecisionOutcome, type DecisionRecord } from "@/lib/analysis-api"
+import { akeys, useDecisions } from "@/lib/analysis-hooks"
 import { isDocumented, outcomeLabel, plural } from "@/lib/analysis-text"
 import { reportError } from "@/lib/notify"
 import { interviewHref } from "@/lib/router"
 
-const OUTCOMES = [
-  { value: "adopted", label: "Adopter" },
-  { value: "deferred", label: "Différer" },
-  { value: "rejected", label: "Refuser" },
-]
-
 export function DecisionsPanel() {
   const qc = useQueryClient()
-  const cases = useCasesAll()
+  const decisions = useDecisions()
   const interviews = useQuery({ queryKey: akeys.interviews, queryFn: api.interviews })
   const [adding, setAdding] = useState(false)
   const [name, setName] = useState("")
-  const [outcome, setOutcome] = useState("adopted")
+  const [outcome, setOutcome] = useState<DecisionOutcome>("adopt")
   const [interviewId, setInterviewId] = useState("")
 
   const create = useMutation({
-    mutationFn: () => api.addCase(interviewId || interviews.data![0].interview_id, { label: name.trim(), decision: outcome }),
+    mutationFn: () => analysisApi.createDecision(interviewId || interviews.data![0].interview_id, name.trim(), outcome),
     onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: akeys.decisions })
       void qc.invalidateQueries({ queryKey: akeys.cases })
       void qc.invalidateQueries({ queryKey: ["cross-case"] })
       setAdding(false)
       setName("")
     },
     onError: (e) => reportError(e, "Décision non créée"),
+  })
+
+  const setOutcome_ = useMutation({
+    mutationFn: ({ d, value }: { d: DecisionRecord; value: DecisionOutcome }) => analysisApi.updateDecision(d.decision_id, { ...d, outcome: value }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: akeys.decisions }),
+    onError: (e) => reportError(e, "Issue non enregistrée"),
   })
 
   return (
@@ -68,8 +70,8 @@ export function DecisionsPanel() {
           </label>
           <label className="flex flex-col gap-1">
             <span className="hs">Issue</span>
-            <NativeSelect value={outcome} onChange={(e) => setOutcome(e.target.value)} style={{ width: 120 }}>
-              {OUTCOMES.map((o) => (
+            <NativeSelect value={outcome} onChange={(e) => setOutcome(e.target.value as DecisionOutcome)} style={{ width: 120 }}>
+              {DECISION_OUTCOMES.map((o) => (
                 <option key={o.value} value={o.value}>
                   {o.label}
                 </option>
@@ -94,23 +96,31 @@ export function DecisionsPanel() {
           </Button>
         </form>
       )}
-      {cases.isLoading && <Skeleton className="h-24 w-full" />}
-      {cases.data && cases.data.length === 0 && <p className="text-muted-foreground text-sm">Aucune décision documentée pour l'instant.</p>}
+      {decisions.isLoading && <Skeleton className="h-24 w-full" />}
+      {decisions.data && decisions.data.length === 0 && <p className="text-muted-foreground text-sm">Aucune décision documentée pour l'instant.</p>}
       <ul className="grp">
-        {(cases.data ?? []).map((c) => (
-          <li key={c.case_id} className="row">
+        {(decisions.data ?? []).map((c) => (
+          <li key={c.decision_id} className="row">
             <div className="k">
-              <span className="font-medium">{c.label || "Décision sans nom"}</span>
+              <span className="font-medium">{c.name || "Décision sans nom"}</span>
               <small>
-                {outcomeLabel(c.decision)}
+                {outcomeLabel(c.outcome)}
                 {c.granularity ? ` · granularité ${c.granularity}` : ""}
                 {c.carrier_chosen ? ` · support ${c.carrier_chosen}` : ""}
                 {" · "}
-                {isDocumented(c) ? `${plural(c.units.length, "unité rattachée", "unités rattachées")}` : <span className="text-warn">non documentée</span>}
+                {isDocumented(c) ? plural(c.units.length + c.passages.length, "élément rattaché", "éléments rattachés") : <span className="text-warn">non documentée</span>}
               </small>
             </div>
+            <NativeSelect aria-label={`Issue de ${c.name || c.decision_id}`} value={c.outcome ?? ""} onChange={(e) => e.target.value && setOutcome_.mutate({ d: c, value: e.target.value as DecisionOutcome })} style={{ width: 120 }}>
+              {!c.outcome && <option value="">À choisir</option>}
+              {DECISION_OUTCOMES.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </NativeSelect>
             <Button asChild variant="ghost" size="sm">
-              <a href={interviewHref(c.interview_id, "cases")} aria-label={`Ouvrir ${c.label || c.case_id}`}>
+              <a href={interviewHref(c.interview_id, "cases")} aria-label={`Ouvrir ${c.name || c.decision_id}`}>
                 Ouvrir
               </a>
             </Button>

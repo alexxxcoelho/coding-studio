@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from "vite
 import { cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react"
 
 import { analysisApi } from "@/lib/analysis-api"
-import { cases, codes, matrix, project, projectWithFramework, sheet, themePassages, themeSummaries } from "@/lib/analysis-fixtures"
+import { cases, codes, decisions, matrix, project, projectWithFramework, sheet, themePassages, themeSummaries } from "@/lib/analysis-fixtures"
 import { mockApi, renderWithClient } from "@/test-utils"
 
 import { AnalyserPage } from "./analyser"
@@ -25,6 +25,7 @@ function setup(projectConfig = project) {
   fn("theme").mockResolvedValue(sheet())
   fn("themePassages").mockResolvedValue(themePassages)
   fn("matrix").mockResolvedValue(matrix)
+  fn("decisions").mockResolvedValue(decisions)
   fn("matrixViews").mockResolvedValue([])
   fn("matrixCell").mockResolvedValue({
     row_key: "interview:RET-22",
@@ -180,8 +181,8 @@ describe("Analyser, matrix", () => {
   it("starts with interviews by themes and recomputes when the columns change", async () => {
     await openMatrix()
     expect(fn("matrix")).toHaveBeenCalledWith({ rows: { kind: "interviews" }, cols: { kind: "themes" }, filter: null })
-    fireEvent.change(screen.getByLabelText("Colonnes"), { target: { value: "dimension:who-pays" } })
-    await waitFor(() => expect(fn("matrix")).toHaveBeenLastCalledWith({ rows: { kind: "interviews" }, cols: { kind: "dimension", id: "who-pays" }, filter: null }))
+    fireEvent.change(screen.getByLabelText("Colonnes"), { target: { value: "dimensions" } })
+    await waitFor(() => expect(fn("matrix")).toHaveBeenLastCalledWith({ rows: { kind: "interviews" }, cols: { kind: "dimensions" }, filter: null }))
   })
 
   it("offers the attributes of the study as rows and as filter", async () => {
@@ -247,7 +248,7 @@ describe("Analyser, other tabs", () => {
     fireEvent.click(await screen.findByRole("tab", { name: "Décisions documentées" }))
     expect(await screen.findByText("Commune X, nouveau système de prêt")).toBeInTheDocument()
     expect(screen.getByText("non documentée")).toBeInTheDocument()
-    expect(screen.getByText(/1 unité rattachée/)).toBeInTheDocument()
+    expect(screen.getByText(/1 élément rattaché/)).toBeInTheDocument()
   })
 
   it("links the Explorer to the Lexique for keyword in context", async () => {

@@ -3,10 +3,8 @@ import { useRoute } from "@/lib/router"
 import { GuidePage } from "@/pages/guide"
 import { AnalyserPage } from "@/pages/analyser"
 import { RedigerPage } from "@/pages/rediger"
-import { AnswersPage } from "@/pages/answers"
 import { AuditPage } from "@/pages/audit"
 import { CodebookPage } from "@/pages/codebook"
-import { CrossCasePage } from "@/pages/cross-case"
 import { ToClarifyPage } from "@/pages/to-clarify"
 import { InterviewPage } from "@/pages/interview"
 import { LexiquePage } from "@/pages/lexique"
@@ -22,8 +20,6 @@ export default function App() {
       {route.page === "interview" && <InterviewPage key={route.id} id={route.id} tab={route.tab} phase={route.phase} unit={route.unit} />}
       {route.page === "codebook" && <CodebookPage />}
       {route.page === "to-clarify" && <ToClarifyPage />}
-      {route.page === "cross-case" && <CrossCasePage />}
-      {route.page === "answers" && <AnswersPage />}
       {route.page === "saturation" && <SaturationPage />}
       {route.page === "settings" && <SettingsPage />}
       {route.page === "audit" && <AuditPage />}

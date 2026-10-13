@@ -1,6 +1,7 @@
 // The configurable matrix (guide, "Régler la matrice" and "Lire une cellule"):
-// rows and columns chosen among interviews, cases, attributes, themes, focused
-// codes and the study's own dimensions; one closed value per cell, a passage
+// rows and columns chosen among interviews, cases, attributes, themes, codes,
+// focused codes (the codes that have sub-codes, or every code when none has)
+// and the study's own dimensions; one closed value per cell, a passage
 // count and a one-line summary. Pure functions: the screen only renders what
 // they return.
 
@@ -27,10 +28,11 @@ export function parseAxisToken(token: string): AxisSource | null {
     case "interviews":
     case "cases":
     case "themes":
+    case "codes":
     case "focused_codes":
+    case "dimensions":
       return id ? null : { kind }
     case "attribute":
-    case "dimension":
       return id ? { kind, id } : null
     default:
       return null
@@ -48,10 +50,11 @@ export function axisOptions(cfg: ProjectConfig | undefined): AxisOption[] {
     { token: "interviews", label: "Entretiens" },
     { token: "cases", label: "Cas" },
     { token: "themes", label: "Thèmes" },
+    { token: "codes", label: "Codes" },
     { token: "focused_codes", label: "Codes focalisés" },
   ]
   const attributes = (cfg?.attributes ?? []).map((a) => ({ token: `attribute:${a.id}`, label: a.label }))
-  const dimensions = (cfg?.matrix_dimensions ?? []).map((d) => ({ token: `dimension:${d.id}`, label: d.label }))
+  const dimensions = (cfg?.matrix_dimensions ?? []).length > 0 ? [{ token: "dimensions", label: "Dimensions de l'étude" }] : []
   return [...base, ...attributes, ...dimensions]
 }
 
@@ -60,7 +63,7 @@ export function validateMatrix(c: MatrixConfig, cfg: ProjectConfig | undefined):
   if (axisToken(c.rows) === axisToken(c.cols)) return "Les lignes et les colonnes ne peuvent pas être les mêmes."
   const known = (s: AxisSource): string | null => {
     if (s.kind === "attribute" && !cfg?.attributes.some((a) => a.id === s.id)) return "Cet attribut n'existe pas dans l'étude."
-    if (s.kind === "dimension" && !cfg?.matrix_dimensions.some((d) => d.id === s.id)) return "Cette dimension n'existe pas dans l'étude."
+    if (s.kind === "dimensions" && !(cfg?.matrix_dimensions ?? []).length) return "L'étude ne définit aucune dimension."
     return null
   }
   const own = known(c.rows) ?? known(c.cols)

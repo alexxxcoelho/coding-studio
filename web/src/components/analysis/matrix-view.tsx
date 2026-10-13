@@ -199,14 +199,14 @@ function Cell({ cell, row, selected, max, onSelect, colLabel }: { cell: MatrixCe
   )
 }
 
-function CellPanel({ selected, onClose }: { selected: SelectedCell; onClose: () => void }) {
+function CellPanel({ selected, filter, onClose }: { selected: SelectedCell; filter: MatrixConfig["filter"]; onClose: () => void }) {
   const qc = useQueryClient()
   const { row, col } = selected
-  const q = useQuery({ queryKey: akeys.cell(row.key, col.key), queryFn: () => analysisApi.matrixCell(row.key, col.key) })
+  const q = useQuery({ queryKey: akeys.cell(row.key, col.key, filter), queryFn: () => analysisApi.matrixCell(row.key, col.key, filter) })
   const write = async (value: CellValue | null, summary: string) => {
     try {
       const saved = await analysisApi.setMatrixCell({ row_key: row.key, col_key: col.key, value, summary })
-      qc.setQueryData(akeys.cell(row.key, col.key), saved)
+      qc.setQueryData(akeys.cell(row.key, col.key, filter), saved)
       void qc.invalidateQueries({ queryKey: ["matrix"] })
     } catch (e) {
       reportError(e, "Cellule non enregistrée")
@@ -340,7 +340,7 @@ export function MatrixTab({ project }: { project: ProjectConfig | undefined }) {
       <p className="text-muted-foreground text-[11.5px]">
         Un résumé d'une ligne par cellule, facultatif. Aucune fréquence n'est présentée comme un résultat : les compteurs distinguent toujours passages et entretiens. Les filtres ne modifient aucun codage.
       </p>
-      {selected && <CellPanel key={`${selected.row.key}|${selected.col.key}`} selected={selected} onClose={() => setSelected(null)} />}
+      {selected && <CellPanel key={`${selected.row.key}|${selected.col.key}`} selected={selected} filter={config.filter} onClose={() => setSelected(null)} />}
     </div>
   )
 }

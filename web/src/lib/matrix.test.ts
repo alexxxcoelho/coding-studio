@@ -20,9 +20,10 @@ describe("axis tokens", () => {
       { kind: "interviews" },
       { kind: "cases" },
       { kind: "themes" },
+      { kind: "codes" },
       { kind: "focused_codes" },
+      { kind: "dimensions" },
       { kind: "attribute", id: "sector" },
-      { kind: "dimension", id: "qui-impose" },
     ] as const) {
       expect(parseAxisToken(axisToken(s))).toEqual(s)
     }
@@ -34,12 +35,12 @@ describe("axis tokens", () => {
 })
 
 describe("axisOptions", () => {
-  it("offers interviews, cases, themes, focused codes, each attribute and each study dimension", () => {
+  it("offers interviews, cases, themes, codes, focused codes, each attribute and the dimensions of the study", () => {
     const labels = axisOptions(config).map((o) => o.label)
-    expect(labels).toEqual(["Entretiens", "Cas", "Thèmes", "Codes focalisés", "Secteur", "Taille", "Qui impose"])
+    expect(labels).toEqual(["Entretiens", "Cas", "Thèmes", "Codes", "Codes focalisés", "Secteur", "Taille", "Dimensions de l'étude"])
   })
   it("works before the configuration is loaded", () => {
-    expect(axisOptions(undefined).map((o) => o.token)).toEqual(["interviews", "cases", "themes", "focused_codes"])
+    expect(axisOptions(undefined).map((o) => o.token)).toEqual(["interviews", "cases", "themes", "codes", "focused_codes"])
   })
 })
 
@@ -50,9 +51,9 @@ describe("validateMatrix", () => {
   it("refuses the same list on both sides", () => {
     expect(validateMatrix({ ...DEFAULT_MATRIX, cols: { kind: "interviews" } }, config)).toMatch(/mêmes/)
   })
-  it("refuses an attribute or a dimension the study does not define", () => {
+  it("refuses an attribute or dimensions the study does not define", () => {
     expect(validateMatrix({ ...DEFAULT_MATRIX, rows: { kind: "attribute", id: "nope" } }, config)).toMatch(/attribut/)
-    expect(validateMatrix({ ...DEFAULT_MATRIX, cols: { kind: "dimension", id: "nope" } }, config)).toMatch(/dimension/)
+    expect(validateMatrix({ ...DEFAULT_MATRIX, cols: { kind: "dimensions" } }, { ...config, matrix_dimensions: [] })).toMatch(/dimension/)
   })
   it("refuses a filter on an unknown attribute", () => {
     expect(validateMatrix({ ...DEFAULT_MATRIX, filter: { attribute: "x", value: "y" } }, config)).toMatch(/attribut/)

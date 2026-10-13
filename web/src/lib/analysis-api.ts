@@ -1,13 +1,15 @@
 // Client of the Analyser and Rédiger screens (docs/SPEC.md 4.7, 4.8, 4.9).
 //
 // Everything the two screens ask of the server goes through `analysisApi`, and
-// every shape they rely on is declared here, so that reconciling this client
-// with the routes of the server (lot 5, themes / matrix / links / writing /
-// final audit) means editing this file only. The routes below are the ones the
-// client was designed against; the closed lists (statuses, cell values, parts,
-// verdicts) are those of `cs-model/src/analysis.rs`.
+// every shape they rely on is declared here. The routes are those of
+// `crates/cs-app/src/v1_analysis.rs` (docs/API.md, "V1 lot 5 and gaps"); the
+// closed lists (statuses, cell values, parts, verdicts, origins, roles,
+// outcomes) are those of `cs-model/src/analysis.rs`. The matrix goes through
+// the native endpoint `POST /api/matrix/compute`: the screens keep a one-axis
+// setting per side, converted here (`toNativeConfig`, `fromNativeConfig`).
 
 import { request } from "./api"
+import type { Case, CodeNode, Passage } from "./types"
 
 const enc = encodeURIComponent
 
@@ -46,11 +48,17 @@ export interface ThemeSummary {
   codes_count: number
   /** Distinct interviews carrying at least one passage of the supporting codes. */
   interviews_count: number
+  /** Distinct passages of the supporting codes (descendants included). */
+  passages_count?: number
   research_questions: string[]
+  checks_done?: number
+  checks_total?: number
 }
 
 export interface ThemeCheckState {
   check_id: string
+  /** The project's wording of the check. */
+  label?: string
   done: boolean
   note: string
 }
@@ -73,6 +81,8 @@ export interface ThemeSheet extends ThemeSummary {
   supporting_cases: string[]
   divergent_cases: string[]
   checks: ThemeCheckState[]
+  /** What the server finds missing in the sheet, in words. */
+  warnings?: string[]
   updated_at: string
 }
 
@@ -99,6 +109,8 @@ export interface PassageBrief {
   text: string
   /** Exact audio verification state of the unit; null when not asked. */
   verification: VerificationBadge | null
+  /** True when the text of the interview changed since the passage was anchored. */
+  stale?: boolean
 }
 
 export interface ThemePassage extends PassageBrief {
@@ -137,9 +149,13 @@ export interface FrameworkTable {
 
 // ------------------------------------------------------------------- matrix
 
-export type AxisKind = "interviews" | "cases" | "attribute" | "themes" | "focused_codes" | "dimension"
+/**
+ * `focused_codes` lists the codes that have sub-codes, or every code when none has any;
+ * `dimensions` lists the dimensions of the study.
+ */
+export type AxisKind = "interviews" | "cases" | "attribute" | "themes" | "codes" | "focused_codes" | "dimensions"
 
-/** What one side of the matrix lists. `id` is an attribute id or a study dimension id. */
+/** What one side of the matrix lists. `id` is the attribute id of an `attribute` side. */
 export interface AxisSource {
   kind: AxisKind
   id?: string
@@ -174,12 +190,15 @@ export interface MatrixCell {
   summary: string
   n_passages: number
   n_interviews: number
+  /** True when passages were attached to the cell by hand. */
+  manual?: boolean
 }
 
 export interface MatrixResult {
   rows: MatrixAxisEntry[]
   cols: MatrixAxisEntry[]
   cells: MatrixCell[]
+  interviews_in_scope?: string[]
 }
 
 export interface CellPassage extends PassageBrief {
@@ -195,6 +214,7 @@ export interface CellDetail {
   summary: string
   passages: CellPassage[]
   n_interviews: number
+  manual?: boolean
 }
 
 export interface CellEdit {
@@ -228,6 +248,9 @@ export interface LinkCreate {
 
 export interface PartState {
   text: string
+  nature_label?: string | null
+  /** Saved versions of the part; earlier ones are kept. */
+  n_versions?: number
   /** Id of the evidence nature, from the project list; null until chosen. */
   nature: string | null
   updated_at: string | null
@@ -258,6 +281,7 @@ export interface QuestionSynthesis {
   updated_at: string | null
   /** Earlier versions are kept. */
   n_versions: number
+  links?: PassageLink[]
 }
 
 export interface SynthesisEdit {
@@ -291,6 +315,9 @@ export interface AuditChainLink {
 
 export interface AuditClaim {
   claim_key: string
+  /** The whole written part the sentence is drawn from. */
+  text?: string
+  chain_sha256?: string
   /** For example "Mécanisme et preuves". */
   part_title: string
   /** The sentence drawn from the written text. */
@@ -308,7 +335,138 @@ export interface FinalAudit {
   seed: string
   n: number
   created_at: string
+  /** Claims the draw could choose from. */
+  eligible?: number
   claims: AuditClaim[]
+}
+
+// ------------------------------------------------- native matrix (compute)
+
+interface NativeAxis {
+  kind: string
+  ids?: string[]
+  attribute?: string | null
+  status?: string | null
+}
+interface NativeConfig {
+  rows: NativeAxis[]
+  cols: NativeAxis[]
+  filters: { attribute: string; values: string[] }[]
+}
+interface NativeCell {
+  row_key: string
+  col_key: string
+  value: CellValue | null
+  summary: string
+  passages: number
+  interviews: number
+  manual: boolean
+}
+interface NativeMatrix {
+  rows: MatrixAxisEntry[]
+  cols: MatrixAxisEntry[]
+  cells: NativeCell[][]
+  interviews_in_scope: string[]
+}
+interface StoredView {
+  view_id: string
+  name: string
+  native_config: NativeConfig
+}
+
+function toNativeAxis(a: AxisSource): NativeAxis {
+  return a.kind === "attribute" ? { kind: "attribute", attribute: a.id ?? null } : { kind: a.kind, ids: a.id ? [a.id] : [] }
+}
+
+function fromNativeAxis(a: NativeAxis | undefined): AxisSource {
+  if (!a) return { kind: "interviews" }
+  if (a.kind === "attribute") return { kind: "attribute", id: a.attribute ?? undefined }
+  return { kind: a.kind as AxisKind }
+}
+
+/** The one-axis setting of the screens as the native configuration of the server. */
+export function toNativeConfig(c: MatrixConfig): NativeConfig {
+  return {
+    rows: [toNativeAxis(c.rows)],
+    cols: [toNativeAxis(c.cols)],
+    // A filter whose value is not chosen yet keeps everything.
+    filters: c.filter && c.filter.value ? [{ attribute: c.filter.attribute, values: [c.filter.value] }] : [],
+  }
+}
+
+/** The first axis of each side, and the first value of the first filter: what the screens can show. */
+export function fromNativeConfig(n: NativeConfig): MatrixConfig {
+  const f = n.filters[0]
+  return { rows: fromNativeAxis(n.rows[0]), cols: fromNativeAxis(n.cols[0]), filter: f && f.values[0] !== undefined ? { attribute: f.attribute, value: f.values[0] } : null }
+}
+
+function fromStoredView(v: StoredView): MatrixView {
+  return { view_id: v.view_id, name: v.name, config: fromNativeConfig(v.native_config) }
+}
+
+function fromNativeMatrix(m: NativeMatrix): MatrixResult {
+  return {
+    rows: m.rows,
+    cols: m.cols,
+    interviews_in_scope: m.interviews_in_scope,
+    cells: m.cells.flat().map((c) => ({
+      row_key: c.row_key,
+      col_key: c.col_key,
+      value: c.value,
+      summary: c.summary,
+      n_passages: c.passages,
+      n_interviews: c.interviews,
+      manual: c.manual,
+    })),
+  }
+}
+
+// -------------------------------------------------------- decisions, gaps
+
+export const DECISION_OUTCOMES = [
+  { value: "adopt", label: "Adopter" },
+  { value: "defer", label: "Différer" },
+  { value: "reject", label: "Refuser" },
+] as const
+export type DecisionOutcome = (typeof DECISION_OUTCOMES)[number]["value"]
+
+/** A documented decision as `/api/decisions` answers: a case, with the words of the guide beside it. */
+export interface DecisionRecord extends Case {
+  decision_id: string
+  name: string
+  /** `adopt`, `defer` or `reject`; null until chosen. */
+  outcome: DecisionOutcome | null
+  outcome_label: string | null
+  /** Passages that document the decision. */
+  passages: string[]
+  characteristics: Record<string, string>
+}
+
+export const PASSAGE_ORIGINS = [
+  { value: "lived_experience", label: "Expérience vécue" },
+  { value: "project", label: "Projet" },
+  { value: "opinion", label: "Opinion" },
+  { value: "document", label: "Document" },
+] as const
+
+export const PASSAGE_ROLES = [
+  { value: "trigger", label: "Déclencheur" },
+  { value: "retrospective-justification", label: "Justification après coup" },
+  { value: "enabling-condition", label: "Condition facilitatrice" },
+  { value: "constraint", label: "Contrainte" },
+  { value: "undetermined", label: "Indéterminé" },
+] as const
+
+/** Answer of `GET/PUT /api/codes/{id}/memo`: the memo and its append-only history. */
+export interface CodeMemo {
+  code_id: string
+  memo: string
+  history: { memo_id: number; text: string; at: string; by: string }[]
+}
+
+export interface UndoCreate {
+  code_deleted: boolean
+  passage_deleted: boolean
 }
 
 // ---------------------------------------------------------------- the client
@@ -337,12 +495,17 @@ export const analysisApi = {
   frameworkTable: () => request<FrameworkTable>("GET", "/api/writing/framework"),
 
   // ---- matrix
-  matrixViews: () => request<MatrixView[]>("GET", "/api/matrix/views"),
-  saveMatrixView: (name: string, config: MatrixConfig) => request<MatrixView>("POST", "/api/matrix/views", { name, config }),
+  matrixViews: async () => (await request<StoredView[]>("GET", "/api/matrix/views")).map(fromStoredView),
+  saveMatrixView: async (name: string, config: MatrixConfig) =>
+    fromStoredView(await request<StoredView>("POST", "/api/matrix/views", { name, config: toNativeConfig(config) })),
   deleteMatrixView: (viewId: string) => request<{ deleted: string }>("DELETE", `/api/matrix/views/${enc(viewId)}`),
-  matrix: (config: MatrixConfig) => request<MatrixResult>("POST", "/api/matrix", { config }),
-  matrixCell: (rowKey: string, colKey: string) =>
-    request<CellDetail>("GET", `/api/matrix/cell?row=${enc(rowKey)}&col=${enc(colKey)}`),
+  matrix: async (config: MatrixConfig) => fromNativeMatrix(await request<NativeMatrix>("POST", "/api/matrix/compute", toNativeConfig(config))),
+  /** `filter` is the one of the matrix, so that the counts of the cell are those of the grid. */
+  matrixCell: (rowKey: string, colKey: string, filter?: MatrixConfig["filter"]) =>
+    request<CellDetail>(
+      "GET",
+      `/api/matrix/cell?row=${enc(rowKey)}&col=${enc(colKey)}${filter ? `&attribute=${enc(filter.attribute)}&value=${enc(filter.value)}` : ""}`,
+    ),
   setMatrixCell: (edit: CellEdit) => request<CellDetail>("PUT", "/api/matrix/cell", edit),
   /** Passages attached by hand to a cell of a study dimension (no code to compute them from). */
   attachCellPassage: (rowKey: string, colKey: string, passageId: string) =>
@@ -372,6 +535,22 @@ export const analysisApi = {
   drawFinalAudit: (n = 3, seed?: string) => request<FinalAudit>("POST", "/api/final-audit", seed ? { n, seed } : { n }),
   setAuditVerdict: (auditId: number, claimKey: string, verdict: AuditVerdict, note: string) =>
     request<FinalAudit>("POST", `/api/final-audit/${auditId}/verdicts`, { claim_key: claimKey, verdict, note }),
+
+  // ---- documented decisions
+  decisions: () => request<DecisionRecord[]>("GET", "/api/decisions"),
+  decision: (id: string) => request<DecisionRecord>("GET", `/api/decisions/${enc(id)}`),
+  updateDecision: (id: string, body: Partial<DecisionRecord>) => request<DecisionRecord>("PUT", `/api/decisions/${enc(id)}`, body),
+  createDecision: (interviewId: string, name: string, outcome: DecisionOutcome) =>
+    request<DecisionRecord>("POST", `/api/interviews/${enc(interviewId)}/decisions`, { label: name, outcome }),
+
+  // ---- codes and passages (gaps 2, 6, 7, 8)
+  createCode: (body: { name: string; definition: string; includes?: string; excludes?: string; parent_id?: string | null }) =>
+    request<CodeNode>("POST", "/api/codes", body),
+  codeMemo: (id: string) => request<CodeMemo>("GET", `/api/codes/${enc(id)}/memo`),
+  setCodeMemo: (id: string, text: string) => request<CodeMemo>("PUT", `/api/codes/${enc(id)}/memo`, { text }),
+  undoCreateCode: (id: string) => request<UndoCreate>("POST", `/api/codes/${enc(id)}/undo-create`),
+  qualifyPassage: (pid: string, q: { origin?: string | null; role?: string | null }) =>
+    request<Passage>("PUT", `/api/passages/${enc(pid)}/qualification`, q),
 
   // ---- export
   exportWriting: () => request<WritingExport>("POST", "/api/writing/export", { format: "markdown" }),

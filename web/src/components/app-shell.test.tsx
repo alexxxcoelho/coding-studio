@@ -62,7 +62,7 @@ describe("sidebar", () => {
     expect(within(nav()).getByRole("link", { name: /^Bibliothèque/ })).not.toHaveAttribute("aria-current")
   })
 
-  it("keeps old pages under their entry: cross-case under Analyser, answers under Rédiger", () => {
+  it("sends the old cross-case and answers links to Analyser and Rédiger", () => {
     shell("#/cross-case")
     expect(within(nav()).getByRole("link", { name: /^Analyser/ })).toHaveAttribute("aria-current", "page")
     cleanup()

@@ -797,6 +797,10 @@ export interface Passage {
   before: string
   after: string
   codings: PassageCoding[]
+  /** How the passage came to be said (`PASSAGE_ORIGINS`); null until qualified. */
+  origin?: string | null
+  /** Role of the passage in a decision (`PASSAGE_ROLES`); null until qualified. */
+  role?: string | null
 }
 
 export interface PassageCreateAnswer {
@@ -837,6 +841,8 @@ export interface CodeNode {
   version: number
   example: string | null
   reason: string | null
+  /** The memo of the code, apart from the reason of its last change. */
+  memo?: string
   origin_passage_id: string | null
   example_passage_id: string | null
   created_at: string | null

@@ -16,11 +16,9 @@ export function navKeyFor(route: Route): NavKey {
     case "lexique":
       return "lexique"
     case "analyser":
-    case "cross-case":
     case "saturation":
       return "analyser"
     case "rediger":
-    case "answers":
       return "rediger"
     case "settings":
     case "audit":
