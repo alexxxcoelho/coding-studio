@@ -183,8 +183,10 @@ def _review_concept(page: Page):
 
 
 def _harmonise_done(page: Page):
-    page.get_by_role("article").first.get_by_role("button", name="Confirmer le codage").click()
-    page.wait_for_timeout(600)
+    btn = page.get_by_role("button", name="Confirmer le codage")
+    if btn.count():  # a second run on the same data finds the unit already treated
+        btn.first.click()
+        page.wait_for_timeout(600)
     page.get_by_role("button", name="Toutes").click()
     _settle(page)
 

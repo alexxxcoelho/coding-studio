@@ -17,7 +17,7 @@ const item = (n: number, over: Partial<HarmonisationItem> = {}): HarmonisationIt
   code_id: "C-0002",
   code_name: "Coût des lecteurs",
   cause: "merge",
-  detail: "Fusion de « Coût du matériel » dans « Coût des lecteurs ».",
+  detail: "Fusion de codes dans le Codebook.",
   created_at: "2026-10-13T10:00:00Z",
   created_by: "alex",
   status: "open",

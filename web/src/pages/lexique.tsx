@@ -130,7 +130,7 @@ function NearTool() {
                   style={{ gridTemplateColumns: "48px minmax(0, 1fr)", font: "inherit", color: "inherit" }}
                 >
                   <span className="mono">{shortId(p.unit_id)}</span>
-                  <span>{p.text}</span>
+                  <span data-no-i18n>{p.text}</span>
                 </button>
               </li>
             ))}

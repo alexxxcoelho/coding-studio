@@ -111,7 +111,7 @@ function Item({ id, item }: { id: string; item: HarmonisationItem }) {
         <span className="tag">{CAUSE[item.cause]}</span>
         <span className="small l2">{item.code_name}</span>
       </div>
-      {item.detail && <p className="small l2" style={{ margin: 0 }}>{item.detail}</p>}
+      {item.detail && <p className="small l2" style={{ margin: 0 }}>{item.detail.charAt(0).toLocaleUpperCase("fr")}{item.detail.slice(1)}</p>}
       <p className="rv-quote verbatim" style={{ margin: 0 }}>{item.text}</p>
       <div className="r8">
         <span className="hs">Codage actuel</span>

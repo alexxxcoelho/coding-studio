@@ -104,9 +104,9 @@ export function HighlightsPage({ id }: { id: string }) {
                   </div>
                   <div className="txt">
                     <p>
-                      <span className="l3">{p.before}</span>
+                      <span className="l2">{p.before}</span>
                       <span className="hl">{p.text}</span>
-                      <span className="l3">{p.after}</span>
+                      <span className="l2">{p.after}</span>
                     </p>
                     <div className="applied">
                       <NativeSelect

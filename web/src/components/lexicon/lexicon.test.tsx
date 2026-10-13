@@ -192,7 +192,7 @@ describe("passage lexicon", () => {
     const used: string[] = []
     renderWithClient(<PassageLexicon passageId="P1" onUseLabel={(l) => used.push(l)} />)
     expect(await screen.findByText("bouteilles vendues")).toBeInTheDocument()
-    expect(screen.getByText("Racines : rappel, lot")).toBeInTheDocument()
+    expect(screen.getByText("rappel, lot")).toBeInTheDocument()
     fireEvent.click(screen.getByRole("button", { name: "Utiliser « lot, rappel » comme libellé provisoire" }))
     expect(used).toEqual(["lot, rappel"])
   })
@@ -213,7 +213,7 @@ describe("SimilarPassages", () => {
     renderWithClient(<SimilarPassages passageId="P1" />)
     const card = await screen.findByRole("article", { name: "ECO-32 U061" })
     expect(within(card).getByText("0,42")).toBeInTheDocument()
-    expect(within(card).getByText("Mots communs : lot")).toBeInTheDocument()
+    expect(within(card).getByText("lot")).toBeInTheDocument()
     expect(within(card).getByText("Traçabilité")).toBeInTheDocument()
     expect(within(card).getByRole("link", { name: "Ouvrir dans Coder" })).toHaveAttribute("href", "#/interviews/ECO-32/coding?unit=ECO-32-U061")
     await within(card).findByRole("option", { name: "Rappel de lot" })

@@ -107,7 +107,7 @@ export function NewCodeDialog({
           </DialogDescription>
         </DialogHeader>
         {target?.text && (
-          <blockquote className="small l2" style={{ margin: 0, borderLeft: "3px solid var(--sep)", paddingLeft: 10, maxHeight: 80, overflow: "auto" }}>
+          <blockquote className="small l2 verbatim" style={{ margin: 0, borderLeft: "3px solid var(--sep)", paddingLeft: 10, maxHeight: 80, overflow: "auto" }}>
             {target.text}
           </blockquote>
         )}
