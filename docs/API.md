@@ -524,3 +524,66 @@ The worklist holds the live passages that carried the original at the time of th
 | `example load [--library DIR]` | `POST /api/example/load` |
 
 Files go to `--out`, or to the `exports` folder beside the database.
+
+
+## Personnes et groupes
+
+The register of the people interviewed: persons and organisations (records of one table, `kind` = `person` or `organisation`), a tree of groups, links to interviews, and the pseudonymisation list derived from them. Schema version 8. Errors follow the usual mapping: 400 for an invalid value, 404 for an unknown id, 409 for a refused deletion.
+
+**Person record.** `person_id` (`P-0001`, never reused), `kind`, `name`, `aliases` (list; each at least 3 characters), `organisation` (free text), `function`, `email`, `phone`, `notes`, `consent_status` (empty, or `pending`, `given`, `refused`, `withdrawn`), `consent_date` (`YYYY-MM-DD`), `consent_document` (a path, never read by the tool), `anonymise` (default true), `pseudonym` (generated as `Répondant 03` or `Participant 03` from the lexicon language, editable, unique), `group_ids`, `attributes` (values of the person-scoped attributes).
+
+| Route | Does |
+|---|---|
+| `GET /api/persons` | List with `n_interviews`, groups and pseudonym. Filters: `kind`, `group_id` (the group and its descendants), `interview_id`, `anonymise` (true or false), `q` (name, alias or organisation) |
+| `POST /api/persons` | Create from a body with the fields above (`name` required) |
+| `GET /api/persons/{pid}` | The record, its groups (with path) and its interviews with roles |
+| `PUT /api/persons/{pid}` | Partial update; absent fields are unchanged. Renaming keeps the id and the pseudonym |
+| `DELETE /api/persons/{pid}` | 409 while the person is linked to an interview, unless `?with_links=true` |
+| `POST /api/persons/{pid}/interviews` | `{interview_id, role}`; returns the record |
+| `DELETE /api/persons/{pid}/interviews/{iv}` | Remove the link |
+| `GET /api/interviews/{id}/persons` | Persons of one interview with their roles |
+| `PUT /api/interviews/{id}/persons` | Replace the list: `{persons: [{person_id, role}]}` |
+| `POST /api/interviews/{id}/persons` | Add one: `{person_id, role}` |
+| `DELETE /api/interviews/{id}/persons/{pid}` | Remove one |
+| `POST /api/persons/import` | `{csv, dry_run}`, `dry_run` true by default (see below) |
+
+Roles: `respondent` (default), `co_respondent`, `mentioned`, `interviewer`. A person has one role per interview. `respondent` and `co_respondent` count as respondents for the prompt context and the exports.
+
+**Groups.** A tree: a group has `group_id` (`G-0001`), `name`, `parent_id`, `description`. A person may belong to several groups (`group_ids` in the person body). Rules: sibling names are unique ignoring case (400); moving a group under itself or a descendant is refused (400); deleting a group that has children or members is refused (409) unless `?reassign_to=G-xxxx` names another group, which receives the sub-groups and the members (the target may not be the group itself or below it). Renaming and moving are `PUT` with `{name, parent_id, description}`.
+
+| Route | Does |
+|---|---|
+| `GET /api/person-groups` | The tree. Each node: `group`, `n_direct` (members), `n_total` (distinct persons in the subtree, a person in two sub-groups counted once), `children` |
+| `POST /api/person-groups` | `{name, parent_id?, description?}` |
+| `GET /api/person-groups/{gid}` | The group, its node with counts and its members (subtree) |
+| `PUT /api/person-groups/{gid}` | Rename, move, describe |
+| `DELETE /api/person-groups/{gid}` | See the rules above |
+
+**Person attributes.** `PUT /api/project-config` accepts `scope: "person"` on an attribute definition (default `"interview"`, omitted in the stored form). A person attribute has the same kinds and choices as an interview attribute, appears in `attributes` of the person and as `attr:<id>` columns of the CSV files, and never appears in the interview attribute table, the matrix or the code statistics. With `shared_with_model` the value of every respondent of the interview is added to the prompt context under `shared_person_attributes`, by pseudonym when the person is flagged. Removing a person attribute that holds values is a configuration conflict, as for interviews.
+
+**Pseudonymisation list.** `GET /api/pseudonymisation` and the per-interview variant return the effective list, the one used by prompts, provider sends and anonymised exports. Each entry has `source`: `person` (derived from a flagged record: its name and each alias, all mapped to its pseudonym; `person_id` is given and the entry cannot be edited here) or `manual`. A manual entry that repeats a person name or alias is ignored and listed in `shadowed_manual`. The list is enabled when the manual switch is on or any record is flagged (`enabled_manual` gives the switch itself); `n_manual_entries` and `n_person_entries` count each part. `PUT` replaces the manual part only; entries with `source: "person"` are ignored. Validation (400): pseudonyms are unique; a name is not shared between two records; no name appears inside a pseudonym; an unflagged record may not carry a name or alias that a flagged record already replaces. A name that belongs to an unflagged record is never replaced. Replacement is case-insensitive, on word boundaries, longest name first.
+
+**CSV import.** `POST /api/persons/import` with `{csv, dry_run}`. Delimiter comma or semicolon. Headers in English or French: `person_id`, `name`/`nom`, `kind`/`type`, `organisation`, `function`/`fonction`, `email`, `phone`, `notes`, `aliases` (separated by `;` or `|`), `groups`/`groupes` (several separated by `;`, a path with `/` such as `Détaillants/Suisse romande`, groups created when missing), `anonymise`/`anonymiser` (oui, non, true, false, 1, 0), `pseudonym`, `interviews`/`entretiens` (`ECO-16` or `ECO-16:co_respondent`, separated by `;`), `consent_status`, `consent_date`, `consent_document`, and `attr:<id>` for person attributes. A row is matched by `person_id`, else by exact name ignoring case; otherwise it creates. An empty cell leaves the field unchanged; groups and interviews are added, never removed. The report: `ok`, `dry_run`, `applied`, `n_rows`, `n_create`, `n_update`, `n_unchanged`, `n_links`, `groups_to_create`, `rows` (one per row with the id it gets), `problems` (`row`, `message`; row 1 is the header), `csv_sha256`. Nothing is written when any row has a problem, nor on a dry run. An apply is one transaction and one audit event. Applying the same file again changes nothing.
+
+**Files in the packages.** The interview and cross-case packages and the project bundle (`config/persons.csv`, `config/groups.csv`) carry:
+
+- `persons.csv`: `person_id, kind, name, aliases, organisation, function, email, phone, notes, consent_status, consent_date, consent_document, anonymise, pseudonym, groups, interviews`, then one `attr:<id>` column per person attribute. In a package of interviews only the persons linked to those interviews appear. These packages are not anonymised: names, aliases, email, phone and notes are written in full, and the README says so.
+- `groups.csv`: `group_id, name, parent_id, path, description, n_direct, n_total`.
+- In the anonymised export (`POST /api/export/anonymised`) `persons.csv` is replaced by a public version: `person_id, kind, name, anonymise, pseudonym, organisation, function, groups, interviews, consent_status, consent_date`, then the attributes. For a flagged record `name` and `organisation` read `[masquée]` and the pseudonym stands; email, phone, notes, aliases and the consent document are not written. Unflagged records keep their names.
+
+**Verification package.** `POST /api/export/verification` with `{interview_ids: [...], all: bool, out_dir?}` for examiners. Layout under the output folder:
+
+```
+README.md
+manifest.json
+persons.csv            (public version)
+groups.csv
+interviews/<ID>/original/<rel_path>   (the source, byte for byte when unmodified)
+interviews/<ID>/transcript_coded.md   (masked with the effective list)
+```
+
+The mask applies whatever the state of the manual switch. `manifest.json` lists per source `original_sha256` (as recorded at import), `recorded_sha256`, `intact` (the file on disk still has the recorded digest), `delivered` (false for a source that is missing or not copied, with a reason), `delivered_as` (the path in the package), `delivered_sha256`, `replaced` (true when the delivered text differs from the original) and `replacements` (pseudonym and count; never a name). The coded transcript has its own entry with `delivered`, `delivered_as`, `delivered_sha256` and `replaced`. An unmodified source is delivered unchanged, so its delivered digest equals its original digest. A `.docx` or `.pdf` source is listed with its original digest and not copied.
+
+CLI: `coding-studio verification-export <ids|all> --out DIR` calls this route. `all` cannot be combined with ids.
+
+**Audit.** Every write is one event in the same transaction as the write: `person.create`, `person.update`, `person.delete`, `person.link`, `person.unlink`, `persons.import`, `person_group.create`, `person_group.update`, `person_group.delete`, `pseudonymisation.update`. Events hold ids, the names of the fields changed, flags, pseudonyms and digests; never a name, an alias, an email, a phone number or a note.
