@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { GUIDE_SECTIONS, helpTarget, screenForRoute, sectionForAnchor, sectionSource } from "./guide"
+import { guideSections, helpTarget, screenForRoute, sectionForAnchor, sectionSource } from "./guide"
 
 describe("guide map", () => {
   it("resolves a screen to the section and anchor of guide.json", () => {
@@ -29,6 +29,6 @@ describe("guide map", () => {
     expect(screenForRoute({ page: "audit" })).toBe("exporter")
   })
   it("has the markdown source of each section", () => {
-    for (const s of GUIDE_SECTIONS) expect(sectionSource(s.id)).toContain(`{#${s.anchor}}`)
+    for (const s of guideSections()) expect(sectionSource(s.id)).toContain(`{#${s.anchor}}`)
   })
 })

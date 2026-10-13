@@ -1,11 +1,11 @@
-// Markdown of the in-app guide (docs/guide/fr). Headings carry an explicit id
+// Markdown of the in-app guide (docs/guide/fr and en). Headings carry an explicit id
 // as a trailing {#anchor}; links between files (02_coder.md#coder-detail) are
 // rewritten to routes of the app (#/guide/coder-detail). The content is the
 // project's own documentation, not user input.
 
 import { Marked, type Tokens } from "marked"
 
-import { GUIDE_SECTIONS } from "@/lib/guide-index"
+import { guideSections } from "@/lib/guide-index"
 
 export interface GuideHeading {
   level: number
@@ -20,10 +20,10 @@ export function resolveGuideHref(href: string): string {
   if (/^[a-z][a-z0-9+.-]*:/i.test(href)) return href
   if (href.startsWith("#/")) return href
   if (href.startsWith("#")) return `#/guide/${href.slice(1)}`
-  const m = /^(?:\.\/|fr\/)*(\d{2}_[A-Za-z0-9_]+\.md)(?:#(.+))?$/.exec(href)
+  const m = /^(?:\.\/|fr\/|en\/)*(\d{2}_[A-Za-z0-9_]+\.md)(?:#(.+))?$/.exec(href)
   if (!m) return href
   if (m[2]) return `#/guide/${m[2]}`
-  const section = GUIDE_SECTIONS.find((s) => s.file.endsWith(m[1]))
+  const section = (guideSections().find((s) => s.file.endsWith(m[1])) ?? guideSections("fr").find((s) => s.file.endsWith(m[1])))
   return section ? `#/guide/${section.anchor}` : href
 }
 

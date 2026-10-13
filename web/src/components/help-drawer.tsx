@@ -5,11 +5,11 @@ import { GuideArticle } from "@/components/guide-article"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { t } from "@/i18n"
-import { GUIDE_SECTIONS, helpTarget, sectionSource } from "@/lib/guide"
+import { guideSections, helpTarget, sectionSource } from "@/lib/guide"
 
 export function HelpDrawer({ open, onOpenChange, screen }: { open: boolean; onOpenChange: (open: boolean) => void; screen: string }) {
   const target = helpTarget(screen)
-  const section = GUIDE_SECTIONS.find((s) => s.id === target.section)
+  const section = guideSections().find((s) => s.id === target.section)
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="w-[480px] gap-0 p-0 data-[side=right]:sm:max-w-[480px]" data-help-anchor={target.anchor}>
