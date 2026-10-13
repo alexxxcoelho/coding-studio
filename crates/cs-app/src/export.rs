@@ -989,7 +989,7 @@ pub fn write_package(
     let passages = crate::export_v1::all_passages(store, &ids)?;
     w.write(
         "passages.csv",
-        crate::export_v1::passages_csv(&passages).as_bytes(),
+        crate::export_v1::passages_csv(store, &passages)?.as_bytes(),
     )?;
     w.write(
         "highlights.csv",
@@ -1001,6 +1001,10 @@ pub fn write_package(
     )?;
     w.write("memos.json", &crate::export_v1::memos_json(store, &ids)?)?;
     w.write("review.json", &crate::export_v1::review_json(store, &ids)?)?;
+    w.write(
+        "transcript_versions.json",
+        &crate::export_v1::transcript_versions_json(store, &ids)?,
+    )?;
     w.write(
         "study_config.json",
         &crate::export_v1::study_config_json(store)?,
@@ -1135,12 +1139,14 @@ fn readme(id: &str, folder: &str, seg: &cs_model::Segmentation, st: &CodingStatu
         ("cases.csv", "One row per case: identifiers, decision, granularity, carriers, account type, Swiss link, stage, outcome status and number of attributed units; lists joined with `;`."),
         ("case_units.csv", "The units attributed to each case, `case_id,unit_id,interview_id`."),
         ("codebook.csv", "The codebook at export time: TOE attachment, origin, research questions, version, then the code tree: `code_id` (stable), `name` (editable), `parent_id`, `aliases` joined with `;`, `includes`, `excludes`."),
-        ("passages.csv", "Every passage (a selected part of a turn), highlights included: `passage_id,interview_id,unit_id,start,end,text,kind,code_ids,code_names,later,later_note,stale,anchor_digest,created_at,created_by`. Positions count Unicode characters from 0, end excluded. `later` is 1 for the reserved code Plus tard, which is not in `code_ids` and counts in no analysis. `stale` is 1 when the turn text no longer matches `anchor_digest`."),
+        ("passages.csv", "Every passage (a selected part of a turn), highlights included: `passage_id,interview_id,unit_id,start,end,text,kind,code_ids,code_names,later,later_note,stale,anchor_digest,created_at,created_by,transcript_version`. `transcript_version` is the version of the transcript the offsets were checked against (the current one, or the one a passage waiting for review is still anchored on). Positions count Unicode characters from 0, end excluded. `later` is 1 for the reserved code Plus tard, which is not in `code_ids` and counts in no analysis. `stale` is 1 when the turn text no longer matches `anchor_digest`."),
         ("highlights.csv", "The passages that carry no code yet, `passage_id,interview_id,unit_id,start,end,text,stale,created_at,created_by`."),
         ("attributes.csv", "The interview attribute values, `interview_id,attribute_id,label,kind,value`, one row per attribute that has a value."),
         ("memos.json", "The familiarisation memo of each interview (template and version, the interview's own added, removed and reworded questions, answers with their time) and its end-of-interview checklist (items, checked flags with time, note)."),
         ("review.json", "Review (lot 4): the candidate concepts the model proposed with their decisions (create, map or reject, with reason and time), the digest, the categories and the number of entries of the pseudonymisation list (never the names), the harmonisation worklist (merge, redefinition, new sub-code) and the review state of each interview. Candidate texts are kept as the model saw them, pseudonymised."),
+        ("transcript_versions.json", "Transcript versions (F-24): for each interview, its versions (cause, text digest) and every projection of a passage onto a new version, with the old, proposed and final span, how it was settled (re-anchored, accepted, adjusted, detached, superseded, or still to review) and by whom."),
         ("review.json", "Review (lot 4): the candidate concepts the model proposed with their decisions (create, map or reject, with reason and time), the digest, the categories and the number of entries of the pseudonymisation list (never the names), the harmonisation worklist (merge, redefinition, new sub-code) and the review state of each interview. Candidate texts are kept as the model saw them, pseudonymised."),
+        ("transcript_versions.json", "Transcript versions (F-24): for each interview, its versions (cause, text digest) and every projection of a passage onto a new version, with the old, proposed and final span, how it was settled (re-anchored, accepted, adjusted, detached, superseded, or still to review) and by whom."),
         ("study_config.json", "The study configuration as a project template: study description and settings, research questions, attribute definitions, memo templates, checklist, theme checks, evidence natures, link types, matrix dimensions and interpretive framework. It holds no interview data."),
         ("audit_log.jsonl", "Every recorded action on this interview, one JSON event per line, each chained to the previous one by SHA-256."),
         ("audit_chain.json", "Result of the verification of the whole audit chain at export time."),
@@ -1181,7 +1187,7 @@ fn cross_case_readme(
         ("saturation.csv, saturation.md", "The provisional saturation table: codes first used, field codes created and labels opened and resolved, per interview in order of first coding."),
         ("cases.csv", "One row per case, as in the interview packages."),
         ("codebook.csv", "The codebook with its code tree, as in the interview packages."),
-        ("passages.csv", "Every passage of every interview (a selected part of a turn), highlights included: `passage_id,interview_id,unit_id,start,end,text,kind,code_ids,code_names,later,later_note,stale,anchor_digest,created_at,created_by`. Positions count Unicode characters from 0, end excluded. `later` is 1 for the reserved code Plus tard, which is not in `code_ids` and counts in no analysis. `stale` is 1 when the turn text no longer matches `anchor_digest`."),
+        ("passages.csv", "Every passage of every interview (a selected part of a turn), highlights included: `passage_id,interview_id,unit_id,start,end,text,kind,code_ids,code_names,later,later_note,stale,anchor_digest,created_at,created_by,transcript_version`. `transcript_version` is the version of the transcript the offsets were checked against (the current one, or the one a passage waiting for review is still anchored on). Positions count Unicode characters from 0, end excluded. `later` is 1 for the reserved code Plus tard, which is not in `code_ids` and counts in no analysis. `stale` is 1 when the turn text no longer matches `anchor_digest`."),
         ("highlights.csv", "The passages that carry no code yet, `passage_id,interview_id,unit_id,start,end,text,stale,created_at,created_by`."),
         ("attributes.csv", "The interview attribute values of every interview, `interview_id,attribute_id,label,kind,value`, one row per attribute that has a value."),
         ("memos.json", "The familiarisation memo of every interview (template and version, the interview's own added, removed and reworded questions, answers with their time) and its end-of-interview checklist (items, checked flags with time, note)."),
@@ -1241,7 +1247,7 @@ pub fn write_cross_case(
     let passages = crate::export_v1::all_passages(store, &interview_ids)?;
     w.write(
         "passages.csv",
-        crate::export_v1::passages_csv(&passages).as_bytes(),
+        crate::export_v1::passages_csv(store, &passages)?.as_bytes(),
     )?;
     w.write(
         "highlights.csv",
@@ -1258,6 +1264,10 @@ pub fn write_cross_case(
     w.write(
         "review.json",
         &crate::export_v1::review_json(store, &interview_ids)?,
+    )?;
+    w.write(
+        "transcript_versions.json",
+        &crate::export_v1::transcript_versions_json(store, &interview_ids)?,
     )?;
     w.write(
         "study_config.json",
