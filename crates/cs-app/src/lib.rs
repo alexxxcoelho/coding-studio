@@ -6,6 +6,7 @@
 mod error;
 mod export;
 mod providers;
+mod v1;
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
@@ -225,6 +226,7 @@ pub fn router(state: AppState) -> Router {
             &format!("{I}/batches/{{batch_id}}/run"),
             post(providers::run_batch),
         )
+        .merge(v1::routes())
         .fallback(static_file)
         .with_state(state)
 }
