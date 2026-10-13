@@ -213,7 +213,11 @@ export function CooccurrenceTab() {
           </table>
         </div>
       )}
-      {data?.note && <p className="small l2" style={{ margin: 0 }}>{data.note}</p>}
+      {data && (
+        <p className="small l2" style={{ margin: 0 }}>
+          {t("analysis.cooccurrence.la_co_occurrence_decrit_comment")}
+        </p>
+      )}
 
       {drill && (
         <section className="grp" style={{ padding: 12, display: "flex", flexDirection: "column", gap: 8 }} aria-label={t("analysis.cooccurrence.passages_de_la_cellule")}>

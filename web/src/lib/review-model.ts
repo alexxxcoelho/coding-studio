@@ -269,7 +269,7 @@ export function candidateProblem(action: CandidateAction, rationale: string): Ca
 }
 
 export const CANDIDATE_PROBLEM_TEXT: Record<Exclude<CandidateProblem, null>, string> = {
-  name: "Donnez un nom au nouveau code.",
+  get name() { return t("review_model.donnez_un_nom_au_nouveau_code") },
   get code() { return t("review_model.choisissez_le_code_auquel_rattacher") },
   get rationale() { return t("review_model.une_justification_est_obligatoire_el") },
 }

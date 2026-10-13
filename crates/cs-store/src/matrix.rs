@@ -587,7 +587,7 @@ impl Store {
         let cfg = self.project_config()?;
         let idx = Index::load(self)?;
         let mut attributes = Vec::new();
-        for a in &cfg.attributes {
+        for a in cfg.interview_attributes() {
             attributes.push(MatrixAttributeOption {
                 id: a.id.clone(),
                 label: a.label.clone(),

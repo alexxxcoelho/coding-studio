@@ -45,7 +45,7 @@ const LOT5_TABLES: [&str; 14] = [
 #[test]
 fn the_version_is_seven_and_every_lot_5_table_exists() {
     let (s, _d) = ready();
-    assert_eq!(SCHEMA_VERSION, 7);
+    assert_eq!(SCHEMA_VERSION, 8);
     let t = tables(&s);
     for name in LOT5_TABLES {
         assert!(t.contains(&name.to_string()), "missing {name}");
@@ -99,7 +99,7 @@ fn a_version_4_database_is_migrated_and_keeps_its_data() {
         .connection()
         .query_row("PRAGMA user_version", [], |r| r.get(0))
         .unwrap();
-    assert_eq!(v, 7);
+    assert_eq!(v, SCHEMA_VERSION);
     for name in LOT5_TABLES {
         assert!(tables(&s).contains(&name.to_string()), "missing {name}");
     }
@@ -125,7 +125,7 @@ fn a_version_5_database_is_migrated_too_and_reopening_changes_nothing() {
         .connection()
         .query_row("PRAGMA user_version", [], |r| r.get(0))
         .unwrap();
-    assert_eq!(v, 7);
+    assert_eq!(v, SCHEMA_VERSION);
 }
 
 #[test]

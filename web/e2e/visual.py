@@ -196,6 +196,122 @@ def _pseudonymisation_section(page: Page):
     page.wait_for_timeout(300)
 
 
+# ---- V2 screens
+
+def _search_run(page: Page):
+    page.get_by_label("Texte à chercher").fill("étiquettes")
+    page.get_by_role("button", name="Chercher").click()
+    page.locator("article[data-unit]").first.wait_for()
+    _settle(page)
+
+
+def _search_filtered(page: Page):
+    _search_run(page)
+    page.get_by_role("radio", name="Non codés").click()
+    page.wait_for_timeout(700)
+    page.locator("article[data-unit]").first.get_by_role("button", name="Coder la sélection…").click()
+    page.get_by_label("Code à poser sur la sélection").wait_for()
+    page.wait_for_timeout(300)
+
+
+def _cooc(page: Page):
+    page.get_by_role("tab", name="Co-occurrence").click()
+    page.get_by_role("table", name="Co-occurrences : nombre de tours où deux codes se retrouvent").wait_for()
+    _settle(page)
+
+
+def _cooc_drill(page: Page):
+    _cooc(page)
+    page.get_by_label("Relation").select_option("same_unit")
+    page.wait_for_timeout(500)
+    page.locator("button.heat-cell").first.click()
+    page.get_by_role("region", name="Passages de la cellule").locator("a").first.wait_for()
+    page.wait_for_timeout(300)
+
+
+def _versions(page: Page):
+    page.wait_for_selector("[data-unit]")
+    page.get_by_role("button", name="Versions").click()
+    page.get_by_role("dialog").get_by_text("Correction d'un tour").first.wait_for()
+    page.wait_for_timeout(300)
+
+
+def _correct_text(page: Page):
+    page.wait_for_selector("[data-unit]")
+    page.locator('[data-unit="INT-02-U008"]').click()
+    page.get_by_role("tab", name="Codes").click()
+    page.get_by_role("button", name="Corriger le texte de cette unité…").click()
+    page.get_by_role("dialog").wait_for()
+    page.wait_for_timeout(300)
+
+
+def _audio(page: Page):
+    page.wait_for_selector("[data-unit]")
+    page.locator('[data-unit="INT-02-U002"] button.ts').click()
+    page.wait_for_function("() => document.querySelector('.u.hear') !== null", timeout=8000)
+    page.wait_for_timeout(300)
+
+
+def _audio_offset(page: Page):
+    page.wait_for_selector("[data-unit]")
+    page.get_by_role("button", name="Décalage", exact=True).click()
+    page.get_by_label("Décalage en secondes").wait_for()
+    page.wait_for_timeout(300)
+
+
+def _origins_roles(page: Page):
+    page.get_by_role("button", name="Modifier : Origines du propos").scroll_into_view_if_needed()
+    page.get_by_role("button", name="Modifier : Origines du propos").click()
+    page.get_by_role("dialog").wait_for()
+    page.wait_for_timeout(300)
+
+
+def _code_row(name: str):
+    def act(page: Page):
+        page.get_by_role("row").filter(has_text=name).first.click()
+        page.wait_for_timeout(300)
+    return act
+
+
+def _code_part(name: str, part: str):
+    def act(page: Page):
+        _code_row(name)(page)
+        page.get_by_role("tab", name=part).click()
+        _settle(page)
+    return act
+
+
+def _split_dialog(page: Page):
+    _code_row("Exactitude des stocks")(page)
+    page.get_by_role("button", name="Scinder…").click()
+    dialog = page.get_by_role("dialog")
+    dialog.get_by_label("Nom de la partie 1").fill("Écart chiffré")
+    dialog.get_by_label("Nom de la partie 2").fill("Fiabilité ressentie")
+    page.wait_for_timeout(300)
+
+
+def _journal(page: Page):
+    page.get_by_role("button", name="Journal").first.click()
+    page.get_by_role("dialog").get_by_text("scindé en").first.wait_for()
+    page.wait_for_timeout(300)
+
+
+def _worklist(page: Page):
+    _journal(page)
+    page.get_by_role("button", name="Liste de réaffectation").first.click()
+    page.get_by_role("heading", name=re.compile("Réaffecter les passages")).wait_for()
+    page.wait_for_timeout(400)
+
+
+def _undo_dialog(page: Page):
+    _journal(page)
+    page.get_by_role("button", name=re.compile("Annuler cette scission")).first.click()
+    page.get_by_label("Motif de l'annulation, obligatoire").wait_for()
+    page.wait_for_timeout(300)
+
+
+
+
 ROUTES: list[dict] = [
     {"name": "library", "hash": "/interviews"},
     {"name": "library-fiche", "hash": "/interviews", "act": _first_row},
@@ -238,6 +354,22 @@ ROUTES: list[dict] = [
     {"name": "dialog-reglages-general", "hash": "/interviews", "act": _open_settings_tab("Général")},
     {"name": "dialog-reglages-providers", "hash": "/interviews", "act": _open_settings_tab("Fournisseurs IA")},
     {"name": "dialog-reglages-advanced", "hash": "/interviews", "act": _open_settings_tab("Avancé")},
+    {"name": "recherche", "hash": "/recherche"},
+    {"name": "recherche-resultats", "hash": "/recherche", "act": _search_run},
+    {"name": "recherche-coder", "hash": "/recherche", "act": _search_filtered},
+    {"name": "analyser-cooccurrence", "hash": "/analyser", "act": _cooc},
+    {"name": "analyser-cooccurrence-passages", "hash": "/analyser", "act": _cooc_drill},
+    {"name": "coder-versions", "hash": "/interviews/INT-02/coding", "act": _versions},
+    {"name": "coder-corriger-texte", "hash": "/interviews/INT-02/coding", "act": _correct_text},
+    {"name": "coder-audio", "hash": "/interviews/INT-02/coding", "act": _audio},
+    {"name": "coder-audio-decalage", "hash": "/interviews/INT-02/coding", "act": _audio_offset},
+    {"name": "codebook-chiffres", "hash": "/codebook", "act": _code_part("Exactitude des stocks", "Chiffres")},
+    {"name": "codebook-journal-code", "hash": "/codebook", "act": _code_part("Crainte de lecture à distance", "Journal")},
+    {"name": "codebook-scinder", "hash": "/codebook", "act": _split_dialog},
+    {"name": "codebook-journal", "hash": "/codebook", "act": _journal},
+    {"name": "codebook-liste", "hash": "/codebook", "act": _worklist},
+    {"name": "codebook-annuler", "hash": "/codebook", "act": _undo_dialog},
+    {"name": "settings-origines", "hash": "/settings", "act": _origins_roles},
     {"name": "help-drawer", "hash": f"/interviews/{INTERVIEW}/coding?phase=2", "act": _open_help},
 ]
 

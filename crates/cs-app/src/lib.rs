@@ -10,9 +10,12 @@ mod error;
 pub mod example;
 mod export;
 mod export_analysis;
+mod export_persons;
 mod export_v1;
 pub mod export_v2;
+mod export_verification;
 mod lexicon;
+mod persons;
 mod providers;
 mod qdpx;
 mod v1;
@@ -246,6 +249,7 @@ pub fn router(state: AppState) -> Router {
         .merge(v1_project::routes())
         .merge(lexicon::routes())
         .merge(v1_review::routes())
+        .merge(persons::routes())
         .merge(qdpx::routes())
         .merge(v1_analysis::routes())
         .merge(v2::routes())

@@ -3,7 +3,7 @@
 // has an audio file.
 
 import { useState } from "react"
-import { Pause, Play } from "lucide-react"
+import { Pause, Play, SlidersHorizontal } from "lucide-react"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
@@ -37,7 +37,7 @@ export function AudioCapsule() {
       </button>
       <span className="ci mono" aria-label={t("coder.audio_capsule.position")} style={{ cursor: "default" }}>
         {clock(audio.time)}
-        {audio.duration !== null && ` / ${clock(audio.duration)}`}
+        {audio.duration !== null && <span className="hide-narrow">{` / ${clock(audio.duration)}`}</span>}
       </span>
       <button type="button" className="ci" onClick={audio.cycleRate} aria-label={t("coder.audio_capsule.vitesse_rate_x_changer", { rate: audio.rate })} title={t("coder.audio_capsule.changer_la_vitesse")}>
         {audio.rate}x
@@ -50,8 +50,8 @@ export function AudioCapsule() {
         }}
       >
         <PopoverTrigger asChild>
-          <button type="button" className="ci" title={t("coder.audio_capsule.decalage_entre_l_audio_et")}>
-            {t("coder.audio_capsule.decalage")}
+          <button type="button" className="ci" aria-label={t("coder.audio_capsule.decalage")} title={t("coder.audio_capsule.decalage_entre_l_audio_et")}>
+            <SlidersHorizontal size={13} aria-hidden="true" />
           </button>
         </PopoverTrigger>
         <PopoverContent align="end" className="w-72" aria-label={t("coder.audio_capsule.decalage_de_l_audio")}>

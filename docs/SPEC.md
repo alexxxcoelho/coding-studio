@@ -444,7 +444,8 @@ V2 turns the thesis tool into a publishable one.
 9. Remaining: generic case fields (F-87).
 10. Remaining: accessibility audit and fixes (F-120), the three-panel layout with context menus (F-121).
 11. Remaining: several users with roles and a synchronisation strategy (F-122, F-123), reviewer role and a second human coder with intercoder comparison (F-74, F-124).
-12. Optional, evaluated after the release and only with human validation: suggestions of existing codes for a passage, suggestions of close codes to merge, consistency checks of a code definition across its passages. These follow the external document's AI section and the rules of section 9.
+12. Done on the server (schema 8): the register of persons and organisations with groups, links to interviews, pseudonymisation derived from flagged records (feeds F-102), `persons.csv` and `groups.csv` in the packages, a verification package for examiners and its command (`verification-export`, a step of F-109). Documented in `docs/API.md` ("Personnes et groupes") and `docs/CONTRACTS.md` section 18. Remaining: the screens for the register.
+13. Optional, evaluated after the release and only with human validation: suggestions of existing codes for a passage, suggestions of close codes to merge, consistency checks of a code definition across its passages. These follow the external document's AI section and the rules of section 9.
 
 ## 9. Out of scope and deliberate refusals
 

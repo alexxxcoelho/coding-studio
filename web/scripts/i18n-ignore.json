@@ -29,7 +29,8 @@
   "O, organisational",
   "E, environmental",
   "Z.ai",
-  "hosted ({vendor}, {endpoint})"
+  "hosted ({vendor}, {endpoint})",
+  "@guide/{fr,en}/*.md"
  ],
  "include": [
   "aucun",

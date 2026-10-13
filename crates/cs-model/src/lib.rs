@@ -12,6 +12,7 @@ use sha2::{Digest, Sha256};
 pub mod analysis;
 pub mod config;
 pub mod passage;
+pub mod person;
 pub mod phase;
 pub mod project;
 pub mod pseudonym;

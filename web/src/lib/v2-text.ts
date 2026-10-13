@@ -149,11 +149,11 @@ export function parseOffset(text: string): number | null {
 
 // -------------------------------------------------------- co-occurrence
 
-/** Alpha of the accent for a value, in five steps from 0.10 to 0.62 so that the printed number keeps its contrast. */
+/** Alpha of the accent for a value, in five steps from 0.08 to 0.50 so that the printed number keeps its contrast. */
 export function heatAlpha(value: number, max: number): number {
   if (value <= 0 || max <= 0) return 0
   const step = Math.min(5, Math.max(1, Math.ceil((value / max) * 5)))
-  return [0, 0.1, 0.22, 0.34, 0.48, 0.62][step]
+  return [0, 0.08, 0.18, 0.28, 0.38, 0.5][step]
 }
 
 /** The cell of a group for two codes, whatever the order they were asked in. */

@@ -140,7 +140,23 @@ pub enum AttributeKind {
     Date,
 }
 
-/// Definition of an interview attribute (sector, role, size...).
+/// What an attribute describes: an interview (the default) or a person of the
+/// register.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AttributeScope {
+    #[default]
+    Interview,
+    Person,
+}
+
+impl AttributeScope {
+    fn is_interview(&self) -> bool {
+        *self == AttributeScope::Interview
+    }
+}
+
+/// Definition of an interview or person attribute (sector, role, size...).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AttributeDef {
     pub id: String,
@@ -152,6 +168,9 @@ pub struct AttributeDef {
     /// Whether the value may go to the model (prompt placeholder).
     #[serde(default)]
     pub shared_with_model: bool,
+    /// `interview` (default, not written in a template) or `person`.
+    #[serde(default, skip_serializing_if = "AttributeScope::is_interview")]
+    pub scope: AttributeScope,
 }
 
 impl AttributeDef {
@@ -217,6 +236,7 @@ impl CaseFieldDef {
             kind: self.kind,
             choices: self.choices.clone(),
             shared_with_model: false,
+            scope: AttributeScope::Interview,
         }
         .check_value(raw)
         .map_err(|e| match e {
@@ -684,8 +704,32 @@ impl ProjectConfig {
         self.case_fields.iter().find(|f| f.id == id)
     }
 
+    /// An attribute of the interviews (not one of the persons).
     pub fn attribute(&self, id: &str) -> Option<&AttributeDef> {
-        self.attributes.iter().find(|a| a.id == id)
+        self.attributes
+            .iter()
+            .find(|a| a.id == id && a.scope == AttributeScope::Interview)
+    }
+
+    /// An attribute of the persons of the register.
+    pub fn person_attribute(&self, id: &str) -> Option<&AttributeDef> {
+        self.attributes
+            .iter()
+            .find(|a| a.id == id && a.scope == AttributeScope::Person)
+    }
+
+    /// The attributes of the interviews, in order.
+    pub fn interview_attributes(&self) -> impl Iterator<Item = &AttributeDef> {
+        self.attributes
+            .iter()
+            .filter(|a| a.scope == AttributeScope::Interview)
+    }
+
+    /// The attributes of the persons, in order.
+    pub fn person_attributes(&self) -> impl Iterator<Item = &AttributeDef> {
+        self.attributes
+            .iter()
+            .filter(|a| a.scope == AttributeScope::Person)
     }
 
     pub fn template(&self, id: &str) -> Option<&MemoTemplate> {

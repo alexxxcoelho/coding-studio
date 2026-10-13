@@ -1574,6 +1574,10 @@ mod writeup_doc_v2;
 // V1 lot 4 (Review).
 mod lot4_review;
 
+// Register of persons, organisations and groups.
+mod persons_import_v1;
+mod persons_v1;
+
 // V2: versioned transcripts and projection of passages (F-24).
 mod audio_v2;
 mod transcripts_v2;

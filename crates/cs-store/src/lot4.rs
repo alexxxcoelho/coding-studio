@@ -548,12 +548,12 @@ impl Store {
 // --------------------------------------------------------- pseudonymisation
 
 impl Store {
-    /// The project list of names and its switch (empty and off by default).
+    /// The list in force: the names and aliases of the persons and
+    /// organisations flagged to anonymise, then the entries typed by hand
+    /// (see `persons::effective_from`). It is what every prompt, provider
+    /// send and anonymised export uses. Empty and off by default.
     pub fn pseudonym_config(&self) -> Result<PseudonymConfig> {
-        match self.setting(PSEUDONYMISATION_KEY)? {
-            Some(raw) => from_json(&raw),
-            None => Ok(PseudonymConfig::default()),
-        }
+        Ok(self.effective_pseudonyms()?.config)
     }
 
     /// Validates, stores and audits the list. The audit event holds the digest
@@ -564,10 +564,29 @@ impl Store {
         actor: &str,
     ) -> Result<PseudonymConfig> {
         let stored = cfg.normalised()?;
-        let before = self.pseudonym_config()?;
+        let before = self.manual_pseudonym_config()?;
         if stored == before {
             return Ok(stored);
         }
+        // The entries typed by hand must fit with the register: a name that a
+        // record carries is left to the record (a flagged one is edited through
+        // the record, one that is not anonymised is never listed), so the
+        // manual list does not keep it.
+        let persons = self.all_persons()?;
+        let mut stored = stored;
+        stored.entries.retain(|e| {
+            let key = e.original.to_lowercase();
+            !persons.iter().any(|p| {
+                std::iter::once(&p.name)
+                    .chain(p.aliases.iter())
+                    .any(|n| n.to_lowercase() == key)
+            })
+        });
+        if stored == before {
+            return Ok(stored);
+        }
+        self.check_register(&persons, &stored)?;
+        let digest_before = self.pseudonym_config()?.digest();
         let tx = self.conn.unchecked_transaction()?;
         tx.execute(
             "INSERT INTO settings (key, value, updated_at) VALUES (?1, ?2, ?3)
@@ -585,8 +604,8 @@ impl Store {
                 "enabled_after": stored.enabled,
                 "n_entries_before": before.entries.len(),
                 "n_entries_after": stored.entries.len(),
-                "digest_before": before.digest(),
-                "digest_after": stored.digest(),
+                "digest_before": digest_before,
+                "digest_after": crate::persons::effective_from(&persons, &stored).config.digest(),
                 "categories": stored.categories(),
             }),
         )?;

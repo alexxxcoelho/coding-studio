@@ -32,6 +32,11 @@ def unit_id(n):
     return f"{IV}-U{n:03d}"
 
 
+# French study: the interviewer labels of the default configuration include an English one.
+_cfg = call("GET", "/api/config")
+_cfg["interviewers"] = [n for n in _cfg["interviewers"] if n != "Interviewer"]
+call("PUT", "/api/config", _cfg)
+
 call("POST", "/api/library/scan", {})
 seg = call("POST", f"/api/interviews/{IV}/segment", {})
 units = {u["unit_id"]: u for u in seg["units"]}
@@ -281,4 +286,26 @@ call("PUT", "/api/pseudonymisation", {
         {"kind": "organisation", "original": "Lectis", "pseudonym": "Fournisseur A"},
     ],
 })
+
+# ---- V2: a split left half decided (journal, worklist, stats), on a code no theme uses.
+sp = call("POST", f"/api/codes/{cid['PRIVACY_CONCERN']}/split", {
+    "parts": [
+        {"name": "Crainte de fuite de données", "definition": "Des données de prêt ou de lecture qui sortiraient de l'établissement."},
+        {"name": "Crainte de suivi des personnes", "definition": "Des usagers qui seraient reconnus ou suivis par leur carte ou leurs documents."},
+    ],
+    "rationale": "Deux craintes distinctes dans un seul code",
+})
+wl = call("GET", f"/api/splits/{sp['op_id']}/worklist")
+call("PUT", f"/api/splits/{sp['op_id']}/worklist", {"decisions": [{"passage_id": wl["items"][0]["passage"]["passage_id"], "action": "assign", "targets": [sp["new_codes"][0]["code_id"]]}]})
+print(f"split {sp['op_id']}: {wl['total']} passages, 1 decided")
+
+# ---- V2: a corrected turn whose coded sub-span moves, left in the review list; INT-02 carries a
+# tiny generated recording (examples/library/INT-02_Exemple_Mediatheque/audio.wav), so its audio map is not empty.
+t24 = next(x["unit"]["text"] for x in call("GET", f"/api/interviews/{IV2}/phases/2/units") if x["unit"]["unit_id"] == f"{IV2}-U024")
+a, b = t24.index("peu de personnel"), t24.index("modeste") + len("modeste")
+call("POST", f"/api/interviews/{IV2}/passages", {"unit_id": f"{IV2}-U024", "start": a, "end": b, "code": "READER_COST"})
+call("POST", f"/api/interviews/{IV2}/units/{IV2}-U024/corrections", {
+    "text": t24.replace("peu de personnel", "très peu de personnel disponible"), "role": "respondent", "reason": "Relecture de l'audio"})
+rv = call("GET", "/api/transcript/review")
+print(f"transcript review: {rv['open']} passage(s) to review")
 print("seed done")

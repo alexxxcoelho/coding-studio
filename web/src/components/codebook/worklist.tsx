@@ -104,6 +104,15 @@ function WorklistBody({ opId, onClose }: { opId: number; onClose: () => void }) 
     if (focus > visible.length - 1) setFocus(Math.max(0, visible.length - 1))
   }, [visible.length, focus])
 
+  // The keys act on the focused row: start on the first one so that 1, 2 and L work at once.
+  const focused = useRef(false)
+  useEffect(() => {
+    if (!focused.current && visible.length > 0 && refs.current[0]) {
+      focused.current = true
+      refs.current[0].focus()
+    }
+  }, [visible.length])
+
   if (q.isLoading || !wl) {
     return (
       <>

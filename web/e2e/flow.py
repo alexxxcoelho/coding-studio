@@ -424,6 +424,158 @@ def main() -> int:
 
         step("paramètres: éditer la liste de pseudonymisation et l'interrupteur", settings_pseudonymisation)
 
+        # ---- V2: split a code, decide on the keyboard, undo from the journal.
+        def v2_split_and_undo():
+            page.goto(f"{base}/#/codebook", wait_until="load")
+            page.get_by_role("row").filter(has_text="Exactitude des stocks").first.click()
+            page.get_by_role("button", name="Scinder…").click()
+            dialog = page.get_by_role("dialog")
+            dialog.get_by_label("Nom de la partie 1").fill("Écart de stock chiffré")
+            dialog.get_by_label("Définition de la partie 1").fill("Le chiffre d'écart entre stock théorique et compté.")
+            dialog.get_by_label("Nom de la partie 2").fill("Fiabilité ressentie du stock")
+            dialog.get_by_label("Définition de la partie 2").fill("Le sentiment de pouvoir se fier au stock.")
+            dialog.get_by_label("Motif, obligatoire").fill("Deux idées dans un seul code")
+            dialog.get_by_role("button", name="Scinder et réaffecter les passages").click()
+            expect(page.get_by_role("heading", name=re.compile("Réaffecter les passages"))).to_be_visible()
+            ops = api(base, "GET", "/api/code-ops")["operations"]
+            op = ops[-1]
+            assert op["kind"] == "split", op
+            shot(page, "20_codebook_scission_liste")
+            page.keyboard.press("1")
+            page.keyboard.press("ArrowDown")
+            page.keyboard.press("2")
+            page.keyboard.press("ArrowDown")
+            page.keyboard.press("l")
+            page.get_by_role("button", name=re.compile("Enregistrer \\d+ décision")).click()
+            page.wait_for_timeout(800)
+            wl = api(base, "GET", f"/api/splits/{op['op_id']}/worklist")
+            assert wl["assigned"] + wl["left"] >= 2, {k: wl[k] for k in ("total", "pending", "assigned", "left")}
+            page.keyboard.press("Escape")
+            page.get_by_role("button", name="Journal").first.click()
+            journal = page.get_by_role("dialog")
+            expect(journal.get_by_text(re.compile("scindé en")).first).to_be_visible()
+            shot(page, "21_codebook_journal")
+            journal.get_by_role("button", name=re.compile("Annuler cette scission")).first.click()
+            undo = page.get_by_role("dialog").last
+            undo.get_by_label("Motif de l'annulation, obligatoire").fill("Essai du parcours")
+            undo.get_by_role("button", name="Annuler l'opération").click()
+            page.wait_for_timeout(800)
+            ops = api(base, "GET", "/api/code-ops")["operations"]
+            assert ops[-1]["undone"] is not None, ops[-1]
+
+        step("codebook: scinder un code, décider au clavier, annuler depuis le journal", v2_split_and_undo)
+
+        # ---- V2: full-text search, filter on the coded state, code the selection.
+        def v2_search():
+            page.goto(f"{base}/#/recherche", wait_until="load")
+            page.get_by_label("Texte à chercher").fill("étiquettes")
+            page.get_by_role("button", name="Chercher").click()
+            expect(page.get_by_role("status")).to_contain_text("occurrence")
+            expect(page.locator("article[data-unit]").first).to_be_visible()
+            expect(page.locator("article mark").first).to_be_visible()
+            shot(page, "22_recherche")
+            page.get_by_role("radio", name="Non codés").click()
+            page.wait_for_timeout(600)
+            articles = page.locator("article[data-unit]")
+            assert articles.count() > 0, "aucun résultat non codé"
+            first = articles.first
+            uid = first.get_attribute("data-unit")
+            iv = uid.rsplit("-U", 1)[0]
+            before = len(api(base, "GET", f"/api/interviews/{iv}/passages"))
+            first.get_by_role("button", name=re.compile("Coder la sélection")).click()
+            page.get_by_label("Code à poser sur la sélection").fill("Coût des lecteurs")
+            page.get_by_label("Code à poser sur la sélection").press("Enter")
+            page.wait_for_timeout(800)
+            after = len(api(base, "GET", f"/api/interviews/{iv}/passages"))
+            assert after == before + 1, f"passages {before} -> {after}"
+            shot(page, "23_recherche_code")
+
+        step("recherche: chercher, filtrer sur non codé, coder la sélection", v2_search)
+
+        # ---- V2: co-occurrence table and the passages of a cell.
+        def v2_cooccurrence():
+            page.goto(f"{base}/#/analyser", wait_until="load")
+            page.get_by_role("tab", name="Co-occurrence").click()
+            table = page.get_by_role("table", name=re.compile("Co-occurrences"))
+            table.wait_for()
+            page.get_by_label("Relation").select_option("same_unit")
+            page.wait_for_timeout(600)
+            cell = table.locator("button.heat-cell").first
+            expect(cell).to_be_visible()
+            assert cell.inner_text().strip().isdigit()
+            shot(page, "24_cooccurrence")
+            cell.click()
+            region = page.get_by_role("region", name="Passages de la cellule")
+            expect(region.locator("a").first).to_be_visible()
+            shot(page, "25_cooccurrence_passages")
+
+        step("analyser: co-occurrence, passages d'une cellule", v2_cooccurrence)
+
+        # ---- V2: correct a turn, the coded sub-span lands in the review, accept it.
+        def v2_transcript_edit_review():
+            page.goto(f"{base}/#/interviews/INT-02/coding", wait_until="load")
+            page.wait_for_selector("[data-unit]")
+            page.locator('[data-unit="INT-02-U016"]').click()
+            u = next(x["unit"] for x in api(base, "GET", "/api/interviews/INT-02/phases/2/units") if x["unit"]["unit_id"] == "INT-02-U016")
+            ps = [p for p in api(base, "GET", "/api/interviews/INT-02/passages") if p["unit_id"] == "INT-02-U016" and not p["whole_unit"]]
+            assert ps, "pas de passage partiel sur INT-02-U016"
+            page.get_by_role("tab", name="Codes").click()
+            page.get_by_role("button", name=re.compile("Corriger le texte de cette unité")).click()
+            dialog = page.get_by_role("dialog")
+            words = u["text"].split(" ")
+            words[1] = words[1] + " vraiment"
+            dialog.get_by_label("Texte corrigé").fill(" ".join(words))
+            dialog.get_by_label("Motif de la correction").fill("Mot omis à l'écoute")
+            dialog.get_by_role("button", name="Enregistrer la correction").click()
+            page.wait_for_timeout(900)
+            review = api(base, "GET", "/api/transcript/review")
+            assert review["open"] >= 1, review["open"]
+            page.get_by_role("button", name=re.compile("Versions")).click()
+            dialog = page.get_by_role("dialog")
+            expect(dialog.get_by_text("Correction d'un tour").first).to_be_visible()
+            shot(page, "26_versions_revue")
+            before = api(base, "GET", "/api/transcript/review")["open"]
+            dialog.get_by_role("button", name="Accepter").first.click()
+            page.wait_for_timeout(900)
+            after = api(base, "GET", "/api/transcript/review")["open"]
+            assert after == before - 1, f"à revoir {before} -> {after}"
+            page.keyboard.press("Escape")
+
+        step("coder: corriger un tour, revoir les passages déplacés, accepter", v2_transcript_edit_review)
+
+        # ---- V2: audio of INT-02, seek from the time of a turn.
+        def v2_audio():
+            page.goto(f"{base}/#/interviews/INT-02/coding", wait_until="load")
+            page.wait_for_selector("[data-unit]")
+            player = page.get_by_role("group", name="Lecteur audio")
+            expect(player).to_be_visible()
+            page.locator('[data-unit="INT-02-U002"] button.ts').click()
+            page.wait_for_function("() => document.querySelector('.u.hear') !== null", timeout=8000)
+            expect(player.get_by_role("button", name=re.compile("Vitesse"))).to_be_visible()
+            player.get_by_role("button", name=re.compile("Vitesse")).click()
+            expect(player.get_by_role("button", name="Vitesse 1.25x, changer")).to_be_visible()
+            shot(page, "27_audio")
+            page.goto(f"{base}/#/interviews/INT-01/coding", wait_until="load")
+            page.wait_for_selector("[data-unit]")
+            expect(page.get_by_role("group", name="Lecteur audio")).to_have_count(0)
+
+        step("coder: lecteur audio, aller au tour par son horodatage", v2_audio)
+
+        # ---- V2: origins and roles from the study lists.
+        def v2_origins_roles():
+            page.goto(f"{base}/#/settings", wait_until="load")
+            page.get_by_text("Origines du propos").first.scroll_into_view_if_needed()
+            cfg = api(base, "GET", "/api/project-config")
+            assert cfg["passage_origins"] and cfg["passage_roles"], "listes absentes de la config"
+            page.goto(f"{base}/#/interviews/INT-01/coding", wait_until="load")
+            page.wait_for_selector("[data-unit]")
+            page.locator('[data-unit="INT-01-U008"]').click()
+            page.locator('[data-unit="INT-01-U008"] [data-passage]').first.click()
+            labels = page.get_by_label("Origine du propos").locator("option").all_inner_texts()
+            assert [x["label"] for x in cfg["passage_origins"]][0] in labels, labels
+
+        step("coder et paramètres: origines et rôles issus des listes de l'étude", v2_origins_roles)
+
         browser.close()
 
     width = max(len(n) for n, _ in steps)

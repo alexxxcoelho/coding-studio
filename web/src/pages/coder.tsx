@@ -19,6 +19,7 @@ import { SearchIcon } from "@/components/icons"
 import { AudioCapsule } from "@/components/coder/audio-capsule"
 import { t } from "@/i18n"
 import { AudioProvider } from "@/lib/audio-player"
+import { CorrectTextDialog } from "@/components/coder/correct-text"
 import { ReviewDialog } from "@/components/coder/review-dialog"
 import { useReviewCounts } from "@/lib/transcript-review"
 import { ToolbarActions } from "@/components/toolbar"
@@ -98,6 +99,7 @@ export function CoderPage({ id, unit: askedUnit = null }: { id: string; unit?: s
   const actions = useCodingActions(id, undo)
 
   const [reviewOpen, setReviewOpen] = useState(false)
+  const [correctOpen, setCorrectOpen] = useState(false)
   // Number(): keeps React Compiler from tying the count to the Map it comes from once t() receives it.
   const nReview = Number(useReviewCounts().get(id) ?? 0)
   const [filter, setFilter] = useState<CoderFilter>("all")
@@ -506,6 +508,9 @@ export function CoderPage({ id, unit: askedUnit = null }: { id: string; unit?: s
                 }}
               />
               <div className="insp-in" style={{ marginTop: "auto" }}>
+                <Button variant="outline" style={{ width: "100%" }} disabled={!current} onClick={() => setCorrectOpen(true)}>
+                  {t("coder.corriger_le_texte_de_cette")}
+                </Button>
                 <Button variant="outline" style={{ width: "100%" }} onClick={openNewCode} disabled={!current || !isCodable(current)}>
                   {range ? t("common.nouveau_code_depuis_la_selection") : t("coder.nouveau_code_depuis_cette_unite")}
                 </Button>
@@ -562,6 +567,7 @@ export function CoderPage({ id, unit: askedUnit = null }: { id: string; unit?: s
         <span style={{ marginLeft: "auto" }}>{t("coder.sans_selection_le_code_couvre")}</span>
       </div>
 
+      <CorrectTextDialog interviewId={id} unit={current ?? null} open={correctOpen} onClose={() => setCorrectOpen(false)} onReview={() => setReviewOpen(true)} />
       <ReviewDialog interviewId={id} open={reviewOpen} onClose={() => setReviewOpen(false)} />
       <NewCodeDialog interviewId={id} target={newCode} codes={codes} undo={undo} onClose={() => setNewCode(null)} />
     </AudioProvider>

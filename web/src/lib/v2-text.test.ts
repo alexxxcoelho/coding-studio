@@ -74,11 +74,11 @@ describe("audio clock", () => {
 })
 
 describe("co-occurrence colours", () => {
-  it("steps the accent from a tenth to a little over a half", () => {
+  it("steps the accent from 8 to 50 percent", () => {
     expect(heatAlpha(0, 10)).toBe(0)
-    expect(heatAlpha(1, 10)).toBe(0.1)
-    expect(heatAlpha(10, 10)).toBe(0.62)
-    expect(heatAlpha(5, 10)).toBe(0.34)
+    expect(heatAlpha(1, 10)).toBe(0.08)
+    expect(heatAlpha(10, 10)).toBe(0.5)
+    expect(heatAlpha(5, 10)).toBe(0.28)
   })
   it("finds a cell in either order and the largest count", () => {
     const g: CoGroup = { key: "all", label: "all", interviews: 2, diagonal: [], cells: [{ a: "A", b: "B", units: 3, interviews: 1, passage_pairs: 3, jaccard: 0.5 }] }
