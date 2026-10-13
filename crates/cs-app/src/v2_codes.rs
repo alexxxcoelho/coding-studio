@@ -4,10 +4,13 @@
 //! `docs/API.md`, "V2 codes and search".
 
 use axum::extract::{Path as UrlPath, Query, State};
-use axum::routing::get;
+use axum::routing::{get, post};
 use axum::{Json, Router};
 use cs_model::CsError;
-use cs_store::{CoRequest, CodeSearchOptions, Relation, SearchMode, SearchRequest};
+use cs_store::{
+    CoRequest, CodeSearchOptions, Relation, SearchMode, SearchRequest, SplitDecision, SplitPart,
+    SplitRequest,
+};
 use serde::Deserialize;
 use serde_json::json;
 
@@ -20,6 +23,92 @@ pub(crate) fn routes() -> Router<AppState> {
         .route("/api/codes/cooccurrence", get(cooccurrence))
         .route("/api/codes/cooccurrence/passages", get(cooccurrence_passages))
         .route("/api/codes/{id}/stats", get(code_stats))
+        .route("/api/codes/{id}/split", post(split_code))
+        .route(
+            "/api/splits/{op_id}/worklist",
+            get(split_worklist).put(split_decide),
+        )
+        .route("/api/code-ops", get(code_ops))
+        .route("/api/code-ops/{op_id}/undo", post(undo_op))
+}
+
+#[derive(Deserialize)]
+struct SplitBody {
+    parts: Vec<SplitPart>,
+    #[serde(default)]
+    rationale: String,
+}
+
+/// Splits a code into two or more new ones; answers with the worklist.
+async fn split_code(
+    State(st): State<AppState>,
+    UrlPath(id): UrlPath<String>,
+    Json(body): Json<SplitBody>,
+) -> ApiResult {
+    let out = st.store().split_code(
+        &id,
+        &SplitRequest {
+            parts: body.parts,
+            rationale: body.rationale,
+        },
+        &st.actor,
+    )?;
+    Ok(Json(json!(out)))
+}
+
+#[derive(Deserialize, Default)]
+struct WorklistQuery {
+    #[serde(default)]
+    status: Option<String>,
+}
+
+async fn split_worklist(
+    State(st): State<AppState>,
+    UrlPath(op_id): UrlPath<i64>,
+    Query(q): Query<WorklistQuery>,
+) -> ApiResult {
+    Ok(Json(json!(st.store().split_worklist(op_id, q.status.as_deref())?)))
+}
+
+#[derive(Deserialize)]
+struct DecideBody {
+    decisions: Vec<SplitDecision>,
+}
+
+/// Decisions on passages of a split, all or nothing; a passage may be
+/// decided again.
+async fn split_decide(
+    State(st): State<AppState>,
+    UrlPath(op_id): UrlPath<i64>,
+    Json(body): Json<DecideBody>,
+) -> ApiResult {
+    Ok(Json(json!(st.store().split_decide(op_id, &body.decisions, &st.actor)?)))
+}
+
+#[derive(Deserialize, Default)]
+struct OpsQuery {
+    #[serde(default)]
+    code: Option<String>,
+}
+
+async fn code_ops(State(st): State<AppState>, Query(q): Query<OpsQuery>) -> ApiResult {
+    Ok(Json(json!({"operations": st.store().code_ops(q.code.as_deref())?})))
+}
+
+#[derive(Deserialize, Default)]
+struct UndoBody {
+    #[serde(default)]
+    rationale: String,
+}
+
+async fn undo_op(
+    State(st): State<AppState>,
+    UrlPath(op_id): UrlPath<i64>,
+    Json(body): Json<UndoBody>,
+) -> ApiResult {
+    let store = st.store();
+    let report = store.undo_code_op(op_id, &body.rationale, &st.actor)?;
+    Ok(Json(json!({"report": report, "codebook": store.codebook()?})))
 }
 
 fn invalid(msg: impl Into<String>) -> anyhow::Error {

@@ -138,10 +138,3 @@ pub(super) fn make_case(s: &Store, owner: &str, label: &str, units: &[&str]) -> 
     }
     s.create_case(owner, &c, ACTOR).unwrap().case_id
 }
-
-pub(super) fn validation_message(err: &anyhow::Error) -> String {
-    match err.downcast_ref::<CsError>() {
-        Some(CsError::Validation(m)) | Some(CsError::Guard(m)) => m.clone(),
-        other => panic!("expected a validation or guard error, got {other:?}"),
-    }
-}

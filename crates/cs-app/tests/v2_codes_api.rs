@@ -223,6 +223,81 @@ async fn f56_cooccurrence_matrix_and_drill_down() {
 }
 
 #[tokio::test]
+async fn f39_split_worklist_decisions_journal_and_undo() {
+    let ctx = setup().await;
+    let adv = code_id(&ctx.app, "TECH-ADV").await;
+    let p1 = passage(&ctx, "INT-01", 1, &adv).await;
+    let p2 = passage(&ctx, "INT-01", 2, &adv).await;
+    let split = ok(
+        &ctx.app,
+        "POST",
+        &format!("/api/codes/{adv}/split"),
+        Some(json!({
+            "rationale": "two ideas",
+            "parts": [
+                {"name": "Avantage coût", "definition": "Coût."},
+                {"name": "Avantage temps", "definition": "Temps."}
+            ]
+        })),
+    )
+    .await;
+    let op = split["op_id"].as_i64().unwrap();
+    assert_eq!(split["worklist"]["pending"], 2);
+    let new_ids: Vec<String> = split["new_codes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|c| c["code_id"].as_str().unwrap().to_string())
+        .collect();
+
+    let wl = ok(&ctx.app, "GET", &format!("/api/splits/{op}/worklist?status=pending"), None).await;
+    assert_eq!(wl["items"].as_array().unwrap().len(), 2);
+    let (s, _) = call(&ctx.app, "GET", &format!("/api/splits/{op}/worklist?status=bogus"), None).await;
+    assert_eq!(s, StatusCode::BAD_REQUEST);
+
+    let wl = ok(
+        &ctx.app,
+        "PUT",
+        &format!("/api/splits/{op}/worklist"),
+        Some(json!({"decisions": [
+            {"passage_id": p1, "action": "assign", "targets": [new_ids[0]]},
+            {"passage_id": p2, "action": "leave", "note": "ambigu"}
+        ]})),
+    )
+    .await;
+    assert_eq!((wl["assigned"].as_i64(), wl["left"].as_i64(), wl["pending"].as_i64()), (Some(1), Some(1), Some(0)));
+
+    let ops = ok(&ctx.app, "GET", &format!("/api/code-ops?code={adv}"), None).await;
+    assert_eq!(ops["operations"][0]["kind"], "split");
+    assert!(ops["operations"][0]["undone"].is_null());
+
+    let (s, _) = call(&ctx.app, "POST", &format!("/api/code-ops/{op}/undo"), Some(json!({"rationale": ""}))).await;
+    assert_eq!(s, StatusCode::BAD_REQUEST);
+    let undo = ok(&ctx.app, "POST", &format!("/api/code-ops/{op}/undo"), Some(json!({"rationale": "erreur"}))).await;
+    assert_eq!(undo["report"]["kind"], "split");
+    let (s, _) = call(&ctx.app, "POST", &format!("/api/code-ops/{op}/undo"), Some(json!({"rationale": "encore"}))).await;
+    assert_eq!(s, StatusCode::CONFLICT);
+    let ops = ok(&ctx.app, "GET", "/api/code-ops", None).await;
+    assert_eq!(ops["operations"][0]["undone"]["rationale"], "erreur");
+}
+
+#[tokio::test]
+async fn f39_a_merge_is_journaled_and_can_be_undone_through_the_api() {
+    let ctx = setup().await;
+    let adv = code_id(&ctx.app, "TECH-ADV").await;
+    let cost = code_id(&ctx.app, "TECH-COST").await;
+    passage(&ctx, "INT-01", 1, &adv).await;
+    ok(&ctx.app, "POST", &format!("/api/codes/{adv}/merge"), Some(json!({"into": cost, "rationale": "doublon"}))).await;
+    let ops = ok(&ctx.app, "GET", "/api/code-ops", None).await;
+    let op = ops["operations"][0]["op_id"].as_i64().unwrap();
+    assert_eq!(ops["operations"][0]["kind"], "merge");
+    let undo = ok(&ctx.app, "POST", &format!("/api/code-ops/{op}/undo"), Some(json!({"rationale": "non"}))).await;
+    assert_eq!(undo["report"]["kind"], "merge");
+    let (s, _) = call(&ctx.app, "GET", "/api/splits/999/worklist", None).await;
+    assert_eq!(s, StatusCode::NOT_FOUND);
+}
+
+#[tokio::test]
 async fn f56_co_occurrence_csv_is_exported_and_in_the_manifest() {
     let ctx = setup().await;
     let adv = code_id(&ctx.app, "TECH-ADV").await;

@@ -430,3 +430,63 @@ For the player: `GET /api/interviews/{id}/audio` once, set `<audio src={files[0]
 ### Exports
 
 `transcript_versions.json` in the interview and cross-case packages (versions, and every projection with its old, proposed and final span and how it was settled), a `transcript_versions` part in `state.json`, and a last column `transcript_version` in `passages.csv`.
+
+## V2 codes and search
+
+Server side of F-09 (configurable passage origins and roles), F-39 (split a code, undo), F-41 (code search), F-45 (counts per code), F-55 (full-text search) and F-56 (co-occurrence). Rules in `docs/CONTRACTS.md`, section 16. Routes in `crates/cs-app/src/v2_codes.rs`, logic in `crates/cs-store/src/{codestats,codesearch,fulltext,cooccurrence,codeops,textfold}.rs`. Errors: 400 `validation`, 404 not found, 409 `guard`. Booleans in a query string are `true` or `false`; lists are comma separated.
+
+### Passage origins and roles (F-09)
+
+`GET`/`PUT /api/project-config` carry two new lists, `passage_origins` and `passage_roles`: `[{id, label}]`. A project without them gets the built-in defaults (the previous fixed values, with French labels), so an old config still loads and the shipped `examples/project_template.example.json` lists them. The same checks as for the other lists apply (non-empty ids, no duplicates). A passage is accepted with an origin or role from the list, or one it already carries. Removing a value that a passage uses answers 409 (`guard`) from the config save. The origin and role lists of claims (provenance) are not configurable and stay as they were.
+
+### Counts per code (F-45)
+
+Every code of `GET /api/codes` (and `/api/codes/{id}`) gains, next to `passages` and `interviews`, the fields `cases`, `cases_rollup`, `attribute_values` and `attribute_values_rollup`. A case counts when one of its attributed units carries a passage of the code. `attribute_values` is `{attribute_id: n}`: the number of distinct values found on the interviews of the code (interviews without a value count in none); the `_rollup` variants add the descendants. The existing fields are unchanged.
+
+| Method | Path | Answer |
+|---|---|---|
+| GET | `/api/codes/{id}/stats?attribute=&value=` | `{code_id, name, own: StatBlock, rollup: StatBlock, filter, note}`. `StatBlock` is `{passages, interviews, cases, interview_ids, case_ids, attributes: [{attribute_id, label, distinct_values, values: [{value, interviews}], interviews_without_value}]}`. With `attribute` and `value` (both or neither, 400 otherwise) the blocks count only the interviews carrying that value, and `filter` is `{attribute, value}` (null otherwise) |
+
+### Code search (F-41)
+
+| Method | Path | Answer |
+|---|---|---|
+| GET | `/api/codes/search?q=&limit=&include_inactive=&include_system=` | `{query, total, items: [{code_id, name, token, definition, parent_id, path, active, system, passages, interviews, score, matched: {field, text}}]}`. `path` is the names of the ancestors, root first |
+
+Case and accent insensitive. Order: name, then alias, then token, then label, then definition; ties by name. `matched.field` says which of these hit, `text` is the matching alias or fragment. Inactive and merged codes and the reserved code are left out unless asked. An empty `q` lists every usable code in codebook order (`score` 0), for a picker.
+
+### Split a code and undo (F-39)
+
+| Method | Path | Body | Answer |
+|---|---|---|---|
+| POST | `/api/codes/{id}/split` | `{parts: [{name, definition, includes?, excludes?, parent_id?}], rationale}` | `{op_id, original, new_codes: [CodeNode], worklist}`. Two or more parts with distinct names that no code uses, a rationale, an active non-system code. `parent_id` defaults to the parent of the original |
+| GET | `/api/splits/{op_id}/worklist?status=` | | `{op_id, original, new_codes, rationale, total, pending, assigned, left, gone, undone, items: [{passage, status: pending\|assigned\|left, targets, note, decided_at, decided_by, n_decisions}]}`. `status` filters the items (400 otherwise); the counts are always for the whole list |
+| PUT | `/api/splits/{op_id}/worklist` | `{decisions: [{passage_id, action: assign\|leave, targets?: [id or name], note?}]}` | the worklist. All or nothing (400 and nothing written on any bad decision). `assign` needs one or more of the new codes; it removes the original coding and adds the new ones. `leave` keeps the original. A passage can be decided again; the earlier decision stays on record. 409 once the split is undone |
+| GET | `/api/code-ops?code=` | | `{operations: [{op_id, kind: merge\|split, code_id, code_name, other_ids, rationale, created_at, created_by, undone: {rationale, at, by}\|null, summary}]}`, oldest first; with `code` only the operations that involve it |
+| POST | `/api/code-ops/{op_id}/undo` | `{rationale}` | `{report: {op_id, kind, codings_restored, codings_removed, codings_moved_back, unit_codings_restored, decisions_restored, skipped}, codebook}` |
+
+The worklist holds the live passages that carried the original at the time of the split. Merges made through `POST /api/codes/{id}/merge` are journaled too (that route is unchanged). An undo is refused with 409 when it was already undone or when a later operation not undone touches the same codes (undo the latest first), and with 404 for a merge made before the journal existed. `skipped` lists what the undo could not put back because it changed since (a coding, a unit coding or a review decision edited after the merge).
+
+### Full-text search (F-55)
+
+| Method | Path | Answer |
+|---|---|---|
+| GET | `/api/search/text?q=&mode=&prefix=&include_interviewer=&interviews=&attribute=&value=&coded=&code=&descendants=&limit=&offset=&context=` | `SearchResult` |
+
+- `mode`: `all_words` (default, every word in the unit, any order) or `phrase` (the words in sequence). `prefix`: the last word matches word starts. Case and accent insensitive. Respondent units only, unless `include_interviewer`.
+- Filters: `interviews` (ids), `attribute` and `value` (both), `coded` (`true` keeps the turns where a match lies in a coded passage, `false` those where a match lies in no coded passage), `code` (units whose passages carry the code; with `descendants` its sub-codes too).
+- Answer: `{query, mode, words, total_units, total_hits, truncated, interviews: [{interview_id, units, hits, mentioned}], items: [{interview_id, unit_id, seq, role, speaker, text, matches: [{start, end, start_utf16, end_utf16}], excerpt: {offset, text, highlights, truncated_before, truncated_after}, previous, next, coded, uncovered_matches, passage_ids, code_ids}]}`. Offsets are Unicode scalar values on the unit text (UTF-16 for the browser). `uncovered_matches` counts matches outside every passage: the search is a way to find what is not coded yet. `previous` and `next` are the neighbouring turns `{unit_id, role, speaker, text}`. `limit` (default 100, at most 1000) and `offset` page the hits; `context` is the number of characters of context on each side of the first match in `excerpt`.
+- The index is built in memory from the segmentations and corrections and rebuilt when they change (fingerprint). SQLite FTS5 is not used.
+
+### Co-occurrence (F-56)
+
+| Method | Path | Answer |
+|---|---|---|
+| GET | `/api/codes/cooccurrence?relation=&group_by=&attribute=&codes=&rollup=&min_units=&interviews=` | `{codes, groups: [{key, label, interviews, cells: [{a, b, units, interviews, passage_pairs, jaccard}], diagonal}], note}` |
+| GET | `/api/codes/cooccurrence/passages?a=&b=&relation=&rollup=&interviews=` | `{a, b, relation, rollup, n_units, items: [{interview_id, unit_id, ..., pairs: [{a, b, overlap}]}]}`, the evidence behind a cell |
+
+`relation` is `same_passage` (both codes on one passage), `overlap` (two passages of the unit whose spans overlap) or `same_unit` (default). `group_by` is `interview` or `attribute` (with `attribute`); without it one group `all`. `codes` restricts the matrix; `rollup` counts a code with its descendants; `min_units` hides cells below it. `diagonal` is the single-code count. `jaccard` is `units(a and b) / units(a or b)`.
+
+### Exports
+
+`co-occurrence.csv` in the interview and cross-case packages (and in their manifest and README): `relation,group,kind,code_a_id,code_a_name,code_b_id,code_b_name,passages,units,interviews,passage_pairs,jaccard`, for the three relations; `kind` is `single` or `pair`.
