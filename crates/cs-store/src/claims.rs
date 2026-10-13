@@ -13,7 +13,7 @@ use crate::{
     append_event, clean_codes, clean_opt, from_json, not_found, now, to_json, validation, Store,
 };
 
-const CLAIM_COLUMNS: &str = "claim_id, interview_id, unit_id, excerpt, codes, ev_level, provenance, role, memo, created_at, updated_at";
+const CLAIM_COLUMNS: &str = "claim_id, interview_id, unit_id, excerpt, codes, ev_level, provenance, role, memo, created_at, updated_at, nature";
 
 fn closed(field: &str, value: &Option<String>, allowed: &[&str]) -> Result<()> {
     match value {
@@ -43,14 +43,14 @@ impl Store {
     /// current text; the codes must be among the unit's current phase 2 codes.
     pub fn create_claim(&self, interview_id: &str, claim: &Claim, actor: &str) -> Result<Claim> {
         self.require_interview(interview_id)?;
-        let mut made = self.check_claim(interview_id, claim)?;
+        let mut made = self.check_claim(interview_id, claim, None)?;
         let ts = now();
         made.created_at = ts.clone();
         made.updated_at = ts.clone();
         let tx = self.conn.unchecked_transaction()?;
         tx.execute(
-            "INSERT INTO claims (interview_id, unit_id, excerpt, codes, ev_level, provenance, role, memo, created_at, updated_at)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+            "INSERT INTO claims (interview_id, unit_id, excerpt, codes, ev_level, provenance, role, memo, created_at, updated_at, nature)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
             params![
                 interview_id,
                 made.unit_id,
@@ -61,7 +61,8 @@ impl Store {
                 made.role,
                 made.memo,
                 ts,
-                ts
+                ts,
+                made.nature
             ],
         )?;
         made.claim_id = tx.last_insert_rowid();
@@ -82,7 +83,7 @@ impl Store {
     /// when nothing changed.
     pub fn update_claim(&self, claim_id: i64, claim: &Claim, actor: &str) -> Result<Claim> {
         let before = self.get_claim(claim_id)?;
-        let mut after = self.check_claim(&before.interview_id, claim)?;
+        let mut after = self.check_claim(&before.interview_id, claim, before.nature.as_deref())?;
         after.claim_id = before.claim_id;
         after.interview_id = before.interview_id.clone();
         after.created_at = before.created_at.clone();
@@ -95,7 +96,7 @@ impl Store {
         let tx = self.conn.unchecked_transaction()?;
         tx.execute(
             "UPDATE claims SET unit_id = ?2, excerpt = ?3, codes = ?4, ev_level = ?5, provenance = ?6,
-               role = ?7, memo = ?8, updated_at = ?9 WHERE claim_id = ?1",
+               role = ?7, memo = ?8, updated_at = ?9, nature = ?10 WHERE claim_id = ?1",
             params![
                 claim_id,
                 after.unit_id,
@@ -105,7 +106,8 @@ impl Store {
                 after.provenance,
                 after.role,
                 after.memo,
-                after.updated_at
+                after.updated_at,
+                after.nature
             ],
         )?;
         append_event(
@@ -201,6 +203,7 @@ impl Store {
                     memo: r.get(8)?,
                     created_at: r.get(9)?,
                     updated_at: r.get(10)?,
+                    nature: r.get(11)?,
                 },
                 r.get::<_, String>(4)?,
             ))
@@ -216,7 +219,12 @@ impl Store {
 
     /// Validates a claim against the unit's current text and phase 2 coding
     /// and returns it cleaned. Identity fields are taken from the caller.
-    fn check_claim(&self, interview_id: &str, claim: &Claim) -> Result<Claim> {
+    fn check_claim(
+        &self,
+        interview_id: &str,
+        claim: &Claim,
+        stored_nature: Option<&str>,
+    ) -> Result<Claim> {
         let unit = self.current_unit(interview_id, &claim.unit_id)?;
         if claim.excerpt.trim().is_empty() {
             return Err(validation(
@@ -235,6 +243,21 @@ impl Store {
         closed("provenance", &provenance, &PROVENANCES)?;
         let role = clean_opt(&claim.role);
         closed("role", &role, &CLAIM_ROLES)?;
+        // The nature comes from the project list; a value already stored stays
+        // accepted when the list changed afterwards.
+        let nature = clean_opt(&claim.nature);
+        if let Some(n) = nature.as_deref().filter(|n| Some(*n) != stored_nature) {
+            let list = self.project_config()?.evidence_natures;
+            if !list.iter().any(|i| i.id == n) {
+                return Err(validation(format!(
+                    "nature must be one of {}, not {n}",
+                    list.iter()
+                        .map(|i| i.id.as_str())
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                )));
+            }
+        }
 
         let codes = clean_codes(&claim.codes);
         let current: CodeSet = self
@@ -264,6 +287,7 @@ impl Store {
             provenance,
             role,
             memo: clean_opt(&claim.memo),
+            nature,
             created_at: String::new(),
             updated_at: String::new(),
         })

@@ -15,11 +15,17 @@
 //! Protocol refusals are returned as `cs_model::CsError::Guard`, bad input as
 //! `CsError::Validation`, unknown ids as `CsError::NotFound` (wrapped in anyhow).
 
+mod analysis_index;
+mod analysis_schema;
 mod cases;
 mod claims;
 mod codebook;
 mod codetree;
 mod coding;
+mod final_audit;
+mod library;
+mod links;
+mod matrix;
 mod memos;
 mod passages;
 mod project;
@@ -27,11 +33,26 @@ mod review;
 mod saturation;
 mod simple;
 mod study_config;
+mod themes;
 mod verification;
+mod writing;
 
 pub use codebook::{CodePatch, ImportReport, MergeOutcome};
-pub use codetree::{CodeUpdate, NewCodeFromPassage, ResolvedCode, Revision};
+pub use codetree::{
+    CodeMemoVersion, CodeUpdate, NewCode, NewCodeFromPassage, ResolvedCode, Revision,
+    UndoCreateOutcome,
+};
 pub use coding::ResolveRequest;
+pub use final_audit::{AuditChainLink, AuditClaim, AuditGap, FinalAudit};
+pub use library::{
+    LibraryProgress, LibraryReview, LibraryRow, LibraryTotals, PassageQualify, UnitMark,
+    MARK_TO_REVIEW,
+};
+pub use links::{LinkView, PassageBrief};
+pub use matrix::{
+    CellDetail, CellPassage, CellPatch, Matrix, MatrixAxis, MatrixCell, MatrixConfig, MatrixEntry,
+    MatrixFilter, MatrixOptions, MatrixViewRecord,
+};
 pub use passages::{NewPassage, PassageFilter};
 pub use project::{
     AttributeView, ChecklistItemView, ChecklistView, MemoAnswer, MemoOverrides, MemoQuestionView,
@@ -39,6 +60,14 @@ pub use project::{
 };
 pub use review::{Review, ReviewEntry};
 pub use simple::SimpleProgress;
+pub use themes::{
+    NewTheme, ThemeCheckView, ThemeCodeView, ThemeCounts, ThemeHistoryEntry, ThemePassageView,
+    ThemePatch, ThemeView,
+};
+pub use writing::{
+    FrameworkCellReading, FrameworkReading, FrameworkRow, FrameworkTable, PartEdit, PartState,
+    QuestionSynthesis, ThemeWriting,
+};
 
 use std::collections::BTreeMap;
 use std::path::Path;
@@ -57,8 +86,12 @@ pub const SCHEMA: &str = include_str!("schema.sql");
 
 /// Schema version stored in `PRAGMA user_version`. Versions 1 and 2 used the
 /// earlier, locked two-phase procedure. Version 4 adds the V1 lot 1 and 2
-/// tables and columns to version 3, which is migrated in place.
-pub const SCHEMA_VERSION: i64 = 4;
+/// tables and columns to version 3, which is migrated in place. Version 5 is
+/// reserved for the lexical and review lots. Version 6 adds the tables of
+/// lot 5 (Analyse and Write) and the columns of the API gaps; its migration
+/// (`analysis_schema::migrate`) is idempotent and runs on every open, so the
+/// result does not depend on the order the lots are merged in.
+pub const SCHEMA_VERSION: i64 = 6;
 
 /// Oldest schema version that is migrated in place.
 const MIN_SCHEMA_VERSION: i64 = 3;
@@ -119,6 +152,10 @@ pub(crate) fn guard_err(msg: impl Into<String>) -> anyhow::Error {
 
 pub(crate) fn not_found(msg: impl Into<String>) -> anyhow::Error {
     anyhow::Error::new(CsError::NotFound(msg.into()))
+}
+
+pub(crate) fn is_not_found(err: &anyhow::Error) -> bool {
+    matches!(err.downcast_ref::<CsError>(), Some(CsError::NotFound(_)))
 }
 
 pub(crate) fn check_phase(phase: u8) -> Result<()> {
@@ -285,6 +322,7 @@ impl Store {
             migrate_codes_v4(&conn)?;
         }
         conn.execute_batch(SCHEMA)?;
+        analysis_schema::migrate(&conn)?;
         // Databases made before providers existed lack the column: added in
         // place, so that their content is kept.
         let has_provider: bool = conn

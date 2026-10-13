@@ -161,10 +161,18 @@ pub(crate) fn state_parts(
             json!({
                 "code_id": n.code_id, "token": n.token, "name": n.name,
                 "parent_id": n.parent_id, "aliases": n.aliases,
-                "includes": n.includes, "excludes": n.excludes,
+                "includes": n.includes, "excludes": n.excludes, "memo": n.memo,
             })
         })
         .collect();
     parts.insert("code_tree", json!(tree));
+    let mut marks = BTreeMap::new();
+    for id in interview_ids {
+        marks.insert(id.clone(), store.unit_marks(id)?);
+    }
+    parts.insert("unit_marks", json!(marks));
+    for (k, v) in crate::export_analysis::state_parts(store)? {
+        parts.insert(k, v);
+    }
     Ok(parts)
 }

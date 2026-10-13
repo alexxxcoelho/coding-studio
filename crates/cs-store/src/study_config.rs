@@ -33,7 +33,19 @@ impl Store {
     /// phase 1 categories are those in force (see `StudyConfig::normalised`).
     pub fn study_config(&self) -> Result<StudyConfig> {
         match self.setting(STUDY_CONFIG_KEY)? {
-            Some(raw) => Ok(from_json::<StudyConfig>(&raw)?.normalised()),
+            Some(raw) => {
+                let mut cfg = from_json::<StudyConfig>(&raw)?;
+                // Saved before `description` and `coding_rules` existed: the
+                // text the prompt template carried moves over, once, until the
+                // configuration is saved again.
+                let legacy = serde_json::from_str::<serde_json::Value>(&raw)
+                    .map(|v| v.get("description").is_none())
+                    .unwrap_or(false);
+                if legacy {
+                    cfg.migrate_legacy_text();
+                }
+                Ok(cfg.normalised())
+            }
             None => Ok(StudyConfig::default()),
         }
     }

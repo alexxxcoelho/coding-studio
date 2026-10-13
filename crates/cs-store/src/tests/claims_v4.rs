@@ -3,6 +3,7 @@ use cs_model::Claim;
 
 fn claim(unit: &str, excerpt: &str, codes: &[&str]) -> Claim {
     Claim {
+        nature: None,
         unit_id: unit.into(),
         excerpt: excerpt.into(),
         codes: set(codes),

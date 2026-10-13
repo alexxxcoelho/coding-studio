@@ -71,6 +71,8 @@ struct Raw {
     anchor_digest: String,
     created_at: String,
     created_by: String,
+    origin: Option<String>,
+    role: Option<String>,
 }
 
 /// Current units of an interview, corrections applied.
@@ -115,7 +117,7 @@ impl Store {
     ) -> Result<Vec<Raw>> {
         let mut stmt = self.conn.prepare(
             "SELECT passage_id, interview_id, unit_id, start_offset, end_offset, text,
-                    segmentation_hash, anchor_digest, created_at, created_by
+                    segmentation_hash, anchor_digest, created_at, created_by, origin, role
              FROM passages
              WHERE deleted_at IS NULL
                AND (?1 IS NULL OR interview_id = ?1)
@@ -136,6 +138,8 @@ impl Store {
                     anchor_digest: r.get(7)?,
                     created_at: r.get(8)?,
                     created_by: r.get(9)?,
+                    origin: r.get(10)?,
+                    role: r.get(11)?,
                 })
             })?
             .collect::<rusqlite::Result<_>>()?;
@@ -211,7 +215,10 @@ impl Store {
             };
             let (mut before, mut after) = (String::new(), String::new());
             let (mut s16, mut e16) = (None, None);
-            let whole_unit = r.start == 0 && r.end == scalar_len(&r.text);
+            // Both offsets against the unit length: a passage that merely starts
+            // at 0 is not the whole unit. A unit that left the segmentation has no
+            // length to compare with.
+            let whole_unit = unit.is_some_and(|u| r.start == 0 && r.end == scalar_len(&u.text));
             if let (false, Some(u)) = (stale, unit) {
                 (before, after) = context_of(&u.text, r.start, r.end);
                 s16 = scalar_to_utf16(&u.text, r.start);
@@ -242,6 +249,8 @@ impl Store {
                 stale_reason: reason,
                 before,
                 after,
+                origin: r.origin,
+                role: r.role,
                 codings: codes,
             });
         }
