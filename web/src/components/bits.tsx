@@ -5,6 +5,7 @@ import { useId, type ReactNode } from "react"
 import { AlertTriangle, CheckCircle2, Info, Lock, OctagonX } from "lucide-react"
 
 import { ToolbarActions, ToolbarTitle } from "@/components/toolbar"
+import { useCodeName } from "@/lib/code-names"
 import { familyKey, familyOf, FAMILY_ORDER, NA, type DiffMark } from "@/lib/codes"
 import { cn } from "@/lib/utils"
 import type { Code } from "@/lib/types"
@@ -23,6 +24,7 @@ export function CodeChip({
   className?: string
 }) {
   const fam = family ?? familyOf(code)
+  const nameOf = useCodeName()
   return (
     <span
       className={cn("chip", className)}
@@ -30,7 +32,7 @@ export function CodeChip({
       title={title}
       style={{ ["--fam" as string]: `var(--fam-${code === NA ? "na" : familyKey(fam)})` }}
     >
-      {code}
+      {nameOf(code)}
     </span>
   )
 }

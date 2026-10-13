@@ -428,7 +428,7 @@
   .u .meta { font-size: 11.5px; color: var(--label2); display: flex; flex-direction: column; gap: 1px; padding-top: 2px; }
   .u .meta .mono { color: var(--label); }
   .u.int .txt { color: var(--label2); }
-  .u.resp .txt { font-size: 14.5px; line-height: 1.6; }
+  .u.resp .txt { font-family: var(--font-serif); font-size: var(--transcript-size, 15px); line-height: 1.62; }
   .u.sel { background: color-mix(in srgb, var(--accent-c) 10%, transparent); box-shadow: inset 0 0 0 .5px color-mix(in srgb, var(--accent-c) 40%, transparent); }
   .u.na { opacity: .55; }
   .u p { margin: 0; white-space: pre-wrap; }

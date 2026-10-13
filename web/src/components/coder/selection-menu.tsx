@@ -5,7 +5,9 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react"
 
 import { SearchIcon } from "@/components/icons"
-import { codeColor, codeName, filterRows, isApplicable, topCodes } from "@/lib/code-tree"
+import { codeColor, codeName, isApplicable, topCodes } from "@/lib/code-tree"
+import { useCodeSearchRows } from "@/lib/code-search"
+import { matchedLine } from "@/lib/v2-text"
 import { isMac } from "@/lib/nav"
 import type { CodeNode } from "@/lib/types"
 
@@ -35,10 +37,11 @@ export function SelectionMenu({
   const ref = useRef<HTMLDivElement>(null)
   const input = useRef<HTMLInputElement>(null)
 
+  const found = useCodeSearchRows(codes, q, { limit: 20 })
   const list = useMemo(() => {
-    if (q.trim()) return filterRows(codes, q).map((r) => r.node).filter(isApplicable).slice(0, 8)
+    if (q.trim()) return found.rows.map((r) => r.node).filter(isApplicable).slice(0, 8)
     return topCodes(codes, 3)
-  }, [codes, q])
+  }, [codes, q, found.rows])
 
   useEffect(() => {
     input.current?.focus()
@@ -81,9 +84,12 @@ export function SelectionMenu({
         </div>
       )}
       {list.map((c) => (
-        <button key={c.code_id} type="button" role="menuitem" className="mi" style={{ "--k": codeColor(c.code_id) } as CSSProperties} onClick={() => onPick(c)}>
+        <button key={c.code_id} type="button" role="menuitem" className="mi" style={{ "--k": codeColor(c.code_id), height: found.matched.get(c.code_id) && matchedLine(found.matched.get(c.code_id)) ? 36 : undefined } as CSSProperties} onClick={() => onPick(c)}>
           <span className="sw" style={{ background: "var(--k)" }} />
-          {codeName(c)}
+          <span style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", minWidth: 0, lineHeight: 1.15 }}>
+            <span>{codeName(c)}</span>
+            {matchedLine(found.matched.get(c.code_id), 40) && <span className="small" style={{ opacity: 0.8 }}>{matchedLine(found.matched.get(c.code_id), 40)}</span>}
+          </span>
           <span className="r">{keyOf(c.code_id) ?? ""}</span>
         </button>
       ))}

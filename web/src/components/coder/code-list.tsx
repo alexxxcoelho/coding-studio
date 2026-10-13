@@ -8,6 +8,8 @@ import { Check } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { codeColor, codeName, isApplicable, type TreeRow } from "@/lib/code-tree"
 import type { CodeNode } from "@/lib/types"
+import type { CodeSearchItem } from "@/lib/v2-api"
+import { matchedLine } from "@/lib/v2-text"
 import { cn } from "@/lib/utils"
 
 /** First sentence of a definition, for the list. */
@@ -27,6 +29,8 @@ export function CodeList({
   onPickLater,
   laterApplied,
   onEnter,
+  matched,
+  paths,
 }: {
   rows: TreeRow[]
   keys: Map<string, number>
@@ -39,6 +43,10 @@ export function CodeList({
   laterApplied: boolean
   /** Enter in the search box: apply the first code of the list. */
   onEnter: () => void
+  /** Why each code of a search is listed (the field that matched). */
+  matched?: Map<string, CodeSearchItem["matched"]>
+  /** Names of the ancestors of each code of a search. */
+  paths?: Map<string, string[]>
 }) {
   return (
     <>
@@ -65,6 +73,8 @@ export function CodeList({
           const usable = isApplicable(node)
           const system = node.system
           const k = keys.get(node.code_id)
+          const why = matchedLine(matched?.get(node.code_id))
+          const path = paths?.get(node.code_id) ?? []
           return (
             <li
               key={node.code_id}
@@ -88,8 +98,11 @@ export function CodeList({
               </span>
               <span className="sw" style={{ marginTop: 3 }} />
               <div>
-                <div className="nm">{codeName(node)}</div>
-                {node.definition && <div className="df">{shortDefinition(node.definition)}</div>}
+                <div className="nm">
+                  {codeName(node)}
+                  {path.length > 0 && <span className="l3 small" style={{ fontWeight: 400 }}> dans {path.join(" › ")}</span>}
+                </div>
+                {why ? <div className="df">{why}</div> : node.definition && <div className="df">{shortDefinition(node.definition)}</div>}
               </div>
               {(system ? laterApplied : on) ? (
                 <Check className="size-3.5" style={{ color: "var(--accent-text)", marginTop: 2 }} role="img" aria-label="Appliqué" strokeWidth={2.2} />

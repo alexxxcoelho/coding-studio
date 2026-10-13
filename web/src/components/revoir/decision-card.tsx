@@ -13,6 +13,7 @@ import { NativeSelect } from "@/components/settings/fields"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { api } from "@/lib/api"
+import { useCodeName } from "@/lib/code-names"
 import { familyOf } from "@/lib/codes"
 import { isTypingTarget } from "@/lib/coder-keys"
 import { dateTime } from "@/lib/format"
@@ -102,6 +103,7 @@ export function DecisionCard({
   onNext: () => void
 }) {
   const qc = useQueryClient()
+  const nameOf = useCodeName()
   const sample = item.kind !== "disagreement"
   const kinds = availableChoices(item)
   const decided = item.decision
@@ -246,7 +248,7 @@ export function DecisionCard({
                   <input type="radio" name={`decision-${item.unit_id}`} checked={draft.kind === k} onChange={() => setDraft((d) => ({ ...d, kind: k }))} />
                   <span className="k">
                     {l.title}
-                    <small>{k === "other" ? l.hint : codes.length ? codes.join(", ") : l.hint ?? "aucun code"}</small>
+                    <small>{k === "other" ? l.hint : codes.length ? codes.map(nameOf).join(", ") : l.hint ?? "aucun code"}</small>
                   </span>
                   {k === "ai" && runs.length > 1 && (
                     <NativeSelect

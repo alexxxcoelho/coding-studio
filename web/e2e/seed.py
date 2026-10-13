@@ -53,6 +53,11 @@ CODES = [
 for code, label, definition, toe, rqs in CODES:
     call("POST", "/api/codebook/codes", {"code": code, "label": label, "definition": definition, "toe": toe, "research_questions": rqs})
 
+# The codebook of the V1 routes names a code by its handle; the researcher's own name is the label.
+for _c in call("GET", "/api/codes")["codes"]:
+    if _c["label"] and _c["name"] == _c["token"]:
+        call("PUT", f"/api/codes/{_c['code_id']}", {"name": _c["label"]})
+
 call("POST", "/api/codes/SKILLS_GAP/aliases", {"alias": "compétences"}, ok=False)
 call("POST", "/api/codes/SKILLS_GAP/move", {"parent_id": "CHANGE_RESISTANCE", "rationale": "Lot de test visuel"}, ok=False)
 
@@ -188,7 +193,7 @@ cid = {c["token"]: c["code_id"] for c in tree}
 call("PUT", f"/api/codes/{cid['READER_COST']}/memo", {"text": "Le coût des lecteurs et de l'intégration, à distinguer du prix des étiquettes."})
 call("PUT", f"/api/interviews/{IV}/units/{unit_id(16)}/mark", {"note": "Deux codes sur ce tour, à relire."})
 first = call("GET", f"/api/interviews/{IV}/passages")
-pq = [p for p in first if any(c["code_name"] == "READER_COST" for c in p["codings"])]
+pq = [p for p in first if any(c["code_id"] == cid["READER_COST"] for c in p["codings"])]
 if pq:
     call("PUT", f"/api/passages/{pq[0]['passage_id']}/qualification", {"origin": "lived_experience", "role": "constraint"})
 

@@ -18,7 +18,9 @@ import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
 import { analysisApi } from "@/lib/analysis-api"
 import { ApiError, api } from "@/lib/api"
-import { buildRows, codeColor, descendantIds, filterRows, LATER_ID, possibleParents, wouldCycle } from "@/lib/code-tree"
+import { codeColor, descendantIds, LATER_ID, possibleParents, wouldCycle } from "@/lib/code-tree"
+import { useCodeSearchRows } from "@/lib/code-search"
+import { matchedLine } from "@/lib/v2-text"
 import { invalidateHarmonisation, keys, useCodes } from "@/lib/hooks"
 import { reportError } from "@/lib/notify"
 import { cn } from "@/lib/utils"
@@ -59,7 +61,8 @@ export function CodebookPage() {
   const [dialog, setDialog] = useState<"new" | "history" | "csv" | null>(null)
 
   const codes = useMemo(() => codesQ.data?.codes ?? [], [codesQ.data])
-  const rows = useMemo(() => (search.trim() ? filterRows(codes, search, collapsed) : buildRows(codes, collapsed)), [codes, search, collapsed])
+  const found = useCodeSearchRows(codes, search, { layout: "tree", collapsed })
+  const rows = found.rows
   const selected = codes.find((c) => c.code_id === selectedId) ?? null
   const nActive = codes.filter((c) => c.active && !c.system && !c.merged_into).length
   const nMerged = codes.filter((c) => c.merged_into).length
@@ -184,8 +187,13 @@ export function CodebookPage() {
                               )}
                             </button>
                             <span className="sw" style={{ ["--k" as string]: codeColor(c.code_id) }} />
-                            {c.name}
-                            {!c.active && !c.system && <span className="small l2"> inactif</span>}
+                            <span style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
+                              <span>
+                                {c.name}
+                                {!c.active && !c.system && <span className="small l2"> inactif</span>}
+                              </span>
+                              {matchedLine(found.matched.get(c.code_id)) && <span className="small l2">{matchedLine(found.matched.get(c.code_id))}</span>}
+                            </span>
                           </span>
                         </td>
                         <td className="l2">{originLabel(c)}</td>

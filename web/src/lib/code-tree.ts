@@ -74,19 +74,27 @@ function haystack(c: CodeNode): string {
 export function filterRows(codes: CodeNode[], query: string, collapsed: ReadonlySet<string> = new Set()): TreeRow[] {
   const words = fold(query).split(/\s+/).filter(Boolean)
   if (words.length === 0) return buildRows(codes, collapsed)
-  const byId = new Map(codes.map((c) => [c.code_id, c]))
-  const keep = new Set<string>()
+  const hits = new Set<string>()
   for (const c of codes) {
     if (!isListed(c)) continue
     const h = haystack(c)
-    if (!words.every((w) => h.includes(w))) continue
+    if (words.every((w) => h.includes(w))) hits.add(c.code_id)
+  }
+  return rowsForIds(codes, hits)
+}
+
+/** The tree of the codes in `ids` with their ancestors, in codebook order and fully open (a search opens the tree). */
+export function rowsForIds(codes: CodeNode[], ids: ReadonlySet<string>): TreeRow[] {
+  const byId = new Map(codes.map((c) => [c.code_id, c]))
+  const keep = new Set<string>()
+  for (const c of codes) {
+    if (!isListed(c) || !ids.has(c.code_id)) continue
     let cur: CodeNode | undefined = c
     while (cur && !keep.has(cur.code_id)) {
       keep.add(cur.code_id)
       cur = cur.parent_id ? byId.get(cur.parent_id) : undefined
     }
   }
-  // Searching opens the tree: collapsed state is ignored.
   return buildRows(codes.filter((c) => keep.has(c.code_id)), new Set<string>())
 }
 

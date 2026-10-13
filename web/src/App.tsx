@@ -1,4 +1,5 @@
 import { AppShell } from "@/components/app-shell"
+import { CodeNamesProvider } from "@/lib/code-names"
 import { useRoute } from "@/lib/router"
 import { GuidePage } from "@/pages/guide"
 import { AnalyserPage } from "@/pages/analyser"
@@ -15,18 +16,20 @@ import { SettingsPage } from "@/pages/settings"
 export default function App() {
   const route = useRoute()
   return (
-    <AppShell route={route}>
-      {route.page === "library" && <LibraryPage />}
-      {route.page === "interview" && <InterviewPage key={route.id} id={route.id} tab={route.tab} phase={route.phase} unit={route.unit} />}
-      {route.page === "codebook" && <CodebookPage />}
-      {route.page === "to-clarify" && <ToClarifyPage />}
-      {route.page === "saturation" && <SaturationPage />}
-      {route.page === "settings" && <SettingsPage />}
-      {route.page === "audit" && <AuditPage />}
-      {route.page === "analyser" && <AnalyserPage />}
-      {route.page === "lexique" && <LexiquePage />}
-      {route.page === "rediger" && <RedigerPage />}
-      {route.page === "guide" && <GuidePage anchor={route.anchor} />}
-    </AppShell>
+    <CodeNamesProvider>
+      <AppShell route={route}>
+        {route.page === "library" && <LibraryPage />}
+        {route.page === "interview" && <InterviewPage key={route.id} id={route.id} tab={route.tab} phase={route.phase} unit={route.unit} />}
+        {route.page === "codebook" && <CodebookPage />}
+        {route.page === "to-clarify" && <ToClarifyPage />}
+        {route.page === "saturation" && <SaturationPage />}
+        {route.page === "settings" && <SettingsPage />}
+        {route.page === "audit" && <AuditPage />}
+        {route.page === "analyser" && <AnalyserPage />}
+        {route.page === "lexique" && <LexiquePage />}
+        {route.page === "rediger" && <RedigerPage />}
+        {route.page === "guide" && <GuidePage anchor={route.anchor} />}
+      </AppShell>
+    </CodeNamesProvider>
   )
 }

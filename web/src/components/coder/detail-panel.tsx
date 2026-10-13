@@ -138,7 +138,7 @@ export function DetailPanel({
           Le texte du tour a changé depuis la sélection ({passage.stale_reason ?? "ancrage obsolète"}). Le passage est signalé, il n'est pas déplacé.
         </p>
       )}
-      <blockquote data-no-i18n style={{ margin: 0, borderLeft: "3px solid var(--accent-c)", paddingLeft: 10, fontSize: 13, lineHeight: 1.5 }}>
+      <blockquote data-no-i18n className="verbatim" style={{ margin: 0, borderLeft: "3px solid var(--accent-c)", paddingLeft: 10 }}>
         {passage.before && <span className="l3">{passage.before}</span>}
         <mark style={{ background: "color-mix(in srgb, var(--yellow) 30%, transparent)", color: "inherit" }}>{passage.text}</mark>
         {passage.after && <span className="l3">{passage.after}</span>}

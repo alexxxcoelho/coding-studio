@@ -20,7 +20,8 @@ import { ToolbarActions } from "@/components/toolbar"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { api } from "@/lib/api"
-import { codeForNumber, filterRows, firstApplicable, LATER_ID, numberKeys } from "@/lib/code-tree"
+import { codeForNumber, firstApplicable, LATER_ID, numberKeys } from "@/lib/code-tree"
+import { useCodeSearchRows } from "@/lib/code-search"
 import { resolveKey, isTypingTarget } from "@/lib/coder-keys"
 import {
   applyFilter,
@@ -114,7 +115,8 @@ export function CoderPage({ id, unit: askedUnit = null }: { id: string; unit?: s
   const marked = useMemo(() => new Set((marksQ.data ?? []).map((m) => m.unit_id)), [marksQ.data])
   const counts = useMemo(() => countStates(units, byUnit, marked), [units, byUnit, marked])
   const shown = useMemo(() => applyFilter(units, byUnit, filter, search, marked), [units, byUnit, filter, search, marked])
-  const rows = useMemo(() => filterRows(codes, query), [codes, query])
+  const found = useCodeSearchRows(codes, query)
+  const rows = found.rows
   const keyMap = useMemo(() => numberKeys(rows), [rows])
   const nameById = useMemo(() => new Map(codes.map((c) => [c.code_id, c.name])), [codes])
 
@@ -472,6 +474,8 @@ export function CoderPage({ id, unit: askedUnit = null }: { id: string; unit?: s
                 keys={keyMap}
                 applied={applied}
                 query={query}
+                matched={found.matched}
+                paths={found.paths}
                 onQuery={setQuery}
                 searchRef={searchRef}
                 onPick={(c) => void applyCode(c)}
