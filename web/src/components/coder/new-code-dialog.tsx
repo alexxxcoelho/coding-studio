@@ -2,7 +2,7 @@
 // definition, an optional parent. The code is created and applied to the
 // selected passage in one call (docs/guide/fr/02_coder.md, action 5).
 
-import { useEffect, useState } from "react"
+import { useState } from "react"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 
@@ -43,14 +43,17 @@ export function NewCodeDialog({
   const [parent, setParent] = useState("")
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
+  // A new target opens the form empty: adjusted during render, not in an effect.
+  const [seen, setSeen] = useState(target)
+  if (target !== seen) {
+    setSeen(target)
     if (target) {
       setName("")
       setDefinition("")
       setParent("")
       setError(null)
     }
-  }, [target])
+  }
 
   const create = useMutation({
     mutationFn: () =>

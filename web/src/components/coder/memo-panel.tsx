@@ -34,7 +34,11 @@ function Question({
 }) {
   const [editing, setEditing] = useState(false)
   const [text, setText] = useState(q.text)
-  useEffect(() => setText(q.text), [q.text])
+  const [seenText, setSeenText] = useState(q.text)
+  if (seenText !== q.text) {
+    setSeenText(q.text)
+    setText(q.text)
+  }
   const id = `memo-${q.id}`
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>

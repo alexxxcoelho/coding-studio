@@ -2,7 +2,7 @@
 // (edited in place, validated), familiarisation memo (template choice and
 // count) and source. Wording of docs/guide/fr/01_preparer.md, action 10.
 
-import { useEffect, useState } from "react"
+import { useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Check } from "lucide-react"
 
@@ -34,10 +34,13 @@ const KIND_LABEL: Record<SourceKind, string> = {
 export function AttributeRow({ def, saved, onSave }: { def: AttributeDef; saved: string; onSave: (value: string | null) => void }) {
   const [draft, setDraft] = useState(saved)
   const [error, setError] = useState<string | null>(null)
-  useEffect(() => {
+  // A new saved value (after a save or a refresh) replaces the draft: adjusted during render, not in an effect.
+  const [seen, setSeen] = useState(saved)
+  if (seen !== saved) {
+    setSeen(saved)
     setDraft(saved)
     setError(null)
-  }, [saved])
+  }
 
   const commit = (raw: string) => {
     const c = checkAttribute(def, raw)

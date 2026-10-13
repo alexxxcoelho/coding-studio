@@ -20,7 +20,7 @@ import { cn } from "@/lib/utils"
 import type { ResearchQuestion, RqMemo } from "@/lib/types"
 
 function UnitLinks({ ids }: { ids: string[] }) {
-  if (!ids.length) return <span className="text-muted-foreground text-xs">none yet</span>
+  if (!ids.length) return <span className="text-muted-foreground text-xs">aucune pour l'instant</span>
   return (
     <span className="flex flex-wrap gap-x-2 gap-y-1">
       {ids.map((u) => (
@@ -40,11 +40,11 @@ function MemoForm({ rq, memo }: { rq: ResearchQuestion; memo: RqMemo | null }) {
   const save = useMutation({
     mutationFn: () => api.setRqMemo(rq.id, memoPayload(d)),
     onSuccess: () => {
-      toast.success(`Memo of ${rq.id} saved`)
+      toast.success(`Mémo de ${rq.id} enregistré`)
       qc.invalidateQueries({ queryKey: ["rq-memo", rq.id] })
       qc.invalidateQueries({ queryKey: ["chain"] })
     },
-    onError: (e) => reportError(e, "Memo not saved"),
+    onError: (e) => reportError(e, "Mémo non enregistré"),
   })
   const forIds = parseUnitIds(d.unitsFor)
   const againstIds = parseUnitIds(d.unitsAgainst)
@@ -58,7 +58,7 @@ function MemoForm({ rq, memo }: { rq: ResearchQuestion; memo: RqMemo | null }) {
             <span className="text-muted-foreground font-normal">{rq.text}</span>
           </span>
         }
-        aside={memo ? `saved ${dateTime(memo.updated_at)}` : "no memo yet"}
+        aside={memo ? `enregistré le ${dateTime(memo.updated_at)}` : "pas encore de mémo"}
       >
         <div className="flex flex-col gap-4">
           {MEMO_PARTS.map((p) => (
@@ -71,18 +71,18 @@ function MemoForm({ rq, memo }: { rq: ResearchQuestion; memo: RqMemo | null }) {
         </div>
       </Section>
 
-      <Section title="Units that bear on the answer" aside="unit ids, one per line or separated by commas; checked against the segmentations">
+      <Section title="Unités qui touchent la réponse" aside="identifiants d'unités, un par ligne ou séparés par des virgules, contrôlés contre les segmentations">
         <div className="grid gap-5 md:grid-cols-2">
           <div className="flex flex-col gap-2">
             <label className="flex flex-col gap-1.5">
-              <span className="text-sm font-medium">For the answer</span>
+              <span className="text-sm font-medium">En faveur de la réponse</span>
               <Textarea rows={4} className="ident text-xs" value={d.unitsFor} onChange={(e) => set("unitsFor", e.target.value)} placeholder="ECO-07-U003" />
             </label>
             <UnitLinks ids={forIds} />
           </div>
           <div className="flex flex-col gap-2">
             <label className="flex flex-col gap-1.5">
-              <span className="text-sm font-medium">Against the answer</span>
+              <span className="text-sm font-medium">Contre la réponse</span>
               <Textarea rows={4} className="ident text-xs" value={d.unitsAgainst} onChange={(e) => set("unitsAgainst", e.target.value)} placeholder="RET-22-U010" />
             </label>
             <UnitLinks ids={againstIds} />
@@ -91,9 +91,9 @@ function MemoForm({ rq, memo }: { rq: ResearchQuestion; memo: RqMemo | null }) {
       </Section>
 
       <div className="flex items-center justify-between gap-2">
-        <span className={cn("text-xs", dirty ? "text-warn" : "text-muted-foreground")}>{dirty ? "Unsaved changes" : memo ? "Saved" : "Not saved yet"}</span>
+        <span className={cn("text-xs", dirty ? "text-warn" : "text-muted-foreground")}>{dirty ? "Modifications non enregistrées" : memo ? "Enregistré" : "Pas encore enregistré"}</span>
         <Button onClick={() => save.mutate()} disabled={!dirty || save.isPending}>
-          {save.isPending ? "Saving..." : "Save the memo"}
+          {save.isPending ? "Enregistrement…" : "Enregistrer le mémo"}
         </Button>
       </div>
     </div>
@@ -103,7 +103,7 @@ function MemoForm({ rq, memo }: { rq: ResearchQuestion; memo: RqMemo | null }) {
 function MemoEditor({ rq }: { rq: ResearchQuestion }) {
   const memo = useQuery({ queryKey: ["rq-memo", rq.id], queryFn: () => api.rqMemo(rq.id) })
   if (memo.isLoading) return <Skeleton className="h-96 w-full" />
-  if (memo.error) return <Banner tone="danger" title="The memo could not be loaded">{memo.error.message}</Banner>
+  if (memo.error) return <Banner tone="danger" title="Le mémo n'a pas pu être chargé">{memo.error.message}</Banner>
   // Keyed on the saved version: a save reloads the draft from what the server kept.
   return <MemoForm key={memo.data?.updated_at ?? "none"} rq={rq} memo={memo.data ?? null} />
 }
@@ -117,16 +117,16 @@ export function AnswersPage() {
   return (
     <>
       <PageTitle
-        title="Answers"
-        sub="For each research question: what the data document, how it is read, the rival readings and the limits, with the units for and against. Carried across interviews."
+        title="Réponses"
+        sub="Pour chaque question de recherche : ce que les données documentent, comment on les lit, les lectures concurrentes et les limites, avec les unités pour et contre."
       />
       {questions.isLoading ? (
         <Skeleton className="h-96 w-full" />
       ) : sorted.length === 0 ? (
-        <EmptyState title="No research question yet">Add the research questions in the codebook first; each one gets its memo here.</EmptyState>
+        <EmptyState title="Aucune question de recherche pour l'instant">Ajoutez d'abord les questions de recherche dans les paramètres de l'étude ; chacune reçoit son mémo ici.</EmptyState>
       ) : (
         <div className="grid items-start gap-4 lg:grid-cols-[14rem_minmax(0,1fr)]">
-          <nav aria-label="Research questions" className="bg-card flex flex-col rounded-md border">
+          <nav aria-label="Questions de recherche" className="bg-card flex flex-col rounded-md border">
             {sorted.map((q) => (
               <button
                 key={q.id}

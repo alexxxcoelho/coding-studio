@@ -18,32 +18,32 @@ export function AuditTab({ id }: { id: string }) {
   const exp = useMutation({
     mutationFn: () => api.exportPackage(id),
     onSuccess: (r) => {
-      toast.success(`Package written: ${plural(r.files.length, "file")}`)
+      toast.success(`Paquet écrit : ${plural(r.files.length, "fichier")}`)
       invalidateInterview(qc, id)
     },
-    onError: (e) => reportError(e, "Export failed"),
+    onError: (e) => reportError(e, "Export échoué"),
   })
 
   return (
     <div className="flex flex-col gap-5">
-      <Section title="Export the audit package" aside="nothing is ever overwritten">
+      <Section title="Exporter le paquet d'audit" aside="rien n'est jamais écrasé">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <p className="text-muted-foreground max-w-prose text-sm">
-            Writes a new dated folder next to the database: the units, the phase 1 pre-classification, your phase 2 coding (with changes made after
-            the AI answer flagged), every prompt and raw AI answer, the review and the final coding, the labels to clarify, the cases, the codebook,
-            this interview's audit events and a manifest of SHA-256 hashes.
+            Écrit un nouveau dossier daté à côté de la base : les unités, la préclassification de phase 1, votre codage de phase 2 (les changements faits
+            après la réponse du modèle sont signalés), chaque prompt et chaque réponse brute du modèle, la revue et le codage final, les étiquettes à
+            clarifier, les cas, le codebook, les événements d'audit de cet entretien et un manifeste d'empreintes SHA-256.
           </p>
           <Button onClick={() => exp.mutate()} disabled={exp.isPending}>
-            {exp.isPending ? "Writing..." : "Export the package"}
+            {exp.isPending ? "Écriture…" : "Exporter le paquet"}
           </Button>
         </div>
         {exp.data && (
           <div className="mt-4 flex flex-col gap-3">
-            <Banner tone="ok" title="Package written">
+            <Banner tone="ok" title="Paquet écrit">
               <span className="ident break-all">{exp.data.dir}</span>
               {exp.data.manifest_sha256 && (
                 <span className="block text-xs">
-                  Manifest SHA-256 <span className="ident">{exp.data.manifest_sha256}</span>
+                  Empreinte SHA-256 du manifeste <span className="ident">{exp.data.manifest_sha256}</span>
                 </span>
               )}
             </Banner>
@@ -51,9 +51,9 @@ export function AuditTab({ id }: { id: string }) {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="pl-4">File</TableHead>
+                    <TableHead className="pl-4">Fichier</TableHead>
                     <TableHead>SHA-256</TableHead>
-                    <TableHead className="pr-4 text-right">Size</TableHead>
+                    <TableHead className="pr-4 text-right">Taille</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -72,12 +72,12 @@ export function AuditTab({ id }: { id: string }) {
       </Section>
 
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-base font-semibold">Recorded actions on this interview</h2>
+        <h2 className="text-base font-semibold">Actions enregistrées pour cet entretien</h2>
         {chain.data && (
           <span className={chain.data.ok ? "text-ok text-sm" : "text-destructive text-sm"}>
             {chain.data.ok
-              ? `Chain intact: ${chain.data.n_events} events in the database, every hash recomputed`
-              : `Chain broken at event ${chain.data.first_bad_seq}`}
+              ? `Chaîne intacte : ${chain.data.n_events} événements dans la base, chaque empreinte recalculée`
+              : `Chaîne rompue à l'événement ${chain.data.first_bad_seq}`}
           </span>
         )}
       </div>

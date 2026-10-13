@@ -54,7 +54,7 @@ function ResolveForm({ group, codes, questions }: { group: LabelGroup; codes: Co
               merged_into: null,
               version: 1,
               example: example.trim() || null,
-              reason: `From the label to clarify "${group.label}"`,
+              reason: `Issu de l'étiquette à clarifier « ${group.label} »`,
               created_at: null,
             }
           : undefined
@@ -70,60 +70,60 @@ function ResolveForm({ group, codes, questions }: { group: LabelGroup; codes: Co
       qc.setQueryData(["codebook"], res.codebook)
       qc.invalidateQueries({ queryKey: ["to-clarify"] })
       qc.invalidateQueries({ predicate: (q) => ["units", "interview", "interviews", "chain", "review", "final"].includes(String(q.queryKey[0])) })
-      toast.success(`"${group.label}" resolved into ${target} on ${plural(res.resolved.length, "unit")}`)
+      toast.success(`« ${group.label} » résolue en ${target} sur ${plural(res.resolved.length, "unité")}`)
     },
-    onError: (e) => reportError(e, "Not resolved"),
+    onError: (e) => reportError(e, "Étiquette non résolue"),
   })
   const valid = mode === "new" ? !!target && !!label.trim() && !!definition.trim() : mapped.length === 1
 
   return (
     <div className="flex flex-col gap-3 border-t pt-3">
-      <div className="flex gap-1.5" role="radiogroup" aria-label="Resolution">
+      <div className="flex gap-1.5" role="radiogroup" aria-label="Type de résolution">
         <Button size="sm" variant={mode === "new" ? "default" : "outline"} onClick={() => setMode("new")}>
-          Create a field code
+          Créer un code de terrain
         </Button>
         <Button size="sm" variant={mode === "map" ? "default" : "outline"} onClick={() => setMode("map")}>
-          Map to an existing code
+          Rattacher à un code existant
         </Button>
       </div>
       {mode === "new" ? (
         <div className="grid gap-3 md:grid-cols-2">
           <label className="flex flex-col gap-1 text-xs">
-            <span className="text-muted-foreground">Code key</span>
+            <span className="text-muted-foreground">Clé du code</span>
             <Input value={key} onChange={(e) => setKey(e.target.value)} className="ident uppercase" />
           </label>
           <label className="flex flex-col gap-1 text-xs">
-            <span className="text-muted-foreground">Label</span>
+            <span className="text-muted-foreground">Libellé</span>
             <Input value={label} onChange={(e) => setLabel(e.target.value)} />
           </label>
           <label className="flex flex-col gap-1 text-xs md:col-span-2">
-            <span className="text-muted-foreground">Definition, required: what a unit must say to carry the code</span>
+            <span className="text-muted-foreground">Définition, obligatoire : ce qu'une unité doit dire pour porter le code</span>
             <Textarea rows={2} value={definition} onChange={(e) => setDefinition(e.target.value)} />
           </label>
           <div className="flex flex-col gap-1 text-xs">
-            <span className="text-muted-foreground">TOE attachment</span>
+            <span className="text-muted-foreground">Rattachement TOE</span>
             <ToePicker value={toe} onChange={setToe} />
           </div>
           <label className="flex flex-col gap-1 text-xs">
-            <span className="text-muted-foreground">Example, a unit ID or a short quote</span>
+            <span className="text-muted-foreground">Exemple : identifiant d'unité ou courte citation</span>
             <Input value={example} onChange={(e) => setExample(e.target.value)} />
           </label>
           <div className="flex flex-col gap-1 text-xs md:col-span-2">
-            <span className="text-muted-foreground">Research questions it bears on</span>
+            <span className="text-muted-foreground">Questions de recherche concernées</span>
             <QuestionPicker questions={questions} value={rqs} onChange={setRqs} />
           </div>
         </div>
       ) : (
         <CodePicker allowed={codes} value={mapped} onChange={(v) => setMapped(v.filter((c) => c !== "NA").slice(-1))} phase={2} phase1Contexts={[]} />
       )}
-      <Textarea rows={2} placeholder="Rationale: why this label is this code" value={rationale} onChange={(e) => setRationale(e.target.value)} />
+      <Textarea rows={2} placeholder="Justification : pourquoi cette étiquette correspond à ce code" value={rationale} onChange={(e) => setRationale(e.target.value)} />
       <div className="flex flex-wrap items-center gap-4">
         <label className="flex items-center gap-2 text-sm">
           <Checkbox checked={all} onCheckedChange={(v) => setAll(v === true)} />
-          Apply to all {plural(group.items.length, "unit")} with this label
+          Appliquer aux {plural(group.items.length, "unité")} portant cette étiquette
         </label>
         <Button size="sm" disabled={!valid || resolve.isPending} onClick={() => resolve.mutate()}>
-          Resolve into {target || "a code"}
+          Résoudre en {target || "un code"}
         </Button>
       </div>
     </div>
@@ -138,11 +138,11 @@ function GroupCard({ group, codes, questions }: { group: LabelGroup; codes: Code
         <div className="flex flex-wrap items-center gap-2">
           <PendingChip label={group.label} />
           <span className="text-muted-foreground text-xs">
-            {plural(group.items.length, "unit")} in {group.interviews.join(", ")}
+            {plural(group.items.length, "unité")} dans {group.interviews.join(", ")}
           </span>
         </div>
         <Button size="sm" variant={open ? "ghost" : "outline"} onClick={() => setOpen((o) => !o)}>
-          {open ? "Close" : "Resolve"}
+          {open ? "Fermer" : "Résoudre"}
         </Button>
       </header>
       <ul className="flex flex-col border-t">
@@ -153,7 +153,7 @@ function GroupCard({ group, codes, questions }: { group: LabelGroup; codes: Code
             </a>
             <div className="min-w-0">
               {t.unit_text && <p className="verbatim line-clamp-2 text-sm">{t.unit_text}</p>}
-              {t.note && <p className="text-muted-foreground text-xs">Note: {t.note}</p>}
+              {t.note && <p className="text-muted-foreground text-xs">Note : {t.note}</p>}
             </div>
           </li>
         ))}
@@ -179,14 +179,14 @@ export function ToClarifyPage() {
   return (
     <>
       <PageTitle
-        title="To clarify"
-        sub="Provisional labels put on units during phase 2. Each becomes a field code or joins an existing code; field is a property of the code, not a category next to T, O and E."
+        title="À clarifier"
+        sub="Étiquettes provisoires posées sur des unités en phase 2. Chacune devient un code de terrain ou rejoint un code existant."
       />
       {items.isLoading ? (
         <Skeleton className="h-64 w-full" />
       ) : open.length === 0 ? (
-        <EmptyState title="Nothing to clarify">
-          In phase 2, press ? on a unit that no code captures yet to give it a provisional label and a short note.
+        <EmptyState title="Rien à clarifier">
+          En phase 2, utilisez ? sur une unité qu'aucun code ne couvre encore pour lui donner une étiquette provisoire et une courte note.
         </EmptyState>
       ) : (
         <div className="flex flex-col gap-3">
@@ -197,15 +197,15 @@ export function ToClarifyPage() {
       )}
 
       {resolved.length > 0 && (
-        <Section title="Resolved" aside={plural(resolved.length, "label")} className="mt-6">
+        <Section title="Résolues" aside={plural(resolved.length, "étiquette")} className="mt-6">
           <ul className="flex flex-col gap-2">
             {resolved.map((t) => (
               <li key={t.id} className="flex flex-wrap items-center gap-2 text-sm">
                 <PendingChip label={t.label} className="opacity-60" />
-                <span className="text-muted-foreground">to</span>
+                <span className="text-muted-foreground">vers</span>
                 <CodeChip code={t.resolved!.code} />
                 <Badge variant="outline" className={cn("text-xs")}>
-                  {t.resolved!.kind === "new_code" ? "new field code" : "mapped"}
+                  {t.resolved!.kind === "new_code" ? "nouveau code de terrain" : "rattachée"}
                 </Badge>
                 <a href={unitHref(t.unit_id)} className="ident text-xs hover:underline">
                   {t.unit_id}

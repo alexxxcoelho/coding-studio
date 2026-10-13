@@ -12,13 +12,13 @@ export function AuditTable({ events, showInterview }: { events: AuditEvent[]; sh
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead className="w-14 pl-4 text-right">Seq</TableHead>
-            <TableHead>Time</TableHead>
-            <TableHead>Actor</TableHead>
+            <TableHead className="w-14 pl-4 text-right">N°</TableHead>
+            <TableHead>Date</TableHead>
+            <TableHead>Auteur</TableHead>
             <TableHead>Action</TableHead>
-            {showInterview && <TableHead>Interview</TableHead>}
-            <TableHead>Target</TableHead>
-            <TableHead className="pr-4">Hash</TableHead>
+            {showInterview && <TableHead>Entretien</TableHead>}
+            <TableHead>Cible</TableHead>
+            <TableHead className="pr-4">Empreinte</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -40,9 +40,9 @@ export function AuditTable({ events, showInterview }: { events: AuditEvent[]; sh
                   <TableCell colSpan={showInterview ? 7 : 6} className="bg-muted/30 px-4">
                     <pre className="ident max-h-80 overflow-auto text-xs whitespace-pre-wrap">{JSON.stringify(e.detail, null, 2)}</pre>
                     <p className="text-muted-foreground mt-2 text-xs">
-                      Previous hash <span className="ident">{e.prev_hash}</span>
+                      Empreinte précédente <span className="ident">{e.prev_hash}</span>
                       <br />
-                      This hash <span className="ident">{e.hash}</span>
+                      Cette empreinte <span className="ident">{e.hash}</span>
                     </p>
                   </TableCell>
                 </TableRow>

@@ -14,7 +14,7 @@ import { Capsule, CapsuleItem, ToolbarActions, ToolbarSearch } from "@/component
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { api } from "@/lib/api"
-import { onDesktopMenu, takeMenuAction } from "@/lib/desktop"
+import { onMenuAction } from "@/lib/desktop"
 import { keys } from "@/lib/hooks"
 import { reportError } from "@/lib/notify"
 import { codingProgress, matchesInterview, nextAction, pipelineSteps, stageOf, type CodingProgress, type Stage } from "@/lib/pipeline"
@@ -55,12 +55,7 @@ export function LibraryPage() {
   const [picked, setPicked] = useState<string | null>(null)
   const [importOpen, setImportOpen] = useState(false)
   // Fichier > Importer des transcriptions... of the desktop menu.
-  useEffect(() => {
-    if (takeMenuAction("import")) setImportOpen(true)
-    return onDesktopMenu((action) => {
-      if (action === "import") setImportOpen(true)
-    })
-  }, [])
+  useEffect(() => onMenuAction("import", () => setImportOpen(true)), [])
 
   const rows = useMemo(() => list.data ?? [], [list.data])
   const progress = useProgress(rows)

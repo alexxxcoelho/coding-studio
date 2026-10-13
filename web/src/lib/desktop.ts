@@ -49,6 +49,19 @@ export function holdMenuAction(action: MenuAction): void {
   pending = action
 }
 
+/**
+ * Calls `handler` each time the native menu sends `action`, and once for an
+ * action held while no screen was mounted (delivered asynchronously, like any
+ * other menu event). Returns the function that stops listening.
+ */
+export function onMenuAction(action: MenuAction, handler: () => void): () => void {
+  const off = onDesktopMenu((a) => {
+    if (a === action) handler()
+  })
+  if (takeMenuAction(action)) queueMicrotask(handler)
+  return off
+}
+
 /** True once if `action` was held; the screen that mounts then carries it out. */
 export function takeMenuAction(action: MenuAction): boolean {
   if (pending !== action) return false

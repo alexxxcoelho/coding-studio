@@ -48,11 +48,11 @@ export function fieldFilled(c: Case, key: CaseFieldKey): boolean {
 }
 
 export const FIELD_LABELS: Record<CaseFieldKey, { title: string; hint: string }> = {
-  trigger: { title: "Trigger", hint: "What set the project in motion" },
-  alternatives: { title: "Alternatives", hint: "The options considered, including doing nothing" },
-  constraints: { title: "Constraints", hint: "What limited the choice: law, partners, budget, skills" },
-  choice: { title: "Choice", hint: "What was decided, by whom" },
-  result: { title: "Result", hint: "What happened, in the respondent's terms" },
+  trigger: { title: "Déclencheur", hint: "Ce qui a mis le projet en mouvement" },
+  alternatives: { title: "Alternatives", hint: "Les options envisagées, y compris ne rien faire" },
+  constraints: { title: "Contraintes", hint: "Ce qui a limité le choix : loi, partenaires, budget, compétences" },
+  choice: { title: "Choix", hint: "Ce qui a été décidé, et par qui" },
+  result: { title: "Résultat", hint: "Ce qui s'est passé, dans les termes du répondant" },
 }
 
 /** Options offered by the case form. Other values are free text. */

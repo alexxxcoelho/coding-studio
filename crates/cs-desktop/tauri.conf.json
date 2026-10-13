@@ -6,7 +6,7 @@
   "build": {
     "devUrl": "http://127.0.0.1:5199",
     "beforeDevCommand": {
-      "script": "CS_GUIDE_DIR=\"$(pwd)/docs/guide\" pnpm --dir web dev",
+      "script": "pnpm --dir web install --frozen-lockfile --prefer-offline && CS_GUIDE_DIR=\"$(pwd)/docs/guide\" pnpm --dir web dev",
       "cwd": "../..",
       "wait": false
     },

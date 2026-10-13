@@ -63,7 +63,7 @@ function markVisited(id: string) {
   }
 }
 
-export function StepsCapsule({ id, current, highlights }: { id: string; current: "coder" | "surlignages" | "revoir"; highlights?: number }) {
+export function StepsCapsule({ id, current, highlights }: { id: string; current: "coder" | "surlignages" | "revoir" | null; highlights?: number }) {
   return (
     <nav className="cap" aria-label="Étapes de l'entretien">
       <a className={cn("ci", current === "coder" && "on")} href={interviewHref(id, "coding")} aria-current={current === "coder" ? "page" : undefined}>
@@ -72,7 +72,7 @@ export function StepsCapsule({ id, current, highlights }: { id: string; current:
       <a className={cn("ci", current === "surlignages" && "on")} href={`#/interviews/${encodeURIComponent(id)}/highlights`} aria-current={current === "surlignages" ? "page" : undefined}>
         Surlignages{highlights !== undefined && highlights > 0 && <span className="n">{highlights}</span>}
       </a>
-      <a className="ci" href={interviewHref(id, "review")}>
+      <a className={cn("ci", current === "revoir" && "on")} href={interviewHref(id, "review")} aria-current={current === "revoir" ? "page" : undefined}>
         Revoir
       </a>
     </nav>
@@ -86,12 +86,13 @@ export function CoderPage({ id, unit: askedUnit = null }: { id: string; unit?: s
   const codesQ = useCodes()
   const memoQ = useMemoView(id)
 
-  const undo = useRef(new UndoStack()).current
+  const [undo] = useState(() => new UndoStack())
   const actions = useCodingActions(id, undo)
 
   const [filter, setFilter] = useState<CoderFilter>("all")
   const [search, setSearch] = useState("")
-  const [selected, setSelected] = useState<string | null>(null)
+  const [picked, setSelected] = useState<string | null>(null)
+  const [seenAsked, setSeenAsked] = useState(askedUnit)
   const [pending, setPending] = useState<{ unitId: string; start: number; end: number } | null>(null)
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null)
   const [tab, setTab] = useState<Tab>("codes")
@@ -114,20 +115,23 @@ export function CoderPage({ id, unit: askedUnit = null }: { id: string; unit?: s
   const keyMap = useMemo(() => numberKeys(rows), [rows])
   const nameById = useMemo(() => new Map(codes.map((c) => [c.code_id, c.name])), [codes])
 
-  // First unit.
-  useEffect(() => {
-    if (selected === null && units.length > 0 && passagesQ.data) setSelected(initialUnit(units, byUnit, askedUnit))
-  }, [selected, units, byUnit, askedUnit, passagesQ.data])
-  useEffect(() => {
-    if (askedUnit && units.some((u) => u.unit_id === askedUnit)) setSelected(askedUnit)
-  }, [askedUnit, units])
+  // A unit asked by the link wins; until one is picked, the first unit to code is selected.
+  if (askedUnit !== seenAsked) {
+    setSeenAsked(askedUnit)
+    if (askedUnit) setSelected(askedUnit)
+  }
+  const selected = picked ?? (units.length > 0 && passagesQ.data ? initialUnit(units, byUnit, askedUnit) : null)
 
   // First visit of an interview without memo answers: the memo opens first.
-  useEffect(() => {
-    if (tabChosen || !memoQ.data) return
+  const [visitChecked, setVisitChecked] = useState<string | null>(null)
+  if (visitChecked !== id && memoQ.data && !tabChosen) {
+    setVisitChecked(id)
     if (!wasVisited(id) && isFirstVisit(memoQ.data)) setTab("memo")
-    markVisited(id)
-  }, [memoQ.data, id, tabChosen])
+  }
+  const visitedOnce = !!memoQ.data
+  useEffect(() => {
+    if (visitedOnce) markVisited(id)
+  }, [visitedOnce, id])
   const chooseTab = (t: Tab) => {
     setTab(t)
     setTabChosen(true)

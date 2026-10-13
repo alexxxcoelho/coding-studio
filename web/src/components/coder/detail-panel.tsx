@@ -2,7 +2,7 @@
 // text around it) and what can be done with it: remove a code, write a note
 // for Plus tard, copy it as a quotation, delete it.
 
-import { useEffect, useState, type CSSProperties } from "react"
+import { useState, type CSSProperties } from "react"
 import { X } from "lucide-react"
 import { toast } from "sonner"
 
@@ -20,8 +20,13 @@ export function quotation(p: Passage): string {
 
 function LaterNote({ passage, onSave }: { passage: Passage; onSave: (note: string) => void }) {
   const coding = passage.codings.find((c) => c.system || c.code_id === LATER_ID)
-  const [draft, setDraft] = useState(coding?.note ?? "")
-  useEffect(() => setDraft(coding?.note ?? ""), [coding?.note, passage.passage_id])
+  const savedNote = coding?.note ?? ""
+  const [draft, setDraft] = useState(savedNote)
+  const [seen, setSeen] = useState(`${passage.passage_id}:${savedNote}`)
+  if (seen !== `${passage.passage_id}:${savedNote}`) {
+    setSeen(`${passage.passage_id}:${savedNote}`)
+    setDraft(savedNote)
+  }
   if (!coding) return null
   return (
     <>

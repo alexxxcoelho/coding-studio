@@ -2,7 +2,7 @@
 // examined. The item `end_memo` carries the note of the end-of-interview memo.
 // The list is never a lock (docs/guide/fr/02_coder.md, action 11).
 
-import { forwardRef, useEffect, useState } from "react"
+import { forwardRef, useState } from "react"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 
 import { TEXTAREA } from "@/components/settings/fields"
@@ -15,8 +15,13 @@ import { interviewHref } from "@/lib/router"
 export const EndPanel = forwardRef<HTMLElement, { interviewId: string }>(function EndPanel({ interviewId }, ref) {
   const qc = useQueryClient()
   const list = useChecklist(interviewId)
-  const [note, setNote] = useState("")
-  useEffect(() => setNote(list.data?.note ?? ""), [list.data?.note])
+  const savedNote = list.data?.note ?? ""
+  const [note, setNote] = useState(savedNote)
+  const [seenNote, setSeenNote] = useState(savedNote)
+  if (seenNote !== savedNote) {
+    setSeenNote(savedNote)
+    setNote(savedNote)
+  }
 
   const save = useMutation({
     mutationFn: (vars: { checked?: Record<string, boolean>; note?: string }) => api.setChecklist(interviewId, vars.checked ?? {}, vars.note),
