@@ -89,3 +89,42 @@ async fn f45_stats_are_in_api_codes_and_on_the_per_code_route() {
     let (s, _) = call(&ctx.app, "GET", "/api/codes/LATER/stats", None).await;
     assert_eq!(s, StatusCode::BAD_REQUEST);
 }
+
+#[tokio::test]
+async fn f41_code_search_finds_names_aliases_and_definitions() {
+    let ctx = setup().await;
+    let adv = code_id(&ctx.app, "TECH-ADV").await;
+    let made = ok(
+        &ctx.app,
+        "POST",
+        "/api/codes",
+        Some(json!({"name": "Économie circulaire", "definition": "Réutilisation des étiquettes."})),
+    )
+    .await;
+    let eco = made["code_id"].as_str().unwrap().to_string();
+    ok(
+        &ctx.app,
+        "POST",
+        &format!("/api/codes/{eco}/aliases"),
+        Some(json!({"alias": "Circular economy"})),
+    )
+    .await;
+
+    let r = ok(&ctx.app, "GET", "/api/codes/search?q=econo", None).await;
+    assert_eq!(r["items"][0]["code_id"], json!(eco));
+    assert_eq!(r["items"][0]["matched"]["field"], "name");
+    let r = ok(&ctx.app, "GET", "/api/codes/search?q=circular", None).await;
+    assert_eq!(r["items"][0]["matched"]["field"], "alias");
+    let r = ok(&ctx.app, "GET", "/api/codes/search?q=%C3%A9tiquet", None).await;
+    assert_eq!(r["items"][0]["matched"]["field"], "definition");
+    // The legacy label of an imported code.
+    let r = ok(&ctx.app, "GET", "/api/codes/search?q=relative", None).await;
+    assert_eq!(r["items"][0]["code_id"], json!(adv));
+    // Empty query: every usable code, the reserved one apart.
+    let r = ok(&ctx.app, "GET", "/api/codes/search", None).await;
+    assert_eq!(r["total"], 5);
+    let r = ok(&ctx.app, "GET", "/api/codes/search?limit=2", None).await;
+    assert_eq!(r["items"].as_array().unwrap().len(), 2);
+    let r = ok(&ctx.app, "GET", "/api/codes/search?q=plus&include_system=true", None).await;
+    assert_eq!(r["items"][0]["system"], true);
+}

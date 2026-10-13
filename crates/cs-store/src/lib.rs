@@ -20,6 +20,7 @@ mod analysis_schema;
 mod cases;
 mod claims;
 mod codebook;
+mod codesearch;
 mod codestats;
 mod codetree;
 mod coding;
@@ -37,11 +38,13 @@ mod review_schema;
 mod saturation;
 mod simple;
 mod study_config;
+mod textfold;
 mod themes;
 mod verification;
 mod writing;
 
 pub use codebook::{CodePatch, ImportReport, MergeOutcome};
+pub use codesearch::{CodeHit, CodeMatch, CodeSearch, CodeSearchOptions};
 pub use codetree::{
     CodeMemoVersion, CodeUpdate, NewCode, NewCodeFromPassage, ResolvedCode, Revision,
     UndoCreateOutcome,

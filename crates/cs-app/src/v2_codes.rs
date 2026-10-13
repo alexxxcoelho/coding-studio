@@ -7,13 +7,16 @@ use axum::extract::{Path as UrlPath, Query, State};
 use axum::routing::get;
 use axum::{Json, Router};
 use cs_model::CsError;
+use cs_store::CodeSearchOptions;
 use serde::Deserialize;
 use serde_json::json;
 
 use crate::{ApiResult, AppState};
 
 pub(crate) fn routes() -> Router<AppState> {
-    Router::new().route("/api/codes/{id}/stats", get(code_stats))
+    Router::new()
+        .route("/api/codes/search", get(search_codes))
+        .route("/api/codes/{id}/stats", get(code_stats))
 }
 
 fn invalid(msg: impl Into<String>) -> anyhow::Error {
@@ -41,4 +44,27 @@ async fn code_stats(
         _ => return Err(invalid("attribute and value go together").into()),
     };
     Ok(Json(json!(st.store().code_stats(&id, filter)?)))
+}
+
+#[derive(Deserialize, Default)]
+struct SearchQuery {
+    #[serde(default)]
+    q: String,
+    #[serde(default)]
+    limit: Option<usize>,
+    #[serde(default)]
+    include_inactive: bool,
+    #[serde(default)]
+    include_system: bool,
+}
+
+/// Code picker search (F-41): names, aliases, label, token and definitions,
+/// prefix and accent-insensitive.
+async fn search_codes(State(st): State<AppState>, Query(q): Query<SearchQuery>) -> ApiResult {
+    let opts = CodeSearchOptions {
+        include_inactive: q.include_inactive,
+        include_system: q.include_system,
+        limit: q.limit,
+    };
+    Ok(Json(json!(st.store().search_codes(&q.q, &opts)?)))
 }
