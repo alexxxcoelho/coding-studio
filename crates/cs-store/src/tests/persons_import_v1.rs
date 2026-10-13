@@ -30,7 +30,10 @@ fn import_dry_run_reports_and_writes_nothing() {
     let before = s.audit_events(None).unwrap().len();
     let r = s.import_persons(CSV, true, ACTOR).unwrap();
     assert!(r.ok && r.dry_run && !r.applied, "{:?}", r.problems);
-    assert_eq!((r.n_rows, r.n_create, r.n_update, r.n_unchanged), (3, 3, 0, 0));
+    assert_eq!(
+        (r.n_rows, r.n_create, r.n_update, r.n_unchanged),
+        (3, 3, 0, 0)
+    );
     assert_eq!(r.n_links, 3);
     assert_eq!(
         r.groups_to_create,
@@ -69,7 +72,10 @@ fn import_applies_in_one_transaction_with_one_audit_event() {
         && l.role == "mentioned"));
     // Applying the same file again changes nothing.
     let again = s.import_persons(CSV, false, ACTOR).unwrap();
-    assert_eq!((again.n_create, again.n_update, again.n_unchanged), (0, 0, 3));
+    assert_eq!(
+        (again.n_create, again.n_update, again.n_unchanged),
+        (0, 0, 3)
+    );
     assert_eq!(s.all_persons().unwrap().len(), 3);
     // The audit event holds counts and the file digest, never a name.
     let events = serde_json::to_string(&s.audit_events(None).unwrap()).unwrap();
@@ -77,7 +83,9 @@ fn import_applies_in_one_transaction_with_one_audit_event() {
     assert!(!events.contains("Banque Alpha") && !events.contains("Anna Muller"));
     // Counters moved on: the next record continues the numbering.
     assert_eq!(
-        s.create_person(&named("Zoé Blanc"), ACTOR).unwrap().person_id,
+        s.create_person(&named("Zoé Blanc"), ACTOR)
+            .unwrap()
+            .person_id,
         "P-0004"
     );
 }

@@ -247,8 +247,8 @@ impl Store {
             .query_map([], person_from_row)?
             .collect::<rusqlite::Result<_>>()?;
         let mut members: BTreeMap<String, Vec<String>> = BTreeMap::new();
-        let mut stmt = conn
-            .prepare("SELECT person_id, group_id FROM person_group_members ORDER BY group_id")?;
+        let mut stmt =
+            conn.prepare("SELECT person_id, group_id FROM person_group_members ORDER BY group_id")?;
         for row in stmt.query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?)))? {
             let (p, g) = row?;
             members.entry(p).or_default().push(g);
@@ -417,7 +417,12 @@ impl Store {
             return Err(validation("a record needs a name"));
         }
         for (field, value, target, max) in [
-            ("organisation", &patch.organisation, &mut p.organisation, 200),
+            (
+                "organisation",
+                &patch.organisation,
+                &mut p.organisation,
+                200,
+            ),
             ("function", &patch.function, &mut p.function, 200),
             ("email", &patch.email, &mut p.email, 200),
             ("phone", &patch.phone, &mut p.phone, 60),
@@ -643,7 +648,10 @@ impl Store {
         let digest_before = self.pseudonym_config()?.digest();
         let tx = self.conn.unchecked_transaction()?;
         tx.execute("DELETE FROM person_interviews WHERE person_id = ?1", [id])?;
-        tx.execute("DELETE FROM person_group_members WHERE person_id = ?1", [id])?;
+        tx.execute(
+            "DELETE FROM person_group_members WHERE person_id = ?1",
+            [id],
+        )?;
         tx.execute("DELETE FROM persons WHERE person_id = ?1", [id])?;
         let digest_after = effective_from(&self.all_persons_on(&tx)?, &manual)
             .config

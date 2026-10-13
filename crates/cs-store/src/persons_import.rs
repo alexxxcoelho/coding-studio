@@ -178,7 +178,9 @@ impl Sim {
         for part in path.split('/') {
             let name = part.trim();
             if name.is_empty() || name.chars().count() > 200 {
-                return Err(validation(format!("the group path {path:?} has an empty or too long part")));
+                return Err(validation(format!(
+                    "the group path {path:?} has an empty or too long part"
+                )));
             }
             let found = self
                 .groups
@@ -211,7 +213,12 @@ impl Sim {
 impl Store {
     /// Reads a CSV of persons. With `dry_run` nothing is written; otherwise
     /// the file is applied in one transaction when it has no problem.
-    pub fn import_persons(&self, csv: &str, dry_run: bool, actor: &str) -> Result<PersonsImportReport> {
+    pub fn import_persons(
+        &self,
+        csv: &str,
+        dry_run: bool,
+        actor: &str,
+    ) -> Result<PersonsImportReport> {
         let mut report = PersonsImportReport {
             dry_run,
             applied: false,
@@ -243,7 +250,9 @@ impl Store {
         }
         let header: Vec<String> = records.remove(0).iter().map(|h| column_key(h)).collect();
         for h in header.iter().filter(|h| h.starts_with('?')) {
-            report.warnings.push(format!("column {:?} is ignored", &h[1..]));
+            report
+                .warnings
+                .push(format!("column {:?} is ignored", &h[1..]));
         }
         let col = |key: &str| header.iter().position(|h| h == key);
         let Some(name_col) = col("name") else {
@@ -296,7 +305,11 @@ impl Store {
                     .map(|s| s.trim().to_string())
                     .unwrap_or_default()
             };
-            let name = rec.get(name_col).map(|s| s.trim()).unwrap_or("").to_string();
+            let name = rec
+                .get(name_col)
+                .map(|s| s.trim())
+                .unwrap_or("")
+                .to_string();
             let mut problem = |msg: String| {
                 report.problems.push(PersonsImportProblem {
                     row: row_no,
@@ -492,11 +505,12 @@ impl Store {
                 Ok((p, creating)) => {
                     let unchanged = !creating
                         && initial.get(&p.person_id) == Some(&p)
-                        && row_links
-                            .iter()
-                            .all(|(iv, r)| initial_links.get(&(p.person_id.clone(), iv.clone())) == Some(r));
+                        && row_links.iter().all(|(iv, r)| {
+                            initial_links.get(&(p.person_id.clone(), iv.clone())) == Some(r)
+                        });
                     for (iv, r) in &row_links {
-                        sim.links.insert((p.person_id.clone(), iv.clone()), r.clone());
+                        sim.links
+                            .insert((p.person_id.clone(), iv.clone()), r.clone());
                     }
                     let action = if creating {
                         report.n_create += 1;

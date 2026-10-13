@@ -178,7 +178,12 @@ fn manual_entries_are_kept_and_merged_but_never_shadow_the_register() {
     let a = s.create_person(&named("anna muller"), ACTOR).unwrap();
     let eff = s.effective_pseudonyms().unwrap();
     // The record wins over the manual entry of the same name.
-    let originals: Vec<&str> = eff.config.entries.iter().map(|e| e.original.as_str()).collect();
+    let originals: Vec<&str> = eff
+        .config
+        .entries
+        .iter()
+        .map(|e| e.original.as_str())
+        .collect();
     assert_eq!(originals, vec!["anna muller", "Banque Beta"]);
     assert_eq!(eff.person_of, vec![Some(a.person_id.clone()), None]);
     assert_eq!(eff.shadowed.len(), 1);
@@ -191,7 +196,11 @@ fn manual_entries_are_kept_and_merged_but_never_shadow_the_register() {
         entries: eff.config.entries.clone(),
     };
     let stored = s.set_pseudonym_config(&next, ACTOR).unwrap();
-    assert_eq!(stored.entries.len(), 1, "the record's names are not kept by hand");
+    assert_eq!(
+        stored.entries.len(),
+        1,
+        "the record's names are not kept by hand"
+    );
     assert_eq!(stored.entries[0].original, "Banque Beta");
     // A manual entry for a record that is not anonymised is not applied.
     s.create_person(&unflagged("Luc Favre"), ACTOR).unwrap();
@@ -240,7 +249,9 @@ fn clashes_in_the_register_are_refused() {
         .unwrap_err();
     assert!(is_kind(&e, "validation"));
     // A record that is not anonymised cannot carry a name a flagged one replaces.
-    let e = s.create_person(&unflagged("Anna Muller"), ACTOR).unwrap_err();
+    let e = s
+        .create_person(&unflagged("Anna Muller"), ACTOR)
+        .unwrap_err();
     assert!(is_kind(&e, "validation"));
     // A pseudonym that contains a listed name would put it back.
     let e = s
@@ -372,17 +383,32 @@ fn person_attributes_reuse_the_attribute_definitions_with_a_scope() {
     // The person takes the person-scoped one, validated by type.
     let p = s.create_person(&named("Anna Muller"), ACTOR).unwrap();
     let bad = PersonPatch {
-        attributes: Some(BTreeMap::from([("seniority".to_string(), Some("long".to_string()))])),
+        attributes: Some(BTreeMap::from([(
+            "seniority".to_string(),
+            Some("long".to_string()),
+        )])),
         ..Default::default()
     };
-    assert!(is_kind(&s.update_person(&p.person_id, &bad, ACTOR).unwrap_err(), "validation"));
+    assert!(is_kind(
+        &s.update_person(&p.person_id, &bad, ACTOR).unwrap_err(),
+        "validation"
+    ));
     let unknown = PersonPatch {
-        attributes: Some(BTreeMap::from([("sector".to_string(), Some("public".to_string()))])),
+        attributes: Some(BTreeMap::from([(
+            "sector".to_string(),
+            Some("public".to_string()),
+        )])),
         ..Default::default()
     };
-    assert!(is_kind(&s.update_person(&p.person_id, &unknown, ACTOR).unwrap_err(), "validation"));
+    assert!(is_kind(
+        &s.update_person(&p.person_id, &unknown, ACTOR).unwrap_err(),
+        "validation"
+    ));
     let ok = PersonPatch {
-        attributes: Some(BTreeMap::from([("seniority".to_string(), Some("12".to_string()))])),
+        attributes: Some(BTreeMap::from([(
+            "seniority".to_string(),
+            Some("12".to_string()),
+        )])),
         ..Default::default()
     };
     let p = s.update_person(&p.person_id, &ok, ACTOR).unwrap();
@@ -390,15 +416,25 @@ fn person_attributes_reuse_the_attribute_definitions_with_a_scope() {
     // A value in use protects the definition (type, scope, removal).
     let mut retyped = s.project_config().unwrap();
     retyped.attributes[1].kind = AttributeKind::Text;
-    assert!(is_kind(&s.set_project_config(&retyped, ACTOR).unwrap_err(), "guard"));
+    assert!(is_kind(
+        &s.set_project_config(&retyped, ACTOR).unwrap_err(),
+        "guard"
+    ));
     let mut rescoped = s.project_config().unwrap();
     rescoped.attributes[1].scope = AttributeScope::Interview;
-    assert!(is_kind(&s.set_project_config(&rescoped, ACTOR).unwrap_err(), "guard"));
+    assert!(is_kind(
+        &s.set_project_config(&rescoped, ACTOR).unwrap_err(),
+        "guard"
+    ));
     let mut removed = s.project_config().unwrap();
     removed.attributes.pop();
-    assert!(is_kind(&s.set_project_config(&removed, ACTOR).unwrap_err(), "guard"));
+    assert!(is_kind(
+        &s.set_project_config(&removed, ACTOR).unwrap_err(),
+        "guard"
+    ));
     // Only respondents' shared attributes are offered to the prompt.
-    s.link_person(&p.person_id, ID, "respondent", ACTOR).unwrap();
+    s.link_person(&p.person_id, ID, "respondent", ACTOR)
+        .unwrap();
     assert_eq!(
         s.shared_person_attributes(ID).unwrap(),
         vec![("Ancienneté".to_string(), "12".to_string())]
@@ -411,10 +447,18 @@ fn person_attributes_reuse_the_attribute_definitions_with_a_scope() {
 fn groups_form_a_tree_with_unique_sibling_names_and_no_cycle() {
     let (s, _d) = ready();
     let root = s.create_group("Détaillants", None, "", ACTOR).unwrap();
-    let ch = s.create_group("Suisse romande", Some(&root.group_id), "", ACTOR).unwrap();
-    let vd = s.create_group("Vaud", Some(&ch.group_id), "", ACTOR).unwrap();
+    let ch = s
+        .create_group("Suisse romande", Some(&root.group_id), "", ACTOR)
+        .unwrap();
+    let vd = s
+        .create_group("Vaud", Some(&ch.group_id), "", ACTOR)
+        .unwrap();
     assert_eq!(
-        [root.group_id.as_str(), ch.group_id.as_str(), vd.group_id.as_str()],
+        [
+            root.group_id.as_str(),
+            ch.group_id.as_str(),
+            vd.group_id.as_str()
+        ],
         ["G-0001", "G-0002", "G-0003"]
     );
     // Same name at the same level, any case: refused. Same name elsewhere: fine.
@@ -423,8 +467,14 @@ fn groups_form_a_tree_with_unique_sibling_names_and_no_cycle() {
         "validation"
     ));
     s.create_group("Vaud", None, "", ACTOR).unwrap();
-    assert!(is_kind(&s.create_group("", None, "", ACTOR).unwrap_err(), "validation"));
-    assert!(is_kind(&s.create_group("a/b", None, "", ACTOR).unwrap_err(), "validation"));
+    assert!(is_kind(
+        &s.create_group("", None, "", ACTOR).unwrap_err(),
+        "validation"
+    ));
+    assert!(is_kind(
+        &s.create_group("a/b", None, "", ACTOR).unwrap_err(),
+        "validation"
+    ));
     assert!(is_kind(
         &s.create_group("X", Some("G-0099"), "", ACTOR).unwrap_err(),
         "not_found"
@@ -500,24 +550,37 @@ fn deleting_a_group_needs_it_empty_or_a_reassignment() {
         )
         .unwrap();
     // A has a sub-group, B has a member: both refused.
-    assert!(is_kind(&s.delete_group(&a.group_id, None, ACTOR).unwrap_err(), "guard"));
-    assert!(is_kind(&s.delete_group(&b.group_id, None, ACTOR).unwrap_err(), "guard"));
+    assert!(is_kind(
+        &s.delete_group(&a.group_id, None, ACTOR).unwrap_err(),
+        "guard"
+    ));
+    assert!(is_kind(
+        &s.delete_group(&b.group_id, None, ACTOR).unwrap_err(),
+        "guard"
+    ));
     // Reassigning to itself or a descendant is refused.
     assert!(is_kind(
-        &s.delete_group(&a.group_id, Some(&b.group_id), ACTOR).unwrap_err(),
+        &s.delete_group(&a.group_id, Some(&b.group_id), ACTOR)
+            .unwrap_err(),
         "validation"
     ));
     assert!(is_kind(
-        &s.delete_group(&a.group_id, Some(&a.group_id), ACTOR).unwrap_err(),
+        &s.delete_group(&a.group_id, Some(&a.group_id), ACTOR)
+            .unwrap_err(),
         "validation"
     ));
     // With a target: sub-groups and members move there.
-    s.delete_group(&b.group_id, Some(&c.group_id), ACTOR).unwrap();
-    assert_eq!(s.person(&p.person_id).unwrap().group_ids, vec![c.group_id.clone()]);
+    s.delete_group(&b.group_id, Some(&c.group_id), ACTOR)
+        .unwrap();
+    assert_eq!(
+        s.person(&p.person_id).unwrap().group_ids,
+        vec![c.group_id.clone()]
+    );
     s.delete_group(&a.group_id, None, ACTOR).unwrap();
     assert_eq!(s.person_groups().unwrap().len(), 1);
     // An empty group goes without a target.
-    s.delete_group(&c.group_id, Some(&c.group_id), ACTOR).unwrap_err();
+    s.delete_group(&c.group_id, Some(&c.group_id), ACTOR)
+        .unwrap_err();
     let d = s.create_group("D", None, "", ACTOR).unwrap();
     s.delete_group(&d.group_id, None, ACTOR).unwrap();
     // Ids are not reused.
@@ -530,31 +593,51 @@ fn a_person_can_belong_to_several_groups_and_the_counts_roll_up() {
     let (s, _d) = ready();
     second_interview(&s);
     let ret = s.create_group("Détaillants", None, "", ACTOR).unwrap();
-    let ch = s.create_group("Suisse romande", Some(&ret.group_id), "", ACTOR).unwrap();
-    let be = s.create_group("Belgique", Some(&ret.group_id), "", ACTOR).unwrap();
+    let ch = s
+        .create_group("Suisse romande", Some(&ret.group_id), "", ACTOR)
+        .unwrap();
+    let be = s
+        .create_group("Belgique", Some(&ret.group_id), "", ACTOR)
+        .unwrap();
     let other = s.create_group("Fabricants", None, "", ACTOR).unwrap();
     let mk = |name: &str, groups: &[&str]| PersonPatch {
         name: Some(name.into()),
         group_ids: Some(groups.iter().map(|g| g.to_string()).collect()),
         ..Default::default()
     };
-    let a = s.create_person(&mk("Anna Muller", &[&ch.group_id, &other.group_id]), ACTOR).unwrap();
-    let b = s.create_person(&mk("Luc Favre", &[&ch.group_id]), ACTOR).unwrap();
-    let c = s.create_person(&mk("Eva Roth", &[&be.group_id]), ACTOR).unwrap();
+    let a = s
+        .create_person(&mk("Anna Muller", &[&ch.group_id, &other.group_id]), ACTOR)
+        .unwrap();
+    let b = s
+        .create_person(&mk("Luc Favre", &[&ch.group_id]), ACTOR)
+        .unwrap();
+    let c = s
+        .create_person(&mk("Eva Roth", &[&be.group_id]), ACTOR)
+        .unwrap();
     s.create_person(&mk("Sans Groupe", &[]), ACTOR).unwrap();
-    s.link_person(&a.person_id, ID, "respondent", ACTOR).unwrap();
-    s.link_person(&b.person_id, ID, "co_respondent", ACTOR).unwrap();
-    s.link_person(&c.person_id, "ECO-17", "respondent", ACTOR).unwrap();
+    s.link_person(&a.person_id, ID, "respondent", ACTOR)
+        .unwrap();
+    s.link_person(&b.person_id, ID, "co_respondent", ACTOR)
+        .unwrap();
+    s.link_person(&c.person_id, "ECO-17", "respondent", ACTOR)
+        .unwrap();
     let t = s.group_tree().unwrap();
     assert_eq!((t.n_groups, t.n_persons, t.n_ungrouped_persons), (4, 4, 1));
-    let top = t.groups.iter().find(|g| g.group.name == "Détaillants").unwrap();
+    let top = t
+        .groups
+        .iter()
+        .find(|g| g.group.name == "Détaillants")
+        .unwrap();
     assert_eq!(top.n_persons, 0);
     assert_eq!(top.n_persons_total, 3);
     assert_eq!(top.n_interviews_total, 2);
     assert_eq!(top.children.len(), 2);
     assert_eq!(top.children[0].path, "Détaillants/Belgique");
     let rom = &top.children[1];
-    assert_eq!((rom.n_persons, rom.n_persons_total, rom.n_interviews_total), (2, 2, 1));
+    assert_eq!(
+        (rom.n_persons, rom.n_persons_total, rom.n_interviews_total),
+        (2, 2, 1)
+    );
     // Filters follow the subtree.
     let in_top = s
         .persons(&PersonFilter {
@@ -579,9 +662,13 @@ fn a_person_can_belong_to_several_groups_and_the_counts_roll_up() {
         .unwrap();
     assert_eq!(q.len(), 1);
     // The path helper and ensure_group_path agree and reuse what exists.
-    let id = s.ensure_group_path("Détaillants/Suisse romande", ACTOR).unwrap();
+    let id = s
+        .ensure_group_path("Détaillants/Suisse romande", ACTOR)
+        .unwrap();
     assert_eq!(id, ch.group_id);
-    let new = s.ensure_group_path("Détaillants/Tessin/Lugano", ACTOR).unwrap();
+    let new = s
+        .ensure_group_path("Détaillants/Tessin/Lugano", ACTOR)
+        .unwrap();
     assert_eq!(
         crate::group_path(&s.person_groups().unwrap(), &new),
         "Détaillants/Tessin/Lugano"
@@ -594,30 +681,41 @@ fn links_to_interviews_carry_a_role_and_an_interview_has_several_persons() {
     let a = s.create_person(&named("Anna Muller"), ACTOR).unwrap();
     let b = s.create_person(&named("Luc Favre"), ACTOR).unwrap();
     let c = s.create_person(&unflagged("Eva Roth"), ACTOR).unwrap();
-    s.link_person(&b.person_id, ID, "interviewer", ACTOR).unwrap();
+    s.link_person(&b.person_id, ID, "interviewer", ACTOR)
+        .unwrap();
     s.link_person(&c.person_id, ID, "mentioned", ACTOR).unwrap();
-    let v = s.link_person(&a.person_id, ID, "respondent", ACTOR).unwrap();
+    let v = s
+        .link_person(&a.person_id, ID, "respondent", ACTOR)
+        .unwrap();
     let roles: Vec<(&str, &str)> = v
         .iter()
         .map(|ip| (ip.role.as_str(), ip.person.person_id.as_str()))
         .collect();
     assert_eq!(
         roles,
-        vec![("respondent", "P-0001"), ("mentioned", "P-0003"), ("interviewer", "P-0002")]
+        vec![
+            ("respondent", "P-0001"),
+            ("mentioned", "P-0003"),
+            ("interviewer", "P-0002")
+        ]
     );
     // A role change is an update, not a second link.
-    let v = s.link_person(&a.person_id, ID, "co_respondent", ACTOR).unwrap();
+    let v = s
+        .link_person(&a.person_id, ID, "co_respondent", ACTOR)
+        .unwrap();
     assert_eq!(v.len(), 3);
     assert!(is_kind(
         &s.link_person(&a.person_id, ID, "boss", ACTOR).unwrap_err(),
         "validation"
     ));
     assert!(is_kind(
-        &s.link_person("P-0099", ID, "respondent", ACTOR).unwrap_err(),
+        &s.link_person("P-0099", ID, "respondent", ACTOR)
+            .unwrap_err(),
         "not_found"
     ));
     assert!(is_kind(
-        &s.link_person(&a.person_id, "NOPE-01", "respondent", ACTOR).unwrap_err(),
+        &s.link_person(&a.person_id, "NOPE-01", "respondent", ACTOR)
+            .unwrap_err(),
         "not_found"
     ));
     // The detail has the interviews, groups and attributes.
@@ -626,11 +724,7 @@ fn links_to_interviews_carry_a_role_and_an_interview_has_several_persons() {
     assert_eq!(d.interviews[0].role, "co_respondent");
     // Replace the whole set.
     let v = s
-        .set_interview_persons(
-            ID,
-            &[(a.person_id.clone(), "respondent".into())],
-            ACTOR,
-        )
+        .set_interview_persons(ID, &[(a.person_id.clone(), "respondent".into())], ACTOR)
         .unwrap();
     assert_eq!(v.len(), 1);
     assert!(is_kind(
@@ -647,15 +741,22 @@ fn links_to_interviews_carry_a_role_and_an_interview_has_several_persons() {
     ));
     // Unlink; unlinking twice is a 404.
     s.unlink_person(&a.person_id, ID, ACTOR).unwrap();
-    assert!(is_kind(&s.unlink_person(&a.person_id, ID, ACTOR).unwrap_err(), "not_found"));
+    assert!(is_kind(
+        &s.unlink_person(&a.person_id, ID, ACTOR).unwrap_err(),
+        "not_found"
+    ));
 }
 
 #[test]
 fn deleting_a_linked_person_is_refused_unless_the_links_go_too() {
     let (s, _d) = ready();
     let a = s.create_person(&named("Anna Muller"), ACTOR).unwrap();
-    s.link_person(&a.person_id, ID, "respondent", ACTOR).unwrap();
-    assert!(is_kind(&s.delete_person(&a.person_id, false, ACTOR).unwrap_err(), "guard"));
+    s.link_person(&a.person_id, ID, "respondent", ACTOR)
+        .unwrap();
+    assert!(is_kind(
+        &s.delete_person(&a.person_id, false, ACTOR).unwrap_err(),
+        "guard"
+    ));
     s.delete_person(&a.person_id, true, ACTOR).unwrap();
     assert!(s.all_persons().unwrap().is_empty());
     assert!(s.person_links().unwrap().is_empty());
@@ -699,7 +800,8 @@ fn every_write_is_audited_without_names() {
         ACTOR,
     )
     .unwrap();
-    s.link_person(&a.person_id, ID, "respondent", ACTOR).unwrap();
+    s.link_person(&a.person_id, ID, "respondent", ACTOR)
+        .unwrap();
     s.update_group(
         &g.group_id,
         &GroupPatch {
@@ -757,7 +859,9 @@ fn the_migration_is_idempotent_and_keeps_the_register() {
         assert!(SCHEMA_VERSION >= 8);
         // The counters survive: the next id continues.
         assert_eq!(
-            s.create_person(&named("Luc Favre"), ACTOR).unwrap().person_id,
+            s.create_person(&named("Luc Favre"), ACTOR)
+                .unwrap()
+                .person_id,
             "P-0002"
         );
     }

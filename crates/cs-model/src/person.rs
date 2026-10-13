@@ -176,9 +176,7 @@ pub fn check_kind(kind: &str) -> Result<String, CsError> {
     if PERSON_KINDS.contains(&k.as_str()) {
         Ok(k)
     } else {
-        invalid(format!(
-            "kind must be person or organisation, not {kind:?}"
-        ))
+        invalid(format!("kind must be person or organisation, not {kind:?}"))
     }
 }
 
@@ -347,13 +345,22 @@ mod tests {
         assert_eq!(default_pseudonym("person", "fr", 3), "Répondant 03");
         assert_eq!(default_pseudonym("person", "en", 3), "Participant 03");
         assert_eq!(default_pseudonym("person", "de-CH", 12), "Teilnehmer 12");
-        assert_eq!(default_pseudonym("organisation", "en", 1), "Organisation 01");
+        assert_eq!(
+            default_pseudonym("organisation", "en", 1),
+            "Organisation 01"
+        );
     }
 
     #[test]
     fn only_flagged_records_feed_the_list_and_the_name_comes_first() {
         let ps = vec![
-            person("P-0001", "Anna Muller", true, "Répondant 01", &["Anna", "A. M."]),
+            person(
+                "P-0001",
+                "Anna Muller",
+                true,
+                "Répondant 01",
+                &["Anna", "A. M."],
+            ),
             person("P-0002", "Luc Favre", false, "Répondant 02", &["Luc"]),
         ];
         let e = derive_entries(&ps);
@@ -361,7 +368,10 @@ mod tests {
         assert_eq!(originals, vec!["Anna Muller", "Anna", "A. M."]);
         assert!(e.iter().all(|x| x.pseudonym == "Répondant 01"));
         let p = Pseudonymiser::new(&e);
-        assert_eq!(p.mask("Anna Muller et Luc Favre"), "Répondant 01 et Luc Favre");
+        assert_eq!(
+            p.mask("Anna Muller et Luc Favre"),
+            "Répondant 01 et Luc Favre"
+        );
         assert_eq!(p.unmask("Répondant 01"), "Anna Muller");
     }
 
@@ -369,7 +379,12 @@ mod tests {
     fn aliases_are_cleaned_and_short_ones_refused() {
         let a = normalise_aliases(
             "Anna Muller",
-            &[" Anna ".into(), "anna".into(), "".into(), "anna muller".into()],
+            &[
+                " Anna ".into(),
+                "anna".into(),
+                "".into(),
+                "anna muller".into(),
+            ],
         )
         .unwrap();
         assert_eq!(a, vec!["Anna"]);

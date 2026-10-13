@@ -87,11 +87,11 @@ pub use matrix::{
     MatrixFilter, MatrixOptions, MatrixViewRecord,
 };
 pub use passages::{NewPassage, PassageFilter};
-pub use persons_import::{PersonsImportProblem, PersonsImportReport, PersonsImportRow};
 pub use persons::{
     group_path, EffectivePseudonyms, GroupPatch, GroupRef, GroupTree, InterviewPerson,
     PersonDetail, PersonFilter, PersonInterview, PersonRow,
 };
+pub use persons_import::{PersonsImportProblem, PersonsImportReport, PersonsImportRow};
 pub use project::{
     AttributeView, ChecklistItemView, ChecklistView, MemoAnswer, MemoOverrides, MemoQuestionView,
     MemoView, TemplateChange, TemplateReport,

@@ -394,7 +394,11 @@ impl Store {
         };
         Ok(AttributeView {
             interview_id: interview_id.into(),
-            definitions: self.project_config()?.interview_attributes().cloned().collect(),
+            definitions: self
+                .project_config()?
+                .interview_attributes()
+                .cloned()
+                .collect(),
             values,
         })
     }
