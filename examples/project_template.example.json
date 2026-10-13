@@ -54,8 +54,8 @@
         "label": "Mémos des nouveaux codes écrits"
       },
       {
-        "id": "next_questions",
-        "label": "Questions pour les suivants notées"
+        "id": "end_memo",
+        "label": "Mémo de fin d'entretien rédigé"
       }
     ],
     "evidence_natures": [

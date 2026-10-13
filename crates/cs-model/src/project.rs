@@ -304,7 +304,7 @@ pub fn default_checklist() -> Vec<ListItem> {
         item("turns_seen", "Tous les tours du répondant vus"),
         item("later_handled", "Codes Plus tard traités ou assumés"),
         item("code_memos", "Mémos des nouveaux codes écrits"),
-        item("next_questions", "Questions pour les suivants notées"),
+        item("end_memo", "Mémo de fin d'entretien rédigé"),
     ]
 }
 

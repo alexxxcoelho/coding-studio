@@ -32,7 +32,7 @@ Acceptance tests covered on the server side: A1 and A2 (passage creation, severa
 - **Memo template versions** are assigned by the server and the previous version is kept in `memo_history`, so an interview keeps the questions it was answered with and shows `outdated` when the template moved on. Choosing the same template again moves it to the current version.
 - **Per-interview data** (attribute values, memo, checklist) is one JSON document per kind in the table `interview_data`, written inside a transaction with its audit event.
 - **Template import** replaces lists and adds or updates what the file lists, keeps what carries data (an attribute with values, a memo template in use, research questions it does not list), reports every problem, and writes nothing on `dry_run` or on a problem. The research questions SQ1 to SQ3 that a codebook import creates with an empty text stay beside the template's Q1 to Q3.
-- **Checklist default.** The fourth item is "Questions pour les suivants notées" (task brief). The guide (`docs/guide/fr/02_coder.md`) lists "mémo de fin d'entretien rédigé" instead; the owner should align one of them.
+- **Checklist default.** Fourth item aligned with the guide: "Mémo de fin d'entretien rédigé" (id end_memo), its note holds the questions for the next interviews.
 - **Fixed on the way.** The CSV and JSON codebook imports did not assign ids; they do now (and add a revision). `codebook.csv` gained six trailing columns; the import reads columns by name and is unaffected.
 - French default labels contain no long dash and no emoji (checked by a test).
 
