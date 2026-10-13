@@ -61,7 +61,8 @@ pub use project::{
 pub use review::{Review, ReviewEntry};
 pub use simple::SimpleProgress;
 pub use themes::{
-    NewTheme, ThemeCheckView, ThemeCodeView, ThemeCounts, ThemeHistoryEntry, ThemePatch, ThemeView,
+    NewTheme, ThemeCheckView, ThemeCodeView, ThemeCounts, ThemeHistoryEntry, ThemePassageView,
+    ThemePatch, ThemeView,
 };
 pub use writing::{
     FrameworkCellReading, FrameworkReading, FrameworkRow, FrameworkTable, PartEdit, PartState,

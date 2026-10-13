@@ -466,7 +466,9 @@ impl Store {
         Ok(out)
     }
 
-    fn stored_cells(&self) -> Result<BTreeMap<(String, String), (Option<String>, String)>> {
+    pub(crate) fn stored_cells(
+        &self,
+    ) -> Result<BTreeMap<(String, String), (Option<String>, String)>> {
         let mut stmt = self
             .conn
             .prepare("SELECT row_key, col_key, value, summary FROM matrix_cells")?;

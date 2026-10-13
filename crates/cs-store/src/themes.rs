@@ -1023,3 +1023,52 @@ impl Store {
         Ok(())
     }
 }
+
+/// A passage of a theme with the codes of the theme that it carries.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct ThemePassageView {
+    #[serde(flatten)]
+    pub brief: crate::links::PassageBrief,
+    /// Codes of the theme (descendants included) on the passage.
+    pub code_ids: Vec<String>,
+    /// Value of the cell (interview, theme) of the matrix when the researcher set one.
+    pub cell_value: Option<String>,
+}
+
+impl Store {
+    /// The passages of a theme, in interview and unit order, each with the codes
+    /// of the theme it carries and the value the researcher gave the cell
+    /// (interview, theme) of the matrix.
+    pub fn theme_passages(&self, theme_id: &str) -> Result<Vec<ThemePassageView>> {
+        let theme = self.theme(theme_id)?;
+        let idx = Index::load(self)?;
+        let wanted: BTreeSet<String> = idx.closure(theme.codes.iter().map(|c| c.code_id.clone()));
+        let positions = self.theme_passage_positions(&idx, &theme.theme_id)?;
+        let words = self.verification_words()?;
+        let cells = self.stored_cells()?;
+        Ok(positions
+            .into_iter()
+            .map(|i| {
+                let p = &idx.passages[i];
+                let key = (
+                    format!("interview:{}", p.interview_id),
+                    format!("theme:{}", theme.theme_id),
+                );
+                let value = cells
+                    .get(&key)
+                    .or_else(|| cells.get(&(key.1.clone(), key.0.clone())))
+                    .and_then(|c| c.0.clone());
+                ThemePassageView {
+                    brief: self.brief_of(p, &words),
+                    code_ids: p
+                        .codings
+                        .iter()
+                        .filter(|c| !c.system && wanted.contains(&c.code_id))
+                        .map(|c| c.code_id.clone())
+                        .collect(),
+                    cell_value: value,
+                }
+            })
+            .collect())
+    }
+}
