@@ -3,7 +3,7 @@
 import type { Route } from "@/lib/router"
 
 /** Which sidebar entry is active for a route. */
-export type NavKey = "library" | "codebook" | "analyser" | "rediger" | "settings" | "guide"
+export type NavKey = "library" | "codebook" | "lexique" | "analyser" | "rediger" | "settings" | "guide"
 
 export function navKeyFor(route: Route): NavKey {
   switch (route.page) {
@@ -13,6 +13,8 @@ export function navKeyFor(route: Route): NavKey {
       return "library"
     case "codebook":
       return "codebook"
+    case "lexique":
+      return "lexique"
     case "analyser":
     case "cross-case":
     case "saturation":

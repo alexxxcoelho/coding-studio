@@ -10,6 +10,7 @@ import { CodeList } from "@/components/coder/code-list"
 import { DetailPanel } from "@/components/coder/detail-panel"
 import { EndPanel } from "@/components/coder/end-panel"
 import { MemoPanel } from "@/components/coder/memo-panel"
+import { LexiconPassageTab } from "@/components/lexicon/passage-tab"
 import { NewCodeDialog, type NewCodeTarget } from "@/components/coder/new-code-dialog"
 import { SelectionMenu } from "@/components/coder/selection-menu"
 import { Turn } from "@/components/coder/turn"
@@ -43,7 +44,7 @@ import { UndoStack } from "@/lib/undo"
 import type { Passage } from "@/lib/types"
 import { cn } from "@/lib/utils"
 
-type Tab = "codes" | "detail" | "memo"
+type Tab = "codes" | "detail" | "lexique" | "memo"
 
 function visitedKey(id: string) {
   return `cs-visited-${id}`
@@ -422,6 +423,7 @@ export function CoderPage({ id, unit: askedUnit = null }: { id: string; unit?: s
                 [
                   ["codes", "Codes"],
                   ["detail", "Détail"],
+                  ["lexique", "Lexique"],
                   ["memo", "Mémo"],
                 ] as const
               ).map(([key, label]) => (
@@ -480,6 +482,7 @@ export function CoderPage({ id, unit: askedUnit = null }: { id: string; unit?: s
               onNote={(p, note) => saveNote.mutate({ p, note })}
             />
           )}
+          {tab === "lexique" && <LexiconPassageTab passage={detailPassage ?? currentPassages.find((x) => x.kind === "highlight") ?? currentPassages[0] ?? null} />}
           {tab === "memo" && <MemoPanel interviewId={id} />}
         </aside>
       </div>
