@@ -117,7 +117,7 @@ Reading the tables. Status is **done** (works, checked in the code or its tests)
 | F-21 | Interviewer turns recognised by configured labels, shown for context, excluded from coding, from prompts, from review and from verification targets. | done | V1 |
 | F-22 | Re-segmentation keeps codings by unit id and is refused only when an AI answer would be invalidated. Source files are never modified. | done | V1 |
 | F-23 | Library view with one line per interview and three counters (units coded, complete AI runs, decisions taken), the attribute values, and the state of the interview in the four steps. Missing: the three counters (units coded, complete AI runs, decisions taken) are not on the library line of `web/src/pages/library.tsx`. The route `/api/library/progress` exists. | partial | V1 |
-| F-24 | Immutable transcript versions: a correction creates a new version, and annotations of the previous version are projected to the new one by text and context matching, with conflicts marked "needs review". (ext.) Today corrections are overlays on units and never move codes. Missing: versioned transcripts and the projection of passages onto a new version. | partial | V2 |
+| F-24 | Immutable transcript versions: a correction creates a new version, and annotations of the previous version are projected to the new one by text and context matching, with conflicts marked "needs review". (ext.) Evidence (server): `crates/cs-store/src/transcripts.rs` and `projection.rs` (versions rebuilt from segmentations and corrections, character-level diff, automatic re-anchoring of untouched passages, review items with old and new text), routes `/api/interviews/{id}/transcript/versions`, `/api/transcript/review` and its `accept`, `adjust`, `detach` (`crates/cs-app/src/v2_transcripts.rs`), `transcript_versions.json` and the `transcript_version` column of `passages.csv`; rules in `docs/CONTRACTS.md` section 15. Missing: the review screen in `web/src`; the context of a passage (words around it) is not used to choose between several occurrences. | partial | V2 |
 
 ### 4.3 Coding (step 1)
 
@@ -170,7 +170,7 @@ Reading the tables. Status is **done** (works, checked in the code or its tests)
 | F-59 | Flags on a unit: uncertain attribution or word, reported statement, unfinished sentence, acquiescence to the interviewer's wording (with a "content or only assent" kind). Optional. | done | V1 |
 | F-60 | Corrections of text or speaker as dated overlays with a reason; the original stays readable; the unit returns to unverified. | done | V1 |
 | F-61 | Verification states (unverified, verified, unusable), the list of targets (cited, flagged, disagreed, attributed to a case, plus a seeded sample), and coverage figures exported next to any count. | done | V1 |
-| F-62 | Audio playback at the timestamp of a unit, and audio synchronised with the transcript. (ext.) Missing: the whole requirement. No audio playback or timestamp synchronisation exists in `web/src`. | missing | V2 |
+| F-62 | Audio playback at the timestamp of a unit, and audio synchronised with the transcript. (ext.) Evidence (server): `crates/cs-ingest/src/audio.rs` (audio files m4a, mp3, wav; unit timestamps as seconds), `crates/cs-store/src/audio.rs` (offset per interview, audited), `crates/cs-app/src/v2_audio.rs` (`/api/interviews/{id}/audio`, `/audio/file` with range requests from a route limited to the interview folder, `/audio/offset`). Missing: the player in `web/src`; not tried on a real recording. | partial | V2 |
 
 ### 4.6 Blind AI review (step 2)
 
@@ -436,10 +436,10 @@ V2 turns the thesis tool into a publishable one.
 1. Neutral defaults, removal of study-specific documents, wording and fixtures (F-15), following `docs/PUBLISHING.md`; first public release 0.1.0 with the generic README, the licence and the example project. Remaining: F-15.
 2. Done: English translation of the user guide (F-114). Remaining: interface localisation (F-119).
 3. Remaining: signed and notarised bundles, installers, release automation (F-110), command-line equivalents of the main actions (F-109).
-4. Remaining: versioned transcripts with projection of passages (F-24), undo of merges and split of codes (F-39).
+4. Remaining: versioned transcripts with projection of passages (F-24, server done, review screen missing), undo of merges and split of codes (F-39).
 5. Remaining: whole-project export and import (F-101), anonymised export (F-102).
 6. Partly done: import and export in REFI-QDA project and codebook formats (F-103). Remaining: checks against real NVivo and MAXQDA exports.
-7. Remaining: plain TXT and Markdown without a convention (F-19), audio synchronised with the transcript (F-62).
+7. Remaining: plain TXT and Markdown without a convention (F-19), audio synchronised with the transcript (F-62, server done, player missing).
 8. Remaining: full-text search with filters (F-55), code co-occurrence (F-56), export of documents for writing in docx (F-104).
 9. Remaining: generic case fields (F-87).
 10. Remaining: accessibility audit and fixes (F-120), the three-panel layout with context menus (F-121).

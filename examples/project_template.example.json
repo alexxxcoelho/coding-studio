@@ -163,6 +163,46 @@
         "version": 1
       }
     ],
+    "passage_origins": [
+      {
+        "id": "lived_experience",
+        "label": "expérience vécue"
+      },
+      {
+        "id": "project",
+        "label": "projet"
+      },
+      {
+        "id": "opinion",
+        "label": "opinion"
+      },
+      {
+        "id": "document",
+        "label": "document"
+      }
+    ],
+    "passage_roles": [
+      {
+        "id": "trigger",
+        "label": "déclencheur"
+      },
+      {
+        "id": "retrospective-justification",
+        "label": "justification après coup"
+      },
+      {
+        "id": "enabling-condition",
+        "label": "condition facilitatrice"
+      },
+      {
+        "id": "constraint",
+        "label": "contrainte"
+      },
+      {
+        "id": "undetermined",
+        "label": "indéterminé"
+      }
+    ],
     "theme_checks": [
       {
         "id": "coherence",

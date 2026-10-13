@@ -60,7 +60,7 @@ Four states are distinguished everywhere, in the tool's exports as in the manusc
 ## 10. Passages, code tree and study configuration (V1 lots 1 and 2)
 
 - A code is identified by `code_id` (`C-0001`, stable, never reused). Its `name` is free text and can change; each former name, each merged name and the legacy token stay as aliases and resolve to the same code. `token` is the legacy handle of the unit-level coding and the AI pass and never changes. Tables cite codes by `code_id` and `name`.
-- A passage is `(interview, unit, start, end)` with the exact text and the digest of the unit text. Positions count Unicode characters from 0, end excluded. A passage whose unit text changed is flagged `stale`; it is never moved. A highlight is a passage with no active code. The reserved code "Plus tard" is not a code of the codebook and is counted in no table: the exports give it as the `later` column.
+- A passage is `(interview, unit, start, end)` with the exact text and the digest of the unit text. Positions count Unicode characters from 0, end excluded. A passage whose unit text changed is flagged `stale`; it moves only through the projection of section 15 (automatically when its own words are untouched, otherwise by the researcher's decision). A highlight is a passage with no active code. The reserved code "Plus tard" is not a code of the codebook and is counted in no table: the exports give it as the `later` column.
 - Counts are given as passages and as distinct interviews, never mixed, and a rolled-up count includes the descendants of the code (a passage counted once).
 - `passages.csv`: `passage_id,interview_id,unit_id,start,end,text,kind,code_ids,code_names,later,later_note,stale,anchor_digest,created_at,created_by`. `code_ids` and `code_names` are joined with `;`, in the same order. `kind` is `coded` or `highlight`.
 - `highlights.csv`: `passage_id,interview_id,unit_id,start,end,text,stale,created_at,created_by`, the passages with no active code.
@@ -119,3 +119,57 @@ Exchange with NVivo, MAXQDA and ATLAS.ti through the REFI-QDA standard: a codebo
 - Schema version 7. `review_schema::migrate` runs on every open and is idempotent for a database at any version below 7.
 - Files: `review.json` in the interview and cross-case packages, and the `review` part of `state.json`.
 
+## 15. Transcript versions, projection of passages and audio (V2: F-24, F-62)
+
+**Versions.**
+- A transcript version is the segmentation in force plus the unit corrections up to a given correction id. Version 1 is the first segmentation; each new segmentation (different `hash`) and each unit correction appends the next version. Versions are append-only and are rebuilt from the segmentations, units and corrections, which already stay; nothing is stored twice. A database made before versioning gets a `baseline` version, recording the state found, just before its first change.
+- `text_sha256` of a version is the SHA-256 of the lines `unit_id TAB role TAB text LF` of its units, in order. It identifies the transcript in an export.
+- The unit text a passage is anchored on (`anchor_digest`, section 10) is the text of its unit in some version. Positions keep the convention of section 10: Unicode scalar values, end excluded, UTF-16 for the browser only.
+
+**Projection.** When version `n` is appended, every active passage anchored on the text of version `n-1` is projected in the same transaction:
+1. The unit text is unchanged: nothing happens.
+2. The whole unit text of the passage's unit, found exactly once among the respondent units of the new version (and once in the old), moved to another unit id: the passage follows it, same offsets, `method = moved_unit`, `reanchored`.
+3. The unit id is still there with another text: a character-level diff (Myers, over scalar values) of the old unit text against the new one. If every character of the passage survives and the survivors are contiguous, the passage reads the same and is re-anchored on the new offsets (`method = diff`, `reanchored`). If the edit touches the passage, it is `needs_review` with `reason = text_changed` and a proposed span: from the first surviving or replaced character to the last, with the inserted text between them; no proposal when nothing is left.
+4. The unit id is gone: the passage text is searched in the respondent units of the new version. Found once: `needs_review`, `unit_moved`, with that span proposed. Otherwise `needs_review`, `unit_removed`, no proposal.
+5. A unit that became an interviewer turn gives `unit_became_interviewer`, no proposal.
+
+A passage that needs review does not move: it stays `stale` with its old offsets and text until the decision. If another version arrives first, the open item becomes `superseded` and a new one is drawn from the text the passage is still anchored on (so the diff always runs from what the researcher last confirmed); if the text returns to the anchored text, the item is closed as `superseded` and the passage is no longer stale. Passages already stale before versioning, with no matching version text, are not touched.
+
+**Decisions.** `accept` takes the proposal; `adjust` takes a span on the current unit text (scalar or UTF-16 positions); `detach` deletes the passage logically (it leaves lists and counts; its text, codes and old span stay in the review item and the audit). Each is one transaction: the passage row and the unit-level sync (section 14) of the units involved, the item's `final` span and resolution, the audit events. A span already held by another active passage is refused. Re-anchoring never edits codings, notes, origin or role.
+
+**Audit.** `transcript.version`, `passage.reanchor`, `passage.review_flag`, `passage.detach`, `transcript.projection.resolve`; the usual audit chain covers them.
+
+**Exports.** `transcript_versions.json` (interview and cross-case packages, in the manifest): per interview its versions and every projection with `old`, `proposed`, `final`, `status`, `method`, `reason`, resolution time, author and note. `state.json` gains the part `transcript_versions`. `passages.csv` gains a last column `transcript_version`: the current version for a passage whose anchor was checked against it, or the version a passage waiting for review is still anchored on. A reader that reads columns by name is unaffected.
+
+**Audio (F-62).**
+- Recordings are the `m4a`, `mp3` and `wav` files found in the interview folder (sub-folders included, hidden files and links left out), read at call time. They are not part of the source inventory and not of exports. The application does not transcribe, convert or decode audio and does not know its duration.
+- Unit time: the timestamp of the unit read as seconds (`h:mm:ss`, `mm:ss`, optional fraction). A stamp that is not a time gives no time; the unit is listed without one. The audio time of a unit is its time plus the interview's offset, never below 0. The offset is one number of seconds per interview (positive when the recording starts later than the transcript clock), at most one day in absolute value, rounded to the millisecond, and every change is audited with before and after.
+- The audio route serves only files listed for that interview, from a folder inside the library folder, never through a link; it answers byte ranges (206, 416).
+- State: server implemented and tested; the player is a front-end task. Not verified against a real recording and a real browser player.
+
+## 16. Codes and search (V2: F-09, F-39, F-41, F-45, F-55, F-56)
+
+**Origins and roles of passages (F-09).** The lists of origins and roles a passage can carry are part of the project configuration (`passage_origins`, `passage_roles`, same shape and checks as the other lists); the earlier fixed values are the default. A value is accepted for a passage when it is in the list or when the passage already carries it. A configuration that removes a value in use on a passage is refused (guard). The provenance and role lists of claims (section 4) are not part of this and stay fixed.
+
+**Counts (F-45).** Passages, interviews and cases are counted apart and never added. A passage is counted once, for a code or for a code with its descendants. A case counts when an attributed unit carries a passage of the code. An attribute is counted over interviews; an interview without a value counts in no value and is reported apart. The reserved code is not counted.
+
+**Code search (F-41).** Comparison on folded text (`cs_lex::fold`: case and accents), on whole words and word starts, over name, aliases, token, label and definition. Rank: name, alias, token, label, definition. Merged and inactive codes and the reserved code are out of the answer unless asked.
+
+**Split (F-39).**
+- A split creates two or more new codes (stable ids, never reused; each name unused) and leaves the original active, with its codings. The worklist is the live passages carrying the original at that moment. Nothing moves until a decision: `assign` removes the original coding (logically, reason `split`) and adds codings on one or more of the new codes; `leave` keeps the original. Decisions in one request are all or nothing. Decisions are append-only: a revision is a new row, its predecessor's effect is reversed first, and the status of a passage is that of its latest decision.
+- The journal `code_ops` (merge and split), its undos `code_op_undos` and `split_decisions` are append-only (triggers). A merge records what it needs to be taken back: moved and deduplicated codings, aliases, children and parents, the unit codings and review decisions it rewrote.
+- Undo of a split: assignments reversed, codings made on the new codes since moved back to the original (deduplicated), the new codes retired (inactive, merged into the original, name suffixed so it can be reused). Undo of a merge: the code is active again with its parent, children, aliases and codings; unit codings and review decisions are restored only if still as the merge left them (otherwise reported in `skipped`; a restored decision is a new custom decision). An undo needs a rationale, is refused after an undo, and when a later operation that was not undone touches the same codes. A merge made before the journal cannot be undone.
+- Audit: `codebook.code.split`, `codebook.code.split_decide`, `codebook.code.undo_split`, `codebook.code.undo_merge`. The schema version is unchanged (tables created when missing).
+
+**Full-text search (F-55).** On the text of units, folded (case, accents), over respondent turns (interviewer turns on request). `all_words`: every word in the turn; `phrase`: in sequence; `prefix`: the last word as a word start. Spans are Unicode scalar positions on the unit text (UTF-16 given for the browser). Coverage: a match is covered when it lies in an active passage; `coded` filters on that. The index is in memory, rebuilt when a segmentation or correction changes; SQLite FTS5 is not used.
+
+**Co-occurrence (F-56).** Three relations: `same_passage` (two codes on one passage), `overlap` (two passages of one turn whose spans overlap), `same_unit` (two codes anywhere in one turn). Counts are of units and interviews; `passage_pairs` counts the pairs of passages; `jaccard` is shared units over units carrying either code. With `rollup` a code stands for itself and its descendants; a parent and its own descendant are not paired. Grouped by interview or by an interview attribute. `co-occurrence.csv` in the exports (interview and cross-case packages).
+
+
+## 17. V2 exports, command line and example (F-15, F-101, F-102, F-104, F-109, F-113)
+
+- A new project holds no value of an author's study: the default id prefix is `INT`, the default interviewer labels are `Interviewer`, `Intervieweur` and `Intervieweuse`. A study lists its own prefixes and labels in its configuration; nothing else in the tool refers to a corpus.
+- The command line and the UI share one implementation: a subcommand sends the request to the router in process. A new route is therefore available to the CLI by adding a subcommand, and no export logic lives in `main.rs`.
+- Exit codes: 0 when the command did what it was asked, 1 for any error, a failed `verify` (broken chain, missing or changed file), a refused bundle and an `export all` in which one interview could not be exported. `--json` output is one JSON document on standard output.
+- `verify` recomputes the SHA-256 of each file listed in a `manifest.json` under `exports/` and compares it with the manifest; it does not rewrite anything.
+- The example loads only into an empty project (no interview, code, passage, theme or case). The loaded data is the fictional content of `examples/`, embedded in the binary, so the action works from an installed app.

@@ -42,3 +42,4 @@ uuid = { version = "1", default-features = false, features = ["v5"] }
 roxmltree = "0.20"
 zip = { version = "9", default-features = false, features = ["deflate-flate2"] }
 flate2 = "1"
+similar = "2"

@@ -306,8 +306,10 @@ impl Store {
         patch: &PassageQualify,
         actor: &str,
     ) -> Result<cs_model::passage::Passage> {
-        use cs_model::analysis::{PASSAGE_ORIGINS, PASSAGE_ROLES};
         let before = self.passage(passage_id)?;
+        let cfg = self.project_config()?;
+        let origins: Vec<&str> = cfg.passage_origins.iter().map(|i| i.id.as_str()).collect();
+        let roles: Vec<&str> = cfg.passage_roles.iter().map(|i| i.id.as_str()).collect();
         let pick = |what: &str,
                     wanted: &Option<Option<String>>,
                     list: &[&str],
@@ -320,7 +322,7 @@ impl Store {
                     let v = v.trim();
                     if v.is_empty() {
                         Ok(None)
-                    } else if list.contains(&v) {
+                    } else if list.contains(&v) || current.as_deref() == Some(v) {
                         Ok(Some(v.to_string()))
                     } else {
                         Err(validation(format!(
@@ -331,8 +333,8 @@ impl Store {
                 }
             }
         };
-        let origin = pick("origin", &patch.origin, &PASSAGE_ORIGINS, &before.origin)?;
-        let role = pick("role", &patch.role, &PASSAGE_ROLES, &before.role)?;
+        let origin = pick("origin", &patch.origin, &origins, &before.origin)?;
+        let role = pick("role", &patch.role, &roles, &before.role)?;
         if origin == before.origin && role == before.role {
             return Ok(before);
         }

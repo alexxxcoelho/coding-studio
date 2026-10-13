@@ -13,12 +13,27 @@ import { Textarea } from "@/components/ui/textarea"
 import { codeName } from "@/lib/code-tree"
 import { dateTime, plural } from "@/lib/format"
 import { reportError } from "@/lib/notify"
+import { invalidateInterview } from "@/lib/queries"
 import { CANDIDATE_PROBLEM_TEXT, candidateProblem, type CandidateAction } from "@/lib/review-model"
 import { reviewApi, type ConceptCandidate, type ConceptDecisionBody } from "@/lib/review-api"
 import { unitHref } from "@/lib/router"
 import type { CodeNode, Unit } from "@/lib/types"
 
 import "./revoir.css"
+
+/** The text of a unit with the model's quotations marked. */
+function Marked({ text, quotes }: { text: string; quotes: string[] }) {
+  const q = quotes.find((x) => x && text.includes(x))
+  if (!q) return <>{text}</>
+  const at = text.indexOf(q)
+  return (
+    <>
+      {text.slice(0, at)}
+      <mark>{q}</mark>
+      {text.slice(at + q.length)}
+    </>
+  )
+}
 
 const DECISION_LABEL = { create: "Code créé", map: "Rattaché à un code", reject: "Écarté" } as const
 
@@ -59,7 +74,7 @@ export function ConceptCard({
       setKind(null)
       setRationale("")
       setAttempted(false)
-      qc.invalidateQueries({ queryKey: ["concepts", id] })
+      void invalidateInterview(qc, id)
       qc.invalidateQueries({ queryKey: ["codes"] })
       qc.invalidateQueries({ queryKey: ["codebook"] })
     },
@@ -71,6 +86,10 @@ export function ConceptCard({
     if (!problem) save.mutate()
   }
   const d = candidate.decision
+  const nameOf = (codeId: string) => {
+    const c = codes.find((x) => x.code_id === codeId)
+    return c ? codeName(c) : codeId
+  }
 
   return (
     <article className="flex flex-col gap-3.5" aria-label={`Concept ${candidate.label}`}>
@@ -86,29 +105,51 @@ export function ConceptCard({
           {plural(candidate.unit_ids.length, "unité motive", "unités motivent")} cette proposition
         </div>
         <div className="flex flex-col gap-2">
-          {candidate.unit_ids.map((uid) => (
-            <div key={uid}>
-              <a className="mono" href={unitHref(uid, 1)}>
-                {uid.split("-U").pop() ? `U${uid.split("-U").pop()}` : uid}
-              </a>
-              {units.get(uid) && <p className="rv-quote verbatim" style={{ marginTop: 4 }}>{units.get(uid)!.text}</p>}
-            </div>
-          ))}
+          {candidate.unit_ids.map((uid) => {
+            const quotes = candidate.evidence.filter((e) => e.unit_id === uid).map((e) => e.quote)
+            return (
+              <div key={uid}>
+                <a className="mono" href={unitHref(uid, 2)}>
+                  {uid.split("-U").pop() ? `U${uid.split("-U").pop()}` : uid}
+                </a>
+                {units.get(uid) ? (
+                  <p className="rv-quote verbatim" style={{ marginTop: 4 }}>
+                    <Marked text={units.get(uid)!.text} quotes={quotes} />
+                  </p>
+                ) : (
+                  quotes.map((q) => (
+                    <p key={q} className="rv-quote verbatim" style={{ marginTop: 4 }}>
+                      « {q} »
+                    </p>
+                  ))
+                )}
+              </div>
+            )
+          })}
         </div>
+        {candidate.evidence.length > 0 && <p className="small l2" style={{ margin: "6px 0 0" }}>Les citations du modèle sont marquées dans les tours. Chacune est reprise mot pour mot.</p>}
       </div>
 
       {d && !kind ? (
         <div className="grp">
-          <div className="row">
-            <span className="k">
-              {DECISION_LABEL[d.action]}
-              {d.code_id ? ` : ${codes.find((c) => c.code_id === d.code_id) ? codeName(codes.find((c) => c.code_id === d.code_id)!) : d.code_id}` : ""}
-              <small>
-                {d.rationale} · {dateTime(d.decided_at)}
-                {d.decided_by ? ` · ${d.decided_by}` : ""}
-              </small>
-            </span>
-          </div>
+          {[...candidate.history].reverse().map((h, i) => (
+            <div key={h.decided_at + i} className="row">
+              <span className="k">
+                {i === 0 ? "" : "Décision précédente : "}
+                {DECISION_LABEL[h.action]}
+                {h.code_id ? ` : ${nameOf(h.code_id)}` : ""}
+                <small>
+                  {h.rationale} · {dateTime(h.decided_at)}
+                  {h.decided_by ? ` · ${h.decided_by}` : ""}
+                </small>
+              </span>
+              {i === 0 && (
+                <Button variant="outline" onClick={() => setKind(h.action === "create" ? "map" : h.action)}>
+                  Décider de nouveau
+                </Button>
+              )}
+            </div>
+          ))}
         </div>
       ) : (
         <>

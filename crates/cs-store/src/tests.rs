@@ -1552,6 +1552,15 @@ mod snapshots_v4;
 mod study_config_v5;
 mod verification_v4;
 
+// V2 (codes and search).
+mod v2_code_ops;
+mod v2_code_search;
+mod v2_code_stats;
+mod v2_common;
+mod v2_cooccurrence;
+mod v2_fulltext;
+mod v2_lists_f09;
+
 // V1 lot 5 (Analyse and Write) and the API gaps of the same lot.
 mod l5_decisions;
 mod l5_gaps;
@@ -1564,3 +1573,7 @@ mod writeup_doc_v2;
 
 // V1 lot 4 (Review).
 mod lot4_review;
+
+// V2: versioned transcripts and projection of passages (F-24).
+mod audio_v2;
+mod transcripts_v2;

@@ -17,12 +17,18 @@
 
 mod analysis_index;
 mod analysis_schema;
+mod audio;
 mod cases;
 mod claims;
 mod codebook;
+mod codeops;
+mod codesearch;
+mod codestats;
 mod codetree;
 mod coding;
+mod cooccurrence;
 mod final_audit;
+mod fulltext;
 mod lexicon;
 mod library;
 mod links;
@@ -31,22 +37,39 @@ mod matrix;
 mod memos;
 mod passages;
 mod project;
+mod projection;
 mod review;
 mod review_schema;
 mod saturation;
 mod simple;
 mod study_config;
+mod textfold;
 mod themes;
+mod transcripts;
 mod verification;
 mod writing;
 
+pub use audio::{AudioOffset, MAX_AUDIO_OFFSET};
 pub use codebook::{CodePatch, ImportReport, MergeOutcome};
+pub use codeops::{
+    OpView, SplitDecision, SplitItem, SplitOutcome, SplitPart, SplitRequest, SplitWorklist,
+    UndoReport, UndoView,
+};
+pub use codesearch::{CodeHit, CodeMatch, CodeSearch, CodeSearchOptions};
 pub use codetree::{
     CodeMemoVersion, CodeUpdate, NewCode, NewCodeFromPassage, ResolvedCode, Revision,
     UndoCreateOutcome,
 };
 pub use coding::ResolveRequest;
+pub use cooccurrence::{
+    CoCell, CoCode, CoDiagonal, CoGroup, CoItem, CoMatrix, CoOverlap, CoPair, CoPassage, CoRequest,
+    Relation,
+};
 pub use final_audit::{AuditChainLink, AuditClaim, AuditGap, FinalAudit};
+pub use fulltext::{
+    Excerpt, Highlight, Hit as TextHit, InterviewHits, Neighbour, SearchMode, SearchRequest,
+    SearchResult, Span,
+};
 pub use lexicon::{CodeRef, LexiconConfig, SimilarItem, SimilarOptions, LEXICON_CONFIG_KEY};
 pub use library::{
     LibraryProgress, LibraryReview, LibraryRow, LibraryTotals, PassageQualify, UnitMark,
@@ -71,6 +94,9 @@ pub use simple::SimpleProgress;
 pub use themes::{
     NewTheme, ThemeCheckView, ThemeCodeView, ThemeCounts, ThemeHistoryEntry, ThemePassageView,
     ThemePatch, ThemeView,
+};
+pub use transcripts::{
+    ProjectionItem, Resolution, ReviewCode, ReviewFilter, SpanView, TranscriptVersion,
 };
 pub use writing::{
     FrameworkCellReading, FrameworkReading, FrameworkRow, FrameworkTable, PartEdit, PartState,
@@ -116,6 +142,8 @@ pub struct Store {
     /// Lexical index of the corpus with the fingerprint it was built for
     /// (see `lexicon.rs`). Never persisted.
     lex_cache: Mutex<Option<(String, Arc<cs_lex::LexIndex>)>>,
+    /// Full-text index (F-55) and the fingerprint it was built for.
+    ft_cache: Mutex<Option<(String, Arc<fulltext::FtIndex>)>>,
 }
 
 /// Result of the blind-coding guard of one phase.
@@ -340,6 +368,9 @@ impl Store {
         analysis_schema::migrate(&conn)?;
         review_schema::migrate(&conn)?;
         cases::migrate_case_fields(&conn)?;
+        transcripts::migrate(&conn)?;
+        audio::migrate(&conn)?;
+        codeops::migrate(&conn)?;
         // Databases made before providers existed lack the column: added in
         // place, so that their content is kept.
         let has_provider: bool = conn
@@ -373,6 +404,7 @@ impl Store {
         Ok(Store {
             conn,
             lex_cache: Mutex::new(None),
+            ft_cache: Mutex::new(None),
         })
     }
 
@@ -749,6 +781,7 @@ impl Store {
         }
         let categories = self.study_config()?.effective_categories();
         let tx = self.conn.unchecked_transaction()?;
+        self.ensure_baseline_in(&tx, id, actor)?;
         tx.execute(
             "INSERT INTO segmentations (interview_id, source_rel_path, source_sha256, rule, hash, warnings, saved_at)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
@@ -790,6 +823,14 @@ impl Store {
                 "n_warnings": seg.warnings.len(),
                 "warnings": seg.warnings,
             }),
+        )?;
+        self.version_after_change_in(
+            &tx,
+            id,
+            "segmentation",
+            Some(&seg.source_rel_path),
+            None,
+            actor,
         )?;
         if filled.n_filled > 0 {
             append_event(

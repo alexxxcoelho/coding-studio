@@ -412,9 +412,11 @@ async fn scan_uses_the_configured_id_prefixes() {
 #[tokio::test]
 async fn segmentation_uses_the_configured_interviewers_and_max_words() {
     let ctx = setup();
-    let mut base = StudyConfig::default();
-    base.id_prefixes = vec!["INT".into(), "ECO".into()];
-    base.interviewers = vec!["Interviewer Person A".into()];
+    let base = StudyConfig {
+        id_prefixes: vec!["INT".into(), "ECO".into()],
+        interviewers: vec!["Interviewer Person A".into()],
+        ..StudyConfig::default()
+    };
     let (st, v) = put_config(&ctx.app, &base).await;
     assert_eq!(st, StatusCode::OK, "{v}");
     scan(&ctx).await;

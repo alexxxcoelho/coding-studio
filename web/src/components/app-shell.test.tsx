@@ -29,6 +29,7 @@ beforeEach(() => {
   mock.on("GET", "/api/state", { body: { version: "0.1", db_path: "/data/cs.db", library_root: "/lib", coding_db: null, actor: "a", codebook_size: 31, native_dialogs: false, chain: { ok: true, n_events: 4, first_bad_seq: null } } })
   mock.on("GET", "/api/audit/verify", { body: { ok: true, n_events: 4, first_bad_seq: null } })
   mock.on("GET", "/api/providers", { body: [] })
+  mock.on("GET", "/api/pseudonymisation", { body: { enabled: false, digest: "d", categories: [], n_list_entries: 0, entries: [], free_text_covered: false, note: "" } })
 })
 afterEach(() => {
   cleanup()
@@ -51,7 +52,7 @@ describe("sidebar", () => {
       expect(n.getByRole("link", { name: new RegExp(`^${l}`) })).toBeInTheDocument()
     }
     expect(n.getByRole("button", { name: "Réglages" })).toBeInTheDocument()
-    expect(n.getByText("Pseudonymisation inactive")).toBeInTheDocument()
+    expect(await n.findByText("Pseudonymisation inactive")).toBeInTheDocument()
     // The count of the library comes from the API.
     expect(await n.findByRole("link", { name: "Bibliothèque 2" })).toBeInTheDocument()
   })

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest"
 import { codingProgress, examined, matchesInterview, nextAction, pipelineSteps, stageOf, type LibraryRow } from "./pipeline"
+import type { ReviewState } from "./review-api"
 import type { InterviewSummary } from "./types"
 
 const phase = (extra: Record<string, unknown> = {}) => ({
@@ -36,7 +37,7 @@ describe("codingProgress", () => {
 describe("pipelineSteps", () => {
   it("shows an unsegmented interview with empty bars and the optional AI step dashed", () => {
     const steps = pipelineSteps(summary("ECO-05", 0), null)
-    expect(steps.map((s) => s.label)).toEqual(["Segmentation", "Codage", "Revue IA facultative", "Arbitrage"])
+    expect(steps.map((s) => s.label)).toEqual(["Segmentation", "Codage", "IA facultative", "Arbitrage"])
     expect(steps.map((s) => s.value)).toEqual([0, 0, 0, 0])
     expect(steps[2].optional).toBe(true)
   })
@@ -54,7 +55,7 @@ describe("pipelineSteps", () => {
       later: 0,
       toReview: 0,
     })
-    expect(steps.map((s) => s.label)).toEqual(["Segmenté", "Codé 61/61", "Revue IA · 1 passe", "Arbitré 9/12"])
+    expect(steps.map((s) => s.label)).toEqual(["Segmenté", "Codé 61/61", "IA · 1 passe", "Arbitré 9/12"])
     expect(steps[3].value).toBe(0.75)
     expect(steps[2].optional).toBe(false)
   })
@@ -85,5 +86,29 @@ describe("stage and next action", () => {
     expect(matchesInterview(summary("ECO-16", 1), "nom")).toBe(true)
     expect(matchesInterview(summary("ECO-16", 1), "ret")).toBe(false)
     expect(matchesInterview(summary("ECO-16", 1), " ")).toBe(true)
+  })
+})
+
+describe("review state in the pipeline", () => {
+  const rs = (over: Partial<ReviewState> = {}): ReviewState => ({
+    interview_id: "ECO-05", state: "not_done", n_relevant: 10, n_covered: 0, coverage: 0, runs: [], n_batches: 0, n_disagreements: 0, n_decided: 0,
+    n_sample: 0, n_sample_reviewed: 0, n_candidates: 0, n_candidates_decided: 0, harmonisation_open: 0, harmonisation_done: 0, declaration: "", ...over,
+  })
+  const s = summary("ECO-05", 22)
+  const p = codingProgress(row({ units_coded: 8, not_relevant: 2 }))
+  const ai = (r: ReviewState | undefined) => pipelineSteps(s, p, r).find((x) => x.key === "ai")!
+
+  it("keeps the optional dashed step while nothing is done", () => {
+    expect(ai(rs())).toMatchObject({ label: "IA facultative", value: 0, optional: true })
+  })
+  it("waits for the answer, then shows the coverage, then the passes", () => {
+    expect(ai(rs({ state: "in_progress", n_batches: 1 }))).toMatchObject({ label: "IA en attente", value: 0 })
+    expect(ai(rs({ state: "in_progress", runs: ["a"], n_covered: 5, coverage: 0.5 }))).toMatchObject({ label: "IA · 50 % relus", value: 0.5 })
+    expect(ai(rs({ state: "complete", runs: ["a", "b"], n_covered: 10, coverage: 1 }))).toMatchObject({ label: "IA · 2 passes", value: 1 })
+  })
+  it("sends to the worklist before the arbitration, and keeps the interview in progress", () => {
+    expect(nextAction(s, p, rs({ harmonisation_open: 3 }))).toEqual({ kind: "link", label: "Harmoniser 3 unités", href: "#/interviews/ECO-05/harmonise" })
+    expect(stageOf(s, p, rs({ harmonisation_open: 3 }))).toBe("in_progress")
+    expect(stageOf(s, p, rs())).toBe("ready")
   })
 })

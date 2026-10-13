@@ -14,13 +14,6 @@ describe("candidate concepts", () => {
     mock.on("GET", "/api/interviews/X/concept-candidates", { body: [{ candidate_id: "c1", label: "Formation", unit_ids: ["X-U001"], decision: null }] })
     expect(await reviewApi.conceptCandidates("X")).toHaveLength(1)
   })
-  it("reads a 404 as an absent feature", async () => {
-    expect(await reviewApi.conceptCandidates("X")).toBeNull()
-  })
-  it("reads an answer that is not a list as an absent feature", async () => {
-    mock.on("GET", "/api/interviews/X/concept-candidates", { body: "<html></html>" })
-    expect(await reviewApi.conceptCandidates("X")).toBeNull()
-  })
   it("lets a server failure through", async () => {
     mock.on("GET", "/api/interviews/X/concept-candidates", { status: 500, body: { error: "boom", kind: "internal" } })
     await expect(reviewApi.conceptCandidates("X")).rejects.toThrow("boom")
@@ -33,11 +26,35 @@ describe("candidate concepts", () => {
 })
 
 describe("pseudonymisation", () => {
-  it("reads the entries", async () => {
-    mock.on("GET", "/api/interviews/X/pseudonymisation", { body: { entries: [{ kind: "person", original: "Anna", pseudonym: "P1" }] } })
-    expect((await reviewApi.pseudonymisation("X"))?.entries).toHaveLength(1)
+  const view = { enabled: true, digest: "x", categories: ["person"], n_list_entries: 1, entries: [{ kind: "person", original: "Anna", pseudonym: "P1", count: 2 }], free_text_covered: false, note: "n" }
+  it("reads the names found in an interview", async () => {
+    mock.on("GET", "/api/interviews/X/pseudonymisation", { body: view })
+    expect((await reviewApi.pseudonymisation("X")).entries[0].count).toBe(2)
   })
-  it("reads a 404 as an absent feature", async () => {
-    expect(await reviewApi.pseudonymisation("X")).toBeNull()
+  it("reads and replaces the list of the project", async () => {
+    mock.on("GET", "/api/pseudonymisation", { body: view })
+    mock.on("PUT", "/api/pseudonymisation", { body: view })
+    expect((await reviewApi.projectPseudonymisation()).enabled).toBe(true)
+    await reviewApi.savePseudonymisation({ enabled: false, entries: [{ kind: "organisation", original: "Lectis", pseudonym: "Fournisseur A" }] })
+    expect(mock.to("PUT", "/api/pseudonymisation")[0].body).toEqual({ enabled: false, entries: [{ kind: "organisation", original: "Lectis", pseudonym: "Fournisseur A" }] })
+  })
+})
+
+describe("harmonisation and review state", () => {
+  it("reads the worklist and resolves an item", async () => {
+    mock.on("GET", "/api/interviews/X/harmonisation", { body: { n_open: 1, n_done: 0, items: [{ item_id: 4, status: "open" }] } })
+    mock.on("PUT", "/api/interviews/X/harmonisation/4", { body: { item_id: 4, status: "done", resolution: "confirmed" } })
+    expect((await reviewApi.harmonisation("X")).n_open).toBe(1)
+    await reviewApi.resolveHarmonisation("X", 4, { resolution: "confirmed", note: "vu" })
+    expect(mock.to("PUT", "/api/interviews/X/harmonisation/4")[0].body).toEqual({ resolution: "confirmed", note: "vu" })
+  })
+  it("reads the state of an interview and of the corpus", async () => {
+    mock.on("GET", "/api/interviews/X/review-state", { body: { interview_id: "X", state: "in_progress" } })
+    mock.on("GET", "/api/review-state", { body: { interviews: [], n_interviews: 0 } })
+    expect((await reviewApi.reviewState("X")).state).toBe("in_progress")
+    expect((await reviewApi.corpusReviewState()).n_interviews).toBe(0)
+  })
+  it("lets a missing interview through", async () => {
+    await expect(reviewApi.reviewState("Z")).rejects.toThrow("unmocked")
   })
 })

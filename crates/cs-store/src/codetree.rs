@@ -330,7 +330,7 @@ impl Store {
 
     // -------------------------------------------------------------- nodes
 
-    fn raw_nodes(&self) -> Result<Vec<CodeNode>> {
+    pub(crate) fn raw_nodes(&self) -> Result<Vec<CodeNode>> {
         let sql = format!(
             "SELECT {CODE_COLUMNS}, code_id, COALESCE(name, code), parent_id, includes, excludes,
                     origin_passage_id, example_passage_id
@@ -409,7 +409,7 @@ impl Store {
         let mut nodes = self.raw_nodes()?;
         let counts = self.code_counts(&nodes, interviews)?;
         for n in &mut nodes {
-            n.counts = counts.get(&n.code_id).copied().unwrap_or_default();
+            n.counts = counts.get(&n.code_id).cloned().unwrap_or_default();
         }
         nodes.push(later_node());
         Ok(nodes)
@@ -434,69 +434,14 @@ impl Store {
             .ok_or_else(|| not_found(format!("code {key}")))
     }
 
-    /// Passages and interviews per code, direct and rolled up over the
-    /// descendants. Deleted passages and removed codings do not count; the
-    /// reserved code is never counted.
+    /// Passages, interviews, cases and attribute values per code, direct and
+    /// rolled up over the descendants (see `codestats.rs`).
     fn code_counts(
         &self,
         nodes: &[CodeNode],
         interviews: Option<&BTreeSet<String>>,
     ) -> Result<BTreeMap<String, CodeCounts>> {
-        let mut stmt = self.conn.prepare(
-            "SELECT pc.code_id, p.passage_id, p.interview_id
-             FROM passage_codings pc JOIN passages p USING (passage_id)
-             WHERE pc.removed_at IS NULL AND p.deleted_at IS NULL AND pc.code_id <> ?1",
-        )?;
-        let mut own: BTreeMap<String, BTreeSet<(String, String)>> = BTreeMap::new();
-        for row in stmt.query_map([LATER_ID], |r| {
-            Ok((
-                r.get::<_, String>(0)?,
-                r.get::<_, String>(1)?,
-                r.get::<_, String>(2)?,
-            ))
-        })? {
-            let (code, passage, interview) = row?;
-            if interviews.is_some_and(|set| !set.contains(&interview)) {
-                continue;
-            }
-            own.entry(code).or_default().insert((passage, interview));
-        }
-        let mut children: BTreeMap<&str, Vec<&str>> = BTreeMap::new();
-        for n in nodes {
-            if let Some(p) = &n.parent_id {
-                children.entry(p.as_str()).or_default().push(&n.code_id);
-            }
-        }
-        let mut out = BTreeMap::new();
-        for n in nodes {
-            let mut stack = vec![n.code_id.as_str()];
-            let mut seen = BTreeSet::new();
-            let mut all: BTreeSet<&(String, String)> = BTreeSet::new();
-            while let Some(id) = stack.pop() {
-                if !seen.insert(id) {
-                    continue;
-                }
-                if let Some(set) = own.get(id) {
-                    all.extend(set.iter());
-                }
-                if let Some(kids) = children.get(id) {
-                    stack.extend(kids.iter().copied());
-                }
-            }
-            let direct = own.get(&n.code_id);
-            out.insert(
-                n.code_id.clone(),
-                CodeCounts {
-                    passages: direct.map_or(0, BTreeSet::len),
-                    interviews: direct.map_or(0, |s| {
-                        s.iter().map(|(_, i)| i).collect::<BTreeSet<_>>().len()
-                    }),
-                    passages_rollup: all.len(),
-                    interviews_rollup: all.iter().map(|(_, i)| i).collect::<BTreeSet<_>>().len(),
-                },
-            );
-        }
-        Ok(out)
+        self.code_counts_v2(nodes, interviews)
     }
 
     // --------------------------------------------------------------- edits
@@ -642,7 +587,7 @@ impl Store {
                 &tx,
                 &row.code_id,
                 "redefine",
-                "definition, includes or excludes changed",
+                "définition, inclusions ou exclusions modifiées",
                 actor,
             )?;
         }
@@ -1258,7 +1203,7 @@ impl Store {
                 tx,
                 parent,
                 "new_subcode",
-                &format!("new sub-code {name}"),
+                &format!("nouveau sous-code {name}"),
                 actor,
             )?;
         }

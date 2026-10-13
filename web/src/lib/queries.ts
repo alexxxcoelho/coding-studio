@@ -7,7 +7,7 @@ export function invalidateInterview(qc: QueryClient, id: string): Promise<void> 
   return qc.invalidateQueries({
     predicate: (q) => {
       const k = q.queryKey
-      return k[1] === id || k[0] === "interviews" || k[0] === "library-progress" || k[0] === "chain" || k[0] === "audit-all" || k[0] === "saturation"
+      return k[1] === id || k[0] === "interviews" || k[0] === "library-progress" || k[0] === "chain" || k[0] === "audit-all" || k[0] === "saturation" || k[0] === "corpus-review-state"
     },
   })
 }

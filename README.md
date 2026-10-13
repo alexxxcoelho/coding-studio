@@ -57,6 +57,25 @@ The server listens on `http://127.0.0.1:7878/` and opens the browser. Stop it wi
 
 The database uses `journal_mode = DELETE`, which is safe in a synchronised folder. Keep the database and the exports together, and keep the interview folder read only if you can.
 
+### Command line
+
+Without a command the binary starts the server. With one it runs it against the database and exits (add `--json` for machine output; the exit code is 1 on any error or failed check):
+
+```bash
+coding-studio --db ./data/coding_studio.db scan --root ./interviews
+coding-studio --db ./data/coding_studio.db segment INT-01
+coding-studio --db ./data/coding_studio.db export all --anonymised
+coding-studio --db ./data/coding_studio.db export all --format docx
+coding-studio --db ./data/coding_studio.db verify
+coding-studio --db ./data/coding_studio.db project export --out project.csproj.zip
+coding-studio --db ./new.db project import project.csproj.zip --apply
+coding-studio --db ./data/coding_studio.db qdpx export
+coding-studio --db ./data/coding_studio.db config export --out study.json
+coding-studio --db ./try.db example load --library ./example-library
+```
+
+`export` takes an interview id or `all`; `--format docx` writes the write-up. Imports are dry runs unless `--apply` is given. `example load` fills an empty database with the fictional example project (the same action as `POST /api/example/load`). See `docs/API.md`.
+
 A ready-to-scan example is in `examples/`, which contains one fictional interview, a codebook and a providers file. See `examples/README.md`.
 
 ### Lancer l'application

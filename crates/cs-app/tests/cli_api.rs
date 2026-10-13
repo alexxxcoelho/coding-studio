@@ -78,6 +78,7 @@ async fn example_load_route_fills_an_empty_database_only() {
     .await;
     assert_eq!(code, StatusCode::OK, "{v}");
     assert_eq!(v["interview_id"], "INT-01");
+    assert_eq!(v["interviews"], 2);
     assert_eq!(v["codes"], 10);
     assert_eq!(v["passages"], 3);
     assert!(v["research_questions"].as_u64().unwrap() >= 3);
@@ -87,7 +88,7 @@ async fn example_load_route_fills_an_empty_database_only() {
         .is_file());
 
     let (_, interviews) = http(&app, "GET", "/api/interviews", None).await;
-    assert_eq!(interviews.as_array().unwrap().len(), 1);
+    assert_eq!(interviews.as_array().unwrap().len(), 2);
     let (_, passages) = http(
         &app,
         "GET",
@@ -103,7 +104,7 @@ async fn example_load_route_fills_an_empty_database_only() {
     let (code, v) = http(&app, "POST", "/api/example/load", Some(json!({}))).await;
     assert_eq!(code, StatusCode::CONFLICT, "{v}");
     let (_, interviews) = http(&app, "GET", "/api/interviews", None).await;
-    assert_eq!(interviews.as_array().unwrap().len(), 1);
+    assert_eq!(interviews.as_array().unwrap().len(), 2);
 }
 
 #[tokio::test]
@@ -130,7 +131,7 @@ async fn scan_segment_export_and_verify_commands() {
     )
     .await;
     assert_eq!(o.code, 0);
-    assert_eq!(o.value["interviews"].as_array().unwrap().len(), 1);
+    assert_eq!(o.value["interviews"].as_array().unwrap().len(), 2);
     let o = run(
         &st,
         Command::Segment {
@@ -163,17 +164,33 @@ async fn scan_segment_export_and_verify_commands() {
         format,
         researcher_names: vec![],
     };
+    // Only INT-01 is segmented: `all` exports it, reports INT-02, exits 1.
+    let o = run(&st, export("all", false, Format::Md)).await;
+    assert_eq!(o.code, 1, "{}", o.text);
+    assert!(o.value["exports"][1]["error"]
+        .as_str()
+        .unwrap()
+        .contains("INT-02"));
+    assert!(o.value["exports"][0]["result"]["dir"].is_string());
+    run(
+        &st,
+        Command::Segment {
+            id: "INT-02".into(),
+            source: None,
+        },
+    )
+    .await;
     let o = run(&st, export("INT-01", false, Format::Md)).await;
     let dir_one = PathBuf::from(o.value["exports"][0]["result"]["dir"].as_str().unwrap());
     assert!(dir_one.join("manifest.json").is_file());
     let o = run(&st, export("all", false, Format::Md)).await;
     assert_eq!(
         o.value["exports"].as_array().unwrap().len(),
-        2,
-        "interview and cross-case"
+        3,
+        "two interviews and cross-case"
     );
     let o = run(&st, export("all", true, Format::Md)).await;
-    assert_eq!(o.value["exports"].as_array().unwrap().len(), 2);
+    assert_eq!(o.value["exports"].as_array().unwrap().len(), 3);
     assert!(o.text.contains("anonymised"));
     let o = run(&st, export("all", false, Format::Docx)).await;
     let docx = PathBuf::from(o.value["file"].as_str().unwrap());

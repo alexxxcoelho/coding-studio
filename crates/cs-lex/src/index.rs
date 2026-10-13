@@ -828,16 +828,34 @@ fn make_tok(
     }
 }
 
+/// Context before a hit: at most `width` characters, starting on a word start
+/// (a word cut by the width is dropped whole, never shown in pieces).
 fn left_context(text: &str, start: usize, width: usize) -> String {
-    let before = &text[..start];
-    let n = before.chars().count();
-    let skip = n.saturating_sub(width);
-    let s: String = before.chars().skip(skip).collect();
+    let chars: Vec<char> = text[..start].chars().collect();
+    let mut skip = chars.len().saturating_sub(width);
+    if skip > 0 && !chars[skip - 1].is_whitespace() && !chars[skip].is_whitespace() {
+        while skip < chars.len() && !chars[skip].is_whitespace() {
+            skip += 1;
+        }
+    }
+    let s: String = chars[skip..].iter().collect();
     s.trim_start().to_string()
 }
 
+/// Context after a hit: at most `width` characters, ending on a word end.
 fn right_context(text: &str, end: usize, width: usize) -> String {
-    let s: String = text[end..].chars().take(width).collect();
+    let chars: Vec<char> = text[end..].chars().collect();
+    let mut take = width.min(chars.len());
+    if take < chars.len()
+        && take > 0
+        && !chars[take - 1].is_whitespace()
+        && !chars[take].is_whitespace()
+    {
+        while take > 0 && !chars[take - 1].is_whitespace() {
+            take -= 1;
+        }
+    }
+    let s: String = chars[..take].iter().collect();
     s.trim_end().to_string()
 }
 

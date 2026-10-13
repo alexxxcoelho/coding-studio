@@ -165,26 +165,32 @@ function PromptPanel({ id, guard, parts }: { id: string; guard: GuardStatus; par
   )
 }
 
-/** The names replaced before sending; absent on a server without the route. */
+/** The names replaced before sending, with the state of the switch and the digest recorded with the prompt. */
 function PseudonymList({ id }: { id: string }) {
   const list = useQuery({ queryKey: ["pseudonymisation", id], queryFn: () => reviewApi.pseudonymisation(id) })
   if (!list.data) return null
-  const n = list.data.entries.length
+  const d = list.data
+  const n = d.entries.length
   return (
     <details className="grp" style={{ padding: "8px 12px" }}>
       <summary style={{ cursor: "pointer" }}>
-        Pseudonymisation : {n === 0 ? "aucun nom à remplacer" : plural(n, "nom remplacé", "noms remplacés")} avant envoi
+        {d.enabled
+          ? `Pseudonymisation active : ${n === 0 ? "aucun nom de la liste dans cet entretien" : plural(n, "nom remplacé", "noms remplacés")} avant envoi`
+          : "Pseudonymisation inactive : les noms partent tels quels"}
       </summary>
-      {n > 0 && (
+      {d.enabled && n > 0 && (
         <ul className="small" style={{ margin: "8px 0 0", paddingLeft: 18 }}>
-          {list.data.entries.map((e) => (
+          {d.entries.map((e) => (
             <li key={`${e.kind}-${e.original}`}>
-              {e.original} <span className="l2">devient</span> {e.pseudonym} <span className="l2">({e.kind})</span>
+              {e.original} <span className="l2">devient</span> {e.pseudonym} <span className="l2">({e.kind === "person" ? "personne" : "organisation"}, {plural(e.count ?? 0, "remplacement")})</span>
             </li>
           ))}
         </ul>
       )}
-      <p className="gf">Relisez cette liste avant d'envoyer le prompt à un fournisseur hébergé.</p>
+      <p className="gf">
+        {d.enabled ? `Liste de ${plural(d.n_list_entries, "nom")}, empreinte ${shortHash(d.digest, 12)}. ` : ""}
+        {d.note} <a href="#/settings">Modifier la liste dans les paramètres de l'étude</a>.
+      </p>
     </details>
   )
 }

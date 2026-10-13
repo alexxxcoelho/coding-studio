@@ -23,12 +23,21 @@ cd ..
 cargo build -p cs-app
 target/debug/coding-studio --db /tmp/cs-visual.db --library examples/library --no-open --port 7979 &
 
-# 3. Données : balayage, segmentation de INT-01, codes, passages, surlignages, attributs,
-#    modèle de mémo, codage de phase 2, prompt, passe du modèle, cas
+# 3. Données : balayage, langue du lexique, segmentation de INT-01 et INT-02, codes, passages,
+#    surlignages dans les deux entretiens, attributs, modèle de mémo, codage de phase 2, prompt,
+#    passe du modèle avec deux concepts candidats, cas, thèmes, matrice, rédaction, unités à
+#    harmoniser (redéfinition d'un code, nouveau sous-code) et liste de pseudonymisation active
 python3 web/e2e/seed.py http://127.0.0.1:7979
 
 # 4. Contrôle
 cd web && PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers python3 e2e/visual.py --base http://127.0.0.1:7979 --out /tmp/cs-visual
+```
+
+Le parcours complet (`flow.py`) fait, dans Chromium sans écran, les gestes d'Analyser et de Rédiger, puis ceux du Lexique (créer un code à partir des mots-clés, passages proches, recherche en contexte) et de Revoir sur INT-02 (générer le prompt, importer une réponse faite à la main avec un concept candidat, décider un désaccord avec les touches, décider le concept, harmoniser, état de la revue dans la Bibliothèque, liste de pseudonymisation) :
+
+```sh
+python3 web/e2e/seed.py http://127.0.0.1:7979          # sur une base vide
+cd web && PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers python3 e2e/flow.py --base http://127.0.0.1:7979 --out /tmp/cs-flow
 ```
 
 Sans recompiler Rust, on peut contrôler les sources : lancer `CS_API=http://127.0.0.1:7979 pnpm dev` (Vite sur 5199, `/api` relayé vers le binaire) et passer `--base http://127.0.0.1:5199`.

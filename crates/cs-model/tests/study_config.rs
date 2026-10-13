@@ -232,8 +232,12 @@ fn validation_accepts_the_presets_and_a_custom_list() {
 // ------------------------------------------------------------ id regex
 
 #[test]
-fn id_regex_matches_the_default_prefixes() {
-    let re = StudyConfig::default().id_regex();
+fn id_regex_matches_the_configured_prefixes() {
+    let cfg = StudyConfig {
+        id_prefixes: ["INT", "ECO", "RET"].map(String::from).to_vec(),
+        ..StudyConfig::default()
+    };
+    let re = cfg.id_regex();
     let caps = re.captures("ECO33_Roman").expect("ECO33_Roman matches");
     assert_eq!(&caps[1], "ECO");
     assert_eq!(&caps[2], "33");
@@ -241,6 +245,10 @@ fn id_regex_matches_the_default_prefixes() {
     assert_eq!((&caps[1], &caps[2]), ("RET", "22"));
     let caps = re.captures("ECO35-Schwarz").unwrap();
     assert_eq!((&caps[1], &caps[2]), ("ECO", "35"));
+    // A new project reads the INT prefix only.
+    let default = StudyConfig::default().id_regex();
+    assert!(default.captures("INT-07_x").is_some());
+    assert!(default.captures("ECO33_Roman").is_none());
 }
 
 #[test]

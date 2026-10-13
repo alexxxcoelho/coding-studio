@@ -36,6 +36,9 @@ call("POST", "/api/library/scan", {})
 seg = call("POST", f"/api/interviews/{IV}/segment", {})
 units = {u["unit_id"]: u for u in seg["units"]}
 
+# The project reads French; the first example interview is in English.
+call("PUT", "/api/lexicon/config", {"language": "fr", "interview_languages": {IV: "en"}})
+
 for rid, text in [("RQ1", "Quels facteurs expliquent l'adoption de la RFID ?"), ("RQ2", "Quels freins organisationnels rencontre-t-on ?")]:
     call("POST", "/api/research-questions", {"id": rid, "text": text})
 
@@ -76,6 +79,8 @@ passage(20, "PRIVACY_CONCERN")
 passage(22)  # highlight
 passage(24, start=0, end=40)  # highlight, sub-span
 passage(26, "LATER", note="À revoir avec le terrain")
+passage(28)  # highlights for the lexical workbench
+passage(16, start=0, end=units[unit_id(16)]["text"].index(".") + 1)
 
 # Project configuration: attributes and a second memo template.
 cfg = call("GET", "/api/project-config")
@@ -116,7 +121,25 @@ answer = {
     "schema": "coding-studio/ai-coding/v1", "interview_id": IV, "phase": 2, "segmentation_hash": part["segmentation_hash"],
     "part": part["part"], "of": part["of"],
     "codings": [{"unit_id": u, "codes": ai.get(int(u[-3:]), ["NA"])} for u in part["unit_ids"]],
+    # Two concepts outside the codebook, each with a quotation word for word.
+    "candidate_concepts": [
+        {
+            "label": "Départ de la personne qui connaît le système",
+            "description": "Le projet perd des mois quand la seule personne qui comprend l'entrepôt et la base de données s'en va.",
+            "unit_ids": [unit_id(14)],
+            "evidence": [{"unit_id": unit_id(14), "quote": "We had one person who understood both the warehouse and the database"}],
+        },
+        {
+            "label": "Partage du coût des étiquettes par le fournisseur",
+            "description": "Le fournisseur prend à sa charge une partie du coût, ce qui rend l'amortissement possible.",
+            "unit_ids": [unit_id(10)],
+            "evidence": [{"unit_id": unit_id(10), "quote": "the supplier shares part of the tag cost"}],
+        },
+    ],
 }
+for c in answer["candidate_concepts"]:
+    for ev in c["evidence"]:
+        assert ev["quote"] in units[ev["unit_id"]]["text"], ev
 run = call("POST", f"/api/interviews/{IV}/phases/2/runs", {
     "run_label": "run-a", "model_name": "modele-test", "model_version": "1", "temperature": 0, "seed": "1", "context_length": 8000,
     "batch_size": 30, "prompt_id_version": "", "executed_at": "2026-10-13T10:00:00Z", "notes": "", "batch_id": None})
@@ -140,12 +163,23 @@ call("POST", f"/api/interviews/{IV}/cases", {
     "units": [unit_id(4), unit_id(8), unit_id(14)]})
 
 # ---- Analyse and Rédiger (lot 5): themes, matrix, write-up, links, final audit, decisions.
-# A second interview (ECO-02, a copy of the example in the temp library) gives the matrix a second row.
-IV2 = "ECO-02"
-if any(i["interview_id"] == IV2 for i in call("GET", "/api/interviews")):
-    call("POST", f"/api/interviews/{IV2}/segment", {})
-    for n, code in [(6, "STOCK_ACCURACY"), (10, "READER_COST"), (12, "CHANGE_RESISTANCE"), (14, "SKILLS_GAP"), (18, "CLIENT_PRESSURE")]:
-        call("POST", f"/api/interviews/{IV2}/passages", {"unit_id": f"{IV2}-U{n:03d}", "code": code})
+# A second interview (INT-02, in French) gives the matrix a second row and the lexical workbench a second language.
+IV2 = "INT-02"
+seg2 = call("POST", f"/api/interviews/{IV2}/segment", {})
+units2 = {u["unit_id"]: u for u in seg2["units"]}
+for n, code in [(6, "STOCK_ACCURACY"), (8, "STOCK_ACCURACY"), (10, "READER_COST"), (12, "CHANGE_RESISTANCE"), (14, "SKILLS_GAP"), (18, "CLIENT_PRESSURE"), (20, "PRIVACY_CONCERN")]:
+    call("POST", f"/api/interviews/{IV2}/passages", {"unit_id": f"{IV2}-U{n:03d}", "code": code})
+for n, span in [(4, None), (16, (0, 60)), (22, None), (26, None)]:  # highlights
+    body = {"unit_id": f"{IV2}-U{n:03d}"}
+    if span:
+        body.update({"start": span[0], "end": span[1]})
+    call("POST", f"/api/interviews/{IV2}/passages", body)
+HUMAN2 = {2: ["NA"], 4: ["CLIENT_PRESSURE"], 6: ["STOCK_ACCURACY"], 8: ["STOCK_ACCURACY"], 10: ["READER_COST"], 12: ["CHANGE_RESISTANCE"],
+          14: ["SKILLS_GAP"], 16: ["SKILLS_GAP"], 18: ["CLIENT_PRESSURE"], 20: ["PRIVACY_CONCERN"], 22: ["CHANGE_RESISTANCE"],
+          24: ["READER_COST"], 26: ["STOCK_ACCURACY"]}
+for n, codes in HUMAN2.items():
+    uid = f"{IV2}-U{n:03d}"
+    call("PUT", f"/api/interviews/{IV2}/phases/2/coding/{uid}", {"unit_id": uid, "codes": codes, "subcode": "", "modifier": "", "ev_level": "", "provenance": "", "memo": "", "excerpt": "", "revised_after_ai": False})
 
 tree = call("GET", "/api/codes")["codes"]
 cid = {c["token"]: c["code_id"] for c in tree}
@@ -229,4 +263,17 @@ audit = call("POST", "/api/final-audit", {"n": 3, "seed": "controle-visuel"})
 if audit["claims"]:
     call("POST", f"/api/final-audit/{audit['audit_id']}/verdicts", {"claim_key": audit["claims"][0]["claim_key"], "verdict": "to_nuance", "note": "À nuancer par le second entretien."})
 print(f"analysis seeded: themes {T1}, {T2}")
+
+# ---- Lot 4: units to harmonise after a change of the codebook, and the pseudonymisation list.
+call("PUT", f"/api/codes/{cid['CHANGE_RESISTANCE']}", {"definition": "Réaction des équipes face au nouveau geste de travail, y compris le sentiment de perdre le coeur de son métier."})
+call("POST", "/api/codes", {"name": "Écart de comptage", "definition": "Différence mesurée entre le stock compté et le stock du système.", "parent_id": cid["STOCK_ACCURACY"]})
+w = call("GET", "/api/harmonisation")
+print(f"harmonisation worklist: {w['n_open']} to reread")
+call("PUT", "/api/pseudonymisation", {
+    "enabled": True,
+    "entries": [
+        {"kind": "person", "original": "Claire Vuilleumier", "pseudonym": "Personne A"},
+        {"kind": "organisation", "original": "Lectis", "pseudonym": "Fournisseur A"},
+    ],
+})
 print("seed done")

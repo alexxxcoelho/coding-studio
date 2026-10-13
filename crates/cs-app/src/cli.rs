@@ -485,7 +485,7 @@ async fn export(
             )
             .await?
         };
-        results.push(json!({ "scope": id, "result": r.ok_json()? }));
+        results.push(entry(id, &r, all)?);
     }
     if all {
         let r = if anonymised {
@@ -494,23 +494,35 @@ async fn export(
         } else {
             call(st, Method::POST, "/api/export/cross-case", None, None).await?
         };
-        results.push(json!({ "scope": "cross-case", "result": r.ok_json()? }));
+        results.push(entry("cross-case", &r, all)?);
     }
+    let failed = results.iter().filter(|r| r.get("error").is_some()).count();
     let dirs: Vec<String> = results
         .iter()
         .filter_map(|r| r["result"]["dir"].as_str().map(str::to_string))
         .collect();
-    done(
-        json!({ "exports": results }),
-        format!(
-            "{} export(s) written{}{}",
-            results.len(),
+    Ok(Outcome {
+        code: i32::from(failed > 0),
+        value: json!({ "ok": failed == 0, "exports": results }),
+        text: format!(
+            "{} export(s) written, {failed} failed{}{}",
+            results.len() - failed,
             if anonymised { " (anonymised)" } else { "" },
             dirs.first()
                 .map(|d| format!(", the first in {d}"))
                 .unwrap_or_default()
         ),
-    )
+    })
+}
+
+/// One line of an export run. With `all`, an interview that cannot be
+/// exported (no segmentation yet) is reported and the run goes on.
+fn entry(scope: &str, r: &Reply, all: bool) -> Result<Value> {
+    match r.ok_json() {
+        Ok(v) => Ok(json!({ "scope": scope, "result": v })),
+        Err(e) if all => Ok(json!({ "scope": scope, "error": format!("{e:#}") })),
+        Err(e) => Err(e),
+    }
 }
 
 /// Audit chain, then the manifest of every export folder under `exports/`.

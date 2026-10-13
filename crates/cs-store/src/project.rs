@@ -283,6 +283,30 @@ impl Store {
                 }
             }
         }
+        // Origins and roles in use on passages (F-09).
+        let mut stmt = self.conn.prepare(
+            "SELECT origin, role, COUNT(*) FROM passages WHERE deleted_at IS NULL
+             AND (origin IS NOT NULL OR role IS NOT NULL) GROUP BY origin, role",
+        )?;
+        let used: Vec<(Option<String>, Option<String>, i64)> = stmt
+            .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?
+            .collect::<rusqlite::Result<_>>()?;
+        for (origin, role, n) in &used {
+            if let Some(o) = origin {
+                if !after.passage_origins.iter().any(|i| &i.id == o) {
+                    out.push(format!(
+                        "passage origin {o} is used by {n} passage(s) and cannot be removed"
+                    ));
+                }
+            }
+            if let Some(r) = role {
+                if !after.passage_roles.iter().any(|i| &i.id == r) {
+                    out.push(format!(
+                        "passage role {r} is used by {n} passage(s) and cannot be removed"
+                    ));
+                }
+            }
+        }
         for (iv, memo) in self.all_memos()? {
             if after.template(&memo.template_id).is_none() {
                 out.push(format!(
@@ -1009,6 +1033,8 @@ fn report_config(before: &ProjectConfig, after: &ProjectConfig, out: &mut Vec<Te
         "evidence_natures",
         "link_types",
         "matrix_dimensions",
+        "passage_origins",
+        "passage_roles",
         "interpretive_framework",
     ] {
         let (pb, pa) = (

@@ -48,7 +48,7 @@ export function KwicRow({ hit, compact = false }: { hit: KwicHit; compact?: bool
   )
   if (compact) {
     return (
-      <li className="grp" style={{ listStyle: "none", padding: "6px 8px", fontSize: 12.5, lineHeight: 1.4 }} data-testid="kwic-row">
+      <li className="grp" style={{ listStyle: "none", padding: "6px 8px", fontSize: 12.5, lineHeight: 1.4 }} data-testid="kwic-row" data-no-i18n>
         <div className="small">{where}</div>
         <div>
           {hit.left}
@@ -65,6 +65,7 @@ export function KwicRow({ hit, compact = false }: { hit: KwicHit; compact?: bool
   return (
     <li
       data-testid="kwic-row"
+      data-no-i18n
       style={{ listStyle: "none", display: "grid", gridTemplateColumns: "120px minmax(0,1fr) auto minmax(0,1fr)", gap: 8, alignItems: "baseline", padding: "4px 6px", fontSize: 13 }}
     >
       {where}

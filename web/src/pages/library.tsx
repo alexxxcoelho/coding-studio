@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { api } from "@/lib/api"
 import { onMenuAction } from "@/lib/desktop"
+import { reviewApi, type ReviewState } from "@/lib/review-api"
 import { keys } from "@/lib/hooks"
 import { reportError } from "@/lib/notify"
 import { codingProgress, matchesInterview, nextAction, pipelineSteps, stageOf, type CodingProgress, type Stage } from "@/lib/pipeline"
@@ -32,6 +33,12 @@ function useProgress(rows: InterviewSummary[]): Map<string, CodingProgress> {
     if (rows.some((s) => s.interview_id === r.interview_id && s.n_units > 0)) out.set(r.interview_id, codingProgress(r))
   }
   return out
+}
+
+/** Review state of every interview, in one call: the AI step of the pipeline and the units left to harmonise. */
+function useReviewStates(): Map<string, ReviewState> {
+  const q = useQuery({ queryKey: keys.corpusReviewState, queryFn: reviewApi.corpusReviewState })
+  return new Map((q.data?.interviews ?? []).map((r) => [r.interview_id, r]))
 }
 
 function basename(path: string | undefined): string {
@@ -52,7 +59,8 @@ export function LibraryPage() {
 
   const rows = useMemo(() => list.data ?? [], [list.data])
   const progress = useProgress(rows)
-  const stage = (s: InterviewSummary): Stage => stageOf(s, progress.get(s.interview_id) ?? null)
+  const reviews = useReviewStates()
+  const stage = (s: InterviewSummary): Stage => stageOf(s, progress.get(s.interview_id) ?? null, reviews.get(s.interview_id))
   const counts = {
     progress: rows.filter((s) => stage(s) !== "ready").length,
     ready: rows.filter((s) => stage(s) === "ready").length,
@@ -170,7 +178,8 @@ export function LibraryPage() {
               <tbody>
                 {shown.map((s) => {
                   const p = progress.get(s.interview_id) ?? null
-                  const next = nextAction(s, p)
+                  const review = reviews.get(s.interview_id)
+                  const next = nextAction(s, p, review)
                   const on = s.interview_id === selectedId
                   return (
                     <tr
@@ -202,7 +211,7 @@ export function LibraryPage() {
                       </td>
                       <td>
                         <div className="pipe">
-                          {pipelineSteps(s, p).map((st) => (
+                          {pipelineSteps(s, p, review).map((st) => (
                             <div key={st.key}>
                               <i className={cn("bar", st.optional && "opt")}>{!st.optional && <b style={{ width: `${st.value * 100}%` }} />}</i>
                               <span title={st.label}>{st.label}</span>

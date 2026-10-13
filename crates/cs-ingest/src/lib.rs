@@ -28,12 +28,14 @@ use cs_model::{
     SEGMENTATION_RULE,
 };
 
+mod audio;
 mod formats;
 mod parse;
 mod scan;
 mod segment;
 mod text;
 
+pub use audio::{audio_mime, find_audio, timestamp_seconds, AudioFile, AUDIO_TYPES};
 pub use segment::{split_long, split_sentences};
 
 /// Names under which the candidate appears in platform transcripts.

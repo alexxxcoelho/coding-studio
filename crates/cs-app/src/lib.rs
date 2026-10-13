@@ -20,6 +20,9 @@ mod v1_analysis;
 mod v1_project;
 mod v1_review;
 mod v2;
+mod v2_audio;
+mod v2_codes;
+mod v2_transcripts;
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
@@ -246,6 +249,9 @@ pub fn router(state: AppState) -> Router {
         .merge(qdpx::routes())
         .merge(v1_analysis::routes())
         .merge(v2::routes())
+        .merge(v2_codes::routes())
+        .merge(v2_transcripts::routes())
+        .merge(v2_audio::routes())
         .fallback(static_file)
         .with_state(state)
 }
