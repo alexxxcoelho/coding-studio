@@ -3,6 +3,7 @@
 
 import { useRef, type CSSProperties } from "react"
 
+import { useAudio } from "@/lib/audio-player"
 import { codeColor } from "@/lib/code-tree"
 import { hasLater, hasRealCode, pieces, stripeCodes, unitState, type CoderUnit } from "@/lib/coder-model"
 import { isWholePassage } from "@/lib/passage-cache"
@@ -59,6 +60,7 @@ export interface TurnProps {
 }
 
 export function Turn({ unit, passages, selected, codeName, marked = false, pending, currentPassage, onSelect, onRange, onPassage }: TurnProps) {
+  const audio = useAudio()
   const textRef = useRef<HTMLSpanElement>(null)
   const state = unitState(unit, passages, marked)
   const interviewer = state === "interviewer"
@@ -83,7 +85,7 @@ export function Turn({ unit, passages, selected, codeName, marked = false, pendi
 
   return (
     <div
-      className={cn("u", interviewer ? "int" : "resp", selected && "sel", state === "non_pertinent" && "na")}
+      className={cn("u", interviewer ? "int" : "resp", selected && "sel", audio?.playing && audio.current === unit.unit_id && "hear", state === "non_pertinent" && "na")}
       data-unit={unit.unit_id}
       data-state={state}
       aria-current={selected ? "true" : undefined}
@@ -96,7 +98,22 @@ export function Turn({ unit, passages, selected, codeName, marked = false, pendi
       </div>
       <div className="meta">
         <span className={cn("mono", selected && "b")}>{shortId(unit.unit_id)}</span>
-        <span>{unit.timestamp}</span>
+        {audio?.canSeek(unit.unit_id) ? (
+          <button
+            type="button"
+            className="ts"
+            title="Écouter à partir d'ici"
+            aria-label={`Écouter ${shortId(unit.unit_id)} à ${unit.timestamp}`}
+            onClick={(e) => {
+              e.stopPropagation()
+              audio.seek(unit.unit_id)
+            }}
+          >
+            {unit.timestamp}
+          </button>
+        ) : (
+          <span>{unit.timestamp}</span>
+        )}
       </div>
       <div className="txt" style={{ position: "relative" }}>
         {interviewer && <span className="who">INT</span>}

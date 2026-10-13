@@ -16,6 +16,8 @@ import { SelectionMenu } from "@/components/coder/selection-menu"
 import { Turn } from "@/components/coder/turn"
 import { EmptyState, PageTitle } from "@/components/bits"
 import { SearchIcon } from "@/components/icons"
+import { AudioCapsule } from "@/components/coder/audio-capsule"
+import { AudioProvider } from "@/lib/audio-player"
 import { ReviewDialog } from "@/components/coder/review-dialog"
 import { useReviewCounts } from "@/lib/transcript-review"
 import { ToolbarActions } from "@/components/toolbar"
@@ -372,10 +374,11 @@ export function CoderPage({ id, unit: askedUnit = null }: { id: string; unit?: s
   const pct = total > 0 ? (counts.examined / total) * 100 : 0
 
   return (
-    <>
+    <AudioProvider interviewId={id}>
       <PageTitle title={id} sub={`Codage · ${counts.examined} sur ${total} unités examinées`} />
       <ToolbarActions>
         <StepsCapsule id={id} current="coder" highlights={nHighlights} />
+        <AudioCapsule />
         <nav className="cap" aria-label="Texte de l'entretien">
           <button type="button" className="ci" onClick={() => setReviewOpen(true)} title="Versions du texte et passages à revoir">
             Versions{nReview > 0 && <span className="n" aria-label={`${nReview} passage${nReview > 1 ? "s" : ""} à revoir`}>{nReview}</span>}
@@ -559,7 +562,7 @@ export function CoderPage({ id, unit: askedUnit = null }: { id: string; unit?: s
 
       <ReviewDialog interviewId={id} open={reviewOpen} onClose={() => setReviewOpen(false)} />
       <NewCodeDialog interviewId={id} target={newCode} codes={codes} undo={undo} onClose={() => setNewCode(null)} />
-    </>
+    </AudioProvider>
   )
 }
 
