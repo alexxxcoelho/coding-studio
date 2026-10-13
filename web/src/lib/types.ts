@@ -960,6 +960,9 @@ export interface ProjectConfig {
   evidence_natures: ListItem[]
   link_types: ListItem[]
   matrix_dimensions: ListItem[]
+  /** Origins and roles a passage can be qualified with (project-config lists). */
+  passage_origins: ListItem[]
+  passage_roles: ListItem[]
   interpretive_framework: Framework | null
   memo_history?: unknown[]
 }

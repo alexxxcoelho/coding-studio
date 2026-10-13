@@ -112,6 +112,8 @@ describe("whole configuration", () => {
     evidence_natures: [],
     link_types: [{ id: "soutient", label: "soutient" }],
     matrix_dimensions: [],
+    passage_origins: [{ id: "opinion", label: "Opinion" }],
+    passage_roles: [{ id: "constraint", label: "Contrainte" }],
     interpretive_framework: null,
   }
   it("passes a good configuration and names the first problem otherwise", () => {

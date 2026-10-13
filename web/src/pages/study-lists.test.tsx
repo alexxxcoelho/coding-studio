@@ -28,6 +28,8 @@ const PROJECT: ProjectConfig = {
   evidence_natures: [],
   link_types: [{ id: "causes", label: "cause" }],
   matrix_dimensions: [],
+  passage_origins: [{ id: "opinion", label: "Opinion" }],
+  passage_roles: [{ id: "constraint", label: "Contrainte" }],
   interpretive_framework: null,
 }
 const TOE_DIMS = [{ id: "tech", label: "Technologie", definition: "" }]

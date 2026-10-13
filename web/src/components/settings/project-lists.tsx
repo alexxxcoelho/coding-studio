@@ -33,13 +33,15 @@ import {
 } from "@/lib/project-form"
 import type { AttributeDef, AttributeKind, ListItem, MemoTemplate, ProjectConfig } from "@/lib/types"
 
-type ListKey = "checklist" | "theme_checks" | "evidence_natures" | "link_types"
+type ListKey = "checklist" | "theme_checks" | "evidence_natures" | "link_types" | "passage_origins" | "passage_roles"
 
 const LISTS: { key: ListKey; label: string; min: number; note: string }[] = [
   { key: "checklist", label: "Fin d'entretien", min: 0, note: "Les points à vérifier avant de passer à la suite" },
   { key: "theme_checks", label: "Contrôles d'un thème", min: 0, note: "Ce qu'on vérifie avant de garder un thème" },
   { key: "evidence_natures", label: "Natures de preuve", min: 0, note: "Comment un passage appuie une affirmation" },
   { key: "link_types", label: "Types de liens", min: 1, note: "Les relations qu'on peut poser entre deux thèmes" },
+  { key: "passage_origins", label: "Origines du propos", min: 1, note: "D'où vient ce qui est dit : expérience vécue, opinion, document…" },
+  { key: "passage_roles", label: "Rôles dans la décision", min: 1, note: "Ce que le passage fait dans la décision : déclencheur, contrainte…" },
 ]
 
 const KINDS: [AttributeKind, string][] = [
@@ -50,7 +52,12 @@ const KINDS: [AttributeKind, string][] = [
 ]
 
 const kindLabel = (k: AttributeKind) => KINDS.find(([v]) => v === k)?.[1] ?? k
-const msg = (e: unknown) => (e instanceof ApiError ? e.message : String(e))
+const msg = (e: unknown) => {
+  if (e instanceof ApiError && e.status === 409 && /origin|role|passage/i.test(e.message)) {
+    return "Une origine ou un rôle retiré de la liste est encore utilisé par des passages. Remettez-le dans la liste, ou changez la qualification de ces passages avant de l'enlever."
+  }
+  return e instanceof ApiError ? e.message : String(e)
+}
 
 type Editor = "memo" | "attributes" | "dimensions" | ListKey | null
 

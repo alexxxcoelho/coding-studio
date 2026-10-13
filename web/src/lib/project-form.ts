@@ -145,6 +145,8 @@ export function projectConfigProblem(cfg: ProjectConfig): string | null {
     listProblem("Contrôles d'un thème", cfg.theme_checks) ??
     listProblem("Natures de preuve", cfg.evidence_natures) ??
     listProblem("Types de liens", cfg.link_types, 1) ??
+    listProblem("Origines du propos", cfg.passage_origins, 1) ??
+    listProblem("Rôles dans la décision", cfg.passage_roles, 1) ??
     listProblem("Dimensions de la matrice", cfg.matrix_dimensions) ??
     frameworkProblem(cfg.interpretive_framework)
   )

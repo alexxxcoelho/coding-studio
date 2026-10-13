@@ -10,12 +10,12 @@ import { toast } from "sonner"
 import { shortId } from "@/components/coder/turn"
 import { NativeSelect, TEXTAREA } from "@/components/settings/fields"
 import { Button } from "@/components/ui/button"
-import { analysisApi, PASSAGE_ORIGINS, PASSAGE_ROLES } from "@/lib/analysis-api"
+import { analysisApi } from "@/lib/analysis-api"
 import { codeColor, LATER_ID } from "@/lib/code-tree"
 import { dateTime } from "@/lib/format"
-import { invalidatePassages, type CodingActions } from "@/lib/hooks"
+import { invalidatePassages, useProjectConfig, type CodingActions } from "@/lib/hooks"
 import { reportError } from "@/lib/notify"
-import type { Passage } from "@/lib/types"
+import type { ListItem, Passage } from "@/lib/types"
 
 export function quotation(p: Passage): string {
   return `« ${p.text.trim()} » (${shortId(p.unit_id)}, ${p.interview_id})`
@@ -50,8 +50,15 @@ function LaterNote({ passage, onSave }: { passage: Passage; onSave: (note: strin
 }
 
 /** Origin and role of the passage (guide, "Qualifier une citation"): saved at once, empty clears. */
+/** The study's list, plus the value a passage already carries when the list no longer has it. */
+function withCurrent(list: ListItem[] | undefined, current: string | null): ListItem[] {
+  const items = list ?? []
+  return current && !items.some((i) => i.id === current) ? [...items, { id: current, label: current }] : items
+}
+
 function Qualification({ passage }: { passage: Passage }) {
   const qc = useQueryClient()
+  const cfg = useProjectConfig()
   const save = useMutation({
     mutationFn: (q: { origin?: string | null; role?: string | null }) => analysisApi.qualifyPassage(passage.passage_id, q),
     onSuccess: () => invalidatePassages(qc, passage.interview_id),
@@ -65,8 +72,8 @@ function Qualification({ passage }: { passage: Passage }) {
         <span className="l2">Origine du propos</span>
         <NativeSelect aria-label="Origine du propos" value={passage.origin ?? ""} disabled={save.isPending} onChange={(e) => save.mutate({ origin: e.target.value || null })}>
           <option value="">Non renseignée</option>
-          {PASSAGE_ORIGINS.map((o) => (
-            <option key={o.value} value={o.value}>
+          {withCurrent(cfg.data?.passage_origins, passage.origin ?? null).map((o) => (
+            <option key={o.id} value={o.id}>
               {o.label}
             </option>
           ))}
@@ -76,8 +83,8 @@ function Qualification({ passage }: { passage: Passage }) {
         <span className="l2">Rôle dans la décision</span>
         <NativeSelect aria-label="Rôle dans la décision" value={passage.role ?? ""} disabled={save.isPending} onChange={(e) => save.mutate({ role: e.target.value || null })}>
           <option value="">Non renseigné</option>
-          {PASSAGE_ROLES.map((r) => (
-            <option key={r.value} value={r.value}>
+          {withCurrent(cfg.data?.passage_roles, passage.role ?? null).map((r) => (
+            <option key={r.id} value={r.id}>
               {r.label}
             </option>
           ))}
