@@ -128,3 +128,52 @@ async fn f41_code_search_finds_names_aliases_and_definitions() {
     let r = ok(&ctx.app, "GET", "/api/codes/search?q=plus&include_system=true", None).await;
     assert_eq!(r["items"][0]["system"], true);
 }
+
+#[tokio::test]
+async fn f55_full_text_search_with_filters_and_highlights() {
+    let ctx = setup().await;
+    with_sector(&ctx).await;
+    // INT-02: "Notre bibliothèque prête 1 200 livres par an, l'été c'est calme 😀 et le réseau décide du système."
+    let r = ok(&ctx.app, "GET", "/api/search/text?q=BIBLIOTHEQUE", None).await;
+    assert_eq!(r["total_units"], 1);
+    let hit = &r["items"][0];
+    assert_eq!(hit["interview_id"], "INT-02");
+    assert_eq!(hit["matches"][0]["start"], 6);
+    assert_eq!(hit["matches"][0]["end"], 18);
+    // Interviews with no mention are listed.
+    let mentioned: Vec<(&str, bool)> = r["interviews"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|i| (i["interview_id"].as_str().unwrap(), i["mentioned"].as_bool().unwrap()))
+        .collect();
+    assert_eq!(mentioned, [("INT-01", false), ("INT-02", true)]);
+    // Phrase, attribute filter, coded filter.
+    let r = ok(&ctx.app, "GET", "/api/search/text?q=le%20r%C3%A9seau&mode=phrase", None).await;
+    assert_eq!(r["total_units"], 1);
+    let r = ok(&ctx.app, "GET", "/api/search/text?q=reseau%20le&mode=phrase", None).await;
+    assert_eq!(r["total_units"], 0);
+    let r = ok(&ctx.app, "GET", "/api/search/text?q=tags&attribute=sector&value=public", None).await;
+    assert_eq!(r["total_units"], 2);
+    let r = ok(&ctx.app, "GET", "/api/search/text?q=tags&attribute=sector&value=priv%C3%A9", None).await;
+    assert_eq!(r["total_units"], 0);
+    let r = ok(&ctx.app, "GET", "/api/search/text?q=tags&coded=true", None).await;
+    assert_eq!(r["total_units"], 0);
+    // Interviewer turns need the flag.
+    let r = ok(&ctx.app, "GET", "/api/search/text?q=thank", None).await;
+    assert_eq!(r["total_units"], 0);
+    let r = ok(&ctx.app, "GET", "/api/search/text?q=thank&include_interviewer=true", None).await;
+    assert_eq!(r["items"][0]["role"], "interviewer");
+    let r = ok(&ctx.app, "GET", "/api/search/text?q=livres&interviews=INT-01", None).await;
+    assert_eq!(r["total_units"], 0);
+    // Bad requests.
+    for uri in [
+        "/api/search/text?q=",
+        "/api/search/text?q=a&mode=regex",
+        "/api/search/text?q=a&attribute=sector",
+        "/api/search/text?q=a&interviews=NOPE",
+    ] {
+        let (s, _) = call(&ctx.app, "GET", uri, None).await;
+        assert!(s == StatusCode::BAD_REQUEST || s == StatusCode::NOT_FOUND, "{uri}: {s}");
+    }
+}

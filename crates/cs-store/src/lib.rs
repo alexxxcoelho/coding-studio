@@ -25,6 +25,7 @@ mod codestats;
 mod codetree;
 mod coding;
 mod final_audit;
+mod fulltext;
 mod lexicon;
 mod library;
 mod links;
@@ -50,6 +51,10 @@ pub use codetree::{
     UndoCreateOutcome,
 };
 pub use coding::ResolveRequest;
+pub use fulltext::{
+    Excerpt, Highlight, Hit as TextHit, InterviewHits, Neighbour, SearchMode, SearchRequest,
+    SearchResult, Span,
+};
 pub use final_audit::{AuditChainLink, AuditClaim, AuditGap, FinalAudit};
 pub use lexicon::{CodeRef, LexiconConfig, SimilarItem, SimilarOptions, LEXICON_CONFIG_KEY};
 pub use library::{
@@ -120,6 +125,8 @@ pub struct Store {
     /// Lexical index of the corpus with the fingerprint it was built for
     /// (see `lexicon.rs`). Never persisted.
     lex_cache: Mutex<Option<(String, Arc<cs_lex::LexIndex>)>>,
+    /// Full-text index (F-55) and the fingerprint it was built for.
+    ft_cache: Mutex<Option<(String, Arc<fulltext::FtIndex>)>>,
 }
 
 /// Result of the blind-coding guard of one phase.
@@ -376,6 +383,7 @@ impl Store {
         Ok(Store {
             conn,
             lex_cache: Mutex::new(None),
+            ft_cache: Mutex::new(None),
         })
     }
 
