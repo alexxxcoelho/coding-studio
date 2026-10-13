@@ -15,6 +15,7 @@
 //! Protocol refusals are returned as `cs_model::CsError::Guard`, bad input as
 //! `CsError::Validation`, unknown ids as `CsError::NotFound` (wrapped in anyhow).
 
+mod analysis_index;
 mod analysis_schema;
 mod cases;
 mod claims;
@@ -28,6 +29,7 @@ mod review;
 mod saturation;
 mod simple;
 mod study_config;
+mod themes;
 mod verification;
 
 pub use codebook::{CodePatch, ImportReport, MergeOutcome};
@@ -40,6 +42,9 @@ pub use project::{
 };
 pub use review::{Review, ReviewEntry};
 pub use simple::SimpleProgress;
+pub use themes::{
+    NewTheme, ThemeCheckView, ThemeCodeView, ThemeCounts, ThemeHistoryEntry, ThemePatch, ThemeView,
+};
 
 use std::collections::BTreeMap;
 use std::path::Path;
