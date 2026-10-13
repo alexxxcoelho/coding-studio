@@ -21,6 +21,7 @@ export type Route =
   | { page: "audit" }
   | { page: "analyser" }
   | { page: "lexique" }
+  | { page: "search" }
   | { page: "rediger" }
   /** The guide; `anchor` is a section or heading anchor of docs/guide/guide.json. */
   | { page: "guide"; anchor: string | null }
@@ -47,6 +48,7 @@ export function parseHash(hash: string): Route {
   if (parts[0] === "audit") return { page: "audit" }
   if (parts[0] === "analyser") return { page: "analyser" }
   if (parts[0] === "lexique") return { page: "lexique" }
+  if (parts[0] === "recherche") return { page: "search" }
   if (parts[0] === "rediger") return { page: "rediger" }
   if (parts[0] === "guide") return { page: "guide", anchor: parts[1] ?? null }
   return { page: "library" }

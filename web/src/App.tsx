@@ -10,6 +10,7 @@ import { ToClarifyPage } from "@/pages/to-clarify"
 import { InterviewPage } from "@/pages/interview"
 import { LexiquePage } from "@/pages/lexique"
 import { LibraryPage } from "@/pages/library"
+import { SearchPage } from "@/pages/search"
 import { SaturationPage } from "@/pages/saturation"
 import { SettingsPage } from "@/pages/settings"
 
@@ -27,6 +28,7 @@ export default function App() {
         {route.page === "audit" && <AuditPage />}
         {route.page === "analyser" && <AnalyserPage />}
         {route.page === "lexique" && <LexiquePage />}
+        {route.page === "search" && <SearchPage />}
         {route.page === "rediger" && <RedigerPage />}
         {route.page === "guide" && <GuidePage anchor={route.anchor} />}
       </AppShell>

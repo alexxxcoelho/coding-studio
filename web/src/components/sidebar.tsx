@@ -4,7 +4,7 @@
 
 import type { ReactNode } from "react"
 import { useQuery } from "@tanstack/react-query"
-import { Search, ShieldAlert, ShieldCheck, X } from "lucide-react"
+import { Search, ShieldAlert, ShieldCheck, TextSearch, X } from "lucide-react"
 
 import {
   AnalyserIcon,
@@ -142,6 +142,9 @@ export function Sidebar({
       </NavItem>
       <NavItem href="#/lexique" on={active === "lexique"} icon={<Search className="size-4" aria-hidden />}>
         Lexique
+      </NavItem>
+      <NavItem href="#/recherche" on={active === "search"} icon={<TextSearch className="size-4" aria-hidden />}>
+        Recherche
       </NavItem>
       <NavItem href="#/analyser" on={active === "analyser"} icon={<AnalyserIcon />}>
         Analyser
