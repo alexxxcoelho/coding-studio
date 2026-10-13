@@ -41,12 +41,36 @@ pub(crate) fn routes() -> Router<AppState> {
 
 // ------------------------------------------------------------------ codes
 
+#[derive(Deserialize, Default)]
+struct CodesQuery {
+    /// Count only the interviews whose attribute has this value.
+    #[serde(default)]
+    attribute: Option<String>,
+    #[serde(default)]
+    value: Option<String>,
+}
+
 /// Every code with aliases and counts, then the reserved code "Plus tard".
-async fn list_codes(State(st): State<AppState>) -> ApiResult {
+/// With `?attribute=&value=` the counts cover only the interviews whose
+/// attribute has that value ("codes by attribute").
+async fn list_codes(State(st): State<AppState>, Query(q): Query<CodesQuery>) -> ApiResult {
     let store = st.store();
+    let only = match (q.attribute.as_deref(), q.value.as_deref()) {
+        (Some(a), Some(v)) => Some(store.interviews_with_attribute(a, v)?),
+        (None, None) => None,
+        _ => {
+            return Err(anyhow::Error::new(cs_model::CsError::Validation(
+                "attribute and value go together".into(),
+            ))
+            .into())
+        }
+    };
     Ok(Json(json!({
         "codebook_version": store.codebook_version()?,
-        "codes": store.code_nodes()?,
+        "filter": only.as_ref().map(|s| json!({
+            "attribute": q.attribute, "value": q.value, "interviews": s,
+        })),
+        "codes": store.code_nodes_filtered(only.as_ref())?,
     })))
 }
 

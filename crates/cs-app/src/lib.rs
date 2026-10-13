@@ -7,6 +7,7 @@ mod error;
 mod export;
 mod providers;
 mod v1;
+mod v1_project;
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
@@ -227,6 +228,7 @@ pub fn router(state: AppState) -> Router {
             post(providers::run_batch),
         )
         .merge(v1::routes())
+        .merge(v1_project::routes())
         .fallback(static_file)
         .with_state(state)
 }
