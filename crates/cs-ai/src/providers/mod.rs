@@ -8,6 +8,7 @@ use serde::{Deserialize, Serialize};
 
 mod cli;
 mod oauth;
+pub mod oauth_flow;
 mod openai;
 
 pub use cli::{CliConfig, CliProvider, PromptVia};

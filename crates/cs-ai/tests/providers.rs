@@ -743,6 +743,7 @@ fn oauth_chatgpt_is_not_configured_yet() {
     // port is available.
     let p = OAuthChatGptProvider::new(OAuthChatGptConfig {
         id: "chatgpt".into(),
+        ..Default::default()
     });
     assert_eq!(p.id(), "chatgpt");
     let d = p.describe();
