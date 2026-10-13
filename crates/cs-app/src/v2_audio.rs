@@ -111,7 +111,9 @@ fn resolve_audio(
         return Err(invalid("path must stay inside the interview folder"));
     }
     if !files.iter().any(|f| f.rel_path == rel) {
-        return Err(not_found(format!("{rel} is not an audio file of this interview")));
+        return Err(not_found(format!(
+            "{rel} is not an audio file of this interview"
+        )));
     }
     let gone = |_| not_found(format!("{rel} is no longer in the interview folder"));
     let folder = Path::new(folder).canonicalize().map_err(gone)?;
@@ -281,7 +283,7 @@ struct FileQuery {
     path: Option<String>,
 }
 
-fn header_str<'a>(headers: &'a HeaderMap, name: header::HeaderName) -> Option<&'a str> {
+fn header_str(headers: &HeaderMap, name: header::HeaderName) -> Option<&str> {
     headers.get(name).and_then(|v| v.to_str().ok())
 }
 
@@ -334,14 +336,20 @@ async fn audio_file(
         RangeSpec::Whole => base
             .status(StatusCode::OK)
             .header(header::CONTENT_LENGTH, total)
-            .body(Body::from_stream(ReaderStream::with_capacity(file, 64 * 1024))),
+            .body(Body::from_stream(ReaderStream::with_capacity(
+                file,
+                64 * 1024,
+            ))),
         RangeSpec::Part(start, end) => {
             file.seek(SeekFrom::Start(start))
                 .await
                 .map_err(|e| invalid(format!("cannot read {rel}: {e}")))?;
             let len = end - start + 1;
             base.status(StatusCode::PARTIAL_CONTENT)
-                .header(header::CONTENT_RANGE, format!("bytes {start}-{end}/{total}"))
+                .header(
+                    header::CONTENT_RANGE,
+                    format!("bytes {start}-{end}/{total}"),
+                )
                 .header(header::CONTENT_LENGTH, len)
                 .body(Body::from_stream(ReaderStream::with_capacity(
                     file.take(len),
@@ -381,6 +389,9 @@ mod tests {
 
     #[test]
     fn paths_are_url_encoded() {
-        assert_eq!(url_encode("sub/Entretien n°1 é.m4a"), "sub/Entretien%20n%C2%B01%20%C3%A9.m4a");
+        assert_eq!(
+            url_encode("sub/Entretien n°1 é.m4a"),
+            "sub/Entretien%20n%C2%B01%20%C3%A9.m4a"
+        );
     }
 }

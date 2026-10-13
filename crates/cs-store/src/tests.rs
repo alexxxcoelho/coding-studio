@@ -1555,5 +1555,5 @@ mod l5_writing;
 mod lot4_review;
 
 // V2: versioned transcripts and projection of passages (F-24).
-mod transcripts_v2;
 mod audio_v2;
+mod transcripts_v2;

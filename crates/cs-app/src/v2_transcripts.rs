@@ -23,7 +23,10 @@ pub(crate) fn routes() -> Router<AppState> {
             "/api/interviews/{id}/transcript/versions/{version}",
             get(version_units),
         )
-        .route("/api/interviews/{id}/transcript/review", get(interview_review))
+        .route(
+            "/api/interviews/{id}/transcript/review",
+            get(interview_review),
+        )
         .route("/api/transcript/review", get(review))
         .route("/api/transcript/review/{pid}", get(review_item))
         .route("/api/transcript/review/{pid}/accept", post(accept))

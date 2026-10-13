@@ -411,7 +411,8 @@ impl Store {
         reason: Option<&str>,
         actor: &str,
     ) -> Result<Option<i64>> {
-        let Some(version) = self.record_version(conn, interview_id, cause, target, reason, actor)?
+        let Some(version) =
+            self.record_version(conn, interview_id, cause, target, reason, actor)?
         else {
             return Ok(None);
         };
@@ -474,7 +475,11 @@ impl Store {
 
     // ---------------------------------------------------------- projection
 
-    fn active_passage_rows(&self, conn: &Connection, interview_id: &str) -> Result<Vec<PassageRow>> {
+    fn active_passage_rows(
+        &self,
+        conn: &Connection,
+        interview_id: &str,
+    ) -> Result<Vec<PassageRow>> {
         let mut stmt = conn.prepare(
             "SELECT passage_id, unit_id, start_offset, end_offset, text, anchor_digest
              FROM passages WHERE interview_id = ?1 AND deleted_at IS NULL
@@ -630,7 +635,12 @@ impl Store {
                 conn.execute(
                     "UPDATE passage_projections SET status = 'superseded', resolved_at = ?2,
                        resolved_by = ?3, resolution_note = ?4 WHERE projection_id = ?1",
-                    params![pid, now(), actor, format!("replaced by the projection onto version {to}")],
+                    params![
+                        pid,
+                        now(),
+                        actor,
+                        format!("replaced by the projection onto version {to}")
+                    ],
                 )?;
             }
             let src_units = units_of(self, src_version)?;
@@ -641,46 +651,55 @@ impl Store {
             let old_twins = src_units.values().filter(|u| u.text == old_text).count();
 
             // (method, status, reason, target unit, proposal)
-            let (method, auto, reason, proposal): (&str, bool, &str, Option<(String, usize, usize)>) =
-                if twins.len() == 1 && old_twins == 1 {
-                    ("moved_unit", true, "", Some((twins[0].unit_id.clone(), p.start, p.end)))
-                } else if let Some(nu) = same_unit_now {
-                    if nu.role == SpeakerRole::Interviewer {
-                        ("diff", false, "unit_became_interviewer", None)
-                    } else {
-                        match project_span(&old_text, &nu.text, p.start, p.end) {
-                            SpanProjection::Unchanged { start, end } => {
-                                ("diff", true, "", Some((nu.unit_id.clone(), start, end)))
-                            }
-                            SpanProjection::Touched { proposal } => (
-                                "diff",
-                                false,
-                                "text_changed",
-                                proposal.map(|(a, b)| (nu.unit_id.clone(), a, b)),
-                            ),
-                        }
-                    }
+            let (method, auto, reason, proposal): (
+                &str,
+                bool,
+                &str,
+                Option<(String, usize, usize)>,
+            ) = if twins.len() == 1 && old_twins == 1 {
+                (
+                    "moved_unit",
+                    true,
+                    "",
+                    Some((twins[0].unit_id.clone(), p.start, p.end)),
+                )
+            } else if let Some(nu) = same_unit_now {
+                if nu.role == SpeakerRole::Interviewer {
+                    ("diff", false, "unit_became_interviewer", None)
                 } else {
-                    // The unit left the transcript: look for the exact words elsewhere.
-                    let mut hits = Vec::new();
-                    for u in next.values().filter(|u| u.role != SpeakerRole::Interviewer) {
-                        let chars: Vec<char> = u.text.chars().collect();
-                        let needle: Vec<char> = p.text.chars().collect();
-                        if needle.is_empty() || chars.len() < needle.len() {
-                            continue;
+                    match project_span(&old_text, &nu.text, p.start, p.end) {
+                        SpanProjection::Unchanged { start, end } => {
+                            ("diff", true, "", Some((nu.unit_id.clone(), start, end)))
                         }
-                        for i in 0..=(chars.len() - needle.len()) {
-                            if chars[i..i + needle.len()] == needle[..] {
-                                hits.push((u.unit_id.clone(), i, i + needle.len()));
-                            }
+                        SpanProjection::Touched { proposal } => (
+                            "diff",
+                            false,
+                            "text_changed",
+                            proposal.map(|(a, b)| (nu.unit_id.clone(), a, b)),
+                        ),
+                    }
+                }
+            } else {
+                // The unit left the transcript: look for the exact words elsewhere.
+                let mut hits = Vec::new();
+                for u in next.values().filter(|u| u.role != SpeakerRole::Interviewer) {
+                    let chars: Vec<char> = u.text.chars().collect();
+                    let needle: Vec<char> = p.text.chars().collect();
+                    if needle.is_empty() || chars.len() < needle.len() {
+                        continue;
+                    }
+                    for i in 0..=(chars.len() - needle.len()) {
+                        if chars[i..i + needle.len()] == needle[..] {
+                            hits.push((u.unit_id.clone(), i, i + needle.len()));
                         }
                     }
-                    if hits.len() == 1 {
-                        ("search", false, "unit_moved", hits.pop())
-                    } else {
-                        ("search", false, "unit_removed", None)
-                    }
-                };
+                }
+                if hits.len() == 1 {
+                    ("search", false, "unit_moved", hits.pop())
+                } else {
+                    ("search", false, "unit_removed", None)
+                }
+            };
             let proposed_text = proposal.as_ref().and_then(|(u, a, b)| {
                 next.get(u)
                     .and_then(|nu| slice_scalars(&nu.text, *a, *b))
@@ -728,7 +747,9 @@ impl Store {
             )?;
             let projection_id = conn.last_insert_rowid();
             if auto {
-                let (u, a, b) = proposal.as_ref().expect("an automatic projection has a span");
+                let (u, a, b) = proposal
+                    .as_ref()
+                    .expect("an automatic projection has a span");
                 let unit_text = &next[u].text;
                 self.move_passage_in(
                     conn,
@@ -814,8 +835,8 @@ impl Store {
         };
         let proposed = span(&r.proposed_unit_id, r.proposed_start, r.proposed_end)?;
         let final_span = span(&r.final_unit_id, r.final_start, r.final_end)?;
-        let current_unit_text = self
-            .current_transcript_unit_text(&r.interview_id, &r.passage_unit_id)?;
+        let current_unit_text =
+            self.current_transcript_unit_text(&r.interview_id, &r.passage_unit_id)?;
         Ok(ProjectionItem {
             projection_id: r.projection_id,
             interview_id: r.interview_id.clone(),
@@ -837,7 +858,11 @@ impl Store {
         })
     }
 
-    fn current_transcript_unit_text(&self, interview_id: &str, unit_id: &str) -> Result<Option<String>> {
+    fn current_transcript_unit_text(
+        &self,
+        interview_id: &str,
+        unit_id: &str,
+    ) -> Result<Option<String>> {
         Ok(self
             .current_units(interview_id)?
             .get(unit_id)
@@ -896,7 +921,11 @@ impl Store {
         Ok(rows)
     }
 
-    fn items_for(&self, rows: Vec<ProjectionRow>, keep_deleted: bool) -> Result<Vec<ProjectionItem>> {
+    fn items_for(
+        &self,
+        rows: Vec<ProjectionRow>,
+        keep_deleted: bool,
+    ) -> Result<Vec<ProjectionItem>> {
         let names = crate::codetree::code_names(&self.conn)?;
         let mut stmt = self.conn.prepare(
             "SELECT passage_id, code_id FROM passage_codings
@@ -908,9 +937,15 @@ impl Store {
             let code_name = if code_id == cs_model::passage::LATER_ID {
                 cs_model::passage::LATER_NAME.to_string()
             } else {
-                names.get(&code_id).cloned().unwrap_or_else(|| code_id.clone())
+                names
+                    .get(&code_id)
+                    .cloned()
+                    .unwrap_or_else(|| code_id.clone())
             };
-            codes.entry(pid).or_default().push(ReviewCode { code_id, code_name });
+            codes
+                .entry(pid)
+                .or_default()
+                .push(ReviewCode { code_id, code_name });
         }
         let mut cache = BTreeMap::new();
         let mut out = Vec::new();
@@ -1025,7 +1060,9 @@ impl Store {
                     }
                 };
                 if s >= e {
-                    return Err(validation(format!("the span {s}..{e} is empty or reversed")));
+                    return Err(validation(format!(
+                        "the span {s}..{e} is empty or reversed"
+                    )));
                 }
                 let slice = slice_scalars(&unit.text, s, e).ok_or_else(|| {
                     validation(format!(
@@ -1053,7 +1090,14 @@ impl Store {
                          WHERE interview_id = ?1 AND unit_id = ?2 AND start_offset = ?3
                            AND end_offset = ?4 AND anchor_digest = ?5 AND deleted_at IS NULL
                            AND passage_id != ?6",
-                        params![interview_id, unit_id, *s as i64, *e as i64, digest, item.passage_id],
+                        params![
+                            interview_id,
+                            unit_id,
+                            *s as i64,
+                            *e as i64,
+                            digest,
+                            item.passage_id
+                        ],
                         |r| r.get(0),
                     )
                     .optional()?;
@@ -1062,8 +1106,17 @@ impl Store {
                         "passage {other} already covers {s}..{e} of {unit_id}; detach this one instead"
                     )));
                 }
-                final_text =
-                    self.move_passage_in(&tx, &item.passage_id, &interview_id, unit_id, *s, *e, &unit.text, &seg_hash, actor)?;
+                final_text = self.move_passage_in(
+                    &tx,
+                    &item.passage_id,
+                    &interview_id,
+                    unit_id,
+                    *s,
+                    *e,
+                    &unit.text,
+                    &seg_hash,
+                    actor,
+                )?;
                 append_event(
                     &tx,
                     actor,
@@ -1099,7 +1152,12 @@ impl Store {
                         format!("detached at transcript version {}: {note}", item.to_version)
                     ],
                 )?;
-                self.sync_unit_from_passages_in(&tx, &interview_id, &rows[0].passage_unit_id, actor)?;
+                self.sync_unit_from_passages_in(
+                    &tx,
+                    &interview_id,
+                    &rows[0].passage_unit_id,
+                    actor,
+                )?;
                 append_event(
                     &tx,
                     actor,

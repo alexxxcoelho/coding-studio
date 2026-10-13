@@ -113,9 +113,7 @@ fn passage_versions(store: &Store, passages: &[Passage]) -> Result<BTreeMap<Stri
 /// versions (cause, text digest) and every projection of a passage onto a
 /// version, with the old, proposed and final span and how it was settled.
 pub(crate) fn transcript_versions_value(store: &Store, interview_ids: &[String]) -> Result<Value> {
-    let span = |s: &cs_store::SpanView| {
-        json!({"unit_id": s.unit_id, "start": s.start, "end": s.end, "text": s.text})
-    };
+    let span = |s: &cs_store::SpanView| json!({"unit_id": s.unit_id, "start": s.start, "end": s.end, "text": s.text});
     let mut items = Vec::new();
     for id in interview_ids {
         let projections: Vec<Value> = store
@@ -153,8 +151,10 @@ pub(crate) fn transcript_versions_value(store: &Store, interview_ids: &[String])
 }
 
 pub(crate) fn transcript_versions_json(store: &Store, interview_ids: &[String]) -> Result<Vec<u8>> {
-    Ok(serde_json::to_string_pretty(&transcript_versions_value(store, interview_ids)?)?
-        .into_bytes())
+    Ok(
+        serde_json::to_string_pretty(&transcript_versions_value(store, interview_ids)?)?
+            .into_bytes(),
+    )
 }
 
 /// The passages without an active code: `passage_id,interview_id,unit_id,start,end,text,stale,created_at,created_by`.

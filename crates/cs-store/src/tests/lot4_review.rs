@@ -246,9 +246,9 @@ fn a_redefinition_and_a_new_sub_code_open_items_but_a_rename_does_not() {
         3,
         "the resolved unit is open again for the new cause"
     );
-    assert!(items
-        .iter()
-        .any(|i| i.cause == "new_subcode" && i.status == "open" && i.detail == "nouveau sous-code Avantage financier"));
+    assert!(items.iter().any(|i| i.cause == "new_subcode"
+        && i.status == "open"
+        && i.detail == "nouveau sous-code Avantage financier"));
 }
 
 fn candidate(label: &str, units: &[&str]) -> CandidateConcept {

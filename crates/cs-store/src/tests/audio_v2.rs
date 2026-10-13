@@ -13,7 +13,9 @@ fn no_offset_is_zero_and_not_set() {
 #[test]
 fn setting_an_offset_is_stored_and_audited() {
     let (s, _d) = ready();
-    let o = s.set_audio_offset(ID, -3.5, " starts late ", ACTOR).unwrap();
+    let o = s
+        .set_audio_offset(ID, -3.5, " starts late ", ACTOR)
+        .unwrap();
     assert_eq!(o.offset_seconds, -3.5);
     assert_eq!(o.note, "starts late");
     assert!(o.set);
@@ -31,7 +33,8 @@ fn the_same_value_writes_nothing() {
     s.set_audio_offset(ID, 2.0, "", ACTOR).unwrap();
     s.set_audio_offset(ID, 2.0, "", ACTOR).unwrap();
     assert_eq!(s.audio_events().len(), 1);
-    s.set_audio_offset(ID, 2.0, "now with a note", ACTOR).unwrap();
+    s.set_audio_offset(ID, 2.0, "now with a note", ACTOR)
+        .unwrap();
     assert_eq!(s.audio_events().len(), 2);
 }
 

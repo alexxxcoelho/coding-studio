@@ -163,7 +163,13 @@ async fn the_route_reaches_only_audio_files_of_the_interview_folder() {
         assert!(r.body.len() < 400, "{bad} leaked {} bytes", r.body.len());
     }
     // Another interview's id does not give access to this folder's file.
-    let r = raw(&ctx, "GET", "/api/interviews/INT-02/audio/file?path=entretien.m4a", None).await;
+    let r = raw(
+        &ctx,
+        "GET",
+        "/api/interviews/INT-02/audio/file?path=entretien.m4a",
+        None,
+    )
+    .await;
     assert_ne!(r.status, StatusCode::OK);
     let (st, _) = call(&ctx.app, "GET", "/api/interviews/NOPE-1/audio/file", None).await;
     assert_eq!(st, StatusCode::NOT_FOUND);
@@ -278,7 +284,13 @@ async fn units_without_a_time_are_reported() {
         Some(json!({ "root": ctx.root })),
     )
     .await;
-    ok(&ctx.app, "POST", "/api/interviews/INT-05/segment", Some(json!({}))).await;
+    ok(
+        &ctx.app,
+        "POST",
+        "/api/interviews/INT-05/segment",
+        Some(json!({})),
+    )
+    .await;
     let v = ok(&ctx.app, "GET", "/api/interviews/INT-05/audio", None).await;
     assert_eq!(v["has_audio"], true);
     assert_eq!(v["timed_units"], 0);

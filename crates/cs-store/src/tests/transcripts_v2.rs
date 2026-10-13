@@ -477,7 +477,10 @@ fn words_found_once_in_another_unit_are_proposed_and_can_be_accepted() {
         &s,
         &[
             (U1, "So tell me about the pilot."),
-            ("ECO-16-U010", "Roughly speaking, the tags paid back in one year."),
+            (
+                "ECO-16-U010",
+                "Roughly speaking, the tags paid back in one year.",
+            ),
             (U3, "Our staff had no RFID skills at all."),
         ],
     );

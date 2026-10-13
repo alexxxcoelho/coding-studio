@@ -28,10 +28,7 @@ pub struct AudioFile {
 /// Media type of an audio file name, `None` when it is not an accepted format.
 pub fn audio_mime(name: &str) -> Option<&'static str> {
     let ext = name.rsplit_once('.')?.1.to_lowercase();
-    AUDIO_TYPES
-        .iter()
-        .find(|(e, _)| *e == ext)
-        .map(|(_, m)| *m)
+    AUDIO_TYPES.iter().find(|(e, _)| *e == ext).map(|(_, m)| *m)
 }
 
 /// The m4a, mp3 and wav files of an interview folder, sub-folders included,
@@ -141,7 +138,17 @@ mod tests {
 
     #[test]
     fn stamps_that_are_not_times_give_nothing() {
-        for bad in ["--:--", "P03", "", "12", "aa:bb", "00:61", "01:75:00", "1:2:3:4", "00:00:11."] {
+        for bad in [
+            "--:--",
+            "P03",
+            "",
+            "12",
+            "aa:bb",
+            "00:61",
+            "01:75:00",
+            "1:2:3:4",
+            "00:00:11.",
+        ] {
             assert_eq!(timestamp_seconds(bad), None, "{bad}");
         }
     }
