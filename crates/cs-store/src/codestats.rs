@@ -48,9 +48,8 @@ impl StatCtx {
         }
         let attributes = store
             .project_config()?
-            .attributes
-            .into_iter()
-            .map(|a| (a.id, a.label))
+            .interview_attributes()
+            .map(|a| (a.id.clone(), a.label.clone()))
             .collect();
         Ok(StatCtx {
             case_of,

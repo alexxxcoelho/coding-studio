@@ -36,6 +36,7 @@ mod lot4;
 mod matrix;
 mod memos;
 mod passages;
+mod persons;
 mod project;
 mod projection;
 mod review;
@@ -85,6 +86,10 @@ pub use matrix::{
     MatrixFilter, MatrixOptions, MatrixViewRecord,
 };
 pub use passages::{NewPassage, PassageFilter};
+pub use persons::{
+    group_path, EffectivePseudonyms, GroupPatch, GroupRef, GroupTree, InterviewPerson,
+    PersonDetail, PersonFilter, PersonInterview, PersonRow,
+};
 pub use project::{
     AttributeView, ChecklistItemView, ChecklistView, MemoAnswer, MemoOverrides, MemoQuestionView,
     MemoView, TemplateChange, TemplateReport,
@@ -128,8 +133,9 @@ pub const SCHEMA: &str = include_str!("schema.sql");
 /// result does not depend on the order the lots are merged in. Version 7 adds
 /// the tables of lot 4 (Review) and `human_codings.source`; its migration
 /// (`review_schema::migrate`) is idempotent and also runs on every open, for
-/// any version below 7.
-pub const SCHEMA_VERSION: i64 = 7;
+/// any version below 7. Version 8 adds the register of persons, organisations
+/// and groups (`persons::migrate`, idempotent, also run on every open).
+pub const SCHEMA_VERSION: i64 = 8;
 
 /// Oldest schema version that is migrated in place.
 const MIN_SCHEMA_VERSION: i64 = 3;
@@ -367,6 +373,7 @@ impl Store {
         conn.execute_batch(SCHEMA)?;
         analysis_schema::migrate(&conn)?;
         review_schema::migrate(&conn)?;
+        persons::migrate(&conn)?;
         cases::migrate_case_fields(&conn)?;
         transcripts::migrate(&conn)?;
         audio::migrate(&conn)?;
