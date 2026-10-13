@@ -1387,6 +1387,10 @@ fn writeup_readme(state_sha: &str) -> String {
     s.push_str("Every number is computed from the codings at export time. Nothing here was proposed by the tool: themes, cell values, texts and verdicts are the researcher's. The final audit records its seed, so the draw can be replayed.\n\n## Files\n\n");
     for (name, what) in crate::export_analysis::README_LINES.iter().chain([
         &(
+            "writeup.docx",
+            "The write-up as a Word document: headings, parts, quotations as block quotes with a footnote (interview, unit), the framework table, the final audit and a list of references.",
+        ),
+        &(
             "state.json",
             "The human state of the study, canonical, with its SHA-256 and the generator.",
         ),
@@ -1423,6 +1427,7 @@ pub fn write_writeup(
         files: Vec::new(),
     };
     crate::export_analysis::write_files(&mut w, store)?;
+    w.write("writeup.docx", &crate::docx::render(&store.writeup_doc()?)?)?;
     w.write("state.json", &state_bytes)?;
     w.write("README.md", writeup_readme(&state_sha).as_bytes())?;
     let manifest = json!({

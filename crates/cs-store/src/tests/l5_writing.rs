@@ -21,7 +21,7 @@ fn selection(unit: &str, start: usize, end: usize) -> NewPassage {
 }
 
 /// A retained theme "T-0001" with one code, one passage "tags" (P-00001).
-fn setup() -> (Store, TempDir, String, String) {
+pub(super) fn setup() -> (Store, TempDir, String, String) {
     let (s, d) = ready();
     let (code, passage) = s
         .create_code_from_passage(
@@ -57,7 +57,7 @@ fn setup() -> (Store, TempDir, String, String) {
     (s, d, t.theme_id, passage.passage_id)
 }
 
-fn part(theme: &str, p: &str) -> LinkTarget {
+pub(super) fn part(theme: &str, p: &str) -> LinkTarget {
     LinkTarget::ThemePart {
         theme_id: theme.into(),
         part: p.into(),

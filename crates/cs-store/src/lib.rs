@@ -74,7 +74,7 @@ pub use themes::{
 };
 pub use writing::{
     FrameworkCellReading, FrameworkReading, FrameworkRow, FrameworkTable, PartEdit, PartState,
-    QuestionSynthesis, ThemeWriting,
+    QuestionSynthesis, ThemeWriting, WriteupBlock, WriteupCite, WriteupDoc,
 };
 
 use std::collections::BTreeMap;

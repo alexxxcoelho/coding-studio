@@ -910,6 +910,7 @@ dependencies = [
  "include_dir",
  "mime_guess",
  "open",
+ "roxmltree",
  "rusqlite",
  "serde",
  "serde_json",
@@ -917,6 +918,7 @@ dependencies = [
  "tempfile",
  "tokio",
  "tower",
+ "zip",
 ]
 
 [[package]]

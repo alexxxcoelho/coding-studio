@@ -25,6 +25,7 @@ clap.workspace = true
 open.workspace = true
 include_dir.workspace = true
 mime_guess.workspace = true
+zip.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true
@@ -33,3 +34,4 @@ http-body-util = "0.1"
 rusqlite.workspace = true
 sha2.workspace = true
 hex.workspace = true
+roxmltree.workspace = true
