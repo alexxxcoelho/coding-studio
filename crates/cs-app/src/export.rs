@@ -1185,7 +1185,10 @@ fn cross_case_readme(
         ("study_config.json", "The study configuration as a project template: study description and settings, research questions, attribute definitions, memo templates, checklist, theme checks, evidence natures, link types, matrix dimensions and interpretive framework. It holds no interview data."),
         ("state.json", "The human state of every interview, canonical, with its SHA-256 and the generator."),
         ("manifest.json", "SHA-256 and size of every file above, with the tool version and the export time."),
-    ] {
+    ]
+    .into_iter()
+    .chain(crate::export_analysis::README_LINES)
+    {
         s.push_str(&format!("- `{name}`: {what}\n"));
     }
     s.push_str("\nTo check the export, recompute the SHA-256 of each file and compare it with manifest.json.\n");
@@ -1253,6 +1256,7 @@ pub fn write_cross_case(
         "study_config.json",
         &crate::export_v1::study_config_json(store)?,
     )?;
+    crate::export_analysis::write_files(&mut w, store)?;
     w.write("state.json", &state_bytes)?;
     w.write(
         "README.md",
@@ -1300,5 +1304,88 @@ pub fn write_cross_case(
     Ok(CrossCaseExport {
         folder: dir.display().to_string(),
         files: w.files,
+    })
+}
+
+/// Result of the write-up export.
+#[derive(Debug, Serialize)]
+pub struct WriteupExport {
+    pub dir: String,
+    pub files: Vec<ExportedFile>,
+    pub markdown: String,
+}
+
+fn writeup_readme(state_sha: &str) -> String {
+    let mut s = String::from("# Write-up export\n\n");
+    s.push_str(&format!(
+        "The themes, the matrix, the typed links, the write-up, the final audit and the documented decisions of the study. State SHA-256 {state_sha}.\n\n"
+    ));
+    s.push_str("Every number is computed from the codings at export time. Nothing here was proposed by the tool: themes, cell values, texts and verdicts are the researcher's. The final audit records its seed, so the draw can be replayed.\n\n## Files\n\n");
+    for (name, what) in crate::export_analysis::README_LINES.iter().chain([
+        &(
+            "state.json",
+            "The human state of the study, canonical, with its SHA-256 and the generator.",
+        ),
+        &(
+            "manifest.json",
+            "SHA-256 and size of every file above, with the tool version and the export time.",
+        ),
+    ]) {
+        s.push_str(&format!("- `{name}`: {what}\n"));
+    }
+    s.push_str("\nTo check the export, recompute the SHA-256 of each file and compare it with manifest.json.\n");
+    s
+}
+
+/// Writes the write-up package to `<base>/<YYYY-MM-DD>_writeup/` (time suffix when it exists).
+pub fn write_writeup(
+    store: &Store,
+    base: &Path,
+    db_path: &Path,
+    actor: &str,
+) -> Result<WriteupExport> {
+    let interview_ids: Vec<String> = store
+        .summaries()?
+        .into_iter()
+        .map(|s| s.interview_id)
+        .collect();
+    let cases = store.cases(None)?;
+    let (state_bytes, state_sha) = state_document(store, &interview_ids, &cases)?;
+    fs::create_dir_all(base).with_context(|| format!("creating {}", base.display()))?;
+    let dir = target_dir(base, "writeup");
+    fs::create_dir(&dir).with_context(|| format!("creating {}", dir.display()))?;
+    let mut w = Writer {
+        dir: dir.clone(),
+        files: Vec::new(),
+    };
+    crate::export_analysis::write_files(&mut w, store)?;
+    w.write("state.json", &state_bytes)?;
+    w.write("README.md", writeup_readme(&state_sha).as_bytes())?;
+    let manifest = json!({
+        "tool": "Coding Studio",
+        "version": crate::VERSION,
+        "generated_at": crate::now(),
+        "generated_by": actor,
+        "db_path": db_path,
+        "state_sha256": state_sha,
+        "counts": {
+            "themes": store.themes(None)?.len(),
+            "links": store.links()?.len(),
+            "decisions": cases.len(),
+        },
+        "files": w.files,
+    });
+    w.write("manifest.json", &serde_json::to_vec_pretty(&manifest)?)?;
+    store.log(
+        actor,
+        "export.writeup",
+        None,
+        Some(&dir.display().to_string()),
+        json!({"dir": dir.display().to_string(), "state_sha256": state_sha, "n_files": w.files.len()}),
+    )?;
+    Ok(WriteupExport {
+        dir: dir.display().to_string(),
+        files: w.files,
+        markdown: store.writeup_markdown()?,
     })
 }

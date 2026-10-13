@@ -35,7 +35,7 @@ export function CodeChip({
   )
 }
 
-export function ChipList({ codes, book, empty = "none" }: { codes: string[]; book?: Code[]; empty?: string }) {
+export function ChipList({ codes, book, empty = "aucun" }: { codes: string[]; book?: Code[]; empty?: string }) {
   if (!codes.length) return <span className="text-muted-foreground text-xs">{empty}</span>
   return (
     <span className="inline-flex flex-wrap gap-1">
@@ -49,7 +49,7 @@ export function ChipList({ codes, book, empty = "none" }: { codes: string[]; boo
 /** A provisional label to clarify (dashed chip). */
 export function PendingChip({ label, note, className }: { label: string; note?: string | null; className?: string }) {
   return (
-    <span className={cn("chip-pending", className)} title={note ? `To clarify: ${note}` : "To clarify"}>
+    <span className={cn("chip-pending", className)} title={note ? `À clarifier : ${note}` : "À clarifier"}>
       ? {label}
     </span>
   )

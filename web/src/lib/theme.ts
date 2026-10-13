@@ -1,3 +1,4 @@
+import { syncNativeTheme } from "./desktop"
 // Appearance: light / dark / automatic, and the accent colour. "system" follows
 // prefers-color-scheme (appearance) or the CSS keyword AccentColor (accent).
 // Choices are kept in localStorage; index.html applies them before first paint
@@ -33,6 +34,7 @@ export function applyTheme(choice: ThemeChoice): void {
   const root = document.documentElement
   root.classList.toggle("dark", dark)
   root.style.colorScheme = dark ? "dark" : "light"
+  void syncNativeTheme(choice === "system" ? null : choice === "dark" ? "dark" : "light")
 }
 
 export function saveChoice(choice: ThemeChoice): void {

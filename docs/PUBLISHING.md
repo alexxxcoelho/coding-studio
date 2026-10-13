@@ -35,7 +35,7 @@ For the first public release (0.1.0). Work through the list in order; every item
 - [ ] `Cargo.toml` version and the changelog agree (0.1.0).
 - [ ] The web build committed in `crates/cs-app/web-dist` matches `web/dist` (the CI job checks this).
 - [ ] Tag `v0.1.0` on the commit that passed CI: `git tag -a v0.1.0 -m "Coding Studio 0.1.0"`, then push the tag.
-- [ ] Desktop bundle: the bundle identifier and the copyright in `crates/cs-desktop/tauri.conf.json` are reviewed. The bundle is not signed; say so in the release notes.
+- [ ] Desktop bundle: the bundle identifier, the copyright and `bundle.macOS.minimumSystemVersion` in `crates/cs-desktop/tauri.conf.json` are reviewed. `make desktop` (`cargo tauri build`, see "Lancer l'application" in the README) writes `Coding Studio.app` and the `.dmg` under `$CARGO_TARGET_DIR/release/bundle/`. The CI job `Desktop app (macOS)` has built the `.app` on the tagged commit. The bundle is not signed or notarised; say so in the release notes.
 
 ## Open items at the first draft
 

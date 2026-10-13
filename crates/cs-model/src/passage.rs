@@ -146,6 +146,12 @@ pub struct Passage {
     /// empty when stale.
     pub before: String,
     pub after: String,
+    /// How the passage came to be said (`PASSAGE_ORIGINS`), when the researcher said so.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub origin: Option<String>,
+    /// Role in a decision (`PASSAGE_ROLES`), when the researcher said so.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub role: Option<String>,
     pub codings: Vec<PassageCoding>,
 }
 
@@ -220,6 +226,10 @@ pub struct CodeNode {
     pub created_at: Option<String>,
     pub aliases: Vec<CodeAlias>,
     pub counts: CodeCounts,
+    /// Working memo of the code (what the researcher notes while coding).
+    /// Kept apart from `reason`, with its own history.
+    #[serde(default)]
+    pub memo: String,
 }
 
 /// The code tree: nodes in codebook order, each with its children ids.
@@ -256,5 +266,6 @@ pub fn later_node() -> CodeNode {
         created_at: None,
         aliases: Vec::new(),
         counts: CodeCounts::default(),
+        memo: String::new(),
     }
 }

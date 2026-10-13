@@ -1,5 +1,6 @@
 // Typed client for the local Coding Studio API (docs/API.md).
 
+import type { LibraryProgress } from "./pipeline"
 import type {
   AgreementAnswer,
   AiRun,
@@ -9,6 +10,24 @@ import type {
   ArbitrationChoice,
   AuditEvent,
   Case,
+  ChecklistView,
+  CodeEditV1,
+  CodeNode,
+  CodeTreeAnswer,
+  CodebookRevision,
+  FromPassageBody,
+  InterviewAttributes,
+  LaterAnswer,
+  MemoOverrides,
+  MemoView,
+  MergeAnswerV1,
+  Passage,
+  PassageContext,
+  PassageCreateAnswer,
+  ProjectConfig,
+  ProjectPresets,
+  TemplateReport,
+  UnitMark,
   ChainCheck,
   Claim,
   ClaimInput,
@@ -19,7 +38,6 @@ import type {
   CodeUnit,
   CoConstructedKind,
   CodebookImportAnswer,
-  CrossCaseAnswer,
   ExportAnswer,
   FileView,
   FinalAnswer,
@@ -105,16 +123,39 @@ export function toApiError(status: number, body: unknown): ApiError {
   return new ApiError(status, kindFromStatus(status), text)
 }
 
+declare global {
+  interface Window {
+    /** Origin of the API, injected by the desktop shell (Tauri) before the page loads. */
+    __CS_API_BASE__?: string
+  }
+}
+
+/**
+ * Origin of the API, without a trailing slash. The desktop shell serves the UI
+ * from its own origin (tauri://localhost, or the Vite dev server) and runs the
+ * server on a loopback port that it announces in `window.__CS_API_BASE__`. Served
+ * by the `coding-studio` binary or proxied by Vite, the base is empty: same origin.
+ */
+export function apiBase(w: { __CS_API_BASE__?: unknown } = window): string {
+  const base = w.__CS_API_BASE__
+  return typeof base === "string" ? base.trim().replace(/\/+$/, "") : ""
+}
+
+/** The URL of an API path such as `/api/state`. Every request goes through it. */
+export function apiUrl(path: string, base: string = apiBase()): string {
+  return `${base}${path}`
+}
+
 export async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
   let res: Response
   try {
-    res = await fetch(path, {
+    res = await fetch(apiUrl(path), {
       method,
       headers: body === undefined ? undefined : { "Content-Type": "application/json" },
       body: body === undefined ? undefined : JSON.stringify(body),
     })
   } catch {
-    throw new ApiError(0, "network", "The Coding Studio server cannot be reached. Is it still running?")
+    throw new ApiError(0, "network", "Le serveur de Coding Studio est injoignable. Est-il toujours lancé ?")
   }
   const text = await res.text()
   let parsed: unknown = text
@@ -143,6 +184,12 @@ export const api = {
     request<{ root: string; interviews: InterviewSummary[] }>("POST", "/api/library/scan", root ? { root } : {}),
   interviews: () => request<InterviewSummary[]>("GET", "/api/interviews"),
   interview: (id: string) => request<InterviewDetail>("GET", iv(id)),
+  unitMarks: (id: string) => request<UnitMark[]>("GET", `${iv(id)}/marks`),
+  markUnit: (id: string, unitId: string, note = "") => request<UnitMark>("PUT", `${iv(id)}/units/${enc(unitId)}/mark`, { note }),
+  unmarkUnit: (id: string, unitId: string) => request<{ unit_id: string; cleared: boolean }>("DELETE", `${iv(id)}/units/${enc(unitId)}/mark`),
+  libraryProgress: () => request<LibraryProgress>("GET", "/api/library/progress"),
+  simple: (id: string) =>
+    request<{ n_respondent_units: number; n_relevant: number; n_coded: number; done: boolean }>("GET", `${iv(id)}/simple`),
   file: (id: string, path: string) => request<FileView>("GET", `${iv(id)}/file?path=${enc(path)}`),
   setPrimary: (id: string, rel_path: string) => request<InterviewEntry>("POST", `${iv(id)}/primary`, { rel_path }),
   segment: (id: string, rel_path?: string) =>
@@ -152,6 +199,9 @@ export const api = {
   units: (id: string, p: Phase) => request<UnitRow[]>("GET", `${ph(id, p)}/units`),
   setCoding: (id: string, p: Phase, coding: HumanCoding) =>
     request<HumanCoding>("PUT", `${ph(id, p)}/coding/${enc(coding.unit_id)}`, coding),
+  /** Phase 1 shorthand: `relevant: false` stores NA ("non pertinent"), `true` restores the turn. */
+  setRelevant: (id: string, unitId: string, relevant: boolean) =>
+    request<HumanCoding>("PUT", `${ph(id, 1)}/coding/${enc(unitId)}`, { relevant }),
   phase1Codebook: () => request<Codebook>("GET", "/api/codebook/phase1"),
 
   // ---- AI pass (phase 2)
@@ -232,7 +282,6 @@ export const api = {
   allCases: () => request<Case[]>("GET", "/api/cases"),
   addCase: (id: string, c: Partial<Case>) => request<Case>("POST", `${iv(id)}/cases`, c),
   editCase: (c: Case) => request<Case>("PUT", `/api/cases/${enc(c.case_id)}`, c),
-  crossCase: () => request<CrossCaseAnswer>("GET", "/api/cross-case"),
 
   audit: (interviewId?: string) =>
     request<AuditEvent[]>("GET", interviewId ? `/api/audit?interview_id=${enc(interviewId)}` : "/api/audit"),
@@ -268,4 +317,74 @@ export const api = {
 
   // ---- saturation
   saturation: () => request<SaturationRow[]>("GET", "/api/saturation"),
+
+  // ---- V1 passages (docs/API.md, "V1 lots 1 and 2"). Offsets are UTF-16 as a browser selection reports them.
+  passages: (id: string, opts: { unitId?: string; code?: string; kind?: "highlight" | "coded" | "later" } = {}) => {
+    const q = new URLSearchParams()
+    if (opts.unitId) q.set("unit_id", opts.unitId)
+    if (opts.code) q.set("code", opts.code)
+    if (opts.kind) q.set("kind", opts.kind)
+    const qs = q.toString()
+    return request<Passage[]>("GET", `${iv(id)}/passages${qs ? `?${qs}` : ""}`)
+  },
+  createPassage: (id: string, body: PassageBody) =>
+    request<PassageCreateAnswer>("POST", `${iv(id)}/passages`, { offset_unit: "utf16", ...body }),
+  passage: (pid: string) => request<Passage>("GET", `/api/passages/${enc(pid)}`),
+  deletePassage: (pid: string, reason?: string) =>
+    request<{ deleted: string }>("DELETE", `/api/passages/${enc(pid)}${reason ? `?reason=${enc(reason)}` : ""}`),
+  addCoding: (pid: string, code: string, note?: string) =>
+    request<Passage>("POST", `/api/passages/${enc(pid)}/codings`, note === undefined ? { code } : { code, note }),
+  removeCoding: (pid: string, code: string, reason?: string) =>
+    request<Passage>("DELETE", `/api/passages/${enc(pid)}/codings/${enc(code)}${reason ? `?reason=${enc(reason)}` : ""}`),
+  highlights: (id: string) => request<Passage[]>("GET", `${iv(id)}/highlights`),
+  interviewLater: (id: string) => request<Passage[]>("GET", `${iv(id)}/later`),
+  later: () => request<LaterAnswer>("GET", "/api/later"),
+
+  // ---- V1 code tree
+  codes: () => request<CodeTreeAnswer>("GET", "/api/codes"),
+  codesBy: (attribute: string, value: string) =>
+    request<CodeTreeAnswer>("GET", `/api/codes?attribute=${enc(attribute)}&value=${enc(value)}`),
+  code: (id: string) => request<CodeNode>("GET", `/api/codes/${enc(id)}`),
+  updateCode: (id: string, edit: CodeEditV1) => request<CodeNode>("PUT", `/api/codes/${enc(id)}`, edit),
+  moveCode: (id: string, parent_id: string | null, rationale: string) =>
+    request<CodeNode>("POST", `/api/codes/${enc(id)}/move`, { parent_id, rationale }),
+  addAlias: (id: string, alias: string) => request<CodeNode>("POST", `/api/codes/${enc(id)}/aliases`, { alias }),
+  removeAlias: (id: string, alias: string) => request<CodeNode>("DELETE", `/api/codes/${enc(id)}/aliases/${enc(alias)}`),
+  mergeCodeV1: (id: string, into: string, rationale: string) =>
+    request<MergeAnswerV1>("POST", `/api/codes/${enc(id)}/merge`, { into, rationale }),
+  setCodeActive: (id: string, active: boolean) => request<CodeNode>("POST", `/api/codes/${enc(id)}/active`, { active }),
+  createCodeFromPassage: (body: FromPassageBody) =>
+    request<{ code: CodeNode; passage: Passage; codebook_version: number }>("POST", "/api/codes/from-passage", body),
+  codePassages: (id: string, descendants = true) =>
+    request<PassageContext[]>("GET", `/api/codes/${enc(id)}/passages?descendants=${descendants}`),
+  codebookRevisions: () => request<{ codebook_version: number; revisions: CodebookRevision[] }>("GET", "/api/codebook/revisions"),
+
+  // ---- V1 project configuration, attributes, memo, checklist, template
+  projectConfig: () => request<ProjectConfig>("GET", "/api/project-config"),
+  setProjectConfig: (cfg: ProjectConfig) => request<ProjectConfig>("PUT", "/api/project-config", cfg),
+  projectPresets: () => request<ProjectPresets>("GET", "/api/project-config/presets"),
+  attributes: (id: string) => request<InterviewAttributes>("GET", `${iv(id)}/attributes`),
+  setAttributes: (id: string, values: Record<string, string | null>) =>
+    request<InterviewAttributes>("PUT", `${iv(id)}/attributes`, { values }),
+  memo: (id: string) => request<MemoView>("GET", `${iv(id)}/memo`),
+  setMemoTemplate: (id: string, template_id: string) => request<MemoView>("PUT", `${iv(id)}/memo/template`, { template_id }),
+  setMemoOverrides: (id: string, overrides: MemoOverrides) => request<MemoView>("PUT", `${iv(id)}/memo/overrides`, overrides),
+  setMemoAnswers: (id: string, answers: Record<string, string>) => request<MemoView>("PUT", `${iv(id)}/memo/answers`, { answers }),
+  checklist: (id: string) => request<ChecklistView>("GET", `${iv(id)}/checklist`),
+  setChecklist: (id: string, checked: Record<string, boolean>, note?: string) =>
+    request<ChecklistView>("PUT", `${iv(id)}/checklist`, note === undefined ? { checked } : { checked, note }),
+  projectTemplate: () => request<unknown>("GET", "/api/project/template"),
+  importTemplate: (template: unknown, dry_run: boolean) =>
+    request<TemplateReport>("POST", "/api/project/template/import", { template, dry_run }),
+}
+
+/** Body of `POST /api/interviews/{id}/passages` (offsets in UTF-16 units unless `offset_unit` says otherwise). */
+export interface PassageBody {
+  unit_id: string
+  start?: number
+  end?: number
+  offset_unit?: "utf16" | "scalar"
+  text?: string
+  code?: string
+  note?: string
 }

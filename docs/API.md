@@ -275,3 +275,77 @@ Language: the project language (default `fr`) and an optional language per inter
 | GET | `/api/lexicon/term-frequency` | `attribute` (required), `terms` (comma-separated), `stem`, `speakers`, `top` (10) | With `terms`: `{attribute, mode: "terms", stem, terms: [{term, by_value: [{value, n_interviews, n_interviews_with_term, n_units_with_term, n_occurrences, n_words, per_1000_words}]}], note}`; `value` is null for the interviews where the attribute is empty. Without `terms`: `{attribute, mode: "top_terms", values: [{value, terms: [{stem, form, n_occurrences, n_interviews}]}]}` |
 
 The attribute and value filters are the ones of `/api/codes`: both or neither (400 otherwise), an unknown attribute is 400; with `interview_id` too, the two filters intersect.
+## REFI-QDA exchange (F-103)
+
+Files for NVivo, MAXQDA and ATLAS.ti. Rules in `docs/CONTRACTS.md`, section 11. Implemented in `crates/cs-qdpx`, routes in `crates/cs-app/src/qdpx.rs`.
+
+| Method | Path | Body | Answer |
+|---|---|---|---|
+| GET | `/api/export/qdc` | | `application/xml`, attachment `codebook.qdc`. Headers `X-Export-Sha256` and `X-Export-Summary` (JSON: `format, codes, sources, selections, codings, skipped_stale, skipped_highlights, skipped_without_exported_code, bytes, sha256`) |
+| GET | `/api/export/qdpx?highlights=&name=` | | `application/zip`, attachment `project.qdpx`, same headers. `highlights=true` exports highlights under the code "Surlignages"; `name` is the REFI project name (default "Coding Studio") |
+| POST | `/api/import/qdc?apply=` | the `.qdc` file as the raw body | `ImportReport` |
+| POST | `/api/import/qdpx?apply=` | the `.qdpx` file as the raw body | `ImportReport` |
+
+`apply` is false by default: the call is a dry run that reads the file, compares it with the project and returns the plan, writing nothing and logging nothing. `apply=true` does the same and writes. Bodies up to 256 MB.
+
+`ImportReport`: `{kind: "qdc"|"qdpx", applied, codes_created, codes_matched, codes_skipped, sources_imported, sources_skipped, passages_created, codings_added, codings_existing, selections_skipped, codes: [{path, name, outcome: "create"|"match"|"skip", code_id, matched_by: "guid"|"name"|"file"|null, parent, reason}], sources: [{name, interview_id, matched_by: "guid"|"name"|"digest"|null, imported, reason, selections, selections_skipped, passages_new, codings_new, codings_existing}], other_sources_ignored: string[], issues: [{severity: "warning", location, message}]}`. `code_id` is filled for matched codes, and for created codes once applied. For `.qdc` the source fields are zero or empty. `issues` lists everything skipped, clipped or left where it was, at most 500 entries.
+
+A file that cannot be used answers 400 `{error: "file rejected: n problem(s) found", kind: "validation", issues: [{location, message}]}` with every problem found (malformed XML with its position, wrong root element, not a ZIP, no `project.qde`, duplicated GUIDs, a code without name). Nothing is written.
+
+## V1 lot 5 and gaps
+
+Server side of Analyse and Write (themes, matrix, typed links, write-up, final audit, documented decisions) and nine gaps reported by the front end. Routes and JSON shapes follow the client `web/src/lib/analysis-api.ts`; deviations are listed at the end of this section. Everything lives in `crates/cs-app/src/v1_analysis.rs`, merged by one line in `lib.rs`. Every write is one transaction with its audit event. Errors: 400 `validation`, 404 not found, 409 `guard`. Schema version 6 (separate idempotent migration `analysis.sql`).
+
+### Gaps
+
+| Gap | Route | Notes |
+|---|---|---|
+| 1 | (passages) | `whole_unit` is true only when `start` is 0 and `end` is the unit length (both offsets compared to the length). |
+| 2 | `POST /api/codes` `{name, definition, includes?, excludes?, parent_id?}` | Creates a code with no passage. `name` is the given name, never the token (the token is generated). Same validation as a rename; definition required. Answer: `CodeNode`. |
+| 3 | `GET/PUT /api/config` | `StudyConfig` gains `description` and `coding_rules` as explicit fields. A legacy config that had them in the header or footer of `prompt_template` is migrated once: only customised text is copied, only into empty fields; `prompt_template` is kept. |
+| 4 | `PUT /api/interviews/{id}/units/{unit}/mark` `{note?}`, `DELETE` same path, `GET /api/interviews/{id}/marks` | "To review" mark on a respondent unit (400 on an interviewer unit), settable and clearable, audited. `SimpleProgress.n_to_review` counts them. |
+| 5 | `GET /api/library/progress` (`coded` counts the phase 2 grid; `units_coded` and `units_later` count the units the Coder shows as coded and parked) | `{interviews: [{interview_id, units, respondent_units, relevant, not_relevant, coded, units_coded, units_later, to_review, memo_answered, memo_total, review: {state,...}, arbitrated}], totals}` in one call. |
+| 6 | `GET/PUT /api/codes/{id}/memo` `{text}` | Own field `CodeNode.memo` with an append-only history (`{memo, history}`). `reason` is no longer overloaded. |
+| 7 | `POST /api/codes/{id}/undo-create` | Undoes `create-from-passage`: removes the code, and the passage when the same call created it (`{code_deleted, passage_deleted}`). 400 for a code not created that way. Audit `codebook.code.undo_create_from_passage`. Code ids are never reused. |
+| 8 | `PUT /api/passages/{pid}/qualification` `{origin?, role?}` | `Passage.origin`: `lived_experience`, `project`, `opinion`, `document`. `Passage.role`: fixed list in `cs_model::analysis`. `null` clears; any other value is 400. Claims take `nature` from the project list `evidence_natures` (a stored value stays readable). |
+| 9 | none | The phase 1 category set is deprecated, not retired: the simple view (automatic phase 1), the config guard and `/api/codebook/phase1` still depend on it. New work uses the code tree (`/api/codes`). It will be removed when those three are migrated. |
+
+### Themes
+
+`GET /api/themes` (summaries with `codes_count`, `interviews_count`), `POST /api/themes`, `GET/PUT/DELETE /api/themes/{id}` (logical delete), `PUT /api/themes/order`, `POST /api/themes/{id}/status`, `PUT /api/themes/{id}/checks/{check}`, `POST /api/themes/{id}/codes`, `DELETE /api/themes/{id}/codes/{code}`, `GET /api/themes/{id}/passages`, `GET /api/themes/{id}/history`.
+
+A title is a sentence. Status: `candidate`, `revised`, `retained`. Retained needs every project check done (`theme_checks`) or an override with a reason; otherwise 409. Each change appends to `theme_history` (append-only) and to the audit log.
+
+### Matrix
+
+`POST /api/matrix {rows, cols, filter}` (client shape), `POST /api/matrix/compute` (native `MatrixConfig`), `GET /api/matrix/options`, `GET/POST /api/matrix/views`, `DELETE /api/matrix/views/{id}`, `GET/PUT /api/matrix/cell`, `POST /api/matrix/cell/passages`, `DELETE /api/matrix/cell/passages/{pid}`.
+
+Axis kinds: `interviews`, `cases`, `attribute`, `themes`, `codes`, `focused_codes`, `dimensions`. Entry keys are stable ids: `interview:INT-01`, `attr:sector=Public`, `theme:T-0001`, `code:C-0003`, `dim:who_pays`, `case:ID`. Closed cell values: `present`, `not_mentioned`, `contradicted`, `uncertain`. Counts are computed at read time; only the value, the summary and hand-attached passages are stored. Filters restrict interviews by attribute value.
+
+### Links
+
+`GET/POST /api/links`, `PUT/DELETE /api/links/{id}` (logical delete). A link joins a passage to a part of the write-up with a type from the project list `link_types`. The view carries the exact quotation and the verification state.
+
+### Write-up
+
+`GET /api/writing/themes/{id}`, `PUT /api/writing/themes/{id}/parts/{part}` (five parts per theme), `GET/PUT /api/writing/questions/{rq}`, `GET /api/writing/framework` and `GET/PUT /api/themes/{id}/framework` (only when the project has an interpretive framework), `POST /api/writing/export` answering `{dir, files, markdown}`. Each save appends a row to `writing_versions`.
+
+### Final audit
+
+`POST /api/final-audit` draws 3 claims, seeded and recorded (replayable). `GET /api/final-audit`, `GET /api/final-audit/latest`, `GET /api/final-audit/{id}`, `POST /api/final-audit/{id}/verdicts`; verdicts `supported`, `to_nuance`, `to_withdraw`. Each claim shows the full chain (part, theme, codes, passages, quotation, interview, verification) and `gaps[]` (`no_text`, `no_link`, `unverified_passage`, `stale_passage`). Linked parts are preferred; written unlinked parts fill the draw.
+
+### Decisions
+
+`GET /api/decisions`, `GET/PUT /api/decisions/{id}`, `GET/POST /api/interviews/{id}/decisions`. Fields in the words of the guide: `name` (alias of `label`), `outcome` (`adopt`, `defer`, `reject`; derived from the old free-text `decision`, which is kept), characteristics, the five synthesis fields, units and passages.
+
+### Exports
+
+The cross-case package and the write-up package (`POST /api/writing/export`, directory `<date>_writeup`) gain `themes.csv`, `theme_sheets.json`, `matrix.csv`, `links.csv`, `final_audit.json`, `decisions.csv`, `decisions.json`, and `writeup.md` (write-up package). All are in `manifest.json` with their SHA-256; `state.json` parts gain `themes`, `writing_versions`, `links`, `matrix`, `final_audit`, `unit_marks`. Formats: `docs/CONTRACTS.md`, section 11.
+
+### Deviations from the client
+
+- Native matrix configuration at `/api/matrix/compute`; saved views are stored in native form and shown to the client in single-axis form.
+- `focused_codes` means codes with sub-codes, or all codes when none has any.
+- Framework cells use the client shape `{explains, note}`.
+- The passage origin list is this server's reading of the guide.
+- Decisions still need an interview.

@@ -9,6 +9,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
+pub mod analysis;
 pub mod config;
 pub mod passage;
 pub mod phase;
@@ -77,6 +78,11 @@ pub enum SourceKind {
     BudgieMarkdown,
     /// Written answer received by email (no speaker turns, paragraphs).
     WrittenResponse,
+    /// Word document (`.docx`) transcript: paragraphs, speaker from a `Name:`
+    /// prefix or a leading bold run.
+    Docx,
+    /// PDF transcript with a text layer; a scanned PDF without text is not segmentable.
+    Pdf,
     /// `04_parts/b_summary.md`: interview summary (read-only context, never sent to the AI).
     Summary,
     /// `04_parts/a_record_sheet.md` or `04_interview_record.md`.
@@ -97,6 +103,8 @@ impl SourceKind {
                 | SourceKind::CleanedMarkdown
                 | SourceKind::BudgieMarkdown
                 | SourceKind::WrittenResponse
+                | SourceKind::Docx
+                | SourceKind::Pdf
         )
     }
 }
@@ -714,6 +722,10 @@ pub struct Claim {
     pub role: Option<String>,
     #[serde(default)]
     pub memo: Option<String>,
+    /// Nature of the evidence: an id of the project list `evidence_natures`.
+    /// Values saved before the list was editable stay readable.
+    #[serde(default)]
+    pub nature: Option<String>,
     #[serde(default)]
     pub created_at: String,
     #[serde(default)]
@@ -787,6 +799,8 @@ pub struct Case {
     pub case_id: String,
     #[serde(default)]
     pub interview_id: String,
+    /// Name of the decision (the guide says "name"; `name` is accepted on input).
+    #[serde(alias = "name")]
     pub label: String,
     #[serde(default)]
     pub trigger: CaseField,
@@ -827,6 +841,16 @@ pub struct Case {
     pub outcome_status: Option<String>,
     #[serde(default)]
     pub notes: Option<String>,
+    /// Outcome in the words of the guide: `adopt`, `defer` or `reject`. Read from
+    /// `decision` when only that was written (earlier data stay readable).
+    #[serde(default)]
+    pub outcome: Option<String>,
+    /// Characteristics the study defines for its decisions, as key and value.
+    #[serde(default)]
+    pub characteristics: std::collections::BTreeMap<String, String>,
+    /// Passages that document the decision.
+    #[serde(default)]
+    pub passages: Vec<String>,
     #[serde(default)]
     pub updated_at: String,
 }

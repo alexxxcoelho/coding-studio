@@ -8,7 +8,7 @@ THESIS ?= $(abspath ../..)
 # crates/cs-app/web-dist and committed: `cargo build` needs no Node.
 WEB_BUILD ?= $(HOME)/.cache/coding-studio/web
 
-.PHONY: check desktop-check test lint fmt build run desktop desktop-dev web web-dev web-test
+.PHONY: check desktop-check test lint fmt build run desktop desktop-app desktop-dev web web-dev web-test
 # Everything that runs without GTK: the same subset as tools/check.sh.
 check:
 	cargo fmt --all -- --check
@@ -29,11 +29,17 @@ run:
 	  --library "$(THESIS)/04_Fieldwork/Interviews" \
 	  --db "$(THESIS)/05_Analysis/coding_studio/coding_studio.db" \
 	  --coding-db "$(THESIS)/05_Analysis/coding/coding.db"
+# Packaged macOS app and disk image. Needs the Tauri CLI: cargo install tauri-cli --version "~2.12" --locked
 desktop:
 	cd crates/cs-desktop && cargo tauri build
-	@echo "Bundle: $(CARGO_TARGET_DIR)/release/bundle/"
+	@echo "Bundle: $(CARGO_TARGET_DIR)/release/bundle/ (macos/*.app, dmg/*.dmg)"
+# The .app only, without the disk image.
+desktop-app:
+	cd crates/cs-desktop && cargo tauri build --bundles app
+	@echo "Bundle: $(CARGO_TARGET_DIR)/release/bundle/macos/"
+# Native window on the Vite dev server (hot reload of web/). Run `pnpm --dir web install` once first.
 desktop-dev:
-	cargo run -p cs-desktop
+	cd crates/cs-desktop && cargo tauri dev
 web:
 	mkdir -p "$(WEB_BUILD)"
 	rsync -a --delete --exclude node_modules --exclude dist web/ "$(WEB_BUILD)/"

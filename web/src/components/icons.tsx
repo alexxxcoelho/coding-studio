@@ -94,3 +94,10 @@ export const SearchIcon = (p: P) => (
     <path d="M10.5 10.5l3.5 3.5" />
   </Svg>
 )
+
+export const RescanIcon = (p: P) => (
+  <Svg {...p} weight={1.4}>
+    <path d="M13.5 8a5.5 5.5 0 1 1-1.6-3.9" />
+    <path d="M13.5 2v3h-3" />
+  </Svg>
+)

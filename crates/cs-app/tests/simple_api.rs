@@ -259,6 +259,7 @@ async fn simple_route_serves_the_progress_object() {
             "n_decided": 0,
             "n_sample": 0,
             "n_sample_reviewed": 0,
+            "n_to_review": 0,
             "done": false,
         })
     );

@@ -27,25 +27,25 @@ export function isSubstring(excerpt: string, text: string): boolean {
 // ---------------------------------------------------------------- flags
 
 export const FLAG_HELP: Record<UnitFlag, string> = {
-  VERIFY: "Check this unit against the audio before it is used in the write-up.",
-  "SECOND-HAND": "The respondent reports what someone else did or said.",
-  UNFINISHED: "The passage breaks off or the respondent did not finish the thought.",
-  "CO-CONSTRUCTED": "The unit was built with the interviewer: say whether it is assent to a proposal or new content.",
+  VERIFY: "Contrôler cette unité à l'audio avant de l'utiliser dans la rédaction.",
+  "SECOND-HAND": "Le répondant rapporte ce qu'une autre personne a fait ou dit.",
+  UNFINISHED: "Le passage s'interrompt ou le répondant n'a pas terminé sa pensée.",
+  "CO-CONSTRUCTED": "L'unité a été construite avec l'intervieweur : indiquez s'il s'agit d'un assentiment à une proposition ou d'un contenu nouveau.",
 }
 
 export const CO_CONSTRUCTED_HELP: Record<CoConstructedKind, string> = {
-  assent: "Assent: the respondent agrees to or confirms the interviewer's proposal.",
-  content: "Content: the respondent and the interviewer produce the substance together.",
+  assent: "Assentiment : le répondant accepte ou confirme la proposition de l'intervieweur.",
+  content: "Contenu : le répondant et l'intervieweur produisent le fond ensemble.",
 }
 
 /** Message for a flag selection the server would refuse, or null when it is valid. */
 export function flagsProblem(flags: string[], kind: string | null): string | null {
   const unknown = flags.find((f) => !(UNIT_FLAGS as readonly string[]).includes(f))
-  if (unknown) return `${unknown} is not a flag.`
+  if (unknown) return `${unknown} n'est pas un drapeau.`
   const coConstructed = flags.includes("CO-CONSTRUCTED")
-  if (coConstructed && !kind) return "CO-CONSTRUCTED needs a kind: assent or content."
-  if (!coConstructed && kind) return "The kind is set only with CO-CONSTRUCTED."
-  if (kind && !(CO_CONSTRUCTED_KINDS as readonly string[]).includes(kind)) return `${kind} is not a kind of co-construction.`
+  if (coConstructed && !kind) return "CO-CONSTRUCTED demande un type : assentiment ou contenu."
+  if (!coConstructed && kind) return "Le type ne se renseigne qu'avec CO-CONSTRUCTED."
+  if (kind && !(CO_CONSTRUCTED_KINDS as readonly string[]).includes(kind)) return `${kind} n'est pas un type de co-construction.`
   return null
 }
 
@@ -60,14 +60,14 @@ export function normalizeFlags(flags: string[], kind: string | null): { flags: s
 // --------------------------------------------------------- verification
 
 const STATE_LABEL: Record<VerificationState, string> = {
-  unverified: "Unverified",
-  verified: "Verified",
-  unusable: "Unusable",
+  unverified: "Non vérifiée",
+  verified: "Vérifiée",
+  unusable: "Inutilisable",
 }
 
 /** "Verified", "Unusable", "Unverified", with ", stale" when the check no longer matches the unit. */
 export function verificationLabel(v: { state: VerificationState; stale: boolean }): string {
-  return v.stale ? `${STATE_LABEL[v.state]}, stale` : STATE_LABEL[v.state]
+  return v.stale ? `${STATE_LABEL[v.state]}, périmée` : STATE_LABEL[v.state]
 }
 
 /** Colour family for the badge: ok, danger or muted. Stale checks are never shown as ok. */
@@ -78,12 +78,20 @@ export function verificationTone(v: { state: VerificationState; stale: boolean }
   return "muted"
 }
 
+export const REASON_LABEL: Record<VerificationReason, string> = {
+  quoted: "citée",
+  flagged: "signalée",
+  disagreement: "désaccord",
+  case: "cas",
+  sample: "échantillon",
+}
+
 export const REASON_HELP: Record<VerificationReason, string> = {
-  quoted: "An excerpt of the human coding or a claim quotes this unit.",
-  flagged: "The unit carries the VERIFY flag.",
-  disagreement: "Human and AI codings disagree on the unit in the current review.",
-  case: "The unit is attributed to a case.",
-  sample: "Drawn by a seeded sample of the other units: at least 5, or 10 percent.",
+  quoted: "Un extrait du codage humain ou une affirmation cite cette unité.",
+  flagged: "L'unité porte le drapeau VERIFY.",
+  disagreement: "Le codage humain et celui du modèle divergent sur l'unité dans la revue en cours.",
+  case: "L'unité est attribuée à un cas.",
+  sample: "Tirée dans un échantillon à graine parmi les autres unités : au moins 5, ou 10 pour cent.",
 }
 
 export interface TargetRow {
@@ -125,10 +133,10 @@ export function coverageShare(cov: VerificationCoverage): number | null {
 /** Reasons a claim cannot stand on a unit: empty or moved excerpt, codes no longer on the unit. Empty when valid. */
 export function claimIssues(excerpt: string, codes: string[], unitText: string, unitCodes: string[]): string[] {
   const issues: string[] = []
-  if (!excerpt.trim()) issues.push("The excerpt is empty.")
-  else if (!isSubstring(excerpt, unitText)) issues.push("The excerpt is not a word-for-word substring of the unit text.")
+  if (!excerpt.trim()) issues.push("L'extrait est vide.")
+  else if (!isSubstring(excerpt, unitText)) issues.push("L'extrait n'est pas une portion textuelle exacte du texte de l'unité.")
   const own = new Set(unitCodes)
-  for (const c of codes) if (!own.has(c)) issues.push(`${c} is not a code of this unit.`)
+  for (const c of codes) if (!own.has(c)) issues.push(`${c} n'est pas un code de cette unité.`)
   return issues
 }
 

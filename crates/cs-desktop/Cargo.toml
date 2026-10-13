@@ -23,6 +23,9 @@ open.workspace = true
 # macos-private-api: needed for a transparent window, which the sidebar vibrancy shows through.
 tauri = { workspace = true, features = ["macos-private-api"] }
 tauri-plugin-dialog.workspace = true
+tauri-plugin-window-state.workspace = true
+# A second launch focuses the running window instead of opening a second database.
+tauri-plugin-single-instance.workspace = true
 
 # Sidebar material of the macOS window (Liquid Glass look); other platforms keep an opaque window.
 [target.'cfg(target_os = "macos")'.dependencies]
@@ -30,3 +33,4 @@ window-vibrancy = "0.8"
 
 [dev-dependencies]
 tempfile.workspace = true
+tower = { version = "0.5", features = ["util"] }

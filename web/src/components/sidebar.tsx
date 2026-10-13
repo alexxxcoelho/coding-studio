@@ -4,7 +4,7 @@
 
 import type { ReactNode } from "react"
 import { useQuery } from "@tanstack/react-query"
-import { ShieldAlert, ShieldCheck, X } from "lucide-react"
+import { Search, ShieldAlert, ShieldCheck, X } from "lucide-react"
 
 import {
   AnalyserIcon,
@@ -81,8 +81,8 @@ export function Sidebar({
 
   return (
     <nav className="sb flex h-full w-[232px] shrink-0 flex-col gap-px px-2.5 pt-3 pb-2.5" aria-label="Barre latérale">
-      <div className="flex h-6 items-center justify-end px-1.5 pb-3" data-tauri-drag-region>
-        <button type="button" className="text-label2 flex cursor-pointer border-0 bg-transparent p-0" onClick={onToggle} aria-label="Masquer la barre latérale" title="Masquer la barre latérale">
+      <div className="sb-top flex items-center justify-end px-1.5" data-tauri-drag-region>
+        <button type="button" className="sb-toggle" onClick={onToggle} aria-label="Masquer la barre latérale" title="Masquer la barre latérale">
           <SidebarIcon />
         </button>
       </div>
@@ -95,7 +95,7 @@ export function Sidebar({
       </NavItem>
       {openIds.map((id) => (
         <div key={id} className="group/open relative">
-          <NavItem href={interviewHref(id)} on={current === id} sub count={progress(byId.get(id))} icon={<span className="dot" style={{ background: current === id ? "var(--accent-c)" : "var(--label3)", width: 8, height: 8, borderRadius: "50%", display: "inline-block", flex: "none" }} />}>
+          <NavItem href={interviewHref(id, "coding")} on={current === id} sub count={progress(byId.get(id))} icon={<span className="dot" style={{ background: current === id ? "var(--accent-c)" : "var(--label3)", width: 8, height: 8, borderRadius: "50%", display: "inline-block", flex: "none" }} />}>
             {id}
           </NavItem>
           <button
@@ -116,6 +116,9 @@ export function Sidebar({
       <div className="sb-h">Analyse</div>
       <NavItem href="#/codebook" on={active === "codebook"} icon={<CodebookIcon />} count={state.data && state.data.codebook_size > 0 ? state.data.codebook_size : undefined}>
         Codebook
+      </NavItem>
+      <NavItem href="#/lexique" on={active === "lexique"} icon={<Search className="size-4" aria-hidden />}>
+        Lexique
       </NavItem>
       <NavItem href="#/analyser" on={active === "analyser"} icon={<AnalyserIcon />}>
         Analyser

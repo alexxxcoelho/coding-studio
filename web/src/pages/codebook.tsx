@@ -1,266 +1,504 @@
-// Codebook: the phase 1 categories, the concrete codes of phase 2 (edited
-// here, versioned and audited), the research questions they answer, and the
-// export to the thesis coding.db format.
+// Codebook (design/macos/Codebook.dc.html): the tree of codes with counts
+// (roll-up to the parent), and the inspector of the selected code. A code is
+// moved by dragging it onto its future parent or with "Parent"; renaming,
+// definition, includes and excludes, questions, aliases, merge, deactivation
+// and the history all go through /api/codes. Every move, merge and
+// deactivation carries a rationale and is dated by the server.
 
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
-import { ArrowDown, ArrowUp, Trash2 } from "lucide-react"
 
-import { CodeChip, EmptyState, PageTitle, Section } from "@/components/bits"
-import { CodePicker } from "@/components/code-picker"
-import { QuestionPicker, ToePicker } from "@/components/code-fields"
-import { Badge } from "@/components/ui/badge"
+import { EmptyState, PageTitle } from "@/components/bits"
+import { Alerts, Field, NativeSelect, TEXTAREA } from "@/components/settings/fields"
+import { Capsule, CapsuleItem, ToolbarActions, ToolbarSearch } from "@/components/toolbar"
 import { Button } from "@/components/ui/button"
-import { Checkbox } from "@/components/ui/checkbox"
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Textarea } from "@/components/ui/textarea"
-import { api } from "@/lib/api"
-import { groupByToe, phase2Codes } from "@/lib/codes"
-import { bytes, plural, roleLabel, shortHash } from "@/lib/format"
+import { analysisApi } from "@/lib/analysis-api"
+import { ApiError, api } from "@/lib/api"
+import { buildRows, codeColor, descendantIds, filterRows, LATER_ID, possibleParents, wouldCycle } from "@/lib/code-tree"
+import { keys, useCodes } from "@/lib/hooks"
 import { reportError } from "@/lib/notify"
-import { unitHref } from "@/lib/router"
 import { cn } from "@/lib/utils"
-import type { Code, CodeEdit, ResearchQuestion, Toe, WrittenFiles } from "@/lib/types"
+import type { CodeNode } from "@/lib/types"
 
-function useBookUpdate() {
+const msg = (e: unknown) => (e instanceof ApiError ? e.message : String(e))
+
+function useInvalidateCodes() {
   const qc = useQueryClient()
-  return (book: { codes: Code[]; source: string }) => {
-    qc.setQueryData(["codebook"], book)
-    qc.invalidateQueries({ queryKey: ["chain"] })
-    qc.invalidateQueries({ queryKey: ["cross-case"] })
-  }
+  return () =>
+    Promise.all([
+      qc.invalidateQueries({ queryKey: keys.codes }),
+      qc.invalidateQueries({ queryKey: ["codebook"] }),
+      qc.invalidateQueries({ queryKey: ["chain"] }),
+      qc.invalidateQueries({ queryKey: ["state"] }),
+    ])
 }
 
-// ------------------------------------------------------------- code form
-
-interface FormState {
-  code: string
-  label: string
-  definition: string
-  toe: Toe | null
-  research_questions: string[]
-  example: string
-  reason: string
-  origin: "literature" | "field"
+/** "ECO-12" style origin text of a code: literature, field, system. */
+function originLabel(c: CodeNode): string {
+  if (c.system) return "système"
+  if (c.origin === "literature") return "littérature"
+  if (c.origin === "field") return "terrain"
+  if (c.origin === "phase1") return "catégorie"
+  return c.origin
 }
 
-function formOf(c?: Code): FormState {
-  return {
-    code: c?.code ?? "",
-    label: c?.label ?? "",
-    definition: c?.definition ?? "",
-    toe: c?.toe ?? null,
-    research_questions: c?.research_questions ?? [],
-    example: c?.example ?? "",
-    reason: c?.reason ?? "",
-    origin: c?.origin === "literature" ? "literature" : "field",
-  }
-}
+export function CodebookPage() {
+  const codesQ = useCodes()
+  const questionsQ = useQuery({ queryKey: ["questions"], queryFn: api.questions })
+  const refresh = useInvalidateCodes()
+  const [search, setSearch] = useState("")
+  const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set())
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [dragId, setDragId] = useState<string | null>(null)
+  const [dropId, setDropId] = useState<string | null>(null)
+  const [dialog, setDialog] = useState<"new" | "history" | "csv" | null>(null)
 
-function CodeForm({
-  initial,
-  questions,
-  onSubmit,
-  pending,
-  submitLabel,
-}: {
-  initial?: Code
-  questions: ResearchQuestion[]
-  onSubmit: (f: FormState) => void
-  pending: boolean
-  submitLabel: string
-}) {
-  const [f, setF] = useState<FormState>(formOf(initial))
-  const isNew = !initial
-  const valid = f.code.trim() && f.label.trim() && f.definition.trim()
-  return (
-    <form
-      className="grid gap-3 md:grid-cols-2"
-      onSubmit={(e) => {
-        e.preventDefault()
-        if (valid) onSubmit(f)
-      }}
-    >
-      {isNew && (
-        <>
-          <label className="flex flex-col gap-1 text-xs">
-            <span className="text-muted-foreground">Code key</span>
-            <Input value={f.code} onChange={(e) => setF({ ...f, code: e.target.value })} className="ident uppercase" placeholder="LEGAL-OBLIGATION" />
-          </label>
-          <div className="flex flex-col gap-1 text-xs">
-            <span className="text-muted-foreground">Origin</span>
-            <div className="flex gap-1">
-              {(["literature", "field"] as const).map((o) => (
-                <Button key={o} type="button" size="xs" variant={f.origin === o ? "default" : "outline"} onClick={() => setF({ ...f, origin: o })}>
-                  {o}
-                </Button>
-              ))}
-            </div>
-          </div>
-        </>
-      )}
-      <label className="flex flex-col gap-1 text-xs md:col-span-2">
-        <span className="text-muted-foreground">Label, concrete and plain</span>
-        <Input value={f.label} onChange={(e) => setF({ ...f, label: e.target.value })} placeholder="Legal obligation" />
-      </label>
-      <label className="flex flex-col gap-1 text-xs md:col-span-2">
-        <span className="text-muted-foreground">Definition, required: what a unit must say to carry the code</span>
-        <Textarea rows={3} value={f.definition} onChange={(e) => setF({ ...f, definition: e.target.value })} />
-      </label>
-      <div className="flex flex-col gap-1 text-xs">
-        <span className="text-muted-foreground">TOE attachment</span>
-        <ToePicker value={f.toe} onChange={(toe) => setF({ ...f, toe })} />
-      </div>
-      <label className="flex flex-col gap-1 text-xs">
-        <span className="text-muted-foreground">Example, a unit ID or a short quote</span>
-        <Input value={f.example} onChange={(e) => setF({ ...f, example: e.target.value })} />
-      </label>
-      <div className="flex flex-col gap-1 text-xs">
-        <span className="text-muted-foreground">Research questions it bears on</span>
-        <QuestionPicker questions={questions} value={f.research_questions} onChange={(research_questions) => setF({ ...f, research_questions })} />
-      </div>
-      <label className="flex flex-col gap-1 text-xs">
-        <span className="text-muted-foreground">Reason, why the code exists or changed</span>
-        <Textarea rows={2} value={f.reason} onChange={(e) => setF({ ...f, reason: e.target.value })} />
-      </label>
-      <div className="flex justify-end md:col-span-2">
-        <Button type="submit" size="sm" disabled={!valid || pending}>
-          {pending ? "Saving..." : submitLabel}
-        </Button>
-      </div>
-    </form>
-  )
-}
+  const codes = useMemo(() => codesQ.data?.codes ?? [], [codesQ.data])
+  const rows = useMemo(() => (search.trim() ? filterRows(codes, search, collapsed) : buildRows(codes, collapsed)), [codes, search, collapsed])
+  const selected = codes.find((c) => c.code_id === selectedId) ?? null
+  const nActive = codes.filter((c) => c.active && !c.system && !c.merged_into).length
+  const nMerged = codes.filter((c) => c.merged_into).length
+  const maxCount = Math.max(1, ...codes.map((c) => c.counts.passages_rollup))
 
-function NewCode({ questions }: { questions: ResearchQuestion[] }) {
-  const update = useBookUpdate()
-  const [open, setOpen] = useState(false)
-  const add = useMutation({
-    mutationFn: (f: FormState) =>
-      api.addCode({
-        code: f.code.trim().toUpperCase(),
-        family: f.toe === "T" ? "TECH" : f.toe === "O" ? "ORG" : f.toe === "E" ? "ENV" : "OTHER",
-        label: f.label.trim(),
-        definition: f.definition.trim(),
-        origin: f.origin,
-        active: true,
-        in_prompt: true,
-        toe: f.toe,
-        research_questions: f.research_questions,
-        merged_into: null,
-        version: 1,
-        example: f.example.trim() || null,
-        reason: f.reason.trim() || null,
-        created_at: null,
-      }),
-    onSuccess: (book) => {
-      update(book)
-      toast.success("Code added")
-      setOpen(false)
-    },
-    onError: (e) => reportError(e, "Code not added"),
+  const move = useMutation({
+    mutationFn: (v: { id: string; parent: string | null }) => api.moveCode(v.id, v.parent, "Déplacé dans l'arbre"),
+    onSuccess: () => refresh(),
+    onError: (e) => reportError(e, "Déplacement refusé"),
   })
+
+  const drop = (target: CodeNode) => {
+    const id = dragId
+    setDragId(null)
+    setDropId(null)
+    if (!id || id === target.code_id) return
+    if (wouldCycle(codes, id, target.code_id)) {
+      toast.error("Un code ne peut pas devenir sous-code de l'un de ses sous-codes.")
+      return
+    }
+    move.mutate({ id, parent: target.code_id })
+  }
+
+  const toggle = (id: string) =>
+    setCollapsed((s) => {
+      const n = new Set(s)
+      if (n.has(id)) n.delete(id)
+      else n.add(id)
+      return n
+    })
+
   return (
     <>
-      <Button size="sm" onClick={() => setOpen(true)}>
-        New code
-      </Button>
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="sm:max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>New concrete code</DialogTitle>
-            <DialogDescription>
-              Name a mechanism in plain words (legal obligation, customer requirement, lack of skills) and attach it to a TOE context when it fits one.
-            </DialogDescription>
-          </DialogHeader>
-          <CodeForm questions={questions} onSubmit={(f) => add.mutate(f)} pending={add.isPending} submitLabel="Add the code" />
-        </DialogContent>
-      </Dialog>
+      <PageTitle
+        title="Codebook"
+        sub={codesQ.data ? `Version ${codesQ.data.codebook_version} · ${nActive} codes actifs · ${nMerged} fusionné${nMerged > 1 ? "s" : ""}` : " "}
+      />
+      <ToolbarActions>
+        <Capsule>
+          <CapsuleItem onClick={() => setDialog("history")}>Historique</CapsuleItem>
+          <span className="vs" />
+          <CapsuleItem onClick={() => setDialog("csv")}>Importer CSV…</CapsuleItem>
+        </Capsule>
+        <Capsule>
+          <CapsuleItem aria-label="Nouveau code" title="Nouveau code" onClick={() => setDialog("new")}>
+            +
+          </CapsuleItem>
+        </Capsule>
+        <ToolbarSearch value={search} onChange={setSearch} placeholder="Filtrer les codes" />
+      </ToolbarActions>
+
+      <div className="content">
+        <section className="tree" aria-label="Arbre des codes">
+          {codesQ.isLoading ? (
+            <Skeleton className="h-64 w-full" />
+          ) : codes.length === 0 ? (
+            <EmptyState
+              title="Le codebook est vide"
+              action={
+                <Button onClick={() => setDialog("new")}>Nouveau code</Button>
+              }
+            >
+              Créez un premier code, importez un fichier CSV, ou créez vos codes depuis les passages en codant.
+            </EmptyState>
+          ) : (
+            <>
+              <table className="tbl ol">
+                <thead>
+                  <tr>
+                    <th>Code</th>
+                    <th>Origine</th>
+                    <th>Questions</th>
+                    <th>Passages</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map(({ node: c, depth, hasChildren }) => {
+                    const on = c.code_id === selectedId
+                    const open = !collapsed.has(c.code_id)
+                    return (
+                      <tr
+                        key={c.code_id}
+                        className={cn("row-click", on && "sel", dropId === c.code_id && "drop", depth > 0 && "child")}
+                        data-state={on ? "selected" : undefined}
+                        aria-selected={on}
+                        draggable={!c.system}
+                        onDragStart={() => setDragId(c.code_id)}
+                        onDragEnd={() => {
+                          setDragId(null)
+                          setDropId(null)
+                        }}
+                        onDragOver={(e) => {
+                          if (dragId && dragId !== c.code_id) {
+                            e.preventDefault()
+                            setDropId(c.code_id)
+                          }
+                        }}
+                        onDrop={(e) => {
+                          e.preventDefault()
+                          drop(c)
+                        }}
+                        onClick={() => setSelectedId(c.code_id)}
+                      >
+                        <td>
+                          <span className="nm" style={{ paddingLeft: depth * 18, opacity: c.active ? 1 : 0.5 }}>
+                            <button
+                              type="button"
+                              className="tri"
+                              aria-label={hasChildren ? (open ? `Replier ${c.name}` : `Déplier ${c.name}`) : undefined}
+                              disabled={!hasChildren}
+                              aria-hidden={!hasChildren || undefined}
+                              tabIndex={hasChildren ? undefined : -1}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                toggle(c.code_id)
+                              }}
+                            >
+                              {hasChildren && (
+                                <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor" aria-hidden="true">
+                                  <path d={open ? "M1.5 3h7L5 7.5z" : "M3 1.5v7L7.5 5z"} />
+                                </svg>
+                              )}
+                            </button>
+                            <span className="sw" style={{ ["--k" as string]: codeColor(c.code_id) }} />
+                            {c.name}
+                            {!c.active && !c.system && <span className="small l2"> inactif</span>}
+                          </span>
+                        </td>
+                        <td className="l2">{originLabel(c)}</td>
+                        <td>
+                          <span className="sq">
+                            {c.research_questions.map((q) => (
+                              <span key={q} className="badge">
+                                {q}
+                              </span>
+                            ))}
+                          </span>
+                        </td>
+                        <td>
+                          {c.system ? (
+                            <span className="l2">{c.counts.passages_rollup} à revoir</span>
+                          ) : (
+                            <span className="uses" title={`${c.counts.interviews_rollup} entretien${c.counts.interviews_rollup > 1 ? "s" : ""}`}>
+                              <i className="bar">
+                                <b style={{ width: `${(c.counts.passages_rollup / maxCount) * 100}%` }} />
+                              </i>
+                              {c.counts.passages_rollup}
+                              {c.counts.passages_rollup !== c.counts.passages && <span className="small l2"> ({c.counts.passages} directs)</span>}
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+              {rows.length === 0 && <p className="small l2">Aucun code ne correspond à « {search} ».</p>}
+              <p className="small l2" style={{ margin: "2px 10px" }}>
+                Glisser un code sur un autre en fait un sous-code. Un code posé sur un sous-code compte aussi pour son parent dans les exports.
+              </p>
+            </>
+          )}
+        </section>
+        {selected && (
+          <aside className="insp insp-sticky" style={{ flexBasis: 340 }} aria-label={selected.name}>
+            <Inspector key={`${selected.code_id}:${selected.version}`} code={selected} codes={codes} questions={questionsQ.data ?? []} onMerged={() => setSelectedId(null)} />
+          </aside>
+        )}
+      </div>
+
+      <NewCodeDialog open={dialog === "new"} onClose={() => setDialog(null)} codes={codes} onCreated={(id) => setSelectedId(id)} />
+      <HistoryDialog open={dialog === "history"} onClose={() => setDialog(null)} />
+      <CsvDialog open={dialog === "csv"} onClose={() => setDialog(null)} />
     </>
   )
 }
 
-// ------------------------------------------------------ units with a code
+// ------------------------------------------------------------- inspector
 
-function UnitsDrawer({ code, onClose }: { code: Code | null; onClose: () => void }) {
-  const units = useQuery({ queryKey: ["code-units", code?.code], queryFn: () => api.codeUnits(code!.code), enabled: !!code })
+function Inspector({
+  code,
+  codes,
+  questions,
+  onMerged,
+}: {
+  code: CodeNode
+  codes: CodeNode[]
+  questions: { id: string; text: string }[]
+  onMerged: () => void
+}) {
+  const refresh = useInvalidateCodes()
+  const [name, setName] = useState(code.name)
+  const [definition, setDefinition] = useState(code.definition)
+  const [includes, setIncludes] = useState(code.includes)
+  const [excludes, setExcludes] = useState(code.excludes)
+  const [rqs, setRqs] = useState(code.research_questions)
+  const [memo, setMemo] = useState(code.memo ?? "")
+  const [alias, setAlias] = useState("")
+  const [mergeOpen, setMergeOpen] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const locked = code.system || code.code_id === LATER_ID
+
+  const dirty =
+    name !== code.name ||
+    definition !== code.definition ||
+    includes !== code.includes ||
+    excludes !== code.excludes ||
+    memo !== (code.memo ?? "") ||
+    rqs.join("|") !== code.research_questions.join("|")
+
+  const save = useMutation({
+    mutationFn: async () => {
+      const saved = await api.updateCode(code.code_id, {
+        name: name.trim(),
+        definition: definition.trim(),
+        includes,
+        excludes,
+        research_questions: rqs,
+      })
+      // The memo has its own route and its own history; the reason of a change is no longer used for it.
+      if (memo !== (code.memo ?? "")) await analysisApi.setCodeMemo(code.code_id, memo)
+      return saved
+    },
+    onSuccess: async () => {
+      setError(null)
+      await refresh()
+      toast.success("Code enregistré")
+    },
+    onError: (e) => setError(msg(e)),
+  })
+  const reparent = useMutation({
+    mutationFn: (parent: string | null) => api.moveCode(code.code_id, parent, "Parent changé depuis la fiche du code"),
+    onSuccess: () => refresh(),
+    onError: (e) => reportError(e, "Déplacement refusé"),
+  })
+  const active = useMutation({
+    mutationFn: () => api.setCodeActive(code.code_id, !code.active),
+    onSuccess: () => refresh(),
+    onError: (e) => reportError(e, "Changement refusé"),
+  })
+  const addAlias = useMutation({
+    mutationFn: (a: string) => api.addAlias(code.code_id, a),
+    onSuccess: () => {
+      setAlias("")
+      return refresh()
+    },
+    onError: (e) => reportError(e, "Alias refusé"),
+  })
+  const removeAlias = useMutation({
+    mutationFn: (a: string) => api.removeAlias(code.code_id, a),
+    onSuccess: () => refresh(),
+    onError: (e) => reportError(e, "Alias non retiré"),
+  })
+
+  const parents = possibleParents(codes, code.code_id)
+  const nameClash = name.trim() !== code.name && codes.some((c) => c.code_id !== code.code_id && c.name.toLowerCase() === name.trim().toLowerCase())
+
   return (
-    <Sheet open={!!code} onOpenChange={(o) => !o && onClose()}>
-      <SheetContent className="w-[min(46rem,100vw)] sm:max-w-none">
-        <SheetHeader>
-          <SheetTitle className="flex items-center gap-2">
-            Units with {code && <CodeChip code={code.code} family={code.family} />}
-          </SheetTitle>
-          <SheetDescription>{code?.label}. Every unit whose phase 2 coding carries the code, across interviews, to revisit the passages.</SheetDescription>
-        </SheetHeader>
-        <div className="flex flex-col gap-2 overflow-y-auto px-4 pb-6">
-          {units.isLoading ? (
-            <Skeleton className="h-40 w-full" />
-          ) : (units.data ?? []).length === 0 ? (
-            <p className="text-muted-foreground text-sm">No unit carries this code yet.</p>
-          ) : (
-            units.data!.map((u) => (
-              <a key={u.unit.unit_id} href={unitHref(u.unit.unit_id)} onClick={onClose} className="hover:bg-muted/50 rounded-md border px-3 py-2">
-                <div className="text-muted-foreground flex items-center gap-2 text-xs">
-                  <span className="ident">{u.unit.unit_id}</span>
-                  <span className="tabular-nums">{u.unit.timestamp}</span>
-                  <span>{roleLabel(u.unit.role)}</span>
-                  {u.coding && u.coding.codes.length > 1 && <span>with {u.coding.codes.filter((c) => c !== code?.code).join(", ")}</span>}
-                </div>
-                <p className="verbatim line-clamp-4 text-sm">{u.unit.text}</p>
-              </a>
-            ))
+    <div className="insp-in">
+      <div className="r8" style={{ justifyContent: "space-between" }}>
+        <span className="r8">
+          <span className="sw" style={{ ["--k" as string]: codeColor(code.code_id) }} />
+          <span className="b" style={{ fontSize: 14 }}>
+            {code.name}
+          </span>
+        </span>
+        <span className="small l2" title={`${code.counts.interviews_rollup} entretiens`}>
+          {code.counts.passages_rollup} passage{code.counts.passages_rollup > 1 ? "s" : ""} · {code.counts.interviews_rollup} entretien
+          {code.counts.interviews_rollup > 1 ? "s" : ""}
+        </span>
+      </div>
+
+      <Field label="Nom" error={nameClash ? "Un autre code porte déjà ce nom." : undefined}>
+        <Input value={name} disabled={locked} onChange={(e) => setName(e.target.value)} />
+      </Field>
+      <Field label="Définition">
+        <textarea className={TEXTAREA} rows={3} value={definition} disabled={locked} onChange={(e) => setDefinition(e.target.value)} />
+      </Field>
+      <Field label="Inclut">
+        <textarea className={TEXTAREA} rows={3} value={includes} disabled={locked} onChange={(e) => setIncludes(e.target.value)} />
+      </Field>
+      <Field label="Exclut">
+        <textarea className={TEXTAREA} rows={3} value={excludes} disabled={locked} onChange={(e) => setExcludes(e.target.value)} />
+      </Field>
+
+      <div className="grp">
+        <label className="row">
+          <span className="k">Parent</span>
+          <NativeSelect
+            style={{ width: 150 }}
+            value={code.parent_id ?? ""}
+            disabled={locked || reparent.isPending}
+            onChange={(e) => reparent.mutate(e.target.value || null)}
+          >
+            <option value="">Aucun</option>
+            {parents.map((p) => (
+              <option key={p.code_id} value={p.code_id}>
+                {p.name}
+              </option>
+            ))}
+          </NativeSelect>
+        </label>
+        <div className="row" style={{ flexWrap: "wrap" }}>
+          <span className="k">Questions</span>
+          {questions.length === 0 && <span className="l2 small">Aucune question de recherche</span>}
+          {questions.map((q) => (
+            <label key={q.id} className="chk" title={q.text} style={{ display: "inline-flex", gap: 4, alignItems: "center" }}>
+              <input
+                type="checkbox"
+                checked={rqs.includes(q.id)}
+                disabled={locked}
+                onChange={(e) => setRqs(e.target.checked ? [...rqs, q.id] : rqs.filter((x) => x !== q.id))}
+              />
+              {q.id}
+            </label>
+          ))}
+        </div>
+        <div className="row">
+          <span className="k">
+            Origine
+            <small>
+              {originLabel(code)}
+              {code.created_at ? `, créé le ${code.created_at.slice(0, 10)}` : ""}
+            </small>
+          </span>
+        </div>
+        <div className="row" style={{ flexWrap: "wrap" }}>
+          <span className="k">
+            Alias
+            <small>Autres noms sous lesquels ce code est retrouvé, par exemple après une fusion.</small>
+          </span>
+          {code.aliases.map((a) => (
+            <span key={a.alias} className="tok" title={a.reason}>
+              {a.alias}
+              <button type="button" aria-label={`Retirer l'alias ${a.alias}`} onClick={() => removeAlias.mutate(a.alias)}>
+                ×
+              </button>
+            </span>
+          ))}
+          {!locked && (
+            <form
+              style={{ display: "flex", gap: 4 }}
+              onSubmit={(e) => {
+                e.preventDefault()
+                if (alias.trim()) addAlias.mutate(alias.trim())
+              }}
+            >
+              <Input value={alias} onChange={(e) => setAlias(e.target.value)} placeholder="Nouvel alias" aria-label="Nouvel alias" style={{ width: 130 }} />
+              <Button type="submit" variant="outline" disabled={!alias.trim() || addAlias.isPending}>
+                Ajouter
+              </Button>
+            </form>
           )}
         </div>
-      </SheetContent>
-    </Sheet>
+      </div>
+
+      <Field label="Mémo du code">
+        <textarea className={TEXTAREA} rows={3} value={memo} disabled={locked} onChange={(e) => setMemo(e.target.value)} />
+      </Field>
+      {error && <Alerts messages={[error]} />}
+      {code.merged_into && <p className="small l2">Fusionné dans {codes.find((c) => c.code_id === code.merged_into)?.name ?? code.merged_into}.</p>}
+      {!locked && (
+        <div className="r8">
+          <Button variant="outline" disabled={active.isPending} onClick={() => active.mutate()}>
+            {code.active ? "Désactiver" : "Réactiver"}
+          </Button>
+          <Button variant="outline" onClick={() => setMergeOpen(true)}>
+            Fusionner dans…
+          </Button>
+          <Button style={{ marginLeft: "auto" }} disabled={!dirty || !name.trim() || !definition.trim() || nameClash || save.isPending} onClick={() => save.mutate()}>
+            Enregistrer
+          </Button>
+        </div>
+      )}
+      <span className="small l2">Chaque action est datée et motivée. Fusionner recode les passages en gardant la trace.</span>
+      <MergeDialog open={mergeOpen} code={code} codes={codes} onClose={() => setMergeOpen(false)} onMerged={onMerged} />
+    </div>
   )
 }
 
-function MergeDialog({ code, codes, onClose }: { code: Code | null; codes: Code[]; onClose: () => void }) {
-  const update = useBookUpdate()
-  const qc = useQueryClient()
-  const [into, setInto] = useState<string[]>([])
-  const [rationale, setRationale] = useState("")
-  const units = useQuery({ queryKey: ["code-units", code?.code], queryFn: () => api.codeUnits(code!.code), enabled: !!code })
+// ---------------------------------------------------------------- merge
+
+function MergeDialog({
+  open,
+  code,
+  codes,
+  onClose,
+  onMerged,
+}: {
+  open: boolean
+  code: CodeNode
+  codes: CodeNode[]
+  onClose: () => void
+  onMerged: () => void
+}) {
+  const refresh = useInvalidateCodes()
+  const [into, setInto] = useState("")
+  const [why, setWhy] = useState("")
+  const [error, setError] = useState<string | null>(null)
+  const exclude = useMemo(() => descendantIds(codes, code.code_id), [codes, code.code_id])
+  const targets = codes.filter((c) => c.code_id !== code.code_id && !exclude.has(c.code_id) && c.active && !c.merged_into && !c.system)
   const merge = useMutation({
-    mutationFn: () => api.mergeCode(code!.code, into[0], rationale.trim()),
-    onSuccess: (res) => {
-      update(res.codebook)
-      qc.invalidateQueries({ predicate: (q) => ["units", "review", "final", "code-units"].includes(String(q.queryKey[0])) })
-      toast.success(`${code!.code} merged into ${into[0]}: ${plural(res.rewritten_codings, "coding")} and ${plural(res.rewritten_decisions, "decision")} rewritten`)
-      setInto([])
-      setRationale("")
+    mutationFn: () => api.mergeCodeV1(code.code_id, into, why.trim()),
+    onSuccess: async (res) => {
+      await refresh()
+      toast.success(`${res.outcome.moved_passage_codings} codage${res.outcome.moved_passage_codings > 1 ? "s" : ""} déplacé${res.outcome.moved_passage_codings > 1 ? "s" : ""}`)
       onClose()
+      onMerged()
     },
-    onError: (e) => reportError(e, "Merge refused"),
+    onError: (e) => setError(msg(e)),
   })
   return (
-    <Dialog open={!!code} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="sm:max-w-xl">
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent>
         <DialogHeader>
-          <DialogTitle>Merge {code?.code} into another code</DialogTitle>
+          <DialogTitle>Fusionner « {code.name} »</DialogTitle>
           <DialogDescription>
-            Your phase 2 codings and open decisions carrying {code?.code} are rewritten to the target code, each change in the audit trail. AI answers
-            stay as received. {units.data ? `${plural(units.data.length, "unit")} carry the code now.` : ""}
+            Les passages codés « {code.name} » prennent le code choisi. Le nom reste comme alias, la fusion est datée dans l'historique.
           </DialogDescription>
         </DialogHeader>
-        <CodePicker
-          allowed={codes.filter((c) => c.code !== code?.code)}
-          value={into}
-          onChange={(v) => setInto(v.filter((c) => c !== "NA").slice(-1))}
-          phase={2}
-          phase1Contexts={[]}
-        />
-        <Textarea rows={2} placeholder="Rationale, required" value={rationale} onChange={(e) => setRationale(e.target.value)} />
+        <Field label="Fusionner dans">
+          <NativeSelect value={into} onChange={(e) => setInto(e.target.value)}>
+            <option value="">Choisir un code</option>
+            {targets.map((c) => (
+              <option key={c.code_id} value={c.code_id}>
+                {c.name}
+              </option>
+            ))}
+          </NativeSelect>
+        </Field>
+        <Field label="Motif, obligatoire">
+          <Input value={why} onChange={(e) => setWhy(e.target.value)} />
+        </Field>
+        {error && <Alerts messages={[error]} />}
         <DialogFooter>
-          <Button disabled={into.length !== 1 || !rationale.trim() || merge.isPending} onClick={() => merge.mutate()}>
-            Merge into {into[0] ?? "..."}
+          <Button variant="outline" onClick={onClose}>
+            Annuler
+          </Button>
+          <Button disabled={!into || !why.trim() || merge.isPending} onClick={() => merge.mutate()}>
+            Fusionner
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -268,360 +506,171 @@ function MergeDialog({ code, codes, onClose }: { code: Code | null; codes: Code[
   )
 }
 
-// ------------------------------------------------------------- code rows
+// ------------------------------------------------------------------ new
 
-function CodeRow({
-  c,
-  questions,
-  onUnits,
-  onMerge,
+function NewCodeDialog({
+  open,
+  onClose,
+  codes,
+  onCreated,
 }: {
-  c: Code
-  questions: ResearchQuestion[]
-  onUnits: (c: Code) => void
-  onMerge: (c: Code) => void
+  open: boolean
+  onClose: () => void
+  codes: CodeNode[]
+  onCreated: (id: string) => void
 }) {
-  const update = useBookUpdate()
-  const [editing, setEditing] = useState(false)
-  const edit = useMutation({
-    mutationFn: (f: FormState) => {
-      const body: CodeEdit = {
-        label: f.label.trim(),
-        definition: f.definition.trim(),
-        toe: f.toe,
-        research_questions: f.research_questions,
-        example: f.example.trim() || null,
-        reason: f.reason.trim() || null,
-      }
-      return api.editCode(c.code, body)
+  const refresh = useInvalidateCodes()
+  const qc = useQueryClient()
+  const [name, setName] = useState("")
+  const [definition, setDefinition] = useState("")
+  const [parent, setParent] = useState("")
+  const [error, setError] = useState<string | null>(null)
+  const clash = name.trim() !== "" && codes.some((c) => c.name.toLowerCase() === name.trim().toLowerCase())
+  const create = useMutation({
+    // One call: the server names the code as typed and generates its token.
+    mutationFn: async () => (await analysisApi.createCode({ name: name.trim(), definition: definition.trim(), parent_id: parent || null })).code_id,
+    onSuccess: async (id) => {
+      qc.removeQueries({ queryKey: keys.codes })
+      await refresh()
+      toast.success(`Code « ${name.trim()} » créé`)
+      if (id) onCreated(id)
+      setName("")
+      setDefinition("")
+      setParent("")
+      setError(null)
+      onClose()
     },
-    onSuccess: (b) => {
-      update(b)
-      toast.success(`${c.code} saved`)
-      setEditing(false)
-    },
-    onError: (e) => reportError(e, "Not saved"),
-  })
-  const active = useMutation({
-    mutationFn: () => api.setActive(c.code, !c.active),
-    onSuccess: (b) => update(b),
-    onError: (e) => reportError(e),
-  })
-  const prompt = useMutation({
-    mutationFn: (on: boolean) => api.setInPrompt(c.code, on),
-    onSuccess: (b) => update(b),
-    onError: (e) => reportError(e),
+    onError: (e) => setError(msg(e)),
   })
   return (
-    <li className={cn("border-b px-4 py-3 last:border-b-0", !c.active && "opacity-55")}>
-      <div className="flex flex-wrap items-start gap-x-4 gap-y-1.5">
-        <div className="flex min-w-[14rem] flex-1 flex-col gap-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <CodeChip code={c.code} family={c.family} />
-            <span className="text-sm font-medium">{c.label}</span>
-            <Badge variant="outline" className={cn("text-[0.68rem]", c.origin === "field" && "text-inductive border-current/40")}>
-              {c.origin}
-            </Badge>
-            <span className="text-muted-foreground text-[0.7rem]">v{c.version ?? 1}</span>
-            {c.merged_into && <span className="text-muted-foreground text-xs">merged into {c.merged_into}</span>}
-            {!c.active && !c.merged_into && <span className="text-muted-foreground text-xs">inactive</span>}
-          </div>
-          <p className="text-muted-foreground max-w-prose text-xs">{c.definition}</p>
-          {(c.research_questions?.length ?? 0) > 0 && (
-            <div className="flex flex-wrap gap-1">
-              {c.research_questions!.map((q) => (
-                <span key={q} className="ident bg-muted rounded px-1.5 text-[0.7rem]" title={questions.find((x) => x.id === q)?.text}>
-                  {q}
-                </span>
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Nouveau code</DialogTitle>
+          <DialogDescription>Nommez un mécanisme avec des mots simples, et dites en une phrase ce qu'un passage doit exprimer pour le porter.</DialogDescription>
+        </DialogHeader>
+        <Field label="Nom" error={clash ? "Un code porte déjà ce nom." : undefined}>
+          <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Obligation légale" />
+        </Field>
+        <Field label="Définition">
+          <textarea className={TEXTAREA} rows={3} value={definition} onChange={(e) => setDefinition(e.target.value)} />
+        </Field>
+        <Field label="Parent, facultatif">
+          <NativeSelect value={parent} onChange={(e) => setParent(e.target.value)}>
+            <option value="">Aucun</option>
+            {codes
+              .filter((c) => c.active && !c.merged_into && !c.system)
+              .map((c) => (
+                <option key={c.code_id} value={c.code_id}>
+                  {c.name}
+                </option>
               ))}
-            </div>
-          )}
-        </div>
-        <div className="flex flex-wrap items-center gap-1.5">
-          <label className="text-muted-foreground mr-1 flex items-center gap-1.5 text-xs" title="Offered to the AI coder in phase 2 prompts">
-            <Checkbox checked={c.in_prompt} disabled={!c.active || prompt.isPending} onCheckedChange={(v) => prompt.mutate(v === true)} />
-            AI
-          </label>
-          <Button size="xs" variant="ghost" onClick={() => onUnits(c)}>
-            Units
+          </NativeSelect>
+        </Field>
+        {error && <Alerts messages={[error]} />}
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>
+            Annuler
           </Button>
-          {!c.merged_into && (
-            <>
-              <Button size="xs" variant="ghost" onClick={() => setEditing((e) => !e)}>
-                {editing ? "Close" : "Edit"}
-              </Button>
-              <Button size="xs" variant="ghost" onClick={() => onMerge(c)} disabled={!c.active}>
-                Merge
-              </Button>
-              <Button size="xs" variant="ghost" onClick={() => active.mutate()} disabled={active.isPending}>
-                {c.active ? "Deactivate" : "Activate"}
-              </Button>
-            </>
-          )}
-        </div>
-      </div>
-      {editing && (
-        <div className="bg-muted/30 mt-3 rounded-md border p-3">
-          <CodeForm initial={c} questions={questions} onSubmit={(f) => edit.mutate(f)} pending={edit.isPending} submitLabel={`Save as version ${(c.version ?? 1) + 1}`} />
-        </div>
-      )}
-    </li>
+          <Button disabled={!name.trim() || !definition.trim() || clash || create.isPending} onClick={() => create.mutate()}>
+            Créer le code
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }
 
-// --------------------------------------------------- research questions
+// -------------------------------------------------------------- history
 
-function QuestionsEditor({ questions }: { questions: ResearchQuestion[] }) {
-  const qc = useQueryClient()
-  const [id, setId] = useState("")
-  const [text, setText] = useState("")
-  const [drafts, setDrafts] = useState<Record<string, string>>({})
-  const done = (list: ResearchQuestion[]) => {
-    qc.setQueryData(["questions"], list)
-    qc.invalidateQueries({ queryKey: ["cross-case"] })
-    qc.invalidateQueries({ queryKey: ["chain"] })
-  }
-  const add = useMutation({
-    mutationFn: () => api.addQuestion(id.trim().toUpperCase(), text.trim()),
-    onSuccess: (l) => {
-      done(l)
-      setId("")
-      setText("")
-    },
-    onError: (e) => reportError(e, "Question not added"),
-  })
-  const edit = useMutation({
-    mutationFn: ({ q, text, ord }: { q: ResearchQuestion; text: string; ord?: number }) => api.editQuestion(q.id, text, ord),
-    onSuccess: (l) => done(l),
-    onError: (e) => reportError(e, "Question not saved"),
-  })
-  const del = useMutation({
-    mutationFn: (q: string) => api.deleteQuestion(q),
-    onSuccess: (l) => done(l),
-    onError: (e) => reportError(e, "Question not deleted"),
-  })
-  const sorted = [...questions].sort((a, b) => a.ord - b.ord)
-  const swap = (i: number, j: number) => {
-    const a = sorted[i]
-    const b = sorted[j]
-    edit.mutate({ q: a, text: a.text, ord: b.ord })
-    edit.mutate({ q: b, text: b.text, ord: a.ord })
-  }
+function HistoryDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const q = useQuery({ queryKey: ["codebook-revisions"], queryFn: api.codebookRevisions, enabled: open })
+  const revisions = [...(q.data?.revisions ?? [])].reverse()
   return (
-    <div className="flex flex-col gap-2">
-      {sorted.map((q, i) => {
-        const draft = drafts[q.id] ?? q.text
-        return (
-          <div key={q.id} className="flex items-start gap-2">
-            <span className="ident w-12 pt-2 font-semibold">{q.id}</span>
-            <Textarea rows={1} className="min-h-9 flex-1" value={draft} onChange={(e) => setDrafts({ ...drafts, [q.id]: e.target.value })} />
-            <div className="flex gap-0.5 pt-1">
-              {draft !== q.text && (
-                <Button size="xs" onClick={() => edit.mutate({ q, text: draft.trim() })} disabled={!draft.trim()}>
-                  Save
-                </Button>
-              )}
-              <Button size="icon-xs" variant="ghost" aria-label="Move up" disabled={i === 0} onClick={() => swap(i, i - 1)}>
-                <ArrowUp />
-              </Button>
-              <Button size="icon-xs" variant="ghost" aria-label="Move down" disabled={i === sorted.length - 1} onClick={() => swap(i, i + 1)}>
-                <ArrowDown />
-              </Button>
-              <Button size="icon-xs" variant="ghost" aria-label={`Delete ${q.id}`} onClick={() => del.mutate(q.id)}>
-                <Trash2 />
-              </Button>
-            </div>
-          </div>
-        )
-      })}
-      <form
-        className="flex items-start gap-2 border-t pt-3"
-        onSubmit={(e) => {
-          e.preventDefault()
-          if (id.trim() && text.trim()) add.mutate()
-        }}
-      >
-        <Input value={id} onChange={(e) => setId(e.target.value)} placeholder="RQ1" className="ident w-20 uppercase" />
-        <Textarea rows={1} className="min-h-9 flex-1" value={text} onChange={(e) => setText(e.target.value)} placeholder="The question, as in the thesis" />
-        <Button type="submit" size="sm" variant="outline" disabled={!id.trim() || !text.trim() || add.isPending}>
-          Add
-        </Button>
-      </form>
-    </div>
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="sm:max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>Historique du codebook</DialogTitle>
+          <DialogDescription>
+            {q.data ? `Version ${q.data.codebook_version}. Chaque changement est daté, attribué et motivé.` : "Chargement..."}
+          </DialogDescription>
+        </DialogHeader>
+        <div style={{ maxHeight: 360, overflow: "auto" }}>
+          {revisions.length === 0 && !q.isLoading && <p className="small l2">Aucun changement enregistré.</p>}
+          <table className="tbl">
+            <tbody>
+              {revisions.map((r) => (
+                <tr key={r.rev}>
+                  <td className="mono">v{r.rev}</td>
+                  <td className="l2">{r.ts.slice(0, 16).replace("T", " ")}</td>
+                  <td>{r.target}</td>
+                  <td>{r.reason}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </DialogContent>
+    </Dialog>
   )
 }
 
-// ------------------------------------------------------------------ page
+// ------------------------------------------------------------------ csv
 
-export function CodebookPage() {
-  const qc = useQueryClient()
-  const update = useBookUpdate()
-  const state = useQuery({ queryKey: ["state"], queryFn: api.state })
-  const book = useQuery({ queryKey: ["codebook"], queryFn: api.codebook })
-  const p1 = useQuery({ queryKey: ["codebook-phase1"], queryFn: api.phase1Codebook })
-  const questions = useQuery({ queryKey: ["questions"], queryFn: api.questions })
-  const [typed, setPath] = useState<string | null>(null)
-  const [unitsOf, setUnitsOf] = useState<Code | null>(null)
-  const [mergeOf, setMergeOf] = useState<Code | null>(null)
-  const [written, setWritten] = useState<WrittenFiles | null>(null)
-  const path = typed ?? state.data?.coding_db ?? ""
-
-  const imp = useMutation({
-    mutationFn: () => api.importCodebook(path.trim() || undefined),
-    onSuccess: (b) => {
-      update(b)
-      qc.invalidateQueries({ queryKey: ["state"] })
-      toast.success(`${b.codes.length} codes imported`)
+function CsvDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const refresh = useInvalidateCodes()
+  const state = useQuery({ queryKey: ["state"], queryFn: api.state, enabled: open })
+  const [path, setPath] = useState("")
+  const [report, setReport] = useState<{ added: number; updated: number; absent: number } | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const run = useMutation({
+    mutationFn: () => api.importCodebookFrom("csv", path.trim()),
+    onSuccess: async (a) => {
+      setReport(a.report)
+      setError(null)
+      await refresh()
     },
-    onError: (e) => reportError(e, "Import failed"),
-  })
-  const exp = useMutation({
-    mutationFn: api.exportCodebook,
-    onSuccess: (w) => {
-      setWritten(w)
-      qc.invalidateQueries({ queryKey: ["chain"] })
-      toast.success(`${plural(w.files.length, "file")} written`)
+    onError: (e) => {
+      setReport(null)
+      setError(msg(e))
     },
-    onError: (e) => reportError(e, "Export failed"),
   })
-  const browse = async () => {
-    try {
-      const r = await api.pick("file", "Choose the thesis coding.db")
-      if (r.path) setPath(r.path)
-    } catch (e) {
-      reportError(e)
-    }
+  const choose = async () => {
+    const picked = await api.pick("file", "Choisir le fichier CSV")
+    if (picked.path) setPath(picked.path)
   }
-
-  const codes = book.data?.codes ?? []
-  const concrete = codes.filter((c) => c.origin !== "legacy" && c.origin !== "phase1")
-  const legacy = codes.filter((c) => c.origin === "legacy")
-  const live = phase2Codes(codes)
-  const rq = questions.data ?? []
-  const offered = live.filter((c) => c.in_prompt).length
-  const field = concrete.filter((c) => c.origin === "field").length
-
   return (
-    <>
-      <PageTitle
-        title="Codebook"
-        sub={book.data ? `${live.length} concrete codes in use (${field} from the field), ${offered} offered to the AI coder` : " "}
-        actions={
-          <>
-            <Button variant="outline" size="sm" onClick={() => exp.mutate()} disabled={exp.isPending}>
-              {exp.isPending ? "Exporting..." : "Export for coding.db"}
-            </Button>
-            <NewCode questions={rq} />
-          </>
-        }
-      />
-
-      <div className="flex flex-col gap-5">
-        {written && (
-          <Section title="Export for coding.db" aside="CSV and SQL in the coding.db schema; coding.db itself is never written">
-            <ul className="flex flex-col gap-1 text-xs">
-              {written.files.map((f) => (
-                <li key={f.path} className="flex flex-wrap gap-x-3">
-                  <span className="ident">{f.path}</span>
-                  <span className="text-muted-foreground">{bytes(f.size)}</span>
-                  <span className="text-muted-foreground ident">SHA-256 {shortHash(f.sha256, 12)}</span>
-                </li>
-              ))}
-            </ul>
-          </Section>
-        )}
-
-        <Section title="Research questions" aside="codes map to them; the cross-case matrix is organised by them">
-          {questions.isLoading ? <Skeleton className="h-16 w-full" /> : <QuestionsEditor questions={rq} />}
-        </Section>
-
-        <section className="bg-card rounded-md border">
-          <header className="flex flex-wrap items-center justify-between gap-2 border-b px-4 py-2.5">
-            <h2 className="text-sm font-semibold">Concrete codes, phase 2</h2>
-            <span className="text-muted-foreground text-xs">grouped by TOE attachment; edits are versioned and audited</span>
-          </header>
-          {book.isLoading ? (
-            <Skeleton className="m-4 h-64" />
-          ) : concrete.length === 0 ? (
-            <div className="p-4">
-              <EmptyState title="No concrete code yet">Import the codebook from the thesis coding.db below, or create codes with New code.</EmptyState>
-            </div>
-          ) : (
-            groupByToe(concrete).map((g) => (
-              <div key={g.key}>
-                <h3 className="bg-muted/40 border-b px-4 py-1.5 text-xs font-semibold">{g.title}</h3>
-                <ul>
-                  {g.codes.map((c) => (
-                    <CodeRow key={c.code} c={c} questions={rq} onUnits={setUnitsOf} onMerge={setMergeOf} />
-                  ))}
-                </ul>
-              </div>
-            ))
-          )}
-        </section>
-
-        <Section title="Phase 1 categories" aside="provisional pre-classification, revisable at any time">
-          {p1.data ? (
-            <dl className="grid gap-3 md:grid-cols-2">
-              {p1.data.codes.map((c) => (
-                <div key={c.code} className="flex gap-3">
-                  <dt className="shrink-0">
-                    <CodeChip code={c.code} family={c.family} />
-                  </dt>
-                  <dd className="text-sm">
-                    <span className="font-medium">{c.label}.</span> <span className="text-muted-foreground">{c.definition}</span>
-                  </dd>
-                </div>
-              ))}
-            </dl>
-          ) : (
-            <Skeleton className="h-24 w-full" />
-          )}
-          <p className="text-muted-foreground mt-3 text-xs">{p1.data?.source}</p>
-        </Section>
-
-        <form
-          className="bg-card flex flex-wrap items-end gap-2 rounded-md border p-4"
-          onSubmit={(e) => {
-            e.preventDefault()
-            imp.mutate()
-          }}
-        >
-          <label className="flex min-w-[20rem] flex-1 flex-col gap-1.5">
-            <span className="text-muted-foreground text-xs">Thesis coding.db, opened read only</span>
-            <Input value={path} onChange={(e) => setPath(e.target.value)} placeholder="/path/to/05_Analysis/coding/coding.db" />
-          </label>
-          {state.data?.native_dialogs && (
-            <Button type="button" variant="outline" onClick={browse}>
-              Browse...
-            </Button>
-          )}
-          <Button type="submit" variant="outline" disabled={imp.isPending}>
-            {imp.isPending ? "Importing..." : "Import from coding.db"}
-          </Button>
-          <p className="text-muted-foreground basis-full text-xs">
-            Importing again keeps your edits, your field codes and your choices of what is offered to the AI. A code removed upstream is deactivated,
-            never deleted.
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Importer un codebook CSV</DialogTitle>
+          <DialogDescription>Les codes sont ajoutés ou mis à jour, jamais supprimés. Les codes absents du fichier sont comptés et laissés tels quels.</DialogDescription>
+        </DialogHeader>
+        <Field label="Chemin du fichier">
+          <div style={{ display: "flex", gap: 8 }}>
+            <Input value={path} onChange={(e) => setPath(e.target.value)} placeholder="/chemin/vers/codebook.csv" className="font-mono text-xs" />
+            {state.data?.native_dialogs && (
+              <Button variant="outline" onClick={choose}>
+                Choisir…
+              </Button>
+            )}
+          </div>
+        </Field>
+        {report && (
+          <p role="status" className="text-sm">
+            {`${report.added} ajouté${report.added > 1 ? "s" : ""}, ${report.updated} mis à jour, ${report.absent} absent${report.absent > 1 ? "s" : ""}`}
           </p>
-        </form>
-
-        {legacy.length > 0 && (
-          <Collapsible>
-            <CollapsibleTrigger className="text-primary text-xs hover:underline">{plural(legacy.length, "legacy family code")}, read only</CollapsibleTrigger>
-            <CollapsibleContent className="mt-2 flex flex-wrap gap-2">
-              {legacy.map((c) => (
-                <span key={c.code} title={c.definition}>
-                  <CodeChip code={c.code} family={c.family} />
-                </span>
-              ))}
-            </CollapsibleContent>
-          </Collapsible>
         )}
-        {book.data && <p className="text-muted-foreground text-xs">Imported from {book.data.source || "nowhere yet"}.</p>}
-      </div>
-
-      <UnitsDrawer code={unitsOf} onClose={() => setUnitsOf(null)} />
-      <MergeDialog code={mergeOf} codes={live} onClose={() => setMergeOf(null)} />
-    </>
+        {error && <Alerts messages={[error]} />}
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>
+            Fermer
+          </Button>
+          <Button disabled={!path.trim() || run.isPending} onClick={() => run.mutate()}>
+            Importer
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }

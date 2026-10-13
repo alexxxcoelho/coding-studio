@@ -1334,6 +1334,9 @@ fn case(label: &str) -> Case {
         stage: Some("STAGE-PILOT".into()),
         outcome_status: None,
         notes: None,
+        outcome: None,
+        characteristics: Default::default(),
+        passages: vec![],
         updated_at: String::new(),
     }
 }
@@ -1537,3 +1540,12 @@ mod snapshots_v4;
 #[allow(clippy::field_reassign_with_default)]
 mod study_config_v5;
 mod verification_v4;
+
+// V1 lot 5 (Analyse and Write) and the API gaps of the same lot.
+mod l5_decisions;
+mod l5_gaps;
+mod l5_matrix;
+mod l5_schema;
+mod l5_study_text;
+mod l5_themes;
+mod l5_writing;

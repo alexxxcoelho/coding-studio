@@ -35,7 +35,7 @@ describe("CodePicker", () => {
   })
   it("filters by label as you type", () => {
     render(<Harness />)
-    fireEvent.change(screen.getByPlaceholderText(/Type to filter/), { target: { value: "organis" } })
+    fireEvent.change(screen.getByPlaceholderText(/Filtrer les codes/), { target: { value: "organis" } })
     expect(screen.queryByText("Technological context")).toBeNull()
     expect(screen.getByText("Organisational context")).toBeInTheDocument()
   })
@@ -44,7 +44,7 @@ describe("CodePicker", () => {
 describe("CodePicker keyboard", () => {
   it("leaves Ctrl+Enter to the save shortcut", () => {
     render(<Harness initial={["TECH"]} />)
-    const input = screen.getByPlaceholderText(/Type to filter/)
+    const input = screen.getByPlaceholderText(/Filtrer les codes/)
     fireEvent.keyDown(input, { key: "Enter", ctrlKey: true })
     expect(screen.getByTestId("value")).toHaveTextContent("TECH")
   })

@@ -5,10 +5,13 @@
 
 mod error;
 mod export;
+mod export_analysis;
 mod export_v1;
 mod lexicon;
 mod providers;
+mod qdpx;
 mod v1;
+mod v1_analysis;
 mod v1_project;
 
 use std::collections::{BTreeMap, BTreeSet};
@@ -232,6 +235,8 @@ pub fn router(state: AppState) -> Router {
         .merge(v1::routes())
         .merge(v1_project::routes())
         .merge(lexicon::routes())
+        .merge(qdpx::routes())
+        .merge(v1_analysis::routes())
         .fallback(static_file)
         .with_state(state)
 }

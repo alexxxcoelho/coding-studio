@@ -13,17 +13,17 @@ export function AuditPage() {
   return (
     <>
       <PageTitle
-        title="Audit trail"
-        sub="Every action, append only. Each event carries the SHA-256 of the previous one, so any later edit breaks the chain."
+        title="Journal d'audit"
+        sub="Chaque action est ajoutée, jamais modifiée. Chaque événement porte l'empreinte SHA-256 du précédent : toute modification ultérieure rompt la chaîne."
         actions={
           <Button variant="outline" onClick={() => qc.invalidateQueries({ queryKey: ["chain"] })} disabled={chain.isFetching}>
-            Verify the chain again
+            Vérifier la chaîne
           </Button>
         }
       />
       {chain.data && (
-        <Banner tone={chain.data.ok ? "ok" : "danger"} className="mb-4" title={chain.data.ok ? `Chain intact: ${chain.data.n_events} events, every hash recomputed and matching` : `Chain broken at event ${chain.data.first_bad_seq}`}>
-          {chain.data.ok ? undefined : "An event was changed after it was written. The events from that point on can no longer be trusted."}
+        <Banner tone={chain.data.ok ? "ok" : "danger"} className="mb-4" title={chain.data.ok ? `Chaîne intacte : ${chain.data.n_events} événements, chaque empreinte recalculée et conforme` : `Chaîne rompue à l'événement ${chain.data.first_bad_seq}`}>
+          {chain.data.ok ? undefined : "Un événement a été modifié après son écriture. Les événements à partir de ce point ne sont plus fiables."}
         </Banner>
       )}
       {events.isLoading ? <Skeleton className="h-96 w-full" /> : <AuditTable events={events.data ?? []} showInterview />}

@@ -18,6 +18,9 @@ import type {
 /** Smallest accepted `max_words` (cs-model MIN_MAX_WORDS). */
 export const MIN_MAX_WORDS = 20
 
+/** Longest description or set of coding rules (cs-model MAX_TEXT). */
+export const MAX_TEXT = 20_000
+
 /** Id reserved by the manual workflow. */
 export const COPY_PASTE_ID = "copy_paste"
 
@@ -42,6 +45,11 @@ export interface StudyForm {
   interviewers: string[]
   /** Text of the number input, so that an empty or partial value can be shown. */
   max_words: string
+  /** Description of the study, a paragraph (`StudyConfig.description`). */
+  description: string
+  /** Coding rules (`StudyConfig.coding_rules`). */
+  coding_rules: string
+  /** Kept as stored: the header and the footer are no longer edited here, the two fields above replace them. */
   template: { version: string; header: string; codebook_intro: string; units_intro: string; footer: string }
 }
 
@@ -68,6 +76,8 @@ export function formFromConfig(cfg: StudyConfig): StudyForm {
     id_prefixes: [...cfg.id_prefixes],
     interviewers: [...cfg.interviewers],
     max_words: String(cfg.max_words),
+    description: cfg.description ?? "",
+    coding_rules: cfg.coding_rules ?? "",
     template: { ...cfg.prompt_template },
   }
 }
@@ -94,6 +104,8 @@ export function configFromForm(form: StudyForm): StudyConfig {
     id_prefixes: form.id_prefixes.map((p) => p.trim()).filter((p) => p !== ""),
     interviewers: [...new Set(form.interviewers.map((n) => n.trim()).filter((n) => n !== ""))],
     max_words: Number(form.max_words),
+    description: form.description,
+    coding_rules: form.coding_rules,
     prompt_template: { ...form.template },
   }
 }
@@ -111,43 +123,46 @@ export function validateForm(form: StudyForm): FormErrors {
   const words = form.max_words.trim()
   const n = Number(words)
   if (words === "" || !Number.isInteger(n)) {
-    errors.max_words = "max_words must be a whole number"
+    errors.max_words = "le nombre maximal de mots doit être un entier"
   } else if (n < MIN_MAX_WORDS) {
-    errors.max_words = `max_words must be at least ${MIN_MAX_WORDS}, not ${n}`
+    errors.max_words = `le nombre maximal de mots doit valoir au moins ${MIN_MAX_WORDS}, pas ${n}`
   }
   if (form.framework === "custom") {
     const problem = categoryProblem(form.categories)
     if (problem) errors.categories = problem
   }
   if (form.id_prefixes.length === 0) {
-    errors.id_prefixes = "id_prefixes must list at least one prefix"
+    errors.id_prefixes = "indiquez au moins un préfixe d'identifiant"
   } else {
     const seen = new Set<string>()
     for (const raw of form.id_prefixes) {
       const p = raw.trim()
       if (!isPrefix(p)) {
-        errors.id_prefixes = `id_prefixes: "${p}" must contain only letters and digits`
+        errors.id_prefixes = `préfixes d'identifiant : « ${p} » ne doit contenir que des lettres et des chiffres`
         break
       }
       if (seen.has(p)) {
-        errors.id_prefixes = `id_prefixes: duplicate prefix ${p}`
+        errors.id_prefixes = `préfixes d'identifiant : ${p} en double`
         break
       }
       seen.add(p)
     }
   }
-  if (form.template.version.trim() === "") errors.prompt_version = "the prompt template version is empty"
+  for (const [key, text] of [["description", form.description], ["coding_rules", form.coding_rules]] as const) {
+    if ([...text].length > MAX_TEXT) errors[key] = `le texte dépasse ${MAX_TEXT} caractères`
+  }
+  if (form.template.version.trim() === "") errors.prompt_version = "la version du modèle de prompt est vide"
   return errors
 }
 
 function categoryProblem(rows: CategoryRow[]): string | undefined {
-  if (rows.length === 0) return "the phase 1 category list is empty"
+  if (rows.length === 0) return "la liste des catégories de phase 1 est vide"
   const seen = new Set<string>()
   for (const row of rows) {
     const code = row.code.trim()
-    if (code === "") return "a phase 1 category name is empty"
-    if (code === "NA") return "NA is reserved and cannot be a phase 1 category"
-    if (seen.has(code)) return `duplicate phase 1 category ${code}`
+    if (code === "") return "le nom d'une catégorie de phase 1 est vide"
+    if (code === "NA") return "NA est réservé et ne peut pas être une catégorie de phase 1"
+    if (seen.has(code)) return `catégorie de phase 1 en double : ${code}`
     seen.add(code)
   }
   return undefined
@@ -297,22 +312,22 @@ const ENV_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/
 export function validateProviderForm(f: ProviderForm, otherIds: string[]): FormErrors {
   const errors: FormErrors = {}
   const id = f.id.trim()
-  if (id === "") errors.id = "the provider id is empty"
-  else if (id === COPY_PASTE_ID) errors.id = `${COPY_PASTE_ID} is reserved for the manual workflow`
-  else if (otherIds.includes(id)) errors.id = `duplicate provider id ${id}`
+  if (id === "") errors.id = "l'identifiant du fournisseur est vide"
+  else if (id === COPY_PASTE_ID) errors.id = `${COPY_PASTE_ID} est réservé au parcours manuel`
+  else if (otherIds.includes(id)) errors.id = `identifiant de fournisseur en double : ${id}`
   if (f.type === "cli") {
-    if (f.command.trim() === "") errors.command = "the command is empty"
+    if (f.command.trim() === "") errors.command = "la commande est vide"
     if (f.execution === "hosted") {
-      if (f.vendor.trim() === "") errors.vendor = "the vendor of a hosted model is required"
-      if (f.endpoint.trim() === "") errors.endpoint = "the endpoint of a hosted model is required"
+      if (f.vendor.trim() === "") errors.vendor = "l'éditeur d'un modèle hébergé est obligatoire"
+      if (f.endpoint.trim() === "") errors.endpoint = "le point d'accès d'un modèle hébergé est obligatoire"
     }
   }
   if (f.type === "open_ai_compatible") {
-    if (f.preset === "custom" && f.base_url.trim() === "") errors.base_url = "a custom preset needs a base_url"
+    if (f.preset === "custom" && f.base_url.trim() === "") errors.base_url = "un préréglage personnalisé demande une URL de base"
     const key = f.api_key_env.trim()
-    if (key === "") errors.api_key_env = "the name of the environment variable that holds the key is required"
-    else if (!ENV_NAME.test(key)) errors.api_key_env = "api_key_env is the name of an environment variable, not the key itself"
-    if (f.model.trim() === "") errors.model = "the model is required"
+    if (key === "") errors.api_key_env = "le nom de la variable d'environnement qui contient la clé est obligatoire"
+    else if (!ENV_NAME.test(key)) errors.api_key_env = "api_key_env est le nom d'une variable d'environnement, pas la clé elle-même"
+    if (f.model.trim() === "") errors.model = "le modèle est obligatoire"
   }
   return errors
 }

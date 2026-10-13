@@ -16,18 +16,20 @@ import { interviewHref } from "@/lib/router"
 import type { InterviewDetail, SourceKind } from "@/lib/types"
 
 const KIND_LABEL: Record<SourceKind, string> = {
-  vtt: "Platform transcript (VTT)",
-  timestamped_text: "Raw ASR text",
-  cleaned_markdown: "Cleaned transcript",
-  budgie_markdown: "Budgie Echo export",
-  written_response: "Written answer",
-  summary: "Summary",
-  record_sheet: "Record sheet",
-  toe_coding: "Earlier coding",
-  other: "Other",
+  vtt: "Transcription de plateforme (VTT)",
+  timestamped_text: "Texte brut de reconnaissance vocale",
+  cleaned_markdown: "Transcription épurée",
+  budgie_markdown: "Export Budgie Echo",
+  written_response: "Réponse écrite",
+  docx: "Transcription Word (DOCX)",
+  pdf: "Transcription PDF",
+  summary: "Synthèse",
+  record_sheet: "Fiche d'enregistrement",
+  toe_coding: "Codage antérieur",
+  other: "Autre",
 }
 
-const TRANSCRIPT: SourceKind[] = ["vtt", "timestamped_text", "cleaned_markdown", "budgie_markdown", "written_response"]
+const TRANSCRIPT: SourceKind[] = ["vtt", "timestamped_text", "cleaned_markdown", "budgie_markdown", "written_response", "docx", "pdf"]
 
 function FileViewer({ id, path, onClose }: { id: string; path: string | null; onClose: () => void }) {
   const file = useQuery({ queryKey: ["file", id, path], queryFn: () => api.file(id, path!), enabled: !!path })
@@ -36,16 +38,16 @@ function FileViewer({ id, path, onClose }: { id: string; path: string | null; on
       <SheetContent side="right" className="w-[min(52rem,92vw)] sm:max-w-none">
         <SheetHeader>
           <SheetTitle className="ident break-all">{path}</SheetTitle>
-          <SheetDescription>Read only. The file on disk is never modified.</SheetDescription>
+          <SheetDescription>Lecture seule. Le fichier sur le disque n'est jamais modifié.</SheetDescription>
         </SheetHeader>
         <div className="flex min-h-0 flex-1 flex-col gap-3 px-4 pb-4">
           {file.data?.changed_since_scan && (
-            <Banner tone="warn" title="This file changed since the last scan">
-              Rescan the library so the inventory and the audit trail record the new SHA-256.
+            <Banner tone="warn" title="Ce fichier a changé depuis le dernier balayage">
+              Balayez de nouveau la bibliothèque pour que l'inventaire et le journal d'audit enregistrent la nouvelle empreinte SHA-256.
             </Banner>
           )}
           {file.isLoading && <Skeleton className="h-64 w-full" />}
-          {file.error && <Banner tone="danger" title="The file could not be read">{file.error.message}</Banner>}
+          {file.error && <Banner tone="danger" title="Le fichier n'a pas pu être lu">{file.error.message}</Banner>}
           {file.data && (
             <pre className="bg-muted/40 min-h-0 flex-1 overflow-auto rounded-md border p-4 font-serif text-[0.95rem] leading-relaxed whitespace-pre-wrap">
               {file.data.text}
@@ -72,33 +74,33 @@ export function SourcesTab({ detail }: { detail: InterviewDetail }) {
   const segment = useMutation({
     mutationFn: () => api.segment(id, detail.entry.primary_source ?? undefined),
     onSuccess: (s) => {
-      toast.success(`Segmented into ${s.units.length} units`)
+      toast.success(`Segmenté en ${s.units.length} unités`)
       invalidateInterview(qc, id)
     },
-    onError: (e) => reportError(e, "Segmentation refused"),
+    onError: (e) => reportError(e, "Segmentation refusée"),
   })
 
   return (
     <div className="flex flex-col gap-5">
       <Section
         title="Segmentation"
-        aside={seg ? `rule ${seg.rule.split(":")[0]}` : undefined}
+        aside={seg ? `règle ${seg.rule.split(":")[0]}` : undefined}
       >
         {seg ? (
           <div className="flex flex-wrap items-start justify-between gap-4 text-sm">
             <div className="flex flex-col gap-1">
               <div>
-                <span className="font-semibold tabular-nums">{seg.units.length} units</span> from{" "}
+                <span className="font-semibold tabular-nums">{seg.units.length} unités</span> issues de{" "}
                 <span className="ident">{seg.source_rel_path}</span>
               </div>
               <div className="text-muted-foreground text-xs">
-                Source SHA-256 <span className="ident">{shortHash(seg.source_sha256, 16)}</span>, unit list hash{" "}
+                Empreinte SHA-256 de la source <span className="ident">{shortHash(seg.source_sha256, 16)}</span>, empreinte de la liste des unités{" "}
                 <span className="ident">{shortHash(seg.hash, 16)}</span>
               </div>
               <div className="text-muted-foreground max-w-prose text-xs">{seg.rule}</div>
               {seg.warnings.length > 0 && (
                 <details className="text-warn mt-1 text-xs">
-                  <summary className="cursor-pointer">{seg.warnings.length} lines not turned into units</summary>
+                  <summary className="cursor-pointer">{seg.warnings.length} lignes non converties en unités</summary>
                   <ul className="mt-1 list-inside list-disc">
                     {seg.warnings.map((w, i) => (
                       <li key={i}>{w}</li>
@@ -108,38 +110,38 @@ export function SourcesTab({ detail }: { detail: InterviewDetail }) {
               )}
             </div>
             <Button asChild>
-              <a href={interviewHref(id, "coding", 1)}>Start coding phase 1</a>
+              <a href={interviewHref(id, "coding", 1)}>Commencer le codage, phase 1</a>
             </Button>
           </div>
         ) : (
           <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
             <p className="text-muted-foreground max-w-prose">
               {detail.entry.primary_source
-                ? "Segment the primary transcript: one unit per speaker turn, long turns split at sentence ends. The same file always gives the same units."
-                : "No transcript was found in this folder. Add one and rescan the library."}
+                ? "Segmentez la transcription principale : une unité par tour de parole, les tours longs coupés en fin de phrase. Le même fichier donne toujours les mêmes unités."
+                : "Aucune transcription dans ce dossier. Ajoutez-en une et balayez de nouveau la bibliothèque."}
             </p>
             <Button disabled={!detail.entry.primary_source || segment.isPending} onClick={() => segment.mutate()}>
-              {segment.isPending ? "Segmenting..." : "Segment the primary transcript"}
+              {segment.isPending ? "Segmentation…" : "Segmenter la transcription principale"}
             </Button>
           </div>
         )}
         {seg && coded && (
           <p className="text-muted-foreground mt-3 text-xs">
-            Coding has started, so the segmentation is frozen. Any change would break the link between codes and units.
+            Le codage a commencé, la segmentation est donc figée. Toute modification romprait le lien entre les codes et les unités.
           </p>
         )}
       </Section>
 
-      <Section title="Files in the interview folder" aside={`${detail.entry.sources.length} inventoried`}>
+      <Section title="Fichiers du dossier de l'entretien" aside={`${detail.entry.sources.length} inventoriés`}>
         <div className="-m-4 overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="pl-4">File</TableHead>
-                <TableHead>Kind</TableHead>
+                <TableHead className="pl-4">Fichier</TableHead>
+                <TableHead>Type</TableHead>
                 <TableHead>SHA-256</TableHead>
-                <TableHead className="text-right">Size</TableHead>
-                <TableHead>Modified</TableHead>
+                <TableHead className="text-right">Taille</TableHead>
+                <TableHead>Modifié</TableHead>
                 <TableHead className="pr-4 text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -153,7 +155,7 @@ export function SourcesTab({ detail }: { detail: InterviewDetail }) {
                       <span className="ident break-all">{f.rel_path}</span>
                       {isPrimary && (
                         <Badge variant="secondary" className="ml-2">
-                          primary
+                          principale
                         </Badge>
                       )}
                     </TableCell>
@@ -163,11 +165,11 @@ export function SourcesTab({ detail }: { detail: InterviewDetail }) {
                     <TableCell className="text-muted-foreground text-xs">{dateTime(f.modified)}</TableCell>
                     <TableCell className="pr-4 text-right whitespace-nowrap">
                       <Button size="sm" variant="ghost" onClick={() => setViewing(f.rel_path)}>
-                        View
+                        Voir
                       </Button>
                       {transcript && !isPrimary && !seg && (
                         <Button size="sm" variant="outline" disabled={primary.isPending} onClick={() => primary.mutate(f.rel_path)}>
-                          Use as primary
+                          Utiliser comme principale
                         </Button>
                       )}
                     </TableCell>

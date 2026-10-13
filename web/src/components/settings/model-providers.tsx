@@ -28,16 +28,16 @@ import {
 import type { IsolationReport, OAuthStatus, ProviderEntry, ProvidersConfig } from "@/lib/types"
 
 const KIND_LABEL: Record<ProviderEntry["kind"], string> = {
-  copy_paste: "Manual",
-  cli: "Command line",
+  copy_paste: "Manuel",
+  cli: "Ligne de commande",
   open_ai_compatible: "API",
-  oauth_chat_gpt: "ChatGPT account",
+  oauth_chat_gpt: "Compte ChatGPT",
 }
 
 const TYPES: [ProviderType, string][] = [
-  ["cli", "Command line"],
-  ["open_ai_compatible", "API (OpenAI-compatible)"],
-  ["oauth_chat_gpt", "ChatGPT account"],
+  ["cli", "Ligne de commande"],
+  ["open_ai_compatible", "API (compatible OpenAI)"],
+  ["oauth_chat_gpt", "Compte ChatGPT"],
 ]
 
 /** Defaults filled in by the server when a field is left out. */
@@ -46,7 +46,7 @@ const EMPTY_FORM = (type: ProviderType) => emptyProviderForm(type)
 export function ProvidersSection({ pollMs = 1500 }: { pollMs?: number }) {
   const registry = useQuery({ queryKey: ["providers"], queryFn: api.providers })
   return (
-    <Section title="Model providers" aside="copy and paste is always available and is the reference">
+    <Section title="Fournisseurs de modèles" aside="le copier-coller reste toujours disponible et fait référence">
       {registry.isLoading ? (
         <Skeleton className="h-32 w-full" />
       ) : registry.error ? (
@@ -106,41 +106,41 @@ function ProviderRegistry({ entries, pollMs }: { entries: ProviderEntry[]; pollM
                   <span className="font-medium">{entry.id}</span>
                   <Badge variant="outline">{KIND_LABEL[entry.kind]}</Badge>
                   {entry.kind === "copy_paste" ? (
-                    <span className="text-muted-foreground text-xs">nothing leaves the machine</span>
+                    <span className="text-muted-foreground text-xs">rien ne quitte la machine</span>
                   ) : (
                     <>
                       <span className="text-muted-foreground text-xs">{journalLine(entry.description)}</span>
-                      <span className="text-xs">{entry.configured ? "configured" : "not configured"}</span>
+                      <span className="text-xs">{entry.configured ? "configuré" : "non configuré"}</span>
                     </>
                   )}
                 </div>
                 {entry.kind !== "copy_paste" && (
                   <div className="flex flex-wrap gap-1.5">
                     {entry.kind === "cli" && (
-                      <Button size="sm" variant="outline" disabled={probe.isPending} onClick={() => probe.mutate(entry.id)} aria-label={`Probe ${entry.id}`}>
-                        Probe
+                      <Button size="sm" variant="outline" disabled={probe.isPending} onClick={() => probe.mutate(entry.id)} aria-label={`Tester ${entry.id}`}>
+                        Tester l'isolation
                       </Button>
                     )}
                     {entry.kind === "oauth_chat_gpt" && <ConnectButton id={entry.id} pollMs={pollMs} />}
                     <Button
                       size="sm"
                       variant="ghost"
-                      aria-label={`Edit ${entry.id}`}
+                      aria-label={`Modifier ${entry.id}`}
                       onClick={() => {
                         setSubmitted(false)
                         setEditing({ replaceId: entry.id, form: entry.config ? formFromProvider(entry.config) : EMPTY_FORM("cli") })
                       }}
                     >
-                      Edit
+                      Modifier
                     </Button>
                     <Button
                       size="sm"
                       variant="ghost"
-                      aria-label={`Remove ${entry.id}`}
+                      aria-label={`Retirer ${entry.id}`}
                       disabled={write.isPending}
                       onClick={() => write.mutate(removeProvider(stored, entry.id))}
                     >
-                      Remove
+                      Retirer
                     </Button>
                   </div>
                 )}
@@ -154,9 +154,9 @@ function ProviderRegistry({ entries, pollMs }: { entries: ProviderEntry[]; pollM
 
         {editing ? (
           <div className="flex flex-col gap-3 rounded-md border p-4">
-            <h3 className="text-sm font-medium">{editing.replaceId ? `Edit ${editing.replaceId}` : "Add provider"}</h3>
+            <h3 className="text-sm font-medium">{editing.replaceId ? `Modifier ${editing.replaceId}` : "Ajouter un fournisseur"}</h3>
             <div className="grid gap-3 sm:grid-cols-2">
-              <Field label="Provider kind">
+              <Field label="Type de fournisseur">
                 <NativeSelect
                   value={editing.form.type}
                   disabled={editing.replaceId !== null}
@@ -169,17 +169,17 @@ function ProviderRegistry({ entries, pollMs }: { entries: ProviderEntry[]; pollM
                   ))}
                 </NativeSelect>
               </Field>
-              <Field label="Provider id" error={errors.id}>
+              <Field label="Identifiant du fournisseur" error={errors.id}>
                 <Input value={editing.form.id} onChange={(e) => setField("id", e.target.value)} className="font-mono text-xs" />
               </Field>
             </div>
             <ProviderFields form={editing.form} errors={errors} setField={setField} />
             <div className="flex gap-2">
               <Button onClick={save} disabled={write.isPending}>
-                {write.isPending ? "Saving..." : "Save provider"}
+                {write.isPending ? "Enregistrement…" : "Enregistrer le fournisseur"}
               </Button>
               <Button variant="outline" onClick={() => setEditing(null)}>
-                Cancel
+                Annuler
               </Button>
             </div>
           </div>
@@ -192,7 +192,7 @@ function ProviderRegistry({ entries, pollMs }: { entries: ProviderEntry[]; pollM
                 setEditing({ replaceId: null, form: EMPTY_FORM("cli") })
               }}
             >
-              Add provider
+              Ajouter un fournisseur
             </Button>
           </div>
         )}
@@ -213,33 +213,33 @@ function ProviderFields({
   if (form.type === "cli") {
     return (
       <div className="grid gap-3 sm:grid-cols-2">
-        <Field label="Command" error={errors.command}>
+        <Field label="Commande" error={errors.command}>
           <Input value={form.command} onChange={(e) => setField("command", e.target.value)} className="font-mono text-xs" />
         </Field>
-        <Field label="Prompt via">
+        <Field label="Envoi du prompt par">
           <NativeSelect value={form.prompt_via} onChange={(e) => setField("prompt_via", e.target.value as ProviderForm["prompt_via"])}>
-            <option value="stdin">Standard input</option>
-            <option value="arg">Last argument</option>
+            <option value="stdin">Entrée standard</option>
+            <option value="arg">Dernier argument</option>
           </NativeSelect>
         </Field>
-        <Field label="Arguments (one per line)">
+        <Field label="Arguments (un par ligne)">
           <textarea rows={3} value={form.args} onChange={(e) => setField("args", e.target.value)} className={TEXTAREA} />
         </Field>
-        <Field label="Disable flags (one per line)">
+        <Field label="Options de désactivation (une par ligne)">
           <textarea rows={3} value={form.disable_flags} onChange={(e) => setField("disable_flags", e.target.value)} className={TEXTAREA} />
         </Field>
-        <Field label="Model label">
+        <Field label="Libellé du modèle">
           <Input value={form.model_label} onChange={(e) => setField("model_label", e.target.value)} />
         </Field>
-        <Field label="Declared execution">
+        <Field label="Exécution déclarée">
           <NativeSelect value={form.execution} onChange={(e) => setField("execution", e.target.value as ProviderForm["execution"])}>
             <option value="local">Local</option>
-            <option value="hosted">Hosted model</option>
+            <option value="hosted">Modèle hébergé</option>
           </NativeSelect>
         </Field>
         {form.execution === "hosted" && (
           <>
-            <Field label="Vendor" error={errors.vendor}>
+            <Field label="Éditeur" error={errors.vendor}>
               <Input value={form.vendor} onChange={(e) => setField("vendor", e.target.value)} />
             </Field>
             <Field label="Endpoint" error={errors.endpoint}>
@@ -253,20 +253,20 @@ function ProviderFields({
   if (form.type === "open_ai_compatible") {
     return (
       <div className="grid gap-3 sm:grid-cols-2">
-        <Field label="Preset">
+        <Field label="Préréglage">
           <NativeSelect value={form.preset} onChange={(e) => setField("preset", e.target.value as ProviderForm["preset"])}>
             <option value="openai">OpenAI</option>
             <option value="zai">Z.ai</option>
-            <option value="custom">Custom</option>
+            <option value="custom">Personnalisé</option>
           </NativeSelect>
         </Field>
-        <Field label="Base URL" error={errors.base_url}>
-          <Input value={form.base_url} onChange={(e) => setField("base_url", e.target.value)} placeholder="only for a custom preset" />
+        <Field label="URL de base" error={errors.base_url}>
+          <Input value={form.base_url} onChange={(e) => setField("base_url", e.target.value)} placeholder="seulement pour un préréglage personnalisé" />
         </Field>
-        <Field label="API key variable name" error={errors.api_key_env}>
-          <Input value={form.api_key_env} onChange={(e) => setField("api_key_env", e.target.value)} placeholder="e.g. OPENAI_API_KEY" className="font-mono text-xs" />
+        <Field label="Nom de la variable de la clé d'API" error={errors.api_key_env}>
+          <Input value={form.api_key_env} onChange={(e) => setField("api_key_env", e.target.value)} placeholder="par exemple OPENAI_API_KEY" className="font-mono text-xs" />
         </Field>
-        <Field label="Model" error={errors.model}>
+        <Field label="Modèle" error={errors.model}>
           <Input value={form.model} onChange={(e) => setField("model", e.target.value)} />
         </Field>
       </div>
@@ -274,13 +274,13 @@ function ProviderFields({
   }
   return (
     <div className="grid gap-3 sm:grid-cols-2">
-      <Field label="Profile">
-        <Input value={form.profile_id} onChange={(e) => setField("profile_id", e.target.value)} placeholder="empty: the first connected profile" />
+      <Field label="Profil">
+        <Input value={form.profile_id} onChange={(e) => setField("profile_id", e.target.value)} placeholder="vide : le premier profil connecté" />
       </Field>
-      <Field label="Model">
+      <Field label="Modèle">
         <Input value={form.model} onChange={(e) => setField("model", e.target.value)} />
       </Field>
-      <Field label="Token directory">
+      <Field label="Dossier des jetons">
         <Input value={form.token_dir} onChange={(e) => setField("token_dir", e.target.value)} className="font-mono text-xs" />
       </Field>
     </div>
@@ -290,22 +290,22 @@ function ProviderFields({
 function ProbeResult({ id, result }: { id: string; result: IsolationReport | string }) {
   if (typeof result === "string") return <Alerts messages={[result]} />
   const rows: [string, boolean][] = [
-    ["Empty working directory", result.cwd_empty],
-    ["Scrubbed environment", result.env_scrubbed],
-    ["No instruction files", result.instruction_files_absent],
+    ["Dossier de travail vide", result.cwd_empty],
+    ["Environnement nettoyé", result.env_scrubbed],
+    ["Aucun fichier d'instructions", result.instruction_files_absent],
   ]
   return (
     <div className="flex flex-col gap-2 text-sm">
-      <p className="font-medium">{result.ok ? "Isolation check passed" : "Isolation check failed"}</p>
-      <ul aria-label={`Isolation report of ${id}`} className="flex flex-col gap-0.5 text-xs">
+      <p className="font-medium">{result.ok ? "Contrôle d'isolation réussi" : "Contrôle d'isolation échoué"}</p>
+      <ul aria-label={`Rapport d'isolation de ${id}`} className="flex flex-col gap-0.5 text-xs">
         {rows.map(([label, value]) => (
           <li key={label} className="flex justify-between gap-4">
             <span>{label}</span>
-            <span>{value ? "yes" : "no"}</span>
+            <span>{value ? "oui" : "non"}</span>
           </li>
         ))}
       </ul>
-      {!result.ok && <p className="text-muted-foreground text-xs">What the model answered:</p>}
+      {!result.ok && <p className="text-muted-foreground text-xs">Réponse du modèle :</p>}
       <pre className="bg-muted overflow-x-auto rounded-md p-2 font-mono text-xs whitespace-pre-wrap">{result.probe_answer}</pre>
     </div>
   )
@@ -333,8 +333,8 @@ function ConnectButton({ id, pollMs }: { id: string; pollMs: number }) {
   }, [connected, qc])
   return (
     <div className="flex flex-col items-end gap-1.5">
-      <Button size="sm" variant="outline" aria-label={`Connect ${id}`} disabled={begin.isPending || (started !== null && !done)} onClick={() => begin.mutate()}>
-        Connect
+      <Button size="sm" variant="outline" aria-label={`Connecter ${id}`} disabled={begin.isPending || (started !== null && !done)} onClick={() => begin.mutate()}>
+        Connecter
       </Button>
       {started && (
         <a href={started.url} target="_blank" rel="noreferrer" className="text-primary max-w-xs truncate text-xs underline">
@@ -349,7 +349,7 @@ function ConnectButton({ id, pollMs }: { id: string; pollMs: number }) {
 
 function SignInState({ status }: { status: OAuthStatus }) {
   if (status.error) return <Alerts messages={[status.error]} />
-  if (status.connected && status.profile) return <p className="text-xs">Connected as {status.profile.email}</p>
-  if (status.pending) return <p className="text-muted-foreground text-xs">Waiting for the sign-in in the browser...</p>
+  if (status.connected && status.profile) return <p className="text-xs">Connecté en tant que {status.profile.email}</p>
+  if (status.pending) return <p className="text-muted-foreground text-xs">En attente de la connexion dans le navigateur…</p>
   return null
 }

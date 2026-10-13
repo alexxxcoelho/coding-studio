@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
-import { ApiError, request, toApiError } from "./api"
+import { ApiError, apiBase, apiUrl, request, toApiError } from "./api"
 
 describe("toApiError", () => {
   it("keeps the server kind, message and issues", () => {
@@ -47,5 +47,29 @@ describe("provider run refusals", () => {
     })
     expect(e.rejected).toEqual([{ part: 2, raw: "sorry" }])
     expect(toApiError(400, { error: "x", kind: "validation" }).rejected).toEqual([])
+  })
+})
+
+describe("API base", () => {
+  it("is empty (same origin) unless the desktop shell announces one", () => {
+    expect(apiBase({})).toBe("")
+    expect(apiBase({ __CS_API_BASE__: 7 })).toBe("")
+    expect(apiUrl("/api/state")).toBe("/api/state")
+  })
+  it("uses the loopback origin of the desktop shell, without a trailing slash", () => {
+    expect(apiBase({ __CS_API_BASE__: "http://127.0.0.1:50123/" })).toBe("http://127.0.0.1:50123")
+    expect(apiUrl("/api/state", "http://127.0.0.1:50123")).toBe("http://127.0.0.1:50123/api/state")
+  })
+  it("prefixes every request", async () => {
+    const fetchMock = vi.fn(async (_url: string) => new Response("{}", { status: 200 }))
+    vi.stubGlobal("fetch", fetchMock)
+    ;(window as { __CS_API_BASE__?: string }).__CS_API_BASE__ = "http://127.0.0.1:9"
+    try {
+      await request("GET", "/api/state")
+      expect(fetchMock.mock.calls[0]![0]).toBe("http://127.0.0.1:9/api/state")
+    } finally {
+      delete (window as { __CS_API_BASE__?: string }).__CS_API_BASE__
+      vi.unstubAllGlobals()
+    }
   })
 })

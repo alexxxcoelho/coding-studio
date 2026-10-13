@@ -5,6 +5,16 @@
 //! - `parse_source(path, kind, interviewer_names)` reads speaker turns.
 //! - `segment(interview_id, turns)` applies `cs_model::SEGMENTATION_RULE`.
 //! - `build_segmentation(entry, rel_path, interviewer_names)` does parse + segment + hashes.
+//! - `parse_document(path, interviewer_names)` reads a DOCX, text-layer PDF, SRT or VTT file.
+//!
+//! Accepted transcript formats:
+//! - WebVTT (`.vtt`, `<v Name>` voice tags), SRT (`.srt`, `Name:` prefix), cues merged per speaker.
+//! - DOCX (`.docx`): paragraphs; speaker from a `Name:` prefix or a leading bold run.
+//! - Text-layer PDF (`.pdf`): one line per PDF line; a PDF without text is read as no turns, with a warning.
+//! - Markdown and text kinds listed in `SourceKind` (cleaned, Budgie, timestamped text, written answers).
+//! - DOCX and text-layer PDF are read through `SourceKind::Docx` and `SourceKind::Pdf`.
+//!
+//! Start times come from the file when present, otherwise `--:--`.
 //!
 //! Reading never modifies a source file. Text is only trimmed, whitespace
 //! collapsed, markdown bold markers removed and HTML entities decoded, so a
@@ -18,6 +28,7 @@ use cs_model::{
     SEGMENTATION_RULE,
 };
 
+mod formats;
 mod parse;
 mod scan;
 mod segment;
@@ -50,8 +61,8 @@ pub fn classify(rel_path: &str) -> SourceKind {
 /// Scans `root`: every direct sub-folder with an interview ID becomes an entry,
 /// sorted by ID. Files are inventoried recursively with their SHA-256, except
 /// `archive/`, `sources/`, `__pycache__/`, `generated/`, hidden files and
-/// scripts (skipped silently) and media, zip, pdf, `.budgie` and clippings
-/// (skipped with a warning). Empty or zero-filled files are reported as
+/// scripts (skipped silently) and media, zip, `.budgie` and clippings
+/// (skipped with a warning). DOCX and PDF files are inventoried as transcripts. Empty or zero-filled files are reported as
 /// probably offline and never proposed as the primary transcript.
 pub fn scan_library(root: &Path) -> Result<Vec<InterviewEntry>> {
     scan::scan_library(root)
@@ -72,17 +83,70 @@ pub fn parse_source(
         .into());
     }
     let bytes = std::fs::read(path).with_context(|| format!("cannot read {}", path.display()))?;
+    // Binary containers are not decoded as text first.
+    match kind {
+        SourceKind::Docx => return formats::parse_docx(&bytes, interviewer_names),
+        SourceKind::Pdf => return formats::parse_pdf(&bytes, interviewer_names),
+        _ => {}
+    }
     let (content, mut warnings) = decode(&bytes);
     let (turns, more) = match kind {
+        SourceKind::Vtt if has_extension(path, "srt") => {
+            formats::parse_srt(&content, interviewer_names)
+        }
         SourceKind::Vtt => parse::parse_vtt(&content, interviewer_names),
         SourceKind::TimestampedText => parse::parse_timestamped_text(&content),
         SourceKind::CleanedMarkdown => parse::parse_cleaned_markdown(&content),
         SourceKind::BudgieMarkdown => parse::parse_budgie_markdown(&content),
         SourceKind::WrittenResponse => parse::parse_written_response(&content),
+        SourceKind::Docx | SourceKind::Pdf => unreachable!("read as binary above"),
         _ => unreachable!("checked by is_transcript"),
     };
     warnings.extend(more);
     Ok((turns, warnings))
+}
+
+/// Reads the speaker turns of a DOCX, text-layer PDF, SRT or VTT file, with
+/// the same turn shape as `parse_source`. Other extensions are refused. A
+/// PDF without a text layer returns no turns and a warning; an unreadable
+/// file returns an error.
+pub fn parse_document(
+    path: &Path,
+    interviewer_names: &[String],
+) -> Result<(Vec<Turn>, Vec<String>)> {
+    let ext = path
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("")
+        .to_lowercase();
+    if !matches!(ext.as_str(), "docx" | "pdf" | "srt" | "vtt") {
+        return Err(CsError::Validation(format!(
+            "unsupported transcript format for {}: expected DOCX, PDF, SRT or VTT",
+            path.display()
+        ))
+        .into());
+    }
+    let bytes = std::fs::read(path).with_context(|| format!("cannot read {}", path.display()))?;
+    match ext.as_str() {
+        "docx" => formats::parse_docx(&bytes, interviewer_names),
+        "pdf" => formats::parse_pdf(&bytes, interviewer_names),
+        _ => {
+            let (content, mut warnings) = decode(&bytes);
+            let (turns, more) = if ext == "srt" {
+                formats::parse_srt(&content, interviewer_names)
+            } else {
+                parse::parse_vtt(&content, interviewer_names)
+            };
+            warnings.extend(more);
+            Ok((turns, warnings))
+        }
+    }
+}
+
+fn has_extension(path: &Path, wanted: &str) -> bool {
+    path.extension()
+        .and_then(|e| e.to_str())
+        .is_some_and(|e| e.eq_ignore_ascii_case(wanted))
 }
 
 /// UTF-8 decoding with BOM removal; invalid bytes are replaced and reported.

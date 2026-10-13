@@ -564,5 +564,575 @@
       "file": "fr/00_sommaire.md",
       "anchor": "sommaire-lire"
     }
+  },
+  "languages": {
+    "en": {
+      "lang": "en",
+      "title": "Coding Studio guide",
+      "help_button": "Each screen has a \"?\" button at the top right that opens the section for that screen in a side drawer.",
+      "sections": [
+        {
+          "id": "sommaire",
+          "title": "Contents",
+          "file": "en/00_contents.md",
+          "anchor": "sommaire",
+          "headings": [
+            {
+              "level": 2,
+              "title": "What this guide covers",
+              "anchor": "sommaire-portee"
+            },
+            {
+              "level": 2,
+              "title": "The workflow in one list",
+              "anchor": "sommaire-parcours"
+            },
+            {
+              "level": 2,
+              "title": "The screens of the app",
+              "anchor": "sommaire-ecrans"
+            },
+            {
+              "level": 2,
+              "title": "How to read this guide",
+              "anchor": "sommaire-lire"
+            },
+            {
+              "level": 2,
+              "title": "What can be customised",
+              "anchor": "sommaire-personnalisable"
+            }
+          ]
+        },
+        {
+          "id": "preparer",
+          "title": "Prepare the study",
+          "file": "en/01_prepare.md",
+          "anchor": "preparer",
+          "headings": [
+            {
+              "level": 2,
+              "title": "Why this stage",
+              "anchor": "preparer-pourquoi"
+            },
+            {
+              "level": 2,
+              "title": "What you do",
+              "anchor": "preparer-actions"
+            },
+            {
+              "level": 3,
+              "title": "1. Create the project",
+              "anchor": "preparer-projet"
+            },
+            {
+              "level": 3,
+              "title": "2. Open the \"Settings\" (Réglages)",
+              "anchor": "preparer-reglages"
+            },
+            {
+              "level": 3,
+              "title": "3. Write the research questions",
+              "anchor": "preparer-questions"
+            },
+            {
+              "level": 3,
+              "title": "4. Define the interview attributes",
+              "anchor": "preparer-attributs"
+            },
+            {
+              "level": 3,
+              "title": "5. Prepare the memo templates",
+              "anchor": "preparer-memos"
+            },
+            {
+              "level": 3,
+              "title": "6. Set the end-of-interview checklist",
+              "anchor": "preparer-checklist"
+            },
+            {
+              "level": 3,
+              "title": "7. Choose an interpretive framework, or none",
+              "anchor": "preparer-cadre"
+            },
+            {
+              "level": 3,
+              "title": "8. Declare the interviewers",
+              "anchor": "preparer-intervieweurs"
+            },
+            {
+              "level": 3,
+              "title": "9. Import the transcripts and read the \"Library\" (Bibliothèque)",
+              "anchor": "preparer-bibliotheque"
+            },
+            {
+              "level": 3,
+              "title": "10. Fill in the \"Interview record\" (Fiche d'entretien)",
+              "anchor": "preparer-fiche"
+            },
+            {
+              "level": 3,
+              "title": "11. Set up pseudonymisation",
+              "anchor": "preparer-pseudo"
+            },
+            {
+              "level": 3,
+              "title": "12. Export or import a project template",
+              "anchor": "preparer-modele"
+            },
+            {
+              "level": 2,
+              "title": "Common pitfalls",
+              "anchor": "preparer-pieges"
+            },
+            {
+              "level": 2,
+              "title": "What this stage delivers",
+              "anchor": "preparer-sortie"
+            }
+          ]
+        },
+        {
+          "id": "coder",
+          "title": "Coding an interview",
+          "file": "en/02_code.md",
+          "anchor": "coder",
+          "headings": [
+            {
+              "level": 2,
+              "title": "Why this stage",
+              "anchor": "coder-pourquoi"
+            },
+            {
+              "level": 2,
+              "title": "What you do",
+              "anchor": "coder-actions"
+            },
+            {
+              "level": 3,
+              "title": "1. Write the familiarisation memo",
+              "anchor": "coder-memo"
+            },
+            {
+              "level": 3,
+              "title": "2. Go through the turns",
+              "anchor": "coder-parcourir"
+            },
+            {
+              "level": 3,
+              "title": "3. Code a passage",
+              "anchor": "coder-passage"
+            },
+            {
+              "level": 3,
+              "title": "4. Attach several codes to a passage",
+              "anchor": "coder-multicodes"
+            },
+            {
+              "level": 3,
+              "title": "5. Create a code on the fly",
+              "anchor": "coder-nouveau-code"
+            },
+            {
+              "level": 3,
+              "title": "6. Use the \"Later\" (Plus tard) code",
+              "anchor": "coder-plus-tard"
+            },
+            {
+              "level": 3,
+              "title": "7. Organise the code tree",
+              "anchor": "coder-codebook"
+            },
+            {
+              "level": 3,
+              "title": "8. Keep a code memo",
+              "anchor": "coder-memo-code"
+            },
+            {
+              "level": 3,
+              "title": "9. Highlight without coding",
+              "anchor": "coder-surlignages"
+            },
+            {
+              "level": 3,
+              "title": "10. Use the \"Lexicon\" (Lexique)",
+              "anchor": "coder-lexique"
+            },
+            {
+              "level": 3,
+              "title": "11. Go through the end-of-interview checklist",
+              "anchor": "coder-checklist"
+            },
+            {
+              "level": 3,
+              "title": "12. Prepare a quotation: the \"Detail\" (Détail) drawer",
+              "anchor": "coder-detail"
+            },
+            {
+              "level": 2,
+              "title": "Common pitfalls",
+              "anchor": "coder-pieges"
+            },
+            {
+              "level": 2,
+              "title": "What this stage delivers",
+              "anchor": "coder-sortie"
+            }
+          ]
+        },
+        {
+          "id": "revoir",
+          "title": "Review (optional)",
+          "file": "en/03_review.md",
+          "anchor": "revoir",
+          "headings": [
+            {
+              "level": 2,
+              "title": "Why this stage",
+              "anchor": "revoir-pourquoi"
+            },
+            {
+              "level": 2,
+              "title": "What you do",
+              "anchor": "revoir-actions"
+            },
+            {
+              "level": 3,
+              "title": "1. Harmonise without AI",
+              "anchor": "revoir-harmoniser"
+            },
+            {
+              "level": 3,
+              "title": "2. Decide whether an AI review is useful",
+              "anchor": "revoir-decider"
+            },
+            {
+              "level": 3,
+              "title": "3. Configure a provider, or do without one",
+              "anchor": "revoir-fournisseurs"
+            },
+            {
+              "level": 3,
+              "title": "4. Generate the prompt",
+              "anchor": "revoir-prompt"
+            },
+            {
+              "level": 3,
+              "title": "5. Import the model's response",
+              "anchor": "revoir-reponse"
+            },
+            {
+              "level": 3,
+              "title": "6. Arbitrate the disagreements",
+              "anchor": "revoir-arbitrer"
+            },
+            {
+              "level": 3,
+              "title": "7. Check a sample of agreements",
+              "anchor": "revoir-accords"
+            },
+            {
+              "level": 3,
+              "title": "8. Handle concepts missing from the codebook",
+              "anchor": "revoir-concepts"
+            },
+            {
+              "level": 3,
+              "title": "9. Revise the codebook after review",
+              "anchor": "revoir-codebook"
+            },
+            {
+              "level": 2,
+              "title": "Common pitfalls",
+              "anchor": "revoir-pieges"
+            },
+            {
+              "level": 2,
+              "title": "What this stage delivers",
+              "anchor": "revoir-sortie"
+            }
+          ]
+        },
+        {
+          "id": "analyser",
+          "title": "Analyse: from codes to themes",
+          "file": "en/04_analyse.md",
+          "anchor": "analyser",
+          "headings": [
+            {
+              "level": 2,
+              "title": "Why this stage",
+              "anchor": "analyser-pourquoi"
+            },
+            {
+              "level": 2,
+              "title": "What you do",
+              "anchor": "analyser-actions"
+            },
+            {
+              "level": 3,
+              "title": "1. Group the codes",
+              "anchor": "analyser-regrouper"
+            },
+            {
+              "level": 3,
+              "title": "2. Create a theme",
+              "anchor": "analyser-themes"
+            },
+            {
+              "level": 3,
+              "title": "3. Fill in the theme record",
+              "anchor": "analyser-fiche"
+            },
+            {
+              "level": 3,
+              "title": "4. Set the status and run the checks",
+              "anchor": "analyser-statut"
+            },
+            {
+              "level": 3,
+              "title": "5. Read the themes through a framework, if you have chosen one",
+              "anchor": "analyser-cadre"
+            },
+            {
+              "level": 3,
+              "title": "6. Set the matrix",
+              "anchor": "analyser-matrice"
+            },
+            {
+              "level": 3,
+              "title": "7. Read a cell",
+              "anchor": "analyser-cellules"
+            },
+            {
+              "level": 3,
+              "title": "8. Filter to bring out contrasts",
+              "anchor": "analyser-filtres"
+            },
+            {
+              "level": 3,
+              "title": "9. Explore the data",
+              "anchor": "analyser-explorer"
+            },
+            {
+              "level": 3,
+              "title": "10. Document the decisions",
+              "anchor": "analyser-decisions"
+            },
+            {
+              "level": 2,
+              "title": "Common pitfalls",
+              "anchor": "analyser-pieges"
+            },
+            {
+              "level": 2,
+              "title": "What this stage delivers",
+              "anchor": "analyser-sortie"
+            }
+          ]
+        },
+        {
+          "id": "rediger",
+          "title": "Write the findings",
+          "file": "en/05_write.md",
+          "anchor": "rediger",
+          "headings": [
+            {
+              "level": 2,
+              "title": "Why this stage",
+              "anchor": "rediger-pourquoi"
+            },
+            {
+              "level": 2,
+              "title": "What you do",
+              "anchor": "rediger-actions"
+            },
+            {
+              "level": 3,
+              "title": "1. Open the \"By theme\" (Par thème) tab",
+              "anchor": "rediger-theme"
+            },
+            {
+              "level": 3,
+              "title": "2. Write the five parts of the theme",
+              "anchor": "rediger-parties"
+            },
+            {
+              "level": 3,
+              "title": "3. Link a passage to a part",
+              "anchor": "rediger-liens"
+            },
+            {
+              "level": 3,
+              "title": "4. Write the synthesis by research question",
+              "anchor": "rediger-question"
+            },
+            {
+              "level": 3,
+              "title": "5. Read the themes with the framework",
+              "anchor": "rediger-tableau"
+            },
+            {
+              "level": 3,
+              "title": "6. Run the final audit of three statements",
+              "anchor": "rediger-audit"
+            },
+            {
+              "level": 3,
+              "title": "7. Attach documented decisions",
+              "anchor": "rediger-decisions"
+            },
+            {
+              "level": 2,
+              "title": "Common pitfalls",
+              "anchor": "rediger-pieges"
+            },
+            {
+              "level": 2,
+              "title": "What this stage delivers",
+              "anchor": "rediger-sortie"
+            }
+          ]
+        },
+        {
+          "id": "exporter",
+          "title": "Export and audit",
+          "file": "en/06_export_and_audit.md",
+          "anchor": "exporter",
+          "headings": [
+            {
+              "level": 2,
+              "title": "Why this stage",
+              "anchor": "exporter-pourquoi"
+            },
+            {
+              "level": 2,
+              "title": "What you do",
+              "anchor": "exporter-actions"
+            },
+            {
+              "level": 3,
+              "title": "1. Export an interview",
+              "anchor": "exporter-entretien"
+            },
+            {
+              "level": 3,
+              "title": "2. Export the cross-case package",
+              "anchor": "exporter-transversal"
+            },
+            {
+              "level": 3,
+              "title": "3. Read the manifest",
+              "anchor": "exporter-manifeste"
+            },
+            {
+              "level": 3,
+              "title": "4. Check the audit log chain",
+              "anchor": "exporter-journal"
+            },
+            {
+              "level": 3,
+              "title": "5. Replay the final audit",
+              "anchor": "exporter-audit-final"
+            },
+            {
+              "level": 3,
+              "title": "6. Choose what goes in the appendices",
+              "anchor": "exporter-annexes"
+            },
+            {
+              "level": 2,
+              "title": "Common pitfalls",
+              "anchor": "exporter-pieges"
+            },
+            {
+              "level": 2,
+              "title": "What this stage delivers",
+              "anchor": "exporter-sortie"
+            }
+          ]
+        },
+        {
+          "id": "glossaire",
+          "title": "Glossary",
+          "file": "en/07_glossary.md",
+          "anchor": "glossaire",
+          "headings": [
+            {
+              "level": 2,
+              "title": "A to C",
+              "anchor": "glossaire-a-c"
+            },
+            {
+              "level": 2,
+              "title": "D to M",
+              "anchor": "glossaire-d-m"
+            },
+            {
+              "level": 2,
+              "title": "N to Z",
+              "anchor": "glossaire-n-z"
+            }
+          ]
+        }
+      ],
+      "screens": {
+        "bibliotheque": {
+          "section": "preparer",
+          "file": "en/01_prepare.md",
+          "anchor": "preparer-bibliotheque"
+        },
+        "coder": {
+          "section": "coder",
+          "file": "en/02_code.md",
+          "anchor": "coder-parcourir"
+        },
+        "detail": {
+          "section": "coder",
+          "file": "en/02_code.md",
+          "anchor": "coder-detail"
+        },
+        "revoir-ia": {
+          "section": "revoir",
+          "file": "en/03_review.md",
+          "anchor": "revoir-prompt"
+        },
+        "revoir-decisions": {
+          "section": "revoir",
+          "file": "en/03_review.md",
+          "anchor": "revoir-arbitrer"
+        },
+        "analyser": {
+          "section": "analyser",
+          "file": "en/04_analyse.md",
+          "anchor": "analyser-themes"
+        },
+        "rediger": {
+          "section": "rediger",
+          "file": "en/05_write.md",
+          "anchor": "rediger-theme"
+        },
+        "codebook": {
+          "section": "coder",
+          "file": "en/02_code.md",
+          "anchor": "coder-codebook"
+        },
+        "reglages": {
+          "section": "preparer",
+          "file": "en/01_prepare.md",
+          "anchor": "preparer-reglages"
+        },
+        "surlignages": {
+          "section": "coder",
+          "file": "en/02_code.md",
+          "anchor": "coder-surlignages"
+        },
+        "guide": {
+          "section": "sommaire",
+          "file": "en/00_contents.md",
+          "anchor": "sommaire-lire"
+        }
+      }
+    }
   }
 }

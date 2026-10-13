@@ -454,6 +454,7 @@ fn progress_after_segmentation() {
             n_decided: 0,
             n_sample: 0,
             n_sample_reviewed: 0,
+            n_to_review: 0,
             done: false,
         }
     );

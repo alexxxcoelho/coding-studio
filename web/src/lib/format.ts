@@ -14,7 +14,7 @@ export function dateTime(iso: string | null | undefined): string {
   if (!iso) return ""
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return iso
-  return d.toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })
+  return d.toLocaleString("fr-CH", { dateStyle: "medium", timeStyle: "short" })
 }
 
 export function percent(x: number, digits = 0): string {
@@ -22,7 +22,8 @@ export function percent(x: number, digits = 0): string {
 }
 
 export function plural(n: number, one: string, many = `${one}s`): string {
-  return `${n} ${n === 1 ? one : many}`
+  // French: zero and one are singular.
+  return `${n} ${n < 2 ? one : many}`
 }
 
 /** Local time as a value for <input type="datetime-local">. */

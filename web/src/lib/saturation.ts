@@ -35,5 +35,5 @@ export function saturationTotals(rows: SaturationRow[]): SaturationTotals {
 
 /** The interview id as shown; an empty id means no interview could be attributed. */
 export function interviewLabel(id: string): string {
-  return id || "not attributed"
+  return id || "non attribué"
 }

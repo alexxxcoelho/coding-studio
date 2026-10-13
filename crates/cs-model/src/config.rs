@@ -13,6 +13,9 @@ use crate::{CsError, MAX_WORDS};
 /// Key of the `settings` table holding the JSON form of the configuration.
 pub const STUDY_CONFIG_KEY: &str = "study_config";
 
+/// Longest accepted `description` or `coding_rules`, in characters.
+pub const MAX_TEXT: usize = 20_000;
+
 /// Smallest accepted `max_words`.
 pub const MIN_MAX_WORDS: usize = 20;
 
@@ -191,6 +194,14 @@ pub struct StudyConfig {
     pub max_words: usize,
     pub prompt_template: PromptTemplate,
     pub study_name: String,
+    /// What the study is about, in the researcher's words. Feeds the AI prompt
+    /// and the Write step. Independent of `prompt_template`.
+    #[serde(default)]
+    pub description: String,
+    /// The coding rules of the study (what counts as a unit of meaning, when to
+    /// use several codes...). Independent of `prompt_template`.
+    #[serde(default)]
+    pub coding_rules: String,
 }
 
 impl Default for StudyConfig {
@@ -204,6 +215,8 @@ impl Default for StudyConfig {
             max_words: MAX_WORDS,
             prompt_template: PromptTemplate::default(),
             study_name: String::new(),
+            description: String::new(),
+            coding_rules: String::new(),
         }
     }
 }
@@ -260,6 +273,15 @@ impl StudyConfig {
             prefixes.push(p);
         }
 
+        for (what, text) in [
+            ("description", &self.description),
+            ("coding_rules", &self.coding_rules),
+        ] {
+            if text.chars().count() > MAX_TEXT {
+                return invalid(format!("{what} is longer than {MAX_TEXT} characters"));
+            }
+        }
+
         if self.prompt_template.version.trim().is_empty() {
             return invalid("the prompt template version is empty".into());
         }
@@ -270,6 +292,27 @@ impl StudyConfig {
     /// `None`, the stored list for `Custom`.
     pub fn effective_categories(&self) -> Vec<Category> {
         self.framework.categories(&self.phase1_categories)
+    }
+
+    /// Moves the text a configuration saved before `description` and
+    /// `coding_rules` existed kept in the prompt template: a customised
+    /// `header` becomes the description and a customised `footer` the coding
+    /// rules, each only when the new field is empty. Text equal to the shipped
+    /// prompt is not copied. The prompt template itself is not touched.
+    pub fn migrate_legacy_text(&mut self) {
+        let shipped = PromptTemplate::default();
+        if self.description.trim().is_empty()
+            && !self.prompt_template.header.trim().is_empty()
+            && self.prompt_template.header != shipped.header
+        {
+            self.description = self.prompt_template.header.clone();
+        }
+        if self.coding_rules.trim().is_empty()
+            && !self.prompt_template.footer.trim().is_empty()
+            && self.prompt_template.footer != shipped.footer
+        {
+            self.coding_rules = self.prompt_template.footer.clone();
+        }
     }
 
     /// Copy whose `phase1_categories` equals `effective_categories()`.

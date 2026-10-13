@@ -45,6 +45,8 @@ pub struct SimpleProgress {
     pub n_decided: usize,
     pub n_sample: usize,
     pub n_sample_reviewed: usize,
+    /// Respondent units marked "to review".
+    pub n_to_review: usize,
     pub done: bool,
 }
 
@@ -302,6 +304,7 @@ impl Store {
             n_decided,
             n_sample: samples.len(),
             n_sample_reviewed,
+            n_to_review: self.unit_marks(interview_id)?.len(),
             done,
         })
     }

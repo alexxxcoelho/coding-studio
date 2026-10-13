@@ -35,6 +35,12 @@ struct Fields {
     account_type: Option<String>,
     #[serde(default)]
     swiss_link: Option<String>,
+    #[serde(default)]
+    outcome: Option<String>,
+    #[serde(default)]
+    characteristics: BTreeMap<String, String>,
+    #[serde(default)]
+    passages: Vec<String>,
 }
 
 /// Interview of a unit id: the prefix before `-U` (`ECO-16-U002` gives `ECO-16`).
@@ -74,6 +80,9 @@ fn row_to_case(r: &rusqlite::Row<'_>) -> rusqlite::Result<(Case, String)> {
             stage: r.get(4)?,
             outcome_status: r.get(5)?,
             notes: r.get(6)?,
+            outcome: None,
+            characteristics: BTreeMap::new(),
+            passages: Vec::new(),
             updated_at: r.get(7)?,
         },
         r.get(3)?,
@@ -93,6 +102,15 @@ fn with_fields(mut case: Case, fields: &str) -> Result<Case> {
     case.carriers_rejected = f.carriers_rejected;
     case.account_type = f.account_type;
     case.swiss_link = f.swiss_link;
+    // Data written before `outcome` existed: read it from the free-text decision.
+    case.outcome = f.outcome.or_else(|| {
+        case.decision
+            .as_deref()
+            .and_then(cs_model::analysis::normalise_outcome)
+            .map(str::to_string)
+    });
+    case.characteristics = f.characteristics;
+    case.passages = f.passages;
     Ok(case)
 }
 
@@ -224,7 +242,57 @@ impl Store {
             }
         }
 
+        // Outcome: the guide's three words. Earlier free text is understood.
+        let outcome = match clean_opt(&case.outcome) {
+            Some(o) => Some(
+                cs_model::analysis::normalise_outcome(&o)
+                    .ok_or_else(|| {
+                        validation(format!(
+                            "outcome must be one of {}, not {o}",
+                            cs_model::analysis::DECISION_OUTCOMES.join(", ")
+                        ))
+                    })?
+                    .to_string(),
+            ),
+            None => case
+                .decision
+                .as_deref()
+                .and_then(cs_model::analysis::normalise_outcome)
+                .map(str::to_string),
+        };
+        let mut characteristics = BTreeMap::new();
+        for (k, v) in &case.characteristics {
+            let (k, v) = (k.trim(), v.trim());
+            if k.is_empty() {
+                return Err(validation("a characteristic needs a name"));
+            }
+            if k.chars().count() > 100 || k.contains('\n') || v.chars().count() > 1000 {
+                return Err(validation(format!(
+                    "characteristic {k}: name at most 100 characters on one line, value at most 1000"
+                )));
+            }
+            characteristics.insert(k.to_string(), v.to_string());
+        }
+        if characteristics.len() > 40 {
+            return Err(validation("at most 40 characteristics per decision"));
+        }
+        let mut passages: Vec<String> = Vec::new();
+        for p in case
+            .passages
+            .iter()
+            .map(|p| p.trim())
+            .filter(|p| !p.is_empty())
+        {
+            self.passage(p)
+                .map_err(|_| validation(format!("unknown passage {p}")))?;
+            if !passages.iter().any(|x| x == p) {
+                passages.push(p.to_string());
+            }
+        }
         Ok(Case {
+            outcome,
+            characteristics,
+            passages,
             case_id: case.case_id.trim().to_string(),
             interview_id: interview_id.to_string(),
             label: label.to_string(),
@@ -261,6 +329,9 @@ impl Store {
             carriers_rejected: case.carriers_rejected.clone(),
             account_type: case.account_type.clone(),
             swiss_link: case.swiss_link.clone(),
+            outcome: case.outcome.clone(),
+            characteristics: case.characteristics.clone(),
+            passages: case.passages.clone(),
         };
         let tx = self.conn.unchecked_transaction()?;
         tx.execute(

@@ -27,12 +27,12 @@ describe("isSubstring", () => {
 
 describe("flags", () => {
   it("requires a kind with CO-CONSTRUCTED and refuses it otherwise", () => {
-    expect(flagsProblem(["CO-CONSTRUCTED"], null)).toMatch(/needs a kind/)
+    expect(flagsProblem(["CO-CONSTRUCTED"], null)).toMatch(/demande un type/)
     expect(flagsProblem(["CO-CONSTRUCTED"], "assent")).toBeNull()
-    expect(flagsProblem(["VERIFY"], "content")).toMatch(/only with CO-CONSTRUCTED/)
+    expect(flagsProblem(["VERIFY"], "content")).toMatch(/qu'avec CO-CONSTRUCTED/)
     expect(flagsProblem(["VERIFY"], null)).toBeNull()
-    expect(flagsProblem(["NOPE"], null)).toMatch(/not a flag/)
-    expect(flagsProblem(["CO-CONSTRUCTED"], "other")).toMatch(/not a kind/)
+    expect(flagsProblem(["NOPE"], null)).toMatch(/n'est pas un drapeau/)
+    expect(flagsProblem(["CO-CONSTRUCTED"], "other")).toMatch(/n'est pas un type/)
   })
   it("normalises flags to the closed-list order and drops the kind without the flag", () => {
     expect(normalizeFlags(["UNFINISHED", "VERIFY", "VERIFY"], "content")).toEqual({
@@ -48,9 +48,9 @@ describe("flags", () => {
 
 describe("verification", () => {
   it("labels the state and marks a stale check", () => {
-    expect(verificationLabel({ state: "verified", stale: false })).toBe("Verified")
-    expect(verificationLabel({ state: "unverified", stale: true })).toBe("Unverified, stale")
-    expect(verificationLabel({ state: "unusable", stale: false })).toBe("Unusable")
+    expect(verificationLabel({ state: "verified", stale: false })).toBe("Vérifiée")
+    expect(verificationLabel({ state: "unverified", stale: true })).toBe("Non vérifiée, périmée")
+    expect(verificationLabel({ state: "unusable", stale: false })).toBe("Inutilisable")
   })
   it("never shows a stale check as ok", () => {
     expect(verificationTone({ state: "verified", stale: false })).toBe("ok")
@@ -82,9 +82,9 @@ describe("claims", () => {
     expect(claimIssues("chez l'avocat", ["LEGAL"], unitText, ["LEGAL", "TIME"])).toEqual([])
   })
   it("names each problem: empty excerpt, moved text, foreign code", () => {
-    expect(claimIssues("  ", [], unitText, [])).toEqual(["The excerpt is empty."])
-    expect(claimIssues("chez le notaire", [], unitText, [])[0]).toMatch(/not a word-for-word/)
-    expect(claimIssues("chez l'avocat", ["COST"], unitText, ["LEGAL"])).toEqual(["COST is not a code of this unit."])
+    expect(claimIssues("  ", [], unitText, [])).toEqual(["L'extrait est vide."])
+    expect(claimIssues("chez le notaire", [], unitText, [])[0]).toMatch(/pas une portion textuelle exacte/)
+    expect(claimIssues("chez l'avocat", ["COST"], unitText, ["LEGAL"])).toEqual(["COST n'est pas un code de cette unité."])
   })
   it("builds a payload with sorted unique codes and a null memo when blank", () => {
     const payload = claimPayload({ ...draftOf(sample()), codes: ["TIME", "LEGAL", "LEGAL"], memo: "   " }, "ECO-07-U002")

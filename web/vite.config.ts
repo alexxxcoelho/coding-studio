@@ -12,7 +12,8 @@ const guideDir = process.env.CS_GUIDE_DIR ?? path.resolve(import.meta.dirname, "
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   resolve: { alias: { "@": path.resolve(import.meta.dirname, "./src"), "@guide": guideDir } },
-  server: { fs: { allow: [import.meta.dirname, guideDir] }, proxy: { "/api": process.env.CS_API ?? "http://127.0.0.1:7878" } },
+  // Port 5199 is the devUrl of the desktop shell (crates/cs-desktop/tauri.conf.json): strict, so a busy port is an error.
+  server: { host: "127.0.0.1", port: 5199, strictPort: true, fs: { allow: [import.meta.dirname, guideDir] }, proxy: { "/api": process.env.CS_API ?? "http://127.0.0.1:7878" } },
   build: { outDir: "dist", emptyOutDir: true, sourcemap: false },
   test: { environment: "jsdom", globals: true, setupFiles: ["./src/test-setup.ts"] },
 })

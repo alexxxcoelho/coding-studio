@@ -21,14 +21,14 @@ describe("router v3", () => {
   it("carries a unit to select and new pages", () => {
     expect(parseHash(unitHref("ECO-07-U003"))).toMatchObject({ id: "ECO-07", tab: "coding", phase: 2, unit: "ECO-07-U003" })
     expect(parseHash("#/to-clarify")).toEqual({ page: "to-clarify" })
-    expect(parseHash("#/cross-case")).toEqual({ page: "cross-case" })
+    expect(parseHash("#/cross-case")).toEqual({ page: "analyser" })
   })
 })
 
 describe("router v4", () => {
-  it("parses the verification tab and the answers and saturation pages", () => {
+  it("parses the verification tab and the saturation page, and sends the old cross-case and answers links to Analyser and Rédiger", () => {
     expect(parseHash(interviewHref("ECO-07", "verification"))).toMatchObject({ tab: "verification", phase: 1 })
-    expect(parseHash("#/answers")).toEqual({ page: "answers" })
+    expect(parseHash("#/answers")).toEqual({ page: "rediger" })
     expect(parseHash("#/saturation")).toEqual({ page: "saturation" })
   })
 })

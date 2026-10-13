@@ -28,10 +28,8 @@ export function Toolbar({
   return (
     <header className="tb" data-tauri-drag-region>
       {sidebarHidden && onToggleSidebar && (
-        <button type="button" className="help" onClick={onToggleSidebar} aria-label="Afficher la barre latérale" title="Afficher la barre latérale">
-          <span className="grid place-items-center">
-            <SidebarIcon />
-          </span>
+        <button type="button" className="sb-toggle" onClick={onToggleSidebar} aria-label="Afficher la barre latérale" title="Afficher la barre latérale">
+          <SidebarIcon />
         </button>
       )}
       <div className="ttl" ref={titleRef} />

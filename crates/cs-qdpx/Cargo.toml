@@ -1,0 +1,21 @@
+[package]
+name = "cs-qdpx"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "REFI-QDA codebook (.qdc) and project (.qdpx) export and import for Coding Studio"
+
+[dependencies]
+cs-model.workspace = true
+cs-store.workspace = true
+anyhow.workspace = true
+thiserror.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+uuid.workspace = true
+roxmltree.workspace = true
+zip.workspace = true
+flate2.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

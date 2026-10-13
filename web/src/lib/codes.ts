@@ -34,16 +34,16 @@ export const FAMILY_ORDER = [
 ]
 
 const FAMILY_NAMES: Record<string, string> = {
-  TECH: "Technology",
+  TECH: "Technologie",
   ORG: "Organisation",
-  ENV: "Environment",
-  OUTCOME: "Outcome",
-  "TURNING-POINT": "Turning point",
-  TRANSFER: "Transfer",
-  STAGE: "Stage",
-  CONTEXT: "Context",
-  INDUCTIVE: "Inductive",
-  OTHER: "Not attached to a TOE context",
+  ENV: "Environnement",
+  OUTCOME: "Résultat",
+  "TURNING-POINT": "Point de bascule",
+  TRANSFER: "Transfert",
+  STAGE: "Étape",
+  CONTEXT: "Contexte",
+  INDUCTIVE: "Inductif",
+  OTHER: "Hors contexte TOE",
 }
 
 export function familyName(family: string): string {
@@ -149,7 +149,7 @@ export function matchesQuery(code: Code, query: string): boolean {
 
 /** Family of a phase 1 context, by TOE letter. */
 export const TOE_FAMILY: Record<Toe, string> = { T: "TECH", O: "ORG", E: "ENV" }
-const TOE_NAME: Record<Toe, string> = { T: "Technological", O: "Organisational", E: "Environmental" }
+const TOE_NAME: Record<Toe, string> = { T: "technologique", O: "organisationnel", E: "environnemental" }
 
 /** TOE attachment of a code: its `toe` field, else derived from its family. */
 export function toeOf(code: Code): Toe | null {
@@ -177,7 +177,7 @@ export function groupByToe(codes: Code[], phase1: string[] = []): ToeGroup[] {
   return order
     .map((key) => ({
       key,
-      title: key === "OTHER" ? "Not attached to a TOE context" : `${TOE_NAME[key]} context`,
+      title: key === "OTHER" ? "Hors contexte TOE" : `Contexte ${TOE_NAME[key]}`,
       highlighted: key !== "OTHER" && mine.includes(key),
       codes: codes.filter((c) => (toeOf(c) ?? "OTHER") === key),
     }))

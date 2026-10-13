@@ -41,7 +41,7 @@ export function CodePicker({
   const key = (code: string) => {
     const k = phase ? hotkeyFor(code, phase) : null
     return k ? (
-      <kbd className="text-muted-foreground ml-auto rounded border px-1.5 font-mono text-[0.7rem]" aria-label={`Shortcut ${k}`}>
+      <kbd className="text-muted-foreground ml-auto rounded border px-1.5 font-mono text-[0.7rem]" aria-label={`Raccourci ${k}`}>
         {k}
       </kbd>
     ) : null
@@ -50,7 +50,7 @@ export function CodePicker({
   const groups = toeMode
     ? groupByToe(allowed, phase1Contexts ?? []).map((g) => ({
         id: g.key,
-        heading: g.highlighted ? `${g.title}, pre-classified` : g.title,
+        heading: g.highlighted ? `${g.title}, préclassé` : g.title,
         highlighted: g.highlighted,
         codes: g.codes,
       }))
@@ -66,28 +66,28 @@ export function CodePicker({
         if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) e.preventDefault()
       }}
       filter={(itemValue, search) => {
-        if (itemValue === NA) return NA.toLowerCase().includes(search.toLowerCase()) || "not applicable".includes(search.toLowerCase()) ? 1 : 0
+        if (itemValue === NA) return NA.toLowerCase().includes(search.toLowerCase()) || "non applicable".includes(search.toLowerCase()) ? 1 : 0
         const code = allowed.find((c) => c.code === itemValue)
         return code && matchesQuery(code, search) ? 1 : 0
       }}
     >
-      <CommandInput placeholder="Type to filter codes, Enter to toggle" autoFocus={autoFocus} disabled={disabled} />
+      <CommandInput placeholder="Filtrer les codes, Entrée pour poser ou retirer" autoFocus={autoFocus} disabled={disabled} />
       <CommandList className="max-h-[22rem]">
-        <CommandEmpty>No allowed code matches.</CommandEmpty>
+        <CommandEmpty>Aucun code autorisé ne correspond.</CommandEmpty>
         {groups.map(({ id, heading, highlighted, codes }) => (
           <CommandGroup key={id} heading={heading} className={cn(highlighted && "bg-accent/40 [&_[cmdk-group-heading]]:text-foreground")}>
             {codes.map((c) => {
               const on = value.includes(c.code)
               const rqs = c.research_questions ?? []
-              const tip = [c.definition, rqs.length ? `Research questions: ${rqs.join(", ")}` : ""].filter(Boolean).join("\n")
+              const tip = [c.definition, rqs.length ? `Questions de recherche : ${rqs.join(", ")}` : ""].filter(Boolean).join("\n")
               return (
                 <CommandItem key={c.code} value={c.code} onSelect={() => toggle(c.code)} disabled={disabled} aria-selected={on} title={tip}>
                   <Check className={cn("size-3.5", on ? "opacity-100" : "opacity-0")} aria-hidden />
                   <CodeChip code={c.code} family={c.family} />
                   <span className="text-muted-foreground truncate text-xs">{c.label}</span>
                   {toeMode && c.origin === "field" && (
-                    <span className="text-inductive ml-auto shrink-0 rounded border border-current/30 px-1 text-[0.65rem]" title="Code created from the field">
-                      field
+                    <span className="text-inductive ml-auto shrink-0 rounded border border-current/30 px-1 text-[0.65rem]" title="Code créé sur le terrain">
+                      terrain
                     </span>
                   )}
                   {key(c.code)}
@@ -96,11 +96,11 @@ export function CodePicker({
             })}
           </CommandGroup>
         ))}
-        <CommandGroup heading="No code applies">
+        <CommandGroup heading="Aucun code ne s'applique">
           <CommandItem value={NA} onSelect={() => toggle(NA)} disabled={disabled}>
             <Check className={cn("size-3.5", value.includes(NA) ? "opacity-100" : "opacity-0")} aria-hidden />
             <CodeChip code={NA} family="NA" />
-            <span className="text-muted-foreground text-xs">Not applicable, clears the other codes</span>
+            <span className="text-muted-foreground text-xs">Non applicable, retire les autres codes</span>
             {key(NA)}
           </CommandItem>
         </CommandGroup>

@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/cs-model", "crates/cs-ingest", "crates/cs-store", "crates/cs-ai", "crates/cs-lex", "crates/cs-app", "crates/cs-desktop"]
+members = ["crates/cs-model", "crates/cs-ingest", "crates/cs-store", "crates/cs-ai", "crates/cs-lex", "crates/cs-qdpx", "crates/cs-app", "crates/cs-desktop"]
 
 [workspace.package]
 version = "0.1.0"
@@ -14,6 +14,7 @@ cs-ingest = { path = "crates/cs-ingest" }
 cs-store = { path = "crates/cs-store" }
 cs-ai = { path = "crates/cs-ai" }
 cs-lex = { path = "crates/cs-lex" }
+cs-qdpx = { path = "crates/cs-qdpx" }
 cs-app = { path = "crates/cs-app" }
 anyhow = "1"
 thiserror = "2"
@@ -33,5 +34,11 @@ tempfile = "3"
 tauri = "2"
 tauri-build = "2"
 tauri-plugin-dialog = "2"
+tauri-plugin-window-state = "2"
+tauri-plugin-single-instance = "2"
 include_dir = "0.7"
 mime_guess = "2"
+uuid = { version = "1", default-features = false, features = ["v5"] }
+roxmltree = "0.20"
+zip = { version = "9", default-features = false, features = ["deflate-flate2"] }
+flate2 = "1"

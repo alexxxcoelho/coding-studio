@@ -29,7 +29,7 @@ cargo build --release -p cs-app
 
 The Makefile sets `CARGO_TARGET_DIR` to `$HOME/.cache/coding-studio/target` so that build artefacts stay out of the source tree and out of any synchronised folder. Without the Makefile, export that variable yourself before calling `cargo`.
 
-Run `make desktop-check` for the full workspace, including the desktop shell. That target needs GTK on Linux.
+Run `make desktop-check` for the full workspace, including the desktop shell. That target needs GTK on Linux; on every push CI compiles, lints and tests the desktop shell on macOS.
 
 ## Run
 
@@ -57,16 +57,38 @@ The database uses `journal_mode = DELETE`, which is safe in a synchronised folde
 
 A ready-to-scan example is in `examples/`, which contains one fictional interview, a codebook and a providers file. See `examples/README.md`.
 
-### Desktop app
+### Lancer l'application
 
-The same server and interface run in a native window (Tauri 2), with native dialogs to choose folders and files.
+Coding Studio est une application macOS native : un noyau Rust (Tauri 2) qui embarque le serveur local de `cs-app` et une fenêtre qui affiche l'interface web. Le binaire `coding-studio` (navigateur) reste disponible et inchangé.
+
+Prérequis sur le Mac :
+
+- Rust stable (`rustup`) ;
+- les outils en ligne de commande Xcode (`xcode-select --install`) ;
+- Node 22 et pnpm 10 (`corepack enable` ou `brew install pnpm`) ;
+- le CLI Tauri : `cargo install tauri-cli --version "~2.12" --locked` (la version suit le crate `tauri` de `Cargo.lock`).
+
+Développement, avec rechargement à chaud de l'interface :
 
 ```bash
-make desktop       # builds the desktop bundle for the current platform
-make desktop-dev   # runs the desktop app without bundling
+pnpm --dir web install        # une seule fois
+make desktop-dev              # équivaut à : cd crates/cs-desktop && cargo tauri dev
 ```
 
-On first launch the app asks where to keep its database. The choice is saved in `config.json` in the platform configuration folder, which can also hold `library`, `coding_db`, `actor` and `interviewer_names`. The Database menu opens or creates another database; the app restarts on it. `CODING_STUDIO_DB=/path/to.db` overrides the saved choice without changing it. The server inside the desktop app listens on a free port of 127.0.0.1, so the app and a browser session can run side by side on different databases. Unsigned builds need an explicit confirmation the first time they are opened on macOS.
+`cargo tauri dev` est prévu pour être lancé depuis `crates/cs-desktop` (le dossier de `tauri.conf.json`). Depuis la racine du dépôt, le CLI retrouve aussi la configuration, mais `make desktop-dev` est la forme de référence. La commande démarre le serveur Vite de `web/` sur `http://127.0.0.1:5199` (port strict, `CS_GUIDE_DIR` pointe sur `docs/guide`), compile `cs-desktop` et ouvre la fenêtre sur ce serveur. Une erreur « port 5199 already in use » signifie qu'un autre Vite tourne : l'arrêter.
+
+Paquet distribuable :
+
+```bash
+make desktop        # cd crates/cs-desktop && cargo tauri build : .app et .dmg
+make desktop-app    # le .app seul, sans image disque
+```
+
+`beforeBuildCommand` lance `make web`, qui reconstruit l'interface dans `crates/cs-app/web-dist` ; Tauri l'embarque dans le binaire et la fenêtre la charge par son protocole d'assets (`tauri://localhost`). Les paquets sont écrits dans `$CARGO_TARGET_DIR/release/bundle/` (`macos/Coding Studio.app`, `dmg/Coding Studio_0.1.0_aarch64.dmg`). Le paquet n'est pas signé : au premier lancement, ouvrir l'app par clic droit puis Ouvrir (ou `xattr -dr com.apple.quarantine "Coding Studio.app"`).
+
+Fonctionnement : le serveur écoute sur un port libre de 127.0.0.1 ; la fenêtre en reçoit l'adresse par `window.__CS_API_BASE__`. Seules les origines `tauri://localhost`, `http://tauri.localhost` et, en développement, `http://127.0.0.1:5199` peuvent lire ses réponses (CORS). Une seule instance tourne à la fois, la taille et la position de la fenêtre sont mémorisées. Le menu est en français : Réglages (⌘,), Ouvrir un projet (⌘O), Importer des transcriptions, Exporter, barre latérale (⌥⌘S), Guide de Coding Studio.
+
+Où se trouve la base de données : au premier lancement, l'application demande où la créer (proposition : `coding_studio.db`). Le choix est enregistré dans `~/Library/Application Support/ch.dossantos.codingstudio/config.json`, qui peut aussi contenir `library`, `coding_db`, `actor` et `interviewer_names`. La base elle-même reste à l'endroit choisi, jamais dans ce dossier. Fichier > Ouvrir un projet ou Nouveau projet choisit une autre base et relance l'application. `CODING_STUDIO_DB=/chemin/base.db` remplace le choix enregistré sans le modifier. Comme le serveur de l'app et celui d'une session navigateur écoutent sur des ports différents, les deux peuvent tourner côte à côte sur deux bases.
 
 ### Appearance
 
@@ -183,7 +205,7 @@ crates/
   cs-store   SQLite schema, protocol guards, audit chain, codebook import
   cs-ai      prompt builder, answer validation, agreement, adjudication, providers
   cs-app     local HTTP server (axum), embedded web UI, export, command line
-  cs-desktop Tauri 2 window around cs-app, native dialogs, Database menu
+  cs-desktop Tauri 2 window around cs-app, native menu and dialogs
 web/         React interface (TypeScript, Vite); built into crates/cs-app/web-dist
 ```
 

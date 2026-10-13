@@ -62,7 +62,7 @@ describe("sidebar", () => {
     expect(within(nav()).getByRole("link", { name: /^Bibliothèque/ })).not.toHaveAttribute("aria-current")
   })
 
-  it("keeps old pages under their entry: cross-case under Analyser, answers under Rédiger", () => {
+  it("sends the old cross-case and answers links to Analyser and Rédiger", () => {
     shell("#/cross-case")
     expect(within(nav()).getByRole("link", { name: /^Analyser/ })).toHaveAttribute("aria-current", "page")
     cleanup()
@@ -77,7 +77,7 @@ describe("sidebar", () => {
     shell("#/interviews/ECO-07/coding")
     const item = await within(nav()).findByRole("link", { name: /^ECO-07/ })
     expect(item).toHaveAttribute("aria-current", "page")
-    expect(item).toHaveAttribute("href", "#/interviews/ECO-07/sources")
+    expect(item).toHaveAttribute("href", "#/interviews/ECO-07/coding")
     expect(within(nav()).getByRole("link", { name: /^Bibliothèque/ })).not.toHaveAttribute("aria-current")
     expect(await within(nav()).findByText("5/12")).toBeInTheDocument()
   })
@@ -143,7 +143,7 @@ describe("Réglages", () => {
     const d = await screen.findByRole("dialog", { name: /Réglages/ })
     fireEvent.mouseDown(within(d).getByRole("tab", { name: "Fournisseurs IA" }), { button: 0 })
     fireEvent.keyDown(within(d).getByRole("tab", { name: "Fournisseurs IA" }), { key: "Enter" })
-    expect(await within(d).findByRole("region", { name: "Model providers" })).toBeInTheDocument()
+    expect(await within(d).findByRole("region", { name: "Fournisseurs de modèles" })).toBeInTheDocument()
   })
 
   it("shows the database path in Avancé", async () => {

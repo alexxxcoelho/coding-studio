@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { hasVibrancy, inTauri, isMacPlatform, markDesktop } from "./desktop"
+import { hasVibrancy, holdMenuAction, inTauri, isMacPlatform, markDesktop, MENU_EVENT, onDesktopMenu, takeMenuAction } from "./desktop"
 import { MAX_OPEN, withOpened } from "./open-interviews"
 
 describe("desktop detection", () => {
@@ -29,5 +29,24 @@ describe("open interviews", () => {
     const many = Array.from({ length: MAX_OPEN }, (_, i) => `I${i}`)
     expect(withOpened(many, "NEW")).toHaveLength(MAX_OPEN)
     expect(withOpened(many, "NEW")[0]).toBe("NEW")
+  })
+})
+
+describe("native menu events", () => {
+  it("calls the handler for each action of the shell until it stops listening", () => {
+    const seen: string[] = []
+    const stop = onDesktopMenu((a) => seen.push(a))
+    window.dispatchEvent(new CustomEvent(MENU_EVENT, { detail: "settings" }))
+    window.dispatchEvent(new CustomEvent(MENU_EVENT, { detail: 42 }))
+    stop()
+    window.dispatchEvent(new CustomEvent(MENU_EVENT, { detail: "guide" }))
+    expect(seen).toEqual(["settings"])
+  })
+  it("hands a held action to the screen that mounts, once", () => {
+    expect(takeMenuAction("import")).toBe(false)
+    holdMenuAction("import")
+    expect(takeMenuAction("export")).toBe(false)
+    expect(takeMenuAction("import")).toBe(true)
+    expect(takeMenuAction("import")).toBe(false)
   })
 })

@@ -1,12 +1,12 @@
 // Tiny hash router: #/interviews, #/interviews/ECO-07/coding?phase=2,
-// #/codebook, #/to-clarify, #/cross-case, #/audit, #/guide/coder-detail. Hash routing keeps the
+// #/codebook, #/to-clarify, #/analyser, #/audit, #/guide/coder-detail. Hash routing keeps the
 // embedded server stateless. `?unit=ECO-07-U003` selects a unit in Coding.
 
 import { useSyncExternalStore } from "react"
 import type { Phase } from "./types"
 
-export type Tab = "sources" | "coding" | "ai" | "review" | "cases" | "verification" | "audit"
-export const TABS: Tab[] = ["sources", "coding", "ai", "review", "cases", "verification", "audit"]
+export type Tab = "sources" | "coding" | "highlights" | "ai" | "review" | "cases" | "verification" | "audit"
+export const TABS: Tab[] = ["sources", "coding", "highlights", "ai", "review", "cases", "verification", "audit"]
 
 /** Tabs that exist in phase 2 only (the AI challenges the detailed codes). */
 export const PHASE2_ONLY: Tab[] = ["ai", "review"]
@@ -16,12 +16,11 @@ export type Route =
   | { page: "interview"; id: string; tab: Tab; phase: Phase; unit: string | null }
   | { page: "codebook" }
   | { page: "to-clarify" }
-  | { page: "cross-case" }
-  | { page: "answers" }
   | { page: "saturation" }
   | { page: "settings" }
   | { page: "audit" }
   | { page: "analyser" }
+  | { page: "lexique" }
   | { page: "rediger" }
   /** The guide; `anchor` is a section or heading anchor of docs/guide/guide.json. */
   | { page: "guide"; anchor: string | null }
@@ -40,12 +39,14 @@ export function parseHash(hash: string): Route {
   }
   if (parts[0] === "codebook") return { page: "codebook" }
   if (parts[0] === "to-clarify") return { page: "to-clarify" }
-  if (parts[0] === "cross-case") return { page: "cross-case" }
-  if (parts[0] === "answers") return { page: "answers" }
+  // The English pages are gone: their old links land on the screens that replaced them.
+  if (parts[0] === "cross-case") return { page: "analyser" }
+  if (parts[0] === "answers") return { page: "rediger" }
   if (parts[0] === "saturation") return { page: "saturation" }
   if (parts[0] === "settings") return { page: "settings" }
   if (parts[0] === "audit") return { page: "audit" }
   if (parts[0] === "analyser") return { page: "analyser" }
+  if (parts[0] === "lexique") return { page: "lexique" }
   if (parts[0] === "rediger") return { page: "rediger" }
   if (parts[0] === "guide") return { page: "guide", anchor: parts[1] ?? null }
   return { page: "library" }

@@ -23,7 +23,7 @@ export function ToePicker({ value, onChange }: { value: Toe | null; onChange: (v
 }
 
 export function QuestionPicker({ questions, value, onChange }: { questions: ResearchQuestion[]; value: string[]; onChange: (v: string[]) => void }) {
-  if (!questions.length) return <span className="text-muted-foreground text-xs">No research question defined yet (Codebook page).</span>
+  if (!questions.length) return <span className="text-muted-foreground text-xs">Aucune question de recherche définie pour l'instant (voir les paramètres de l'étude).</span>
   return (
     <div className="flex flex-col gap-1">
       {questions.map((q) => (
