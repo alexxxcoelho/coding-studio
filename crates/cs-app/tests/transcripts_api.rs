@@ -165,3 +165,41 @@ async fn adjust_and_detach_through_the_api() {
     assert_eq!(st, StatusCode::BAD_REQUEST, "{bad}");
     let _: Value = bad;
 }
+
+#[tokio::test]
+async fn exports_carry_the_transcript_version_and_the_projections() {
+    let ctx = setup().await;
+    let (unit, pid) = coded(&ctx).await;
+    ok(
+        &ctx.app,
+        "POST",
+        &format!("/api/interviews/INT-01/units/{unit}/corrections"),
+        Some(json!({
+            "text": format!("Well, {SENTENCE}"),
+            "role": "respondent", "reason": "added a word",
+        })),
+    )
+    .await;
+    let exp = ok(&ctx.app, "POST", "/api/interviews/INT-01/export", None).await;
+    let dir = std::path::PathBuf::from(exp["dir"].as_str().unwrap());
+    let csv = std::fs::read_to_string(dir.join("passages.csv")).unwrap();
+    let mut lines = csv.lines();
+    assert!(lines
+        .next()
+        .unwrap()
+        .ends_with(",created_by,transcript_version"));
+    let row = lines.find(|l| l.starts_with(&pid)).unwrap();
+    assert!(row.ends_with(",2"), "{row}");
+    let v: Value = serde_json::from_str(
+        &std::fs::read_to_string(dir.join("transcript_versions.json")).unwrap(),
+    )
+    .unwrap();
+    let i = &v["interviews"][0];
+    assert_eq!(i["current_version"], 2);
+    assert_eq!(i["versions"].as_array().unwrap().len(), 2);
+    assert_eq!(i["projections"][0]["status"], "reanchored");
+    let manifest = std::fs::read_to_string(dir.join("manifest.json")).unwrap();
+    assert!(manifest.contains("transcript_versions.json"));
+    let state = std::fs::read_to_string(dir.join("state.json")).unwrap();
+    assert!(state.contains("\"transcript_versions\""));
+}

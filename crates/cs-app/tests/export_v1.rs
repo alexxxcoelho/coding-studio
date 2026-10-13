@@ -9,13 +9,14 @@ use common::{call, code_id, ok, setup, unit_ids, Ctx};
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 
-const NEW_FILES: [&str; 6] = [
+const NEW_FILES: [&str; 7] = [
     "passages.csv",
     "highlights.csv",
     "attributes.csv",
     "memos.json",
     "study_config.json",
     "review.json",
+    "transcript_versions.json",
 ];
 
 fn sha(path: &Path) -> String {

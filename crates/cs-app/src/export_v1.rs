@@ -38,9 +38,15 @@ pub(crate) fn all_passages(store: &Store, interview_ids: &[String]) -> Result<Ve
 /// `passage_id,interview_id,unit_id,start,end,text,kind,code_ids,code_names,later,later_note,stale,anchor_digest,created_at,created_by`.
 /// Positions are Unicode scalar values, end exclusive. The reserved code
 /// "Plus tard" is not in `code_ids`: it is the `later` flag.
-pub(crate) fn passages_csv(passages: &[Passage]) -> String {
+///
+/// A last column `transcript_version` (F-24, `docs/CONTRACTS.md` section 15)
+/// gives the version of the interview's transcript the offsets were checked
+/// against: the current one, or, for a passage waiting for review, the one it
+/// is still anchored on.
+pub(crate) fn passages_csv(store: &Store, passages: &[Passage]) -> Result<String> {
+    let versions = passage_versions(store, passages)?;
     let mut out = String::from(
-        "passage_id,interview_id,unit_id,start,end,text,kind,code_ids,code_names,later,later_note,stale,anchor_digest,created_at,created_by\n",
+        "passage_id,interview_id,unit_id,start,end,text,kind,code_ids,code_names,later,later_note,stale,anchor_digest,created_at,created_by,transcript_version\n",
     );
     for p in passages {
         let real: Vec<_> = p.codings.iter().filter(|c| !c.system).collect();
@@ -67,9 +73,88 @@ pub(crate) fn passages_csv(passages: &[Passage]) -> String {
             p.anchor_digest.clone(),
             p.created_at.clone(),
             p.created_by.clone(),
+            versions
+                .get(&p.passage_id)
+                .map(|v| v.to_string())
+                .unwrap_or_default(),
         ]));
     }
-    out
+    Ok(out)
+}
+
+/// Transcript version of each passage (see [`passages_csv`]).
+fn passage_versions(store: &Store, passages: &[Passage]) -> Result<BTreeMap<String, i64>> {
+    let mut out = BTreeMap::new();
+    let mut current: BTreeMap<String, Option<i64>> = BTreeMap::new();
+    let mut open: BTreeMap<String, i64> = BTreeMap::new();
+    for item in store.transcript_review(&cs_store::ReviewFilter::default())? {
+        open.insert(item.passage_id, item.from_version);
+    }
+    for p in passages {
+        if !current.contains_key(&p.interview_id) {
+            current.insert(
+                p.interview_id.clone(),
+                store.current_transcript_version(&p.interview_id)?,
+            );
+        }
+        let v = if p.stale {
+            open.get(&p.passage_id).copied()
+        } else {
+            current[&p.interview_id]
+        };
+        if let Some(v) = v {
+            out.insert(p.passage_id.clone(), v);
+        }
+    }
+    Ok(out)
+}
+
+/// `transcript_versions.json` (F-24): for each interview, its transcript
+/// versions (cause, text digest) and every projection of a passage onto a
+/// version, with the old, proposed and final span and how it was settled.
+pub(crate) fn transcript_versions_value(store: &Store, interview_ids: &[String]) -> Result<Value> {
+    let span = |s: &cs_store::SpanView| {
+        json!({"unit_id": s.unit_id, "start": s.start, "end": s.end, "text": s.text})
+    };
+    let mut items = Vec::new();
+    for id in interview_ids {
+        let projections: Vec<Value> = store
+            .transcript_review(&cs_store::ReviewFilter {
+                interview_id: Some(id.clone()),
+                status: Some("all".into()),
+            })?
+            .iter()
+            .map(|i| {
+                json!({
+                    "projection_id": i.projection_id,
+                    "passage_id": i.passage_id,
+                    "status": i.status,
+                    "method": i.method,
+                    "reason": i.reason,
+                    "from_version": i.from_version,
+                    "to_version": i.to_version,
+                    "old": span(&i.old),
+                    "proposed": i.proposed.as_ref().map(span),
+                    "final": i.final_span.as_ref().map(span),
+                    "resolved_at": i.resolved_at,
+                    "resolved_by": i.resolved_by,
+                    "resolution_note": i.resolution_note,
+                })
+            })
+            .collect();
+        items.push(json!({
+            "interview_id": id,
+            "current_version": store.current_transcript_version(id)?,
+            "versions": store.transcript_versions(id)?,
+            "projections": projections,
+        }));
+    }
+    Ok(json!({ "interviews": items }))
+}
+
+pub(crate) fn transcript_versions_json(store: &Store, interview_ids: &[String]) -> Result<Vec<u8>> {
+    Ok(serde_json::to_string_pretty(&transcript_versions_value(store, interview_ids)?)?
+        .into_bytes())
 }
 
 /// The passages without an active code: `passage_id,interview_id,unit_id,start,end,text,stale,created_at,created_by`.
@@ -184,6 +269,10 @@ pub(crate) fn state_parts(
     parts.insert("memos_and_checklists", memos_value(store, interview_ids)?);
     parts.insert("project_config", json!(store.export_template()?));
     parts.insert("review", review_value(store, interview_ids)?);
+    parts.insert(
+        "transcript_versions",
+        transcript_versions_value(store, interview_ids)?,
+    );
     let tree: Vec<Value> = store
         .code_nodes()?
         .into_iter()
