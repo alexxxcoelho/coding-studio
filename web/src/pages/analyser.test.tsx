@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from "vite
 import { cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react"
 
 import { analysisApi } from "@/lib/analysis-api"
-import { cases, codes, matrix, project, sheet, themePassages, themeSummaries } from "@/lib/analysis-fixtures"
+import { cases, codes, matrix, project, projectWithFramework, sheet, themePassages, themeSummaries } from "@/lib/analysis-fixtures"
 import { mockApi, renderWithClient } from "@/test-utils"
 
 import { AnalyserPage } from "./analyser"
@@ -213,6 +213,30 @@ describe("Analyser, matrix", () => {
     await waitFor(() =>
       expect(fn("setMatrixCell")).toHaveBeenCalledWith({ row_key: "interview:RET-22", col_key: "theme:T-0002", value: "uncertain", summary: "Le groupe paie, le magasin paie" }),
     )
+  })
+})
+
+describe("Analyser, framework reading", () => {
+  const reading = { theme_id: "T-0001", cells: {}, out_of_frame: false, out_of_frame_note: "", complementary_dimension: "", evidence_limit: "" }
+
+  it("has no framework selector when the study has no framework", async () => {
+    setup()
+    renderWithClient(<AnalyserPage />)
+    await screen.findByRole("region", { name: "Fiche du thème" })
+    expect(screen.queryByText("Lecture par le cadre")).toBeNull()
+  })
+
+  it("checks what the theme explains and what is outside the framework", async () => {
+    setup(projectWithFramework)
+    fn("frameworkReading").mockResolvedValue(reading)
+    fn("setFrameworkReading").mockResolvedValue(reading)
+    renderWithClient(<AnalyserPage />)
+    fireEvent.click(await screen.findByRole("checkbox", { name: "Organisation : le thème l'explique" }))
+    await waitFor(() =>
+      expect(fn("setFrameworkReading")).toHaveBeenCalledWith("T-0001", expect.objectContaining({ cells: { O: { explains: true, note: "" } }, out_of_frame: false })),
+    )
+    fireEvent.click(screen.getByRole("checkbox", { name: "Hors cadre" }))
+    await waitFor(() => expect(fn("setFrameworkReading")).toHaveBeenLastCalledWith("T-0001", expect.objectContaining({ out_of_frame: true })))
   })
 })
 

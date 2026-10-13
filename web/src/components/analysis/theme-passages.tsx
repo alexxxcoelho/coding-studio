@@ -5,7 +5,7 @@
 import { PassageCard } from "@/components/analysis/shared"
 import { Skeleton } from "@/components/ui/skeleton"
 import type { PassageLink, ThemePassage } from "@/lib/analysis-api"
-import { plural } from "@/lib/analysis-text"
+import { passageRef, plural } from "@/lib/analysis-text"
 import { useThemePassages } from "@/lib/analysis-hooks"
 import { CELL_VALUE_LABEL } from "@/lib/matrix"
 import { THEME_PARTS } from "@/lib/analysis-api"
@@ -50,7 +50,7 @@ export function ThemePassageList({
               {onLinkTo && (
                 <select
                   className="ctl-field ml-auto h-[22px] rounded-md px-1 text-xs"
-                  aria-label={`Lier ${p.interview_id} ${p.unit_id} à une partie`}
+                  aria-label={`Lier ${passageRef(p)} à une partie`}
                   value=""
                   onChange={(e) => {
                     if (e.target.value) onLinkTo(p, e.target.value as (typeof THEME_PARTS)[number]["key"])

@@ -1,6 +1,7 @@
 // Wording helpers of the Analyser and Rédiger screens.
 
-import type { Case } from "./types"
+import type { PassageLink } from "./analysis-api"
+import type { Case, ListItem } from "./types"
 
 export function plural(n: number, one: string, many = `${one}s`): string {
   return `${n} ${n > 1 ? many : one}`
@@ -24,4 +25,9 @@ export function outcomeLabel(decision: string | null): string {
 /** A decision is documented only by the units attributed to it. */
 export function isDocumented(c: Pick<Case, "units">): boolean {
   return c.units.length > 0
+}
+
+/** The chip of a link in the text: `ECO-07 U018 soutient`. */
+export function linkChipLabel(link: Pick<PassageLink, "passage" | "link_type">, types: ListItem[]): string {
+  return `${passageRef(link.passage)} ${types.find((t) => t.id === link.link_type)?.label ?? link.link_type}`
 }
