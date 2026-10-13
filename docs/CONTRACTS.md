@@ -60,7 +60,7 @@ Four states are distinguished everywhere, in the tool's exports as in the manusc
 ## 10. Passages, code tree and study configuration (V1 lots 1 and 2)
 
 - A code is identified by `code_id` (`C-0001`, stable, never reused). Its `name` is free text and can change; each former name, each merged name and the legacy token stay as aliases and resolve to the same code. `token` is the legacy handle of the unit-level coding and the AI pass and never changes. Tables cite codes by `code_id` and `name`.
-- A passage is `(interview, unit, start, end)` with the exact text and the digest of the unit text. Positions count Unicode characters from 0, end excluded. A passage whose unit text changed is flagged `stale`; it is never moved. A highlight is a passage with no active code. The reserved code "Plus tard" is not a code of the codebook and is counted in no table: the exports give it as the `later` column.
+- A passage is `(interview, unit, start, end)` with the exact text and the digest of the unit text. Positions count Unicode characters from 0, end excluded. A passage whose unit text changed is flagged `stale`; it moves only through the projection of section 15 (automatically when its own words are untouched, otherwise by the researcher's decision). A highlight is a passage with no active code. The reserved code "Plus tard" is not a code of the codebook and is counted in no table: the exports give it as the `later` column.
 - Counts are given as passages and as distinct interviews, never mixed, and a rolled-up count includes the descendants of the code (a passage counted once).
 - `passages.csv`: `passage_id,interview_id,unit_id,start,end,text,kind,code_ids,code_names,later,later_note,stale,anchor_digest,created_at,created_by`. `code_ids` and `code_names` are joined with `;`, in the same order. `kind` is `coded` or `highlight`.
 - `highlights.csv`: `passage_id,interview_id,unit_id,start,end,text,stale,created_at,created_by`, the passages with no active code.
@@ -118,4 +118,32 @@ Exchange with NVivo, MAXQDA and ATLAS.ti through the REFI-QDA standard: a codebo
 - Review state per interview: `not_done`, `in_progress`, `complete`, with a declaration sentence for the documents of the study.
 - Schema version 7. `review_schema::migrate` runs on every open and is idempotent for a database at any version below 7.
 - Files: `review.json` in the interview and cross-case packages, and the `review` part of `state.json`.
+
+## 15. Transcript versions, projection of passages and audio (V2: F-24, F-62)
+
+**Versions.**
+- A transcript version is the segmentation in force plus the unit corrections up to a given correction id. Version 1 is the first segmentation; each new segmentation (different `hash`) and each unit correction appends the next version. Versions are append-only and are rebuilt from the segmentations, units and corrections, which already stay; nothing is stored twice. A database made before versioning gets a `baseline` version, recording the state found, just before its first change.
+- `text_sha256` of a version is the SHA-256 of the lines `unit_id TAB role TAB text LF` of its units, in order. It identifies the transcript in an export.
+- The unit text a passage is anchored on (`anchor_digest`, section 10) is the text of its unit in some version. Positions keep the convention of section 10: Unicode scalar values, end excluded, UTF-16 for the browser only.
+
+**Projection.** When version `n` is appended, every active passage anchored on the text of version `n-1` is projected in the same transaction:
+1. The unit text is unchanged: nothing happens.
+2. The whole unit text of the passage's unit, found exactly once among the respondent units of the new version (and once in the old), moved to another unit id: the passage follows it, same offsets, `method = moved_unit`, `reanchored`.
+3. The unit id is still there with another text: a character-level diff (Myers, over scalar values) of the old unit text against the new one. If every character of the passage survives and the survivors are contiguous, the passage reads the same and is re-anchored on the new offsets (`method = diff`, `reanchored`). If the edit touches the passage, it is `needs_review` with `reason = text_changed` and a proposed span: from the first surviving or replaced character to the last, with the inserted text between them; no proposal when nothing is left.
+4. The unit id is gone: the passage text is searched in the respondent units of the new version. Found once: `needs_review`, `unit_moved`, with that span proposed. Otherwise `needs_review`, `unit_removed`, no proposal.
+5. A unit that became an interviewer turn gives `unit_became_interviewer`, no proposal.
+
+A passage that needs review does not move: it stays `stale` with its old offsets and text until the decision. If another version arrives first, the open item becomes `superseded` and a new one is drawn from the text the passage is still anchored on (so the diff always runs from what the researcher last confirmed); if the text returns to the anchored text, the item is closed as `superseded` and the passage is no longer stale. Passages already stale before versioning, with no matching version text, are not touched.
+
+**Decisions.** `accept` takes the proposal; `adjust` takes a span on the current unit text (scalar or UTF-16 positions); `detach` deletes the passage logically (it leaves lists and counts; its text, codes and old span stay in the review item and the audit). Each is one transaction: the passage row and the unit-level sync (section 14) of the units involved, the item's `final` span and resolution, the audit events. A span already held by another active passage is refused. Re-anchoring never edits codings, notes, origin or role.
+
+**Audit.** `transcript.version`, `passage.reanchor`, `passage.review_flag`, `passage.detach`, `transcript.projection.resolve`; the usual audit chain covers them.
+
+**Exports.** `transcript_versions.json` (interview and cross-case packages, in the manifest): per interview its versions and every projection with `old`, `proposed`, `final`, `status`, `method`, `reason`, resolution time, author and note. `state.json` gains the part `transcript_versions`. `passages.csv` gains a last column `transcript_version`: the current version for a passage whose anchor was checked against it, or the version a passage waiting for review is still anchored on. A reader that reads columns by name is unaffected.
+
+**Audio (F-62).**
+- Recordings are the `m4a`, `mp3` and `wav` files found in the interview folder (sub-folders included, hidden files and links left out), read at call time. They are not part of the source inventory and not of exports. The application does not transcribe, convert or decode audio and does not know its duration.
+- Unit time: the timestamp of the unit read as seconds (`h:mm:ss`, `mm:ss`, optional fraction). A stamp that is not a time gives no time; the unit is listed without one. The audio time of a unit is its time plus the interview's offset, never below 0. The offset is one number of seconds per interview (positive when the recording starts later than the transcript clock), at most one day in absolute value, rounded to the millisecond, and every change is audited with before and after.
+- The audio route serves only files listed for that interview, from a folder inside the library folder, never through a link; it answers byte ranges (206, 416).
+- State: server implemented and tested; the player is a front-end task. Not verified against a real recording and a real browser player.
 
