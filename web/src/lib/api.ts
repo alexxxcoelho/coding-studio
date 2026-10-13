@@ -1,5 +1,6 @@
 // Typed client for the local Coding Studio API (docs/API.md).
 
+import type { LibraryProgress } from "./pipeline"
 import type {
   AgreementAnswer,
   AiRun,
@@ -182,6 +183,7 @@ export const api = {
     request<{ root: string; interviews: InterviewSummary[] }>("POST", "/api/library/scan", root ? { root } : {}),
   interviews: () => request<InterviewSummary[]>("GET", "/api/interviews"),
   interview: (id: string) => request<InterviewDetail>("GET", iv(id)),
+  libraryProgress: () => request<LibraryProgress>("GET", "/api/library/progress"),
   simple: (id: string) =>
     request<{ n_respondent_units: number; n_relevant: number; n_coded: number; done: boolean }>("GET", `${iv(id)}/simple`),
   file: (id: string, path: string) => request<FileView>("GET", `${iv(id)}/file?path=${enc(path)}`),

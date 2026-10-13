@@ -3,7 +3,7 @@
 // selected interview in the inspector.
 
 import { useEffect, useMemo, useState } from "react"
-import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 
 import { Banner, EmptyState, PageTitle } from "@/components/bits"
@@ -24,20 +24,13 @@ import { cn } from "@/lib/utils"
 
 type Filter = "progress" | "ready" | "all"
 
+/** Progress of every interview, in one call. */
 function useProgress(rows: InterviewSummary[]): Map<string, CodingProgress> {
-  const segmented = rows.filter((r) => r.n_units > 0)
-  const passages = useQueries({
-    queries: segmented.map((r) => ({ queryKey: keys.passages(r.interview_id), queryFn: () => api.passages(r.interview_id) })),
-  })
-  const simple = useQueries({
-    queries: segmented.map((r) => ({ queryKey: ["simple", r.interview_id], queryFn: () => api.simple(r.interview_id) })),
-  })
+  const q = useQuery({ queryKey: keys.libraryProgress, queryFn: api.libraryProgress, enabled: rows.some((r) => r.n_units > 0) })
   const out = new Map<string, CodingProgress>()
-  segmented.forEach((r, i) => {
-    const p = passages[i]?.data
-    const s = simple[i]?.data
-    if (p && s) out.set(r.interview_id, codingProgress(p, s))
-  })
+  for (const r of q.data?.interviews ?? []) {
+    if (rows.some((s) => s.interview_id === r.interview_id && s.n_units > 0)) out.set(r.interview_id, codingProgress(r))
+  }
   return out
 }
 

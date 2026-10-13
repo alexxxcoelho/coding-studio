@@ -1,11 +1,10 @@
 // Where an interview stands in the four steps of the Bibliothèque
 // (Segmenté, Codé, Revue IA facultative, Arbitré), and the next step to take.
 
-import { hasLater, hasRealCode } from "./coder-model"
 import { interviewHref } from "./router"
-import type { InterviewSummary, Passage } from "./types"
+import type { InterviewSummary } from "./types"
 
-/** What the passages say about an interview's respondent turns. */
+/** What the library progress says about an interview's respondent turns. */
 export interface CodingProgress {
   /** Turns that are not the interviewer's. */
   respondent: number
@@ -13,20 +12,39 @@ export interface CodingProgress {
   nonPertinent: number
   coded: number
   later: number
+  /** Respondent turns marked "à revoir". */
+  toReview: number
 }
 
-/** Progress from the passages of an interview and the counts of its `/simple` view. */
-export function codingProgress(passages: Passage[], simple: { n_respondent_units: number; n_relevant: number }): CodingProgress {
-  const coded = new Set<string>()
-  const later = new Set<string>()
-  for (const p of passages) {
-    if (p.stale) continue
-    if (hasRealCode(p)) coded.add(p.unit_id)
-    else if (hasLater(p)) later.add(p.unit_id)
-  }
-  for (const u of coded) later.delete(u)
-  const nonPertinent = Math.max(0, simple.n_respondent_units - simple.n_relevant)
-  return { respondent: simple.n_respondent_units, nonPertinent, coded: coded.size, later: later.size }
+/** A row of `GET /api/library/progress`: every interview in one call. */
+export interface LibraryRow {
+  interview_id: string
+  units: number
+  respondent_units: number
+  relevant: number
+  not_relevant: number
+  /** Relevant units coded in the phase 2 grid. */
+  coded: number
+  /** Respondent units carrying a passage with a real code: what the Coder shows as coded. */
+  units_coded: number
+  /** Respondent units parked under "Plus tard" and carrying no real code. */
+  units_later: number
+  to_review: number
+  memo_answered: number
+  memo_total: number
+  review: { state: "none" | "in_progress" | "done"; disagreements: number; arbitrated: number; sample: number; sample_reviewed: number }
+  arbitrated: boolean
+  done: boolean
+}
+
+export interface LibraryProgress {
+  interviews: LibraryRow[]
+  totals: Record<string, number>
+}
+
+/** Progress of an interview from its row of the library progress. */
+export function codingProgress(row: LibraryRow): CodingProgress {
+  return { respondent: row.respondent_units, nonPertinent: row.not_relevant, coded: row.units_coded, later: row.units_later, toReview: row.to_review }
 }
 
 export function examined(p: CodingProgress): number {
