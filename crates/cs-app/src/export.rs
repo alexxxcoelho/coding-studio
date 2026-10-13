@@ -1000,6 +1000,7 @@ pub fn write_package(
         crate::export_v1::attributes_csv(store, &ids)?.as_bytes(),
     )?;
     w.write("memos.json", &crate::export_v1::memos_json(store, &ids)?)?;
+    w.write("review.json", &crate::export_v1::review_json(store, &ids)?)?;
     w.write(
         "study_config.json",
         &crate::export_v1::study_config_json(store)?,
@@ -1138,6 +1139,8 @@ fn readme(id: &str, folder: &str, seg: &cs_model::Segmentation, st: &CodingStatu
         ("highlights.csv", "The passages that carry no code yet, `passage_id,interview_id,unit_id,start,end,text,stale,created_at,created_by`."),
         ("attributes.csv", "The interview attribute values, `interview_id,attribute_id,label,kind,value`, one row per attribute that has a value."),
         ("memos.json", "The familiarisation memo of each interview (template and version, the interview's own added, removed and reworded questions, answers with their time) and its end-of-interview checklist (items, checked flags with time, note)."),
+        ("review.json", "Review (lot 4): the candidate concepts the model proposed with their decisions (create, map or reject, with reason and time), the digest, the categories and the number of entries of the pseudonymisation list (never the names), the harmonisation worklist (merge, redefinition, new sub-code) and the review state of each interview. Candidate texts are kept as the model saw them, pseudonymised."),
+        ("review.json", "Review (lot 4): the candidate concepts the model proposed with their decisions (create, map or reject, with reason and time), the digest, the categories and the number of entries of the pseudonymisation list (never the names), the harmonisation worklist (merge, redefinition, new sub-code) and the review state of each interview. Candidate texts are kept as the model saw them, pseudonymised."),
         ("study_config.json", "The study configuration as a project template: study description and settings, research questions, attribute definitions, memo templates, checklist, theme checks, evidence natures, link types, matrix dimensions and interpretive framework. It holds no interview data."),
         ("audit_log.jsonl", "Every recorded action on this interview, one JSON event per line, each chained to the previous one by SHA-256."),
         ("audit_chain.json", "Result of the verification of the whole audit chain at export time."),
@@ -1251,6 +1254,10 @@ pub fn write_cross_case(
     w.write(
         "memos.json",
         &crate::export_v1::memos_json(store, &interview_ids)?,
+    )?;
+    w.write(
+        "review.json",
+        &crate::export_v1::review_json(store, &interview_ids)?,
     )?;
     w.write(
         "study_config.json",

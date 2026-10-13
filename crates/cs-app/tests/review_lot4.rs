@@ -381,3 +381,28 @@ async fn a16_passages_write_the_unit_coding_and_open_the_worklist() {
     let c = ok(&ctx.app, "GET", "/api/review-state", None).await;
     assert!(c.is_object() || c.is_array());
 }
+
+#[tokio::test]
+async fn the_export_carries_the_review_without_any_name() {
+    let ctx = setup().await;
+    code_respondent_units(&ctx).await;
+    ok(
+        &ctx.app,
+        "PUT",
+        "/api/pseudonymisation",
+        Some(json!({ "enabled": true, "entries": [
+            { "kind": "organisation", "original": "retailer", "pseudonym": "Organisation A" } ] })),
+    )
+    .await;
+    let exp = ok(&ctx.app, "POST", &format!("{I}/export"), None).await;
+    let dir = std::path::PathBuf::from(exp["dir"].as_str().unwrap());
+    let raw = std::fs::read_to_string(dir.join("review.json")).unwrap();
+    let v: Value = serde_json::from_str(&raw).unwrap();
+    assert_eq!(v["pseudonymisation"]["n_entries"], 1);
+    assert_eq!(v["pseudonymisation"]["digest"].as_str().unwrap().len(), 64);
+    assert!(!raw.contains("retailer"), "the list names stay out");
+    let manifest = std::fs::read_to_string(dir.join("manifest.json")).unwrap();
+    assert!(manifest.contains("review.json"));
+    let state = std::fs::read_to_string(dir.join("state.json")).unwrap();
+    assert!(state.contains("\"review\""));
+}

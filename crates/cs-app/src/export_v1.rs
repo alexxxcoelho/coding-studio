@@ -139,6 +139,36 @@ pub(crate) fn study_config_json(store: &Store) -> Result<Vec<u8>> {
     Ok(serde_json::to_string_pretty(&store.export_template()?)?.into_bytes())
 }
 
+/// Lot 4 (Review): the candidate concepts and their decisions, the
+/// pseudonymisation list digest and categories (never the names), the
+/// harmonisation worklist and the review state of the given interviews.
+/// Candidate text is kept as the model saw it (pseudonymised).
+pub(crate) fn review_value(store: &Store, interview_ids: &[String]) -> Result<Value> {
+    let cfg = store.pseudonym_config()?;
+    let mut items = Vec::new();
+    for id in interview_ids {
+        items.push(json!({
+            "interview_id": id,
+            "concept_candidates": store.concept_candidates(id)?,
+            "harmonisation": store.harmonisation(Some(id))?,
+            "review_state": store.review_state(id)?,
+        }));
+    }
+    Ok(json!({
+        "pseudonymisation": {
+            "enabled": cfg.enabled,
+            "digest": cfg.digest(),
+            "categories": cfg.categories(),
+            "n_entries": cfg.entries.len(),
+        },
+        "interviews": items,
+    }))
+}
+
+pub(crate) fn review_json(store: &Store, interview_ids: &[String]) -> Result<Vec<u8>> {
+    Ok(serde_json::to_string_pretty(&review_value(store, interview_ids)?)?.into_bytes())
+}
+
 /// What the V1 lots add to the canonical `state.json` parts.
 pub(crate) fn state_parts(
     store: &Store,
@@ -153,6 +183,7 @@ pub(crate) fn state_parts(
     parts.insert("attribute_values", json!(attrs));
     parts.insert("memos_and_checklists", memos_value(store, interview_ids)?);
     parts.insert("project_config", json!(store.export_template()?));
+    parts.insert("review", review_value(store, interview_ids)?);
     let tree: Vec<Value> = store
         .code_nodes()?
         .into_iter()
