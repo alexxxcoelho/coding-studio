@@ -700,7 +700,7 @@ fn state_parts(store: &Store, interview_ids: &[String], cases: &[Case]) -> Resul
 }
 
 /// `state.json` bytes and the SHA-256 of the canonical state they carry.
-fn state_document(
+pub(crate) fn state_document(
     store: &Store,
     interview_ids: &[String],
     cases: &[Case],
@@ -717,7 +717,7 @@ fn state_document(
 }
 
 /// Copies the whole database to `path` with `VACUUM INTO`. The path is quoted for SQL.
-fn write_snapshot(store: &Store, path: &Path) -> Result<()> {
+pub(crate) fn write_snapshot(store: &Store, path: &Path) -> Result<()> {
     let quoted = path.display().to_string().replace('\'', "''");
     store
         .connection()

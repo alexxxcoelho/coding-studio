@@ -3,6 +3,7 @@
 //! protocol rules live in `cs-store`, `cs-ai` and `cs-model`, never here.
 //! The contract is documented in `docs/API.md`.
 
+pub mod bundle;
 pub mod docx;
 mod error;
 mod export;

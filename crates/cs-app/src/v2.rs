@@ -5,8 +5,9 @@
 
 use std::path::{Path, PathBuf};
 
-use axum::extract::State;
-use axum::http::{header, HeaderValue};
+use axum::body::Bytes;
+use axum::extract::{DefaultBodyLimit, Query, State};
+use axum::http::{header, HeaderName, HeaderValue};
 use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
 use axum::{Json, Router};
@@ -20,6 +21,62 @@ pub(crate) fn routes() -> Router<AppState> {
     Router::new()
         .route("/api/writing/export.docx", get(writeup_docx))
         .route("/api/export/anonymised", post(export_anonymised))
+        .route("/api/project/bundle", get(export_bundle))
+        .route(
+            "/api/project/bundle/import",
+            post(import_bundle).layer(DefaultBodyLimit::max(MAX_UPLOAD)),
+        )
+}
+
+/// Largest bundle accepted on import, in bytes.
+const MAX_UPLOAD: usize = 1024 * 1024 * 1024;
+
+/// `GET /api/project/bundle`: the whole project as one `.csproj.zip`.
+async fn export_bundle(State(st): State<AppState>) -> Result<Response, ApiError> {
+    let out = crate::bundle::export_bundle(&st.store(), &st.actor)?;
+    let mut res = attachment(out.bytes, "application/zip", &out.file_name);
+    if let Ok(v) = HeaderValue::from_str(&out.sha256) {
+        res.headers_mut()
+            .insert(HeaderName::from_static("x-export-sha256"), v);
+    }
+    Ok(res)
+}
+
+#[derive(Deserialize)]
+struct BundleQuery {
+    /// False (default): dry run. True: write.
+    #[serde(default)]
+    apply: bool,
+    /// Path of the new database. Absent: the current database, which must be
+    /// empty and is replaced by the project of the bundle.
+    #[serde(default)]
+    target: Option<String>,
+}
+
+/// `POST /api/project/bundle/import?apply=&target=`: the body is the bundle.
+async fn import_bundle(
+    State(st): State<AppState>,
+    Query(q): Query<BundleQuery>,
+    body: Bytes,
+) -> Result<Json<Value>, ApiError> {
+    let report = match q.target.as_deref().map(str::trim).filter(|t| !t.is_empty()) {
+        Some(target) => crate::bundle::import_bundle(&body, Path::new(target), q.apply, &st.actor)?,
+        None => {
+            let dry = crate::bundle::import_bundle(&body, &st.db_path, false, &st.actor)?;
+            if !q.apply || !dry.ok {
+                dry
+            } else {
+                // The running store lets go of the file, the bundle is
+                // written over it, and the store is opened again on it.
+                let mut guard = st.store.lock().unwrap_or_else(|e| e.into_inner());
+                *guard = cs_store::Store::open_in_memory()?;
+                let result = crate::bundle::import_bundle(&body, &st.db_path, true, &st.actor);
+                *guard = cs_store::Store::open(&st.db_path)?;
+                result?
+            }
+        }
+    };
+    Ok(Json(json!(report)))
 }
 
 /// `<db folder>/exports`, where every package is written.
