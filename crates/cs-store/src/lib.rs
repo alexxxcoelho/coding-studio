@@ -18,8 +18,11 @@
 mod cases;
 mod claims;
 mod codebook;
+mod codetree;
 mod coding;
 mod memos;
+mod passages;
+mod project;
 mod review;
 mod saturation;
 mod simple;
@@ -27,7 +30,13 @@ mod study_config;
 mod verification;
 
 pub use codebook::{CodePatch, ImportReport, MergeOutcome};
+pub use codetree::{CodeUpdate, NewCodeFromPassage, ResolvedCode, Revision};
 pub use coding::ResolveRequest;
+pub use passages::{NewPassage, PassageFilter};
+pub use project::{
+    AttributeView, ChecklistItemView, ChecklistView, MemoAnswer, MemoOverrides, MemoQuestionView,
+    MemoView, TemplateChange, TemplateReport,
+};
 pub use review::{Review, ReviewEntry};
 pub use simple::SimpleProgress;
 
@@ -47,8 +56,12 @@ use serde_json::{json, Value};
 pub const SCHEMA: &str = include_str!("schema.sql");
 
 /// Schema version stored in `PRAGMA user_version`. Versions 1 and 2 used the
-/// earlier, locked two-phase procedure.
-pub const SCHEMA_VERSION: i64 = 3;
+/// earlier, locked two-phase procedure. Version 4 adds the V1 lot 1 and 2
+/// tables and columns to version 3, which is migrated in place.
+pub const SCHEMA_VERSION: i64 = 4;
+
+/// Oldest schema version that is migrated in place.
+const MIN_SCHEMA_VERSION: i64 = 3;
 
 /// `prev_hash` of the first audit event.
 pub const GENESIS_HASH: &str = "0000000000000000000000000000000000000000000000000000000000000000";
@@ -68,6 +81,28 @@ pub struct GuardStatus {
 }
 
 // ----------------------------------------------------------------- helpers
+
+/// Adds the V1 lot 1 columns to the `codes` table of an older database.
+fn migrate_codes_v4(conn: &Connection) -> Result<()> {
+    let have: Vec<String> = conn
+        .prepare("SELECT name FROM pragma_table_info('codes')")?
+        .query_map([], |r| r.get::<_, String>(0))?
+        .collect::<rusqlite::Result<_>>()?;
+    for (column, ddl) in [
+        ("code_id", "TEXT"),
+        ("name", "TEXT"),
+        ("parent_id", "TEXT"),
+        ("includes", "TEXT NOT NULL DEFAULT ''"),
+        ("excludes", "TEXT NOT NULL DEFAULT ''"),
+        ("origin_passage_id", "TEXT"),
+        ("example_passage_id", "TEXT"),
+    ] {
+        if !have.iter().any(|n| n == column) {
+            conn.execute_batch(&format!("ALTER TABLE codes ADD COLUMN {column} {ddl};"))?;
+        }
+    }
+    Ok(())
+}
 
 /// Current time, RFC 3339 UTC, seconds precision.
 pub fn now() -> String {
@@ -235,10 +270,19 @@ impl Store {
             [],
             |r| r.get(0),
         )?;
-        if n_tables > 0 && version < SCHEMA_VERSION {
+        if n_tables > 0 && version < MIN_SCHEMA_VERSION {
             return Err(validation(
                 "this database was created by an earlier version of Coding Studio; start a new database",
             ));
+        }
+        // Version 3 databases lack the V1 columns of `codes`: added before the
+        // schema runs, so that its indexes and the backfill find them.
+        let had_codes: bool = n_tables > 0
+            && conn
+                .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'codes'")?
+                .exists([])?;
+        if had_codes {
+            migrate_codes_v4(&conn)?;
         }
         conn.execute_batch(SCHEMA)?;
         // Databases made before providers existed lack the column: added in
@@ -251,6 +295,24 @@ impl Store {
             .any(|n| n == "provider");
         if !has_provider {
             conn.execute_batch("ALTER TABLE ai_runs ADD COLUMN provider TEXT;")?;
+        }
+        conn.execute_batch(
+            "CREATE UNIQUE INDEX IF NOT EXISTS idx_codes_code_id ON codes(code_id);",
+        )?;
+        let n_identified = if had_codes || n_tables == 0 {
+            codetree::backfill_identity(&conn)?
+        } else {
+            0
+        };
+        if n_identified > 0 && version > 0 && version < SCHEMA_VERSION {
+            append_event(
+                &conn,
+                "system",
+                "schema.migrate",
+                None,
+                None,
+                json!({"from": version, "to": SCHEMA_VERSION, "codes_identified": n_identified}),
+            )?;
         }
         conn.execute_batch(&format!("PRAGMA user_version = {SCHEMA_VERSION};"))?;
         Ok(Store { conn })

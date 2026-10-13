@@ -65,7 +65,7 @@ pub struct CodePatch {
 }
 
 /// A field present in the JSON (even null) becomes `Some(value)`.
-fn present<'de, D: Deserializer<'de>>(
+pub(crate) fn present<'de, D: Deserializer<'de>>(
     d: D,
 ) -> std::result::Result<Option<Option<String>>, D::Error> {
     Option::<String>::deserialize(d).map(Some)
@@ -87,6 +87,10 @@ pub struct ImportReport {
 pub struct MergeOutcome {
     pub rewritten_codings: usize,
     pub rewritten_decisions: usize,
+    /// Passage codings moved from the merged code to the target.
+    pub moved_passage_codings: usize,
+    /// Passage codings dropped because the passage already carried the target.
+    pub deduplicated_passage_codings: usize,
 }
 
 /// TOE letter from a coding.db family.
@@ -108,7 +112,7 @@ fn split_questions(cell: &str) -> Vec<String> {
         .collect()
 }
 
-fn check_toe(toe: &Option<String>) -> Result<Option<String>> {
+pub(crate) fn check_toe(toe: &Option<String>) -> Result<Option<String>> {
     match clean_opt(toe) {
         None => Ok(None),
         Some(t) if TOE_LETTERS.contains(&t.as_str()) => Ok(Some(t)),
@@ -336,6 +340,10 @@ impl Store {
                 params![q, base + 1 + i as i64],
             )?;
         }
+        crate::codetree::backfill_identity(&tx)?;
+        if !added.is_empty() || !updated.is_empty() {
+            crate::codetree::bump_revision(&tx, actor, "import", None)?;
+        }
         let source = coding_db.display().to_string();
         tx.execute(
             "INSERT INTO settings (key, value, updated_at) VALUES (?1, ?2, ?3)
@@ -392,7 +400,7 @@ impl Store {
             .optional()?)
     }
 
-    fn check_questions(&self, ids: &[String]) -> Result<Vec<String>> {
+    pub(crate) fn check_questions(&self, ids: &[String]) -> Result<Vec<String>> {
         let known: BTreeSet<String> = self
             .research_questions()?
             .into_iter()
@@ -479,6 +487,8 @@ impl Store {
                 stored.created_at
             ],
         )?;
+        crate::codetree::backfill_identity(conn)?;
+        crate::codetree::bump_revision(conn, actor, "create", Some(&stored.code))?;
         append_event(
             conn,
             actor,
@@ -558,6 +568,7 @@ impl Store {
                 after.version
             ],
         )?;
+        crate::codetree::bump_revision(&tx, actor, "edit", Some(code))?;
         append_event(
             &tx,
             actor,
@@ -613,6 +624,7 @@ impl Store {
             "UPDATE codes SET active = ?2, local = 1 WHERE code = ?1",
             params![code, active as i64],
         )?;
+        crate::codetree::bump_revision(&tx, actor, "active", Some(code))?;
         append_event(
             &tx,
             actor,
@@ -738,9 +750,13 @@ impl Store {
             "UPDATE codes SET merged_into = ?2, active = 0, local = 1, version = version + 1 WHERE code = ?1",
             params![from, into],
         )?;
+        let (moved, dedup) = self.merge_identity(&tx, from, into, actor)?;
+        crate::codetree::bump_revision(&tx, actor, "merge", Some(from))?;
         let outcome = MergeOutcome {
             rewritten_codings: codings.len(),
             rewritten_decisions: decisions.len(),
+            moved_passage_codings: moved,
+            deduplicated_passage_codings: dedup,
         };
         append_event(
             &tx,
@@ -756,6 +772,8 @@ impl Store {
                 "rewritten_decisions": decisions.iter().map(|(i, d)| json!({"interview_id": i, "unit_id": d.unit_id})).collect::<Vec<_>>(),
                 "n_codings": outcome.rewritten_codings,
                 "n_decisions": outcome.rewritten_decisions,
+                "moved_passage_codings": outcome.moved_passage_codings,
+                "deduplicated_passage_codings": outcome.deduplicated_passage_codings,
             }),
         )?;
         tx.commit()?;
@@ -798,8 +816,16 @@ impl Store {
     pub fn codebook_export(&self) -> Result<(String, String)> {
         let book = self.codebook()?;
         let mut csv = String::from(
-            "code,label,definition,toe,origin,active,in_prompt,research_questions,merged_into,version,example,reason,created_at\n",
+            "code,label,definition,toe,origin,active,in_prompt,research_questions,merged_into,version,example,reason,created_at,code_id,name,parent_id,aliases,includes,excludes\n",
         );
+        // V1: stable id, name, parent and aliases (the code tree). The columns
+        // come last, so a reader of the older layout is unaffected.
+        let nodes: BTreeMap<String, cs_model::passage::CodeNode> = self
+            .code_nodes()?
+            .into_iter()
+            .filter(|n| !n.system)
+            .map(|n| (n.token.clone(), n))
+            .collect();
         let mut sql = String::from(
             "-- Codebook exported by Coding Studio. Apply to 05_Analysis/coding/coding.db.\nBEGIN;\n",
         );
@@ -820,6 +846,29 @@ impl Store {
                     csv_field(c.example.as_deref().unwrap_or("")),
                     csv_field(c.reason.as_deref().unwrap_or("")),
                     csv_field(c.created_at.as_deref().unwrap_or("")),
+                    csv_field(nodes.get(&c.code).map_or("", |n| n.code_id.as_str())),
+                    csv_field(nodes.get(&c.code).map_or("", |n| n.name.as_str())),
+                    csv_field(
+                        nodes
+                            .get(&c.code)
+                            .and_then(|n| n.parent_id.as_deref())
+                            .unwrap_or(""),
+                    ),
+                    csv_field(
+                        &nodes
+                            .get(&c.code)
+                            .map(|n| {
+                                n.aliases
+                                    .iter()
+                                    .filter(|a| !a.alias.eq_ignore_ascii_case(&n.name))
+                                    .map(|a| a.alias.as_str())
+                                    .collect::<Vec<_>>()
+                                    .join(";")
+                            })
+                            .unwrap_or_default(),
+                    ),
+                    csv_field(nodes.get(&c.code).map_or("", |n| n.includes.as_str())),
+                    csv_field(nodes.get(&c.code).map_or("", |n| n.excludes.as_str())),
                 ]
                 .join(","),
             );

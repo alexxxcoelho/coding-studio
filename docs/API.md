@@ -158,3 +158,95 @@ Model providers are optional. The copy-and-paste workflow is always listed first
 - `POST /api/providers/{id}/oauth/begin` -> `{url, state}`. Only for `oauth_chat_gpt` with a `token_dir` (otherwise 400). A loopback listener on a free port receives the callback; the sign-in completes in the background (5 minutes at most).
 - `GET /api/providers/{id}/oauth/status` -> `{connected, pending, profile, error}`; `profile` is the connected ChatGPT profile (`{id, email, subject, client_id, connected}`) or null, `error` the message of the last failed sign-in or null. Same refusals as `begin`.
 
+
+## V1 lots 1 and 2
+
+Server side of the V1 specification (`docs/SPEC.md`, sections 3 and 4): passages, a stable code tree, the project configuration and the project template. Everything is additive: the earlier routes (`/api/codebook`, `/api/phases/...`) answer as before and keep using the upper-case token of a code. Every write below is one transaction with its audit event. Errors follow the usual mapping: 400 `validation`, 404 not found, 409 `guard`.
+
+### Passages
+
+A passage is a selected part of a unit (a turn). It stores the interview, the unit, `start` and `end`, the exact `text`, the segmentation hash, `anchor_digest` (SHA-256 of the unit text the positions refer to), `created_at` and `created_by`. Positions count Unicode characters from 0, end excluded (the JSON also gives `start_utf16` and `end_utf16`, in the units of a browser selection). A client that counts in UTF-16 sends `"offset_unit": "utf16"`; a position inside a surrogate pair is refused with 400. A passage is `stale` (with `stale_reason`) when the current text of the unit no longer has the digest, or when the unit left the segmentation: it is flagged, never moved. A passage with no active code is a highlight (`kind: "highlight"`, otherwise `"coded"`). Interviewer units can carry no passage: 400, the message says the unit is the interviewer's.
+
+| Method | Path | Body | Answer |
+|---|---|---|---|
+| POST | `/api/interviews/{id}/passages` | `{unit_id, start?, end?, offset_unit?, text?, code?, note?}` | `{passage, created}`. Without `start` and `end` the whole unit is selected. `text`, when given, must be what the positions select. Without `code` the passage is a highlight. `code` is an id (`C-0001`), a name, an alias or a token, case-insensitive; `"Plus tard"` or `LATER` parks the passage (with `note`). The same span is the same passage: a second code goes to it (`created: false`) |
+| GET | `/api/interviews/{id}/passages?unit_id=&code=&kind=` | | `Passage[]`; `kind`: `highlight`, `coded` or `later` |
+| GET | `/api/passages/{pid}` | | `Passage` with `codings: [{coding_id, code_id, code_name, system, note, created_at, created_by}]`, `before` and `after` (up to 60 characters of context) |
+| DELETE | `/api/passages/{pid}?reason=` | | `{deleted}`. Logical, audited |
+| POST | `/api/passages/{pid}/codings` | `{code, note?}` | `Passage`. Several codes per passage; a code already on it is a no-op; an inactive or merged-away code is refused |
+| DELETE | `/api/passages/{pid}/codings/{code}?reason=` | | `Passage`. Removes the coding logically; a passage left without code becomes a highlight |
+| GET | `/api/interviews/{id}/highlights` | | `Passage[]` without active code, to be converted by coding them |
+| GET | `/api/interviews/{id}/later` | | The passages parked with "Plus tard" in the interview, with their note |
+| GET | `/api/later` | | `{summary: [{interview_id, n}], items}` for the whole corpus |
+
+Audit actions: `passage.create`, `passage.code`, `passage.code_note`, `passage.uncode`, `passage.delete`. Coding a whole turn through this route does not write the unit-level `human_codings` of phases 1 and 2 (see `docs/DEVGRAPH_v1_lots1-2.md`).
+
+### Codes, names, aliases, tree
+
+Each code has a stable `code_id` (`C-0001`, never reused), an editable `name`, a list of `aliases`, an optional `parent_id`, `includes` and `excludes` texts, and its legacy `token`. Existing codes get an id in codebook order, their token as name, and the token as alias (`reason: legacy_token`). The reserved system code "Plus tard" (`code_id` and `token` `LATER`) is always listed last, is not stored in the codebook, is never counted and is never sent to the AI.
+
+`CodeNode`: `{code_id, token, name, label, definition, includes, excludes, parent_id, origin, toe, research_questions, active, system, in_prompt, merged_into (a code_id), version, example, reason, origin_passage_id, example_passage_id, created_at, aliases: [{alias, reason, created_at}], counts: {passages, interviews, passages_rollup, interviews_rollup}}`. `counts` never mixes the two: passages and distinct interviews, own and rolled up with all descendants (a passage counted once). The codebook version is the number of revisions, and goes up by one at each change of the codebook.
+
+| Method | Path | Body | Answer |
+|---|---|---|---|
+| GET | `/api/codes?attribute=&value=` | | `{codebook_version, filter, codes: CodeNode[]}`. With `attribute` and `value` together the counts cover only the interviews whose attribute has that value ("codes by attribute"); one without the other is 400; an unknown attribute is 400 |
+| GET | `/api/codes/{id}` | | `CodeNode` (`id` is an id, name, alias or token) |
+| PUT | `/api/codes/{id}` | `{name?, label?, definition?, includes?, excludes?, ...}` | `CodeNode`. A new name is validated (not empty, one line, 200 characters at most, not `NA` nor "Plus tard", unique among names, aliases and tokens) and the former name becomes an alias. The id and the codings do not change. A merged code cannot be edited |
+| POST | `/api/codes/{id}/move` | `{parent_id: id \| null, rationale}` | `CodeNode`. Refused (400) when it makes a cycle, when the parent is unknown, merged or the reserved code, or without rationale. The passages do not change |
+| POST | `/api/codes/{id}/aliases` | `{alias}` | `CodeNode`. A synonym |
+| DELETE | `/api/codes/{id}/aliases/{alias}` | | `CodeNode`. The alias that equals the token or the name cannot be removed |
+| POST | `/api/codes/{id}/merge` | `{into, rationale}` | `{outcome: {moved_passage_codings, deduplicated_passage_codings, ...}, merged, code}`. Passages coded with both codes keep one coding; the merged name stays an alias of the target; children are re-attached to the target |
+| POST | `/api/codes/{id}/active` | `{active}` | `CodeNode`. An inactive code cannot be applied |
+| POST | `/api/codes/from-passage` | `{name, definition, includes?, excludes?, parent_id?, passage_id \| passage: {interview_id, unit_id, start?, end?, offset_unit?}}` | `{code, passage, codebook_version}`. Creates the code (origin `field`) with its origin passage, codes the passage with it, increments the codebook version, all in one transaction. A highlight given by `passage_id` becomes coded. The definition is required |
+| GET | `/api/codes/{id}/passages?descendants=true` | | `PassageContext[]`: `{passage, speaker, previous, next, other_codes}` |
+| GET | `/api/codebook/revisions` | | `{codebook_version, revisions: [{rev, ts, actor, reason, target}]}`; `reason`: `import`, `create`, `edit`, `active`, `merge`, `rename`, `move`, `alias`, `create_from_passage` |
+
+Audit actions: `codebook.code.rename`, `.edit`, `.move`, `.alias_add`, `.alias_remove`, `.create_from_passage`, and the earlier `codebook.merge`, `codebook.import` (the CSV and JSON imports now also assign ids and add a revision).
+
+### Project configuration
+
+Stored under the settings key `project_config`, next to `study_config`; validated as a whole (400 names the element), audited as `project_config.update` with `{before, after}`; no event when nothing changes.
+
+| Method | Path | Body | Answer |
+|---|---|---|---|
+| GET | `/api/project-config` | | `ProjectConfig` |
+| PUT | `/api/project-config` | `ProjectConfig` | `ProjectConfig` as stored (memo template versions assigned). 409 when it would orphan data (see below) |
+| GET | `/api/project-config/presets` | | `{frameworks: {toe, tam_utaut}, defaults}` to fill the Settings form |
+
+`ProjectConfig`:
+
+- `attributes: [{id, label, kind: text | choice | number | date, choices, shared_with_model}]`. A choice needs values; only a choice has values. Dates are `YYYY-MM-DD`, numbers accept a comma and are stored with a point.
+- `memo_templates: [{id, name, default, version, questions: [{id, text}]}]`. Exactly one default. `version` is set by the server: it goes up by one each time the name or the questions of a template change, and the earlier version is kept (`memo_history`) so that an interview keeps the questions it was answered with. Default: `default` ("Par défaut"), four questions: what the respondent tells, what surprised me, which contradictions, what to ask the next interviews.
+- `checklist`: four items by default (`turns_seen`, `later_handled`, `code_memos`, `next_questions`).
+- `theme_checks`: seven by default. `evidence_natures`: five (first-hand account, reported statement, figure estimate, quoted document, opinion). `link_types`: six (soutient, nuance, conditionne, mécanisme, exception, contredit; at least one). `matrix_dimensions`: none by default (for example "qui impose", "qui paie"). Items are `{id, label}`; ids match `^[a-z0-9][a-z0-9_-]*$`, are unique in their list, labels are unique in their list.
+- `interpretive_framework`: `null` by default, or `{preset: toe | tam_utaut | custom, dimensions: [{id, label, definition}]}`. Used only in Analyse and Write: it is never in the codes, the codebook, the coding screen or the AI prompt (the prompt is built from `study_config` and the codebook only).
+
+Data protection (409 `guard`): an attribute that has values cannot be removed or change type, a choice in use cannot be dropped, a memo template an interview uses cannot be removed.
+
+### Per-interview data
+
+| Method | Path | Body | Answer |
+|---|---|---|---|
+| GET | `/api/interviews/{id}/attributes` | | `{interview_id, definitions, values: {attribute_id: value}}` |
+| PUT | `/api/interviews/{id}/attributes` | `{values: {attribute_id: value \| null}}` | same. `null` or `""` clears. Validated by type; one wrong value refuses the whole call. Audit `interview.attributes` |
+| GET | `/api/interviews/{id}/memo` | | `MemoView`: `{template_id, template_name, template_version, current_version, outdated, questions: [{id, text, source: template \| added, reworded, answer: {text, at} \| null}], removed, orphan_answers, overrides, saved}`. The default template until another is chosen |
+| PUT | `/api/interviews/{id}/memo/template` | `{template_id}` | `MemoView`. Chooses the template and moves to its current version; the interview's own edits are reset, answers are kept by question id. Audit `memo.template` |
+| PUT | `/api/interviews/{id}/memo/overrides` | `{added: [{id?, text}], removed: [question_id], reworded: {question_id: text}}` | `MemoView`. Edits for this interview only; an added question without id gets `x1`, `x2`... Audit `memo.overrides` |
+| PUT | `/api/interviews/{id}/memo/answers` | `{answers: {question_id: text}}` | `MemoView`. Each answer carries the time of its last change; `""` clears; only questions shown for the interview can be answered. Audit `memo.answer` (the question ids, not the text) |
+| GET | `/api/interviews/{id}/checklist` | | `{interview_id, items: [{id, label, checked, checked_at}], note, complete}`. The items are those of the configuration; `complete` informs and never locks |
+| PUT | `/api/interviews/{id}/checklist` | `{checked: {item_id: bool}, note?}` | same. Audit `interview.checklist` |
+
+### Project template
+
+One JSON file: `{format: "coding-studio-project-template", version: 1, study_config, research_questions: [{id, text}], project_config}`. It holds no interview text, no coding, no attribute value, no memo answer, no provider and no secret. The export is deterministic: the same configuration gives the same bytes.
+
+| Method | Path | Body | Answer |
+|---|---|---|---|
+| GET | `/api/project/template` | | the template |
+| POST | `/api/project/template/import` | `{template, dry_run?}` | `{dry_run, applied, changes: [{part, action, detail}], problems: string[]}`. 200 whether or not it could be applied; 400 only when the body is not a template at all |
+
+Import is all or nothing and reports every problem at once; with a problem, or with `dry_run`, nothing is written. It works on a new project and on one with data. The lists, memo templates, framework, study settings and research questions are replaced or added; an attribute with values, or a memo template an interview uses, that the template does not list is kept (`action: kept`); an attribute that has values and would change type, or a phase 1 category change after phase 1 coding, is a problem. Research questions of the project that the template does not list are kept. `action` is `added`, `updated`, `removed` or `kept`. Audit `project.template.import` (the changes) and `project_config.update`, `config.update`. `examples/project_template.example.json` is a fictional library study.
+
+### Exports (additions)
+
+The interview package and the cross-case package gain `passages.csv`, `highlights.csv`, `attributes.csv`, `memos.json` and `study_config.json`; the cross-case package also gains `codebook.csv`. `codebook.csv` gains six trailing columns `code_id,name,parent_id,aliases,includes,excludes` (aliases joined with `;`, the name excluded); the first thirteen columns and the codebook import are unchanged. `state.json` parts gain `passages`, `attribute_values`, `memos_and_checklists`, `project_config` and `code_tree`, so the state digest moves with them. All new files are in `manifest.json` with their SHA-256. Formats are in `docs/CONTRACTS.md`, section 10.

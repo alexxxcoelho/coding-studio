@@ -11,7 +11,9 @@
 --      exported as files.
 --   4. Phase 1 is the candidate's provisional TOE pre-classification; phase 2
 --      carries concrete codes and is the only phase challenged by the AI.
--- Schema version 3 (PRAGMA user_version), set by cs-store on open.
+-- Schema version 4 (PRAGMA user_version), set by cs-store on open. Version 4 is
+-- version 3 plus the V1 lot 1 and 2 tables and columns; version 3 databases
+-- are migrated in place.
 -- ===========================================================================
 
 CREATE TABLE IF NOT EXISTS settings (
@@ -57,7 +59,16 @@ CREATE TABLE IF NOT EXISTS codes (
     local              INTEGER NOT NULL DEFAULT 0,  -- 1 = created or edited in Coding Studio
     example            TEXT,
     reason             TEXT,
-    created_at         TEXT
+    created_at         TEXT,
+    -- V1 lot 1 (additive; databases made before get these columns and a
+    -- backfill when opened, see Store::init)
+    code_id            TEXT,                        -- stable opaque id, C-0001
+    name               TEXT,                        -- free display name, editable
+    parent_id          TEXT,                        -- code_id of the parent
+    includes           TEXT NOT NULL DEFAULT '',
+    excludes           TEXT NOT NULL DEFAULT '',
+    origin_passage_id  TEXT,
+    example_passage_id TEXT
 );
 
 CREATE TABLE IF NOT EXISTS research_questions (
@@ -306,6 +317,60 @@ CREATE TABLE IF NOT EXISTS case_units (
     PRIMARY KEY (case_id, unit_id)
 );
 
+-- ------------------------------------------------- V1 lot 1: codes, passages
+-- Aliases resolve to a code: former names, synonyms, merged codes, and the
+-- legacy upper-case token. An alias belongs to one code at a time.
+CREATE TABLE IF NOT EXISTS code_aliases (
+    alias       TEXT PRIMARY KEY,
+    code_id     TEXT NOT NULL,
+    reason      TEXT NOT NULL,     -- former_name | synonym | merge | legacy_token
+    created_at  TEXT NOT NULL
+);
+
+-- One row per change of the codebook; the codebook version is the last rev.
+CREATE TABLE IF NOT EXISTS codebook_revisions (
+    rev     INTEGER PRIMARY KEY AUTOINCREMENT,
+    ts      TEXT NOT NULL,
+    actor   TEXT NOT NULL,
+    reason  TEXT NOT NULL,
+    target  TEXT
+);
+
+-- A passage is a span of a unit (possibly the whole unit). Offsets are
+-- Unicode scalar positions, end exclusive. Deleted logically.
+CREATE TABLE IF NOT EXISTS passages (
+    passage_id         TEXT PRIMARY KEY,
+    interview_id       TEXT NOT NULL REFERENCES interviews(interview_id),
+    unit_id            TEXT NOT NULL,
+    start_offset       INTEGER NOT NULL,
+    end_offset         INTEGER NOT NULL,
+    text               TEXT NOT NULL,
+    segmentation_hash  TEXT NOT NULL,
+    anchor_digest      TEXT NOT NULL,     -- sha256 of the unit text anchored on
+    created_at         TEXT NOT NULL,
+    created_by         TEXT NOT NULL,
+    deleted_at         TEXT,
+    deleted_by         TEXT,
+    delete_reason      TEXT
+);
+
+-- Many codes per passage. A coding is removed logically (removed_at).
+CREATE TABLE IF NOT EXISTS passage_codings (
+    coding_id     INTEGER PRIMARY KEY AUTOINCREMENT,
+    passage_id    TEXT NOT NULL REFERENCES passages(passage_id),
+    code_id       TEXT NOT NULL,          -- codes.code_id, or LATER
+    note          TEXT NOT NULL DEFAULT '',
+    created_at    TEXT NOT NULL,
+    created_by    TEXT NOT NULL,
+    removed_at    TEXT,
+    removed_by    TEXT,
+    remove_reason TEXT
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_passage_codings_active
+    ON passage_codings(passage_id, code_id) WHERE removed_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_passages_unit ON passages(interview_id, unit_id);
+CREATE INDEX IF NOT EXISTS idx_passage_codings_code ON passage_codings(code_id);
+
 -- --------------------------------------------------------------- audit trail
 CREATE TABLE IF NOT EXISTS audit_log (
     seq           INTEGER PRIMARY KEY,
@@ -377,3 +442,25 @@ CREATE TRIGGER IF NOT EXISTS unit_verifications_no_update BEFORE UPDATE ON unit_
 BEGIN SELECT RAISE(ABORT, 'append-only: unit_verifications'); END;
 CREATE TRIGGER IF NOT EXISTS unit_verifications_no_delete BEFORE DELETE ON unit_verifications
 BEGIN SELECT RAISE(ABORT, 'append-only: unit_verifications'); END;
+
+CREATE TRIGGER IF NOT EXISTS codebook_revisions_no_update BEFORE UPDATE ON codebook_revisions
+BEGIN SELECT RAISE(ABORT, 'append-only: codebook_revisions'); END;
+CREATE TRIGGER IF NOT EXISTS codebook_revisions_no_delete BEFORE DELETE ON codebook_revisions
+BEGIN SELECT RAISE(ABORT, 'append-only: codebook_revisions'); END;
+
+CREATE TRIGGER IF NOT EXISTS passages_no_delete BEFORE DELETE ON passages
+BEGIN SELECT RAISE(ABORT, 'passages are deleted logically'); END;
+CREATE TRIGGER IF NOT EXISTS passage_codings_no_delete BEFORE DELETE ON passage_codings
+BEGIN SELECT RAISE(ABORT, 'passage codings are removed logically'); END;
+
+-- V1 lot 2: per-interview data governed by the project configuration
+-- (attribute values, familiarisation memo, end-of-interview checklist).
+-- One JSON document per kind; every write is audited.
+CREATE TABLE IF NOT EXISTS interview_data (
+    interview_id TEXT NOT NULL,
+    kind         TEXT NOT NULL,
+    body         TEXT NOT NULL,
+    updated_at   TEXT NOT NULL,
+    updated_by   TEXT NOT NULL,
+    PRIMARY KEY (interview_id, kind)
+);
