@@ -135,7 +135,7 @@ pub(crate) fn prompt_context(
     let study = store.study_config()?;
     let nodes = store.code_nodes()?;
     let attrs = store.interview_attributes(&seg.interview_id)?;
-    let attributes: Vec<(String, String)> = attrs
+    let mut attributes: Vec<(String, String)> = attrs
         .definitions
         .iter()
         .filter(|d| d.shared_with_model)
@@ -146,6 +146,9 @@ pub(crate) fn prompt_context(
                 .map(|v| (d.label.clone(), v.clone()))
         })
         .collect();
+    // Attributes of the respondents of the register that the project shares;
+    // the prompt masks them with the list like every other text.
+    attributes.extend(store.shared_person_attributes(&seg.interview_id)?);
     let in_scope: BTreeSet<&str> = unit_ids.iter().map(String::as_str).collect();
     let mut preceding = BTreeMap::new();
     for (i, unit) in seg.units.iter().enumerate() {
@@ -301,7 +304,9 @@ async fn decide_candidate(
 // ------------------------------------------------------- pseudonymisation
 
 fn pseudonym_view(store: &Store, interview: Option<&str>) -> anyhow::Result<Value> {
-    let cfg = store.pseudonym_config()?;
+    let eff = store.effective_pseudonyms()?;
+    let manual = store.manual_pseudonym_config()?;
+    let cfg = eff.config.clone();
     let entries: Vec<Value> = match interview {
         Some(id) => store
             .pseudonym_usage(id)?
@@ -313,11 +318,27 @@ fn pseudonym_view(store: &Store, interview: Option<&str>) -> anyhow::Result<Valu
         None => cfg
             .entries
             .iter()
-            .map(|e| json!({"kind": e.kind, "original": e.original, "pseudonym": e.pseudonym}))
+            .zip(&eff.person_of)
+            .map(|(e, person)| {
+                json!({
+                    "kind": e.kind, "original": e.original, "pseudonym": e.pseudonym,
+                    "source": if person.is_some() { "person" } else { "manual" },
+                    "person_id": person,
+                })
+            })
             .collect(),
     };
+    let shadowed: Vec<Value> = eff
+        .shadowed
+        .iter()
+        .map(|(e, why)| json!({"kind": e.kind, "original": e.original, "pseudonym": e.pseudonym, "reason": why}))
+        .collect();
     Ok(json!({
         "enabled": cfg.enabled,
+        "enabled_manual": manual.enabled,
+        "n_manual_entries": manual.entries.len(),
+        "n_person_entries": eff.person_of.iter().filter(|p| p.is_some()).count(),
+        "shadowed_manual": shadowed,
         "digest": cfg.digest(),
         "categories": cfg.categories(),
         "n_list_entries": cfg.entries.len(),
@@ -338,22 +359,46 @@ async fn project_pseudonymisation(State(st): State<AppState>) -> ApiResult {
     Ok(Json(pseudonym_view(&st.store(), None)?))
 }
 
+/// An entry of the list as the interface sends it back. Entries that come
+/// from a person (`source: "person"`) are not kept by hand: they are edited
+/// through the person.
+#[derive(Deserialize)]
+struct PseudonymBodyEntry {
+    kind: String,
+    original: String,
+    pseudonym: String,
+    #[serde(default)]
+    source: Option<String>,
+}
+
 #[derive(Deserialize)]
 struct PseudonymBody {
     /// The switch; unchanged when omitted.
     #[serde(default)]
     enabled: Option<bool>,
-    /// The whole list, replacing the stored one; unchanged when omitted.
+    /// The whole list of entries kept by hand, replacing the stored one;
+    /// unchanged when omitted.
     #[serde(default)]
-    entries: Option<Vec<PseudonymEntry>>,
+    entries: Option<Vec<PseudonymBodyEntry>>,
 }
 
 fn apply_pseudonym_body(st: &AppState, body: PseudonymBody) -> anyhow::Result<()> {
     let store = st.store();
-    let current = store.pseudonym_config()?;
+    let current = store.manual_pseudonym_config()?;
     let next = PseudonymConfig {
         enabled: body.enabled.unwrap_or(current.enabled),
-        entries: body.entries.unwrap_or(current.entries),
+        entries: match body.entries {
+            Some(list) => list
+                .into_iter()
+                .filter(|e| e.source.as_deref() != Some("person"))
+                .map(|e| PseudonymEntry {
+                    kind: e.kind,
+                    original: e.original,
+                    pseudonym: e.pseudonym,
+                })
+                .collect(),
+            None => current.entries,
+        },
     };
     store.set_pseudonym_config(&next, &st.actor)?;
     Ok(())

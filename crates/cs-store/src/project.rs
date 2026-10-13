@@ -16,7 +16,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use anyhow::Result;
 use cs_model::project::{
-    AttributeDef, MemoQuestion, ProjectConfig, ProjectTemplate, TemplateQuestion,
+    AttributeDef, AttributeScope, MemoQuestion, ProjectConfig, ProjectTemplate, TemplateQuestion,
     PROJECT_CONFIG_KEY, TEMPLATE_FORMAT, TEMPLATE_FORMAT_VERSION,
 };
 use cs_model::StudyConfig;
@@ -233,19 +233,35 @@ impl Store {
     fn data_conflicts(&self, before: &ProjectConfig, after: &ProjectConfig) -> Result<Vec<String>> {
         let mut out = Vec::new();
         let values = self.all_attribute_values()?;
+        let person_values: BTreeMap<String, BTreeMap<String, String>> =
+            self.person_attribute_values()?.into_iter().collect();
         for def in &before.attributes {
-            let used: Vec<(&String, &String)> = values
+            let source = if def.scope == AttributeScope::Person {
+                &person_values
+            } else {
+                &values
+            };
+            let what = if def.scope == AttributeScope::Person {
+                "person(s)"
+            } else {
+                "interview(s)"
+            };
+            let used: Vec<(&String, &String)> = source
                 .iter()
                 .filter_map(|(iv, m)| m.get(&def.id).map(|v| (iv, v)))
                 .collect();
             if used.is_empty() {
                 continue;
             }
-            match after.attribute(&def.id) {
+            match after.attributes.iter().find(|a| a.id == def.id) {
                 None => out.push(format!(
-                    "attribute {} has values on {} interview(s) and cannot be removed",
+                    "attribute {} has values on {} {what} and cannot be removed",
                     def.id,
                     used.len()
+                )),
+                Some(new) if new.scope != def.scope => out.push(format!(
+                    "attribute {} has values and its scope cannot change",
+                    def.id
                 )),
                 Some(new) if new.kind != def.kind => out.push(format!(
                     "attribute {} has values and its type cannot change",
@@ -378,7 +394,11 @@ impl Store {
         };
         Ok(AttributeView {
             interview_id: interview_id.into(),
-            definitions: self.project_config()?.attributes,
+            definitions: self
+                .project_config()?
+                .interview_attributes()
+                .cloned()
+                .collect(),
             values,
         })
     }
@@ -900,9 +920,14 @@ impl Store {
 
         // Keep what carries data.
         let values = self.all_attribute_values()?;
+        let person_values = self.person_attribute_values()?;
         for def in &before.attributes {
-            let has_values = values.values().any(|m| m.contains_key(&def.id));
-            if has_values && incoming.attribute(&def.id).is_none() {
+            let has_values = if def.scope == AttributeScope::Person {
+                person_values.iter().any(|(_, m)| m.contains_key(&def.id))
+            } else {
+                values.values().any(|m| m.contains_key(&def.id))
+            };
+            if has_values && !incoming.attributes.iter().any(|a| a.id == def.id) {
                 incoming.attributes.push(def.clone());
                 changes.push(change(
                     "attributes",

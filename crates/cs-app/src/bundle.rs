@@ -60,6 +60,9 @@ pub fn project_counts(store: &Store) -> Result<BTreeMap<String, i64>> {
             "memos",
             "SELECT COUNT(*) FROM interview_data WHERE kind = 'memo'",
         ),
+        ("persons", "SELECT COUNT(*) FROM persons"),
+        ("person_groups", "SELECT COUNT(*) FROM person_groups"),
+        ("person_links", "SELECT COUNT(*) FROM person_interviews"),
         ("audit_events", "SELECT COUNT(*) FROM audit_log"),
     ] {
         let n: i64 = c.query_row(sql, [], |r| r.get(0)).unwrap_or(-1);
@@ -146,6 +149,15 @@ pub fn export_bundle(store: &Store, actor: &str) -> Result<BundleOut> {
         crate::export_v1::study_config_json(store)?,
     ));
     entries.push(("state.json".into(), state_bytes));
+    // The register in readable form (the database copy holds it too).
+    entries.push((
+        "config/persons.csv".into(),
+        crate::export_persons::persons_csv_full(store, None)?.into_bytes(),
+    ));
+    entries.push((
+        "config/groups.csv".into(),
+        crate::export_persons::groups_csv(store)?.into_bytes(),
+    ));
     let mut jsonl = String::new();
     for e in &events {
         jsonl.push_str(&serde_json::to_string(e)?);

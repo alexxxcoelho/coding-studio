@@ -48,6 +48,17 @@ pub enum Command {
     },
     /// Check the audit chain and the manifests of the exports already written.
     Verify,
+    /// Write the verification package for examiners: original and coded
+    /// transcripts with the names of the persons flagged to anonymise replaced,
+    /// the register of persons, and the digests of the original files.
+    VerificationExport {
+        /// Interview ids, or `all`.
+        #[arg(required = true)]
+        targets: Vec<String>,
+        /// Folder the package is written under; absent, the exports folder.
+        #[arg(long)]
+        out: Option<PathBuf>,
+    },
     /// Whole-project bundle (.csproj.zip).
     Project {
         #[command(subcommand)]
@@ -299,6 +310,33 @@ pub async fn run(st: &AppState, command: &Command) -> Result<Outcome> {
             researcher_names,
         } => export(st, target, *anonymised, *format, researcher_names).await,
         Command::Verify => verify(st).await,
+        Command::VerificationExport { targets, out } => {
+            let all = targets.iter().any(|t| t == "all");
+            if all && targets.len() > 1 {
+                bail!("`all` stands for every interview: do not combine it with ids");
+            }
+            let body = json!({
+                "all": all,
+                "interview_ids": if all { Vec::new() } else { targets.clone() },
+                "out_dir": out.as_ref().map(|p| p.display().to_string()),
+            });
+            let v = call(
+                st,
+                Method::POST,
+                "/api/export/verification",
+                Some(body),
+                None,
+            )
+            .await?
+            .ok_json()?;
+            let text = format!(
+                "verification package written to {} ({} file(s), {} warning(s))",
+                v["dir"].as_str().unwrap_or(""),
+                v["files"].as_array().map_or(0, Vec::len) + 1,
+                v["warnings"].as_array().map_or(0, Vec::len)
+            );
+            done(v, text)
+        }
         Command::Project { action } => match action {
             ProjectCmd::Export { out } => {
                 let r = call(st, Method::GET, "/api/project/bundle", None, None).await?;
