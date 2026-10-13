@@ -31,15 +31,15 @@ import type { StudyConfig } from "@/lib/types"
 const FRAMEWORKS = [
   ["toe", "TOE"],
   ["tam_utaut", "TAM/UTAUT"],
-  ["none", "None"],
-  ["custom", "Custom"],
+  ["none", "Aucune"],
+  ["custom", "Personnalisées"],
 ] as const
 
 export function StudyConfigSection() {
   const config = useQuery({ queryKey: ["config"], queryFn: api.config })
   // One region for every state: the section must not be replaced while loading.
   return (
-    <Section title="Study configuration">
+    <Section title="Étude">
       {config.isLoading ? (
         <Skeleton className="h-48 w-full" />
       ) : config.error ? (
@@ -106,10 +106,10 @@ function StudyForms({ initial }: { initial: StudyConfig }) {
     <>
       <div className="flex flex-col gap-5">
         <div className="grid gap-3 sm:grid-cols-3">
-          <Field label="Study name">
+          <Field label="Nom de l'étude">
             <Input value={form.study_name} onChange={(e) => set("study_name", e.target.value)} />
           </Field>
-          <Field label="Framework">
+          <Field label="Jeu de catégories de départ">
             <NativeSelect value={form.framework} onChange={(e) => set("framework", e.target.value as StudyForm["framework"])}>
               {FRAMEWORKS.map(([value, label]) => (
                 <option key={value} value={value}>
@@ -118,26 +118,26 @@ function StudyForms({ initial }: { initial: StudyConfig }) {
               ))}
             </NativeSelect>
           </Field>
-          <Field label="Maximum words per unit" error={errors.max_words}>
+          <Field label="Longueur maximale d'une unité, en mots" error={errors.max_words}>
             <Input type="number" min={20} step={1} value={form.max_words} onChange={(e) => set("max_words", e.target.value)} />
           </Field>
         </div>
 
         <div className="flex flex-col gap-2">
-          <h3 className="text-sm font-medium">Phase 1 categories</h3>
+          <h3 className="text-sm font-medium">Catégories de la phase 1</h3>
           <p className="text-muted-foreground text-xs">
             {editable
-              ? "Custom categories: name, label, definition and the TOE letter their phase 2 codes carry."
-              : "Read only: the categories of this framework come from its preset."}
+              ? "Catégories personnalisées : code, nom, définition et la lettre TOE que portent leurs codes de la phase 2."
+              : "Lecture seule : les catégories viennent du jeu choisi. Ce choix ne concerne que la phase 1, pas le cadre d'interprétation."}
           </p>
           <div className="overflow-x-auto">
             <table className="w-full min-w-[36rem] text-sm">
               <thead className="text-muted-foreground text-left text-xs">
                 <tr>
                   <th className="pb-1 font-medium">Code</th>
-                  <th className="pb-1 font-medium">Label</th>
-                  <th className="pb-1 font-medium">Definition</th>
-                  <th className="pb-1 font-medium">Attachment</th>
+                  <th className="pb-1 font-medium">Nom</th>
+                  <th className="pb-1 font-medium">Définition</th>
+                  <th className="pb-1 font-medium">Rattachement</th>
                   <th className="pb-1" />
                 </tr>
               </thead>
@@ -145,17 +145,17 @@ function StudyForms({ initial }: { initial: StudyConfig }) {
                 {form.categories.map((row, i) => (
                   <tr key={i} className="align-top">
                     <td className="pr-2 pb-2">
-                      <Input aria-label={`Category code ${i + 1}`} value={row.code} disabled={!editable} onChange={(e) => setRow(i, { code: e.target.value })} className="font-mono text-xs" />
+                      <Input aria-label={`Code de la catégorie ${i + 1}`} value={row.code} disabled={!editable} onChange={(e) => setRow(i, { code: e.target.value })} className="font-mono text-xs" />
                     </td>
                     <td className="pr-2 pb-2">
-                      <Input aria-label={`Category label ${i + 1}`} value={row.label} disabled={!editable} onChange={(e) => setRow(i, { label: e.target.value })} />
+                      <Input aria-label={`Nom de la catégorie ${i + 1}`} value={row.label} disabled={!editable} onChange={(e) => setRow(i, { label: e.target.value })} />
                     </td>
                     <td className="pr-2 pb-2">
-                      <textarea aria-label={`Category definition ${i + 1}`} rows={2} value={row.definition} disabled={!editable} onChange={(e) => setRow(i, { definition: e.target.value })} className={TEXTAREA} />
+                      <textarea aria-label={`Définition de la catégorie ${i + 1}`} rows={2} value={row.definition} disabled={!editable} onChange={(e) => setRow(i, { definition: e.target.value })} className={TEXTAREA} />
                     </td>
                     <td className="pr-2 pb-2">
-                      <NativeSelect aria-label={`Category attachment ${i + 1}`} value={row.attachment} disabled={!editable} onChange={(e) => setRow(i, { attachment: e.target.value })}>
-                        <option value="">none</option>
+                      <NativeSelect aria-label={`Rattachement de la catégorie ${i + 1}`} value={row.attachment} disabled={!editable} onChange={(e) => setRow(i, { attachment: e.target.value })}>
+                        <option value="">aucun</option>
                         <option value="T">T</option>
                         <option value="O">O</option>
                         <option value="E">E</option>
@@ -163,7 +163,7 @@ function StudyForms({ initial }: { initial: StudyConfig }) {
                     </td>
                     <td className="pb-2 text-right">
                       {editable && (
-                        <Button variant="ghost" size="icon-sm" aria-label={`Remove category ${i + 1}`} onClick={() => set("categories", form.categories.filter((_, k) => k !== i))}>
+                        <Button variant="ghost" size="icon-sm" aria-label={`Retirer la catégorie ${i + 1}`} onClick={() => set("categories", form.categories.filter((_, k) => k !== i))}>
                           <Trash2 />
                         </Button>
                       )}
@@ -176,7 +176,7 @@ function StudyForms({ initial }: { initial: StudyConfig }) {
           {editable && (
             <div>
               <Button variant="outline" size="sm" onClick={() => set("categories", [...form.categories, blankCategory()])}>
-                Add category
+                Ajouter une catégorie
               </Button>
             </div>
           )}
@@ -185,15 +185,15 @@ function StudyForms({ initial }: { initial: StudyConfig }) {
 
         <div className="grid gap-5 md:grid-cols-2">
           <div className="flex flex-col gap-2">
-            <h3 className="text-sm font-medium">Id prefixes</h3>
+            <h3 className="text-sm font-medium">Préfixes d'identifiants des dossiers</h3>
             <div className="flex flex-wrap gap-1.5">
               {form.id_prefixes.map((p) => (
-                <Chip key={p} value={p} removeLabel={`Remove prefix ${p}`} onRemove={() => set("id_prefixes", removeChip(form.id_prefixes, p))} />
+                <Chip key={p} value={p} removeLabel={`Retirer le préfixe ${p}`} onRemove={() => set("id_prefixes", removeChip(form.id_prefixes, p))} />
               ))}
             </div>
             <div className="flex gap-2">
               <Input
-                aria-label="New id prefix"
+                aria-label="Nouveau préfixe"
                 value={newPrefix}
                 onChange={(e) => setNewPrefix(e.target.value)}
                 onKeyDown={(e) => {
@@ -211,22 +211,22 @@ function StudyForms({ initial }: { initial: StudyConfig }) {
                   setNewPrefix("")
                 }}
               >
-                Add id prefix
+                Ajouter un préfixe
               </Button>
             </div>
             <Alerts messages={errors.id_prefixes ? [errors.id_prefixes] : []} />
           </div>
 
           <div className="flex flex-col gap-2">
-            <h3 className="text-sm font-medium">Interviewers</h3>
+            <h3 className="text-sm font-medium">Intervieweurs</h3>
             <div className="flex flex-wrap gap-1.5">
               {form.interviewers.map((n) => (
-                <Chip key={n} value={n} removeLabel={`Remove interviewer ${n}`} onRemove={() => set("interviewers", removeChip(form.interviewers, n))} />
+                <Chip key={n} value={n} removeLabel={`Retirer l'intervieweur ${n}`} onRemove={() => set("interviewers", removeChip(form.interviewers, n))} />
               ))}
             </div>
             <div className="flex gap-2">
               <Input
-                aria-label="New interviewer"
+                aria-label="Nouvel intervieweur"
                 value={newInterviewer}
                 onChange={(e) => setNewInterviewer(e.target.value)}
                 onKeyDown={(e) => {
@@ -244,29 +244,29 @@ function StudyForms({ initial }: { initial: StudyConfig }) {
                   setNewInterviewer("")
                 }}
               >
-                Add interviewer
+                Ajouter un intervieweur
               </Button>
             </div>
           </div>
         </div>
 
         <div className="flex flex-col gap-3">
-          <h3 className="text-sm font-medium">Prompt template</h3>
+          <h3 className="text-sm font-medium">Instructions envoyées au modèle</h3>
           <div className="grid gap-3 sm:grid-cols-2">
-            <Field label="Prompt version" error={errors.prompt_version}>
+            <Field label="Version des instructions" error={errors.prompt_version}>
               <Input value={form.template.version} onChange={(e) => setTemplate("version", e.target.value)} />
             </Field>
-            <Field label="Prompt header">
+            <Field label="Description envoyée au modèle">
               <textarea rows={3} value={form.template.header} onChange={(e) => setTemplate("header", e.target.value)} className={TEXTAREA} />
             </Field>
-            <Field label="Codebook intro">
+            <Field label="Introduction du codebook">
               <textarea rows={2} value={form.template.codebook_intro} onChange={(e) => setTemplate("codebook_intro", e.target.value)} className={TEXTAREA} />
             </Field>
-            <Field label="Units intro">
+            <Field label="Introduction des unités">
               <textarea rows={2} value={form.template.units_intro} onChange={(e) => setTemplate("units_intro", e.target.value)} className={TEXTAREA} />
             </Field>
           </div>
-          <Field label="Prompt footer">
+          <Field label="Règles de codage envoyées au modèle">
             <textarea rows={2} value={form.template.footer} onChange={(e) => setTemplate("footer", e.target.value)} className={TEXTAREA} />
           </Field>
         </div>
@@ -274,11 +274,11 @@ function StudyForms({ initial }: { initial: StudyConfig }) {
         {serverError && <Alerts messages={[serverError]} />}
         <div className="flex items-center gap-3">
           <Button onClick={submit} disabled={save.isPending}>
-            {save.isPending ? "Saving..." : "Save configuration"}
+            {save.isPending ? "Enregistrement..." : "Enregistrer l'étude"}
           </Button>
           {saved && (
             <p role="status" className="text-sm">
-              Configuration saved
+              Étude enregistrée
             </p>
           )}
         </div>
@@ -287,20 +287,20 @@ function StudyForms({ initial }: { initial: StudyConfig }) {
       <Dialog open={guard !== null} onOpenChange={(open) => !open && setGuard(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Save anyway?</DialogTitle>
-            <DialogDescription>The server refused this change to protect the coding already made.</DialogDescription>
+            <DialogTitle>Enregistrer quand même ?</DialogTitle>
+            <DialogDescription>Le serveur a refusé ce changement pour protéger le codage déjà fait.</DialogDescription>
           </DialogHeader>
           <p className="text-sm">{guard?.message}</p>
           <DialogFooter>
             <Button variant="outline" onClick={() => setGuard(null)}>
-              Cancel
+              Annuler
             </Button>
             <Button
               variant="destructive"
               disabled={save.isPending}
               onClick={() => guard && save.mutate({ cfg: guard.cfg, force: true })}
             >
-              Save anyway
+              Enregistrer quand même
             </Button>
           </DialogFooter>
         </DialogContent>

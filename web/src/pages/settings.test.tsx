@@ -1,7 +1,7 @@
 // Contract of the Settings page. Accessible names, texts and request bodies
 // below are the interface the implementation must honour.
 //
-// - Regions named by their heading: "Study configuration", "Codebook import"
+// - Regions named by their heading: "Study configuration", "Import du codebook"
 //   (page Paramètres de l'étude) and "Model providers" (tab of Réglages).
 // - Selects are native <select> elements, so tests drive them with change events.
 // - Server refusals of a save are shown inside the region (role="alert"),
@@ -13,7 +13,7 @@ import { cleanup, fireEvent, screen, waitFor, within } from "@testing-library/re
 import { ProvidersSection } from "@/components/settings/model-providers"
 import { SettingsPage } from "@/pages/settings"
 import { mockApi, renderWithClient, type MockApi } from "@/test-utils"
-import type { IsolationReport, ProviderConfig, ProviderEntry, StudyConfig } from "@/lib/types"
+import type { IsolationReport, ProjectConfig, ProviderConfig, ProviderEntry, StudyConfig } from "@/lib/types"
 
 const TOE: StudyConfig = {
   framework: "toe",
@@ -33,6 +33,17 @@ const TOE: StudyConfig = {
     footer: "1. Use only the codes.",
   },
   study_name: "Pilot",
+}
+
+const PROJECT: ProjectConfig = {
+  attributes: [{ id: "sector", label: "Secteur", kind: "text", choices: [], shared_with_model: false }],
+  memo_templates: [{ id: "default", name: "Par défaut", default: true, version: 1, questions: [{ id: "q1", text: "Première impression ?" }] }],
+  checklist: [{ id: "memo", label: "Mémo écrit" }],
+  theme_checks: [],
+  evidence_natures: [],
+  link_types: [{ id: "causes", label: "cause" }],
+  matrix_dimensions: [],
+  interpretive_framework: null,
 }
 
 const CLI: ProviderConfig = {
@@ -76,6 +87,9 @@ beforeEach(() => {
   stored = [CLI, GPT]
   mock = mockApi()
   mock.on("GET", "/api/config", { body: TOE })
+  mock.on("GET", "/api/research-questions", { body: [] })
+  mock.on("GET", "/api/project-config", { body: PROJECT })
+  mock.on("GET", "/api/project-config/presets", { body: { frameworks: { toe: { preset: "toe", dimensions: [] }, tam_utaut: { preset: "tam_utaut", dimensions: [] } }, defaults: {} } })
   mock.on("GET", "/api/state", { body: { native_dialogs: false, codebook_size: 0 } })
   mock.on("GET", "/api/providers", () => ({ body: listing(stored, { gpt: false }) }))
   mock.on("PUT", "/api/providers", (call) => {
@@ -91,7 +105,7 @@ afterEach(() => {
 
 async function study() {
   renderWithClient(<SettingsPage />)
-  const region = await screen.findByRole("region", { name: "Study configuration" })
+  const region = await screen.findByRole("region", { name: "Étude" })
   await within(region).findByDisplayValue("Pilot")
   return region
 }
@@ -104,48 +118,48 @@ const putConfig = () => mock.to("PUT", /^\/api\/config/)
 describe("study configuration form", () => {
   it("loads the stored configuration", async () => {
     const r = await study()
-    expect(within(r).getByLabelText("Study name")).toHaveValue("Pilot")
-    expect(within(r).getByLabelText("Framework")).toHaveValue("toe")
-    expect(within(r).getByLabelText("Maximum words per unit")).toHaveValue(150)
-    expect(within(r).getByLabelText("Prompt version")).toHaveValue("CS-P04-EN v3.1")
-    expect(within(r).getByLabelText("Prompt header")).toHaveValue("# Coding Studio")
-    expect(within(r).getByLabelText("Codebook intro")).toHaveValue("These {count} codes.")
-    expect(within(r).getByLabelText("Units intro")).toHaveValue("One unit per line.")
-    expect(within(r).getByLabelText("Prompt footer")).toHaveValue("1. Use only the codes.")
+    expect(within(r).getByLabelText("Nom de l'étude")).toHaveValue("Pilot")
+    expect(within(r).getByLabelText("Jeu de catégories de départ")).toHaveValue("toe")
+    expect(within(r).getByLabelText("Longueur maximale d'une unité, en mots")).toHaveValue(150)
+    expect(within(r).getByLabelText("Version des instructions")).toHaveValue("CS-P04-EN v3.1")
+    expect(within(r).getByLabelText("Description envoyée au modèle")).toHaveValue("# Coding Studio")
+    expect(within(r).getByLabelText("Introduction du codebook")).toHaveValue("These {count} codes.")
+    expect(within(r).getByLabelText("Introduction des unités")).toHaveValue("One unit per line.")
+    expect(within(r).getByLabelText("Règles de codage envoyées au modèle")).toHaveValue("1. Use only the codes.")
     for (const chip of ["INT", "ECO", "Alex"]) expect(within(r).getByText(chip)).toBeInTheDocument()
   })
 
   it("offers the four frameworks", async () => {
     const r = await study()
-    const options = within(within(r).getByLabelText("Framework")).getAllByRole("option")
+    const options = within(within(r).getByLabelText("Jeu de catégories de départ")).getAllByRole("option")
     expect(options.map((o) => (o as HTMLOptionElement).value)).toEqual(["toe", "tam_utaut", "none", "custom"])
-    expect(options.map((o) => o.textContent)).toEqual(["TOE", "TAM/UTAUT", "None", "Custom"])
+    expect(options.map((o) => o.textContent)).toEqual(["TOE", "TAM/UTAUT", "Aucune", "Personnalisées"])
   })
 
   it("shows the preset categories read-only and edits them for custom only", async () => {
     const r = await study()
-    expect(within(r).getByLabelText("Category code 1")).toHaveValue("TECH")
-    expect(within(r).getByLabelText("Category code 1")).toBeDisabled()
-    expect(within(r).getByLabelText("Category definition 2")).toBeDisabled()
-    expect(within(r).getByLabelText("Category attachment 1")).toHaveValue("T")
-    expect(within(r).queryByRole("button", { name: "Add category" })).toBeNull()
+    expect(within(r).getByLabelText("Code de la catégorie 1")).toHaveValue("TECH")
+    expect(within(r).getByLabelText("Code de la catégorie 1")).toBeDisabled()
+    expect(within(r).getByLabelText("Définition de la catégorie 2")).toBeDisabled()
+    expect(within(r).getByLabelText("Rattachement de la catégorie 1")).toHaveValue("T")
+    expect(within(r).queryByRole("button", { name: "Ajouter une catégorie" })).toBeNull()
 
-    change(within(r).getByLabelText("Framework"), "custom")
-    expect(within(r).getByLabelText("Category code 1")).toBeEnabled()
-    expect(within(r).getByLabelText("Category label 1")).toBeEnabled()
-    expect(within(r).getByLabelText("Category definition 1")).toBeEnabled()
-    expect(within(r).getByLabelText("Category attachment 1")).toBeEnabled()
-    fireEvent.click(within(r).getByRole("button", { name: "Add category" }))
-    expect(within(r).getByLabelText("Category code 4")).toHaveValue("")
-    fireEvent.click(within(r).getByRole("button", { name: "Remove category 4" }))
-    expect(within(r).queryByLabelText("Category code 4")).toBeNull()
+    change(within(r).getByLabelText("Jeu de catégories de départ"), "custom")
+    expect(within(r).getByLabelText("Code de la catégorie 1")).toBeEnabled()
+    expect(within(r).getByLabelText("Nom de la catégorie 1")).toBeEnabled()
+    expect(within(r).getByLabelText("Définition de la catégorie 1")).toBeEnabled()
+    expect(within(r).getByLabelText("Rattachement de la catégorie 1")).toBeEnabled()
+    fireEvent.click(within(r).getByRole("button", { name: "Ajouter une catégorie" }))
+    expect(within(r).getByLabelText("Code de la catégorie 4")).toHaveValue("")
+    fireEvent.click(within(r).getByRole("button", { name: "Retirer la catégorie 4" }))
+    expect(within(r).queryByLabelText("Code de la catégorie 4")).toBeNull()
   })
 
   it("saves with PUT /api/config and says so", async () => {
     const r = await study()
     mock.on("PUT", "/api/config", { body: TOE })
-    fireEvent.click(within(r).getByRole("button", { name: "Save configuration" }))
-    expect(await within(r).findByText("Configuration saved")).toBeInTheDocument()
+    fireEvent.click(within(r).getByRole("button", { name: "Enregistrer l'étude" }))
+    expect(await within(r).findByText("Étude enregistrée")).toBeInTheDocument()
     expect(putConfig()).toHaveLength(1)
     expect(putConfig()[0].path).toBe("/api/config")
     expect(putConfig()[0].body).toEqual({ ...TOE, phase1_categories: [] })
@@ -154,17 +168,17 @@ describe("study configuration form", () => {
   it("sends the edited custom categories and the other fields", async () => {
     const r = await study()
     mock.on("PUT", "/api/config", { body: TOE })
-    change(within(r).getByLabelText("Framework"), "custom")
-    change(within(r).getByLabelText("Category code 1"), "ALPHA")
-    change(within(r).getByLabelText("Category label 1"), "Alpha")
-    change(within(r).getByLabelText("Category definition 1"), "The first.")
-    change(within(r).getByLabelText("Category attachment 1"), "E")
-    fireEvent.click(within(r).getByRole("button", { name: "Remove category 3" }))
-    fireEvent.click(within(r).getByRole("button", { name: "Remove category 2" }))
-    change(within(r).getByLabelText("Study name"), "Main study")
-    change(within(r).getByLabelText("Maximum words per unit"), "200")
-    change(within(r).getByLabelText("Prompt version"), "CS-P04-EN v4")
-    fireEvent.click(within(r).getByRole("button", { name: "Save configuration" }))
+    change(within(r).getByLabelText("Jeu de catégories de départ"), "custom")
+    change(within(r).getByLabelText("Code de la catégorie 1"), "ALPHA")
+    change(within(r).getByLabelText("Nom de la catégorie 1"), "Alpha")
+    change(within(r).getByLabelText("Définition de la catégorie 1"), "The first.")
+    change(within(r).getByLabelText("Rattachement de la catégorie 1"), "E")
+    fireEvent.click(within(r).getByRole("button", { name: "Retirer la catégorie 3" }))
+    fireEvent.click(within(r).getByRole("button", { name: "Retirer la catégorie 2" }))
+    change(within(r).getByLabelText("Nom de l'étude"), "Main study")
+    change(within(r).getByLabelText("Longueur maximale d'une unité, en mots"), "200")
+    change(within(r).getByLabelText("Version des instructions"), "CS-P04-EN v4")
+    fireEvent.click(within(r).getByRole("button", { name: "Enregistrer l'étude" }))
     await waitFor(() => expect(putConfig()).toHaveLength(1))
     expect(putConfig()[0].body).toMatchObject({
       framework: "custom",
@@ -178,35 +192,35 @@ describe("study configuration form", () => {
   it("adds and removes id prefixes and interviewers", async () => {
     const r = await study()
     mock.on("PUT", "/api/config", { body: TOE })
-    change(within(r).getByLabelText("New id prefix"), "RET")
-    fireEvent.click(within(r).getByRole("button", { name: "Add id prefix" }))
+    change(within(r).getByLabelText("Nouveau préfixe"), "RET")
+    fireEvent.click(within(r).getByRole("button", { name: "Ajouter un préfixe" }))
     expect(within(r).getByText("RET")).toBeInTheDocument()
-    expect(within(r).getByLabelText("New id prefix")).toHaveValue("")
-    fireEvent.click(within(r).getByRole("button", { name: "Remove prefix INT" }))
+    expect(within(r).getByLabelText("Nouveau préfixe")).toHaveValue("")
+    fireEvent.click(within(r).getByRole("button", { name: "Retirer le préfixe INT" }))
     expect(within(r).queryByText("INT")).toBeNull()
 
-    change(within(r).getByLabelText("New interviewer"), "Jo Smith")
-    fireEvent.keyDown(within(r).getByLabelText("New interviewer"), { key: "Enter" })
+    change(within(r).getByLabelText("Nouvel intervieweur"), "Jo Smith")
+    fireEvent.keyDown(within(r).getByLabelText("Nouvel intervieweur"), { key: "Enter" })
     expect(within(r).getByText("Jo Smith")).toBeInTheDocument()
 
-    fireEvent.click(within(r).getByRole("button", { name: "Save configuration" }))
+    fireEvent.click(within(r).getByRole("button", { name: "Enregistrer l'étude" }))
     await waitFor(() => expect(putConfig()).toHaveLength(1))
     expect(putConfig()[0].body).toMatchObject({ id_prefixes: ["ECO", "RET"], interviewers: ["Alex", "Jo Smith"] })
   })
 
   it("refuses max words below 20 before calling the server", async () => {
     const r = await study()
-    change(within(r).getByLabelText("Maximum words per unit"), "10")
-    fireEvent.click(within(r).getByRole("button", { name: "Save configuration" }))
+    change(within(r).getByLabelText("Longueur maximale d'une unité, en mots"), "10")
+    fireEvent.click(within(r).getByRole("button", { name: "Enregistrer l'étude" }))
     expect(await within(r).findByText("max_words must be at least 20, not 10")).toBeInTheDocument()
     expect(putConfig()).toHaveLength(0)
   })
 
   it("refuses an empty category name of a custom table before calling the server", async () => {
     const r = await study()
-    change(within(r).getByLabelText("Framework"), "custom")
-    change(within(r).getByLabelText("Category code 2"), "  ")
-    fireEvent.click(within(r).getByRole("button", { name: "Save configuration" }))
+    change(within(r).getByLabelText("Jeu de catégories de départ"), "custom")
+    change(within(r).getByLabelText("Code de la catégorie 2"), "  ")
+    fireEvent.click(within(r).getByRole("button", { name: "Enregistrer l'étude" }))
     expect(await within(r).findByText("a phase 1 category name is empty")).toBeInTheDocument()
     expect(putConfig()).toHaveLength(0)
   })
@@ -214,10 +228,10 @@ describe("study configuration form", () => {
   it("shows the server's validation error next to the form", async () => {
     const r = await study()
     mock.on("PUT", "/api/config", { status: 400, body: { error: "duplicate phase 1 category ALPHA", kind: "validation" } })
-    fireEvent.click(within(r).getByRole("button", { name: "Save configuration" }))
+    fireEvent.click(within(r).getByRole("button", { name: "Enregistrer l'étude" }))
     const alert = await within(r).findByRole("alert")
     expect(alert).toHaveTextContent("duplicate phase 1 category ALPHA")
-    expect(within(r).queryByText("Configuration saved")).toBeNull()
+    expect(within(r).queryByText("Étude enregistrée")).toBeNull()
   })
 
   it("asks to force a save refused by the guard, and re-sends with force=true", async () => {
@@ -225,23 +239,23 @@ describe("study configuration form", () => {
     const guard = "protocol guard: phase 1 coding exists; renaming a category would orphan it"
     mock.on("PUT", "/api/config", { status: 409, body: { error: guard, kind: "guard" } })
     mock.on("PUT", "/api/config?force=true", { body: TOE })
-    fireEvent.click(within(r).getByRole("button", { name: "Save configuration" }))
+    fireEvent.click(within(r).getByRole("button", { name: "Enregistrer l'étude" }))
     const dialog = await screen.findByRole("dialog")
     expect(dialog).toHaveTextContent(guard)
     expect(putConfig()).toHaveLength(1)
-    fireEvent.click(within(dialog).getByRole("button", { name: "Save anyway" }))
+    fireEvent.click(within(dialog).getByRole("button", { name: "Enregistrer quand même" }))
     await waitFor(() => expect(putConfig()).toHaveLength(2))
     expect(putConfig()[1].path).toBe("/api/config?force=true")
     expect(putConfig()[1].body).toEqual(putConfig()[0].body)
-    expect(await within(r).findByText("Configuration saved")).toBeInTheDocument()
+    expect(await within(r).findByText("Étude enregistrée")).toBeInTheDocument()
   })
 
   it("does not force when the guard confirmation is cancelled", async () => {
     const r = await study()
     mock.on("PUT", "/api/config", { status: 409, body: { error: "protocol guard: x", kind: "guard" } })
-    fireEvent.click(within(r).getByRole("button", { name: "Save configuration" }))
+    fireEvent.click(within(r).getByRole("button", { name: "Enregistrer l'étude" }))
     const dialog = await screen.findByRole("dialog")
-    fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }))
+    fireEvent.click(within(dialog).getByRole("button", { name: "Annuler" }))
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull())
     expect(putConfig()).toHaveLength(1)
   })
@@ -252,12 +266,12 @@ describe("study configuration form", () => {
 describe("codebook import", () => {
   async function region() {
     renderWithClient(<SettingsPage />)
-    return screen.findByRole("region", { name: "Codebook import" })
+    return screen.findByRole("region", { name: "Import du codebook" })
   }
 
   it("offers csv, json and coding_db", async () => {
     const r = await region()
-    const kind = within(r).getByLabelText("Import kind")
+    const kind = within(r).getByLabelText("Type d'import")
     expect(within(kind).getAllByRole("option").map((o) => (o as HTMLOptionElement).value)).toEqual(["csv", "json", "coding_db"])
     expect(kind).toHaveValue("csv")
   })
@@ -265,23 +279,23 @@ describe("codebook import", () => {
   it("imports with the kind and the path, and shows the counts", async () => {
     const r = await region()
     mock.on("POST", "/api/codebook/import", { body: { source: "/data/codebook.json", codes: [], report: { added: 2, updated: 1, absent: 3 } } })
-    change(within(r).getByLabelText("Import kind"), "json")
-    change(within(r).getByLabelText("File path"), "/data/codebook.json")
-    fireEvent.click(within(r).getByRole("button", { name: "Import codebook" }))
-    expect(await within(r).findByText("2 added, 1 updated, 3 absent")).toBeInTheDocument()
+    change(within(r).getByLabelText("Type d'import"), "json")
+    change(within(r).getByLabelText("Chemin du fichier"), "/data/codebook.json")
+    fireEvent.click(within(r).getByRole("button", { name: "Importer le codebook" }))
+    expect(await within(r).findByText("2 ajoutés, 1 mis à jour, 3 absents")).toBeInTheDocument()
     expect(mock.to("POST", "/api/codebook/import")[0].body).toEqual({ kind: "json", path: "/data/codebook.json" })
   })
 
   it("cannot import without a path", async () => {
     const r = await region()
-    expect(within(r).getByRole("button", { name: "Import codebook" })).toBeDisabled()
+    expect(within(r).getByRole("button", { name: "Importer le codebook" })).toBeDisabled()
   })
 
   it("shows the server's refusal", async () => {
     const r = await region()
     mock.on("POST", "/api/codebook/import", { status: 400, body: { error: "duplicate code A-ONE", kind: "validation" } })
-    change(within(r).getByLabelText("File path"), "/data/bad.csv")
-    fireEvent.click(within(r).getByRole("button", { name: "Import codebook" }))
+    change(within(r).getByLabelText("Chemin du fichier"), "/data/bad.csv")
+    fireEvent.click(within(r).getByRole("button", { name: "Importer le codebook" }))
     expect(await within(r).findByRole("alert")).toHaveTextContent("duplicate code A-ONE")
   })
 
@@ -289,8 +303,8 @@ describe("codebook import", () => {
     mock.on("GET", "/api/state", { body: { native_dialogs: true, codebook_size: 0 } })
     mock.on("POST", "/api/pick", { body: { path: "/Users/me/codebook.csv" } })
     const r = await region()
-    fireEvent.click(await within(r).findByRole("button", { name: "Choose file" }))
-    await waitFor(() => expect(within(r).getByLabelText("File path")).toHaveValue("/Users/me/codebook.csv"))
+    fireEvent.click(await within(r).findByRole("button", { name: "Choisir un fichier" }))
+    await waitFor(() => expect(within(r).getByLabelText("Chemin du fichier")).toHaveValue("/Users/me/codebook.csv"))
     expect(mock.to("POST", "/api/pick")[0].body).toMatchObject({ kind: "file" })
   })
 
@@ -298,16 +312,16 @@ describe("codebook import", () => {
     mock.on("GET", "/api/state", { body: { native_dialogs: true, codebook_size: 0 } })
     mock.on("POST", "/api/pick", { body: { path: null } })
     const r = await region()
-    change(within(r).getByLabelText("File path"), "/typed/path.csv")
-    fireEvent.click(await within(r).findByRole("button", { name: "Choose file" }))
+    change(within(r).getByLabelText("Chemin du fichier"), "/typed/path.csv")
+    fireEvent.click(await within(r).findByRole("button", { name: "Choisir un fichier" }))
     await waitFor(() => expect(mock.to("POST", "/api/pick")).toHaveLength(1))
-    expect(within(r).getByLabelText("File path")).toHaveValue("/typed/path.csv")
+    expect(within(r).getByLabelText("Chemin du fichier")).toHaveValue("/typed/path.csv")
   })
 
   it("has no picker button in browser mode", async () => {
     const r = await region()
     await waitFor(() => expect(mock.to("GET", "/api/state").length).toBeGreaterThan(0))
-    expect(within(r).queryByRole("button", { name: "Choose file" })).toBeNull()
+    expect(within(r).queryByRole("button", { name: "Choisir un fichier" })).toBeNull()
   })
 })
 

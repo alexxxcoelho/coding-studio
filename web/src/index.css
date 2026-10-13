@@ -445,6 +445,7 @@
   .mi:hover .r, .mi.on .r { color: rgba(255, 255, 255, .85); }
   .msep { height: .5px; background: var(--sep); margin: 4px 6px; }
 
+  .r8 { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
   /* Codebook tree */
   .tree { flex: 999 1 480px; min-width: 0; padding: 4px 18px 16px; display: flex; flex-direction: column; gap: 8px; }
   .ol td .nm { display: flex; align-items: center; gap: 8px; }
