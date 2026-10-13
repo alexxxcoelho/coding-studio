@@ -20,9 +20,9 @@ function CaseHead({ c }: { c: Case }) {
       <a href={interviewHref(c.interview_id, "cases")} className="ident text-xs hover:underline">
         {c.case_id}
       </a>
-      <div className="text-sm font-medium">{c.label || "Cas sans titre"}</div>
+      <div className="text-sm font-medium">{c.label || "Untitled case"}</div>
       <div className="text-muted-foreground text-xs">
-        {[c.stage, c.outcome_status].filter(Boolean).join(", ") || "étape et statut non renseignés"}
+        {[c.stage, c.outcome_status].filter(Boolean).join(", ") || "stage and status not set"}
       </div>
     </th>
   )
@@ -32,7 +32,7 @@ function UnitLinks({ units }: { units: string[] }) {
   return (
     <span className="inline-flex flex-wrap gap-x-1.5">
       {units.map((u) => (
-        <a key={u} href={unitHref(u)} className="ident text-muted-foreground text-[0.7rem] hover:underline" title={`Ouvrir ${u}`}>
+        <a key={u} href={unitHref(u)} className="ident text-muted-foreground text-[0.7rem] hover:underline" title={`Open ${u}`}>
           U{u.split("-U").pop()}
         </a>
       ))}
@@ -46,7 +46,7 @@ export function CrossCasePage() {
   const codes: Code[] = book.data?.codes ?? []
 
   if (data.isLoading) return <Skeleton className="h-96 w-full" />
-  if (data.error) return <EmptyState title="Vue transversale indisponible">{data.error.message}</EmptyState>
+  if (data.error) return <EmptyState title="Cross-case view unavailable">{data.error.message}</EmptyState>
   const d = data.data!
   const questions = [...d.questions].sort((a, b) => a.ord - b.ord)
   const cases = d.cases
@@ -54,21 +54,21 @@ export function CrossCasePage() {
   return (
     <>
       <PageTitle
-        title="Transversal"
-        sub="Pour chaque question de recherche, les codes que porte chaque cas dans son codage final, avec les unités qui les soutiennent. À lire pour la convergence, le contraste et les conditions, pas pour la fréquence."
+        title="Cross-case"
+        sub="For each research question, the codes each case carries in its final coding, with the units behind them. Read for convergence, contrast and conditions, not for frequency."
       />
       {cases.length === 0 ? (
-        <EmptyState title="Aucun cas pour l'instant">Ouvrez un entretien, onglet Cas, et synthétisez ses projets : déclencheur, alternatives, contraintes, choix, résultat.</EmptyState>
+        <EmptyState title="No case yet">Open an interview, tab Cases, and synthesise its projects: trigger, alternatives, constraints, choice, result.</EmptyState>
       ) : questions.length === 0 ? (
         <EmptyState
-          title="Aucune question de recherche pour l'instant"
+          title="No research question yet"
           action={
             <a href="#/codebook" className="text-primary text-sm hover:underline">
-              Définir les questions de recherche dans les paramètres de l'étude
+              Define the research questions in the Codebook
             </a>
           }
         >
-          La matrice relie les codes aux questions : définissez les questions, puis rattachez-y des codes.
+          The matrix maps codes to questions: define the questions, then attach codes to them.
         </EmptyState>
       ) : (
         <div className="flex flex-col gap-6">
@@ -77,7 +77,7 @@ export function CrossCasePage() {
               <thead>
                 <tr>
                   <th scope="col" className="w-64 border-b px-3 py-2 text-left align-bottom text-xs font-semibold">
-                    Question de recherche
+                    Research question
                   </th>
                   {cases.map((c) => (
                     <CaseHead key={c.case_id} c={c} />
@@ -94,7 +94,7 @@ export function CrossCasePage() {
                         <div className="text-muted-foreground text-xs leading-snug">{q.text}</div>
                         {shared.length > 0 && (
                           <div className="mt-2 flex flex-col gap-1 text-xs">
-                            <span className="text-muted-foreground">Dans plusieurs cas</span>
+                            <span className="text-muted-foreground">In several cases</span>
                             <span className="flex flex-wrap gap-1">
                               {shared.map((s) => (
                                 <CodeChip key={s.code} code={s.code} family={familyOf(s.code, codes)} title={s.cases.join(", ")} />
@@ -110,9 +110,9 @@ export function CrossCasePage() {
                         return (
                           <td key={c.case_id} className={cn("border-b border-l px-3 py-3", state === "undocumented" && "bg-muted/50")}>
                             {state === "undocumented" ? (
-                              <span className="text-muted-foreground text-xs italic">non documenté</span>
+                              <span className="text-muted-foreground text-xs italic">not documented</span>
                             ) : state === "unmapped" ? (
-                              <span className="text-muted-foreground text-xs">aucun code rattaché à {q.id}</span>
+                              <span className="text-muted-foreground text-xs">no code mapped to {q.id}</span>
                             ) : (
                               <ul className="flex flex-col gap-1.5">
                                 {list.map((x) => (
@@ -136,17 +136,17 @@ export function CrossCasePage() {
             </table>
           </div>
           <p className="text-muted-foreground -mt-4 text-xs">
-            <span className="bg-muted/50 mr-1 rounded px-1 italic">non documenté</span>
-            le cas n'a aucune unité attribuée, la matrice ne dit donc rien sur cette question. « aucun code rattaché » signifie que ses unités attribuées ne portent aucun code lié à la question.
+            <span className="bg-muted/50 mr-1 rounded px-1 italic">not documented</span>
+            the case has no attributed unit, so the matrix says nothing on this question. "no code mapped" means its attributed units carry no code linked to the question.
           </p>
 
-          <Section title="Champs de synthèse, cas par cas" aside="tels qu'écrits dans chaque cas, avec les unités citées">
+          <Section title="Synthesis fields across cases" aside="as written in each case, with the number of units cited">
             <div className="-m-4 overflow-x-auto">
               <table className="w-full border-collapse text-sm">
                 <thead>
                   <tr>
                     <th scope="col" className="w-40 border-b px-3 py-2 text-left text-xs font-semibold">
-                      Champ
+                      Field
                     </th>
                     {cases.map((c) => (
                       <th key={c.case_id} scope="col" className="min-w-[13rem] border-b px-3 py-2 text-left text-xs font-semibold">
@@ -165,7 +165,7 @@ export function CrossCasePage() {
                         const f = c[k]
                         return (
                           <td key={c.case_id} className="border-b border-l px-3 py-2.5">
-                            {f.text.trim() ? <p className="line-clamp-4 text-sm">{f.text}</p> : <span className="text-muted-foreground text-xs">vide</span>}
+                            {f.text.trim() ? <p className="line-clamp-4 text-sm">{f.text}</p> : <span className="text-muted-foreground text-xs">empty</span>}
                             {f.evidence.length > 0 && (
                               <div className="mt-1">
                                 <UnitLinks units={f.evidence} />

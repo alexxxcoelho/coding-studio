@@ -1,9 +1,9 @@
-// "Lancer avec le fournisseur" in the AI pass tab. Contract:
+// "Run with provider" in the AI pass tab. Contract:
 // - a native <select> labelled "Provider" whose first option, selected by
 //   default, is "Copy and paste" (value copy_paste); the other options are
 //   the registry entries other than copy_paste, in order, valued by id;
 // - with copy_paste selected the manual flow is unchanged and no run button
-//   exists; with a provider selected a "Lancer avec le fournisseur" form appears;
+//   exists; with a provider selected a "Run with provider" form appears;
 // - the run goes to POST /api/interviews/{id}/batches/{batch_id}/run with the
 //   batch_id of the latest prompt batch;
 // - the outcome is shown inline: the journal line and the run label when it
@@ -100,34 +100,34 @@ afterEach(() => {
 
 async function tab() {
   renderWithClient(<AiPassTab id={ID} />)
-  await screen.findByText("Partie 1 sur 2")
-  return screen.findByRole("region", { name: "Lancer avec un fournisseur" })
+  await screen.findByText("Part 1 of 2")
+  return screen.findByRole("region", { name: "Run with a provider" })
 }
 const change = (el: HTMLElement, value: string) => fireEvent.change(el, { target: { value } })
 
-describe("Lancer avec le fournisseur", () => {
+describe("Run with provider", () => {
   it("lists copy and paste first and selected, then the other providers", async () => {
     const r = await tab()
-    const select = within(r).getByLabelText("Fournisseur") as HTMLSelectElement
+    const select = within(r).getByLabelText("Provider") as HTMLSelectElement
     const options = within(select).getAllByRole("option") as HTMLOptionElement[]
     expect(options.map((o) => o.value)).toEqual(["copy_paste", "claude_cli", "gpt"])
-    expect(options[0].textContent).toBe("Copier-coller")
+    expect(options[0].textContent).toBe("Copy and paste")
     expect(select.value).toBe("copy_paste")
   })
 
   it("keeps the manual flow and offers no run while copy and paste is selected", async () => {
     const r = await tab()
-    expect(within(r).queryByRole("button", { name: "Lancer avec le fournisseur" })).toBeNull()
-    expect(screen.getByRole("button", { name: "Générer les prompts" })).toBeInTheDocument()
-    expect(screen.getByRole("button", { name: "Enregistrer la passe" })).toBeInTheDocument()
-    expect(within(r).getByText(/copiez chaque partie à la main/i)).toBeInTheDocument()
+    expect(within(r).queryByRole("button", { name: "Run with provider" })).toBeNull()
+    expect(screen.getByRole("button", { name: "Generate prompts" })).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Record the run" })).toBeInTheDocument()
+    expect(within(r).getByText(/copied by hand|copy each part/i)).toBeInTheDocument()
   })
 
   it("shows what leaves the machine for the selected provider", async () => {
     const r = await tab()
-    change(within(r).getByLabelText("Fournisseur"), "claude_cli")
+    change(within(r).getByLabelText("Provider"), "claude_cli")
     expect(within(r).getByText("command local, model hosted")).toBeInTheDocument()
-    change(within(r).getByLabelText("Fournisseur"), "gpt")
+    change(within(r).getByLabelText("Provider"), "gpt")
     expect(within(r).getByText("hosted (openai, https://api.openai.com/v1)")).toBeInTheDocument()
   })
 
@@ -137,10 +137,10 @@ describe("Lancer avec le fournisseur", () => {
       runs = [RUN]
       return { body: { run: RUN, journal_line: "command local, model hosted" } }
     })
-    change(within(r).getByLabelText("Fournisseur"), "claude_cli")
-    expect(within(r).getByLabelText("Nom de la passe")).toHaveValue("R1")
-    fireEvent.click(within(r).getByRole("button", { name: "Lancer avec le fournisseur" }))
-    expect(await within(r).findByText("Passe R1 complète : 2 parties sur 2 importées")).toBeInTheDocument()
+    change(within(r).getByLabelText("Provider"), "claude_cli")
+    expect(within(r).getByLabelText("Run label")).toHaveValue("R1")
+    fireEvent.click(within(r).getByRole("button", { name: "Run with provider" }))
+    expect(await within(r).findByText("Run R1 complete: 2 of 2 parts imported")).toBeInTheDocument()
     expect(within(r).getByText("command local, model hosted")).toBeInTheDocument()
     expect(mock.to("POST", RUN_URI)).toHaveLength(1)
     expect(mock.to("POST", RUN_URI)[0].body).toEqual({ provider_id: "claude_cli", run_label: "R1" })
@@ -153,13 +153,13 @@ describe("Lancer avec le fournisseur", () => {
   it("sends the optional parameters it was given", async () => {
     const r = await tab()
     mock.on("POST", RUN_URI, { body: { run: RUN, journal_line: "hosted (openai, https://api.openai.com/v1)" } })
-    change(within(r).getByLabelText("Fournisseur"), "gpt")
-    change(within(r).getByLabelText("Nom de la passe"), "R2")
-    change(within(r).getByLabelText("Modèle"), "gpt-4o")
-    change(within(r).getByLabelText("Température"), "0.2")
-    change(within(r).getByLabelText("Graine"), "7")
-    change(within(r).getByLabelText("Jetons maximum"), "512")
-    fireEvent.click(within(r).getByRole("button", { name: "Lancer avec le fournisseur" }))
+    change(within(r).getByLabelText("Provider"), "gpt")
+    change(within(r).getByLabelText("Run label"), "R2")
+    change(within(r).getByLabelText("Model"), "gpt-4o")
+    change(within(r).getByLabelText("Temperature"), "0.2")
+    change(within(r).getByLabelText("Seed"), "7")
+    change(within(r).getByLabelText("Max tokens"), "512")
+    fireEvent.click(within(r).getByRole("button", { name: "Run with provider" }))
     await waitFor(() => expect(mock.to("POST", RUN_URI)).toHaveLength(1))
     expect(mock.to("POST", RUN_URI)[0].body).toEqual({
       provider_id: "gpt",
@@ -173,16 +173,16 @@ describe("Lancer avec le fournisseur", () => {
 
   it("needs a run label", async () => {
     const r = await tab()
-    change(within(r).getByLabelText("Fournisseur"), "gpt")
-    change(within(r).getByLabelText("Nom de la passe"), "  ")
-    expect(within(r).getByRole("button", { name: "Lancer avec le fournisseur" })).toBeDisabled()
+    change(within(r).getByLabelText("Provider"), "gpt")
+    change(within(r).getByLabelText("Run label"), "  ")
+    expect(within(r).getByRole("button", { name: "Run with provider" })).toBeDisabled()
   })
 
   it("proposes the next label after existing runs", async () => {
     runs = [RUN]
     const r = await tab()
-    change(within(r).getByLabelText("Fournisseur"), "gpt")
-    expect(within(r).getByLabelText("Nom de la passe")).toHaveValue("R2")
+    change(within(r).getByLabelText("Provider"), "gpt")
+    expect(within(r).getByLabelText("Run label")).toHaveValue("R2")
   })
 
   it("shows the issues and the rejected answer when the validation refuses it", async () => {
@@ -199,48 +199,48 @@ describe("Lancer avec le fournisseur", () => {
         rejected: [{ part: 1, raw: "I am sorry, I cannot code these units." }],
       },
     })
-    change(within(r).getByLabelText("Fournisseur"), "claude_cli")
-    fireEvent.click(within(r).getByRole("button", { name: "Lancer avec le fournisseur" }))
-    expect(await within(r).findByText(/Réponse refusée : 2 problèmes\. Rien n'a été importé\./)).toBeInTheDocument()
+    change(within(r).getByLabelText("Provider"), "claude_cli")
+    fireEvent.click(within(r).getByRole("button", { name: "Run with provider" }))
+    expect(await within(r).findByText(/The answer was rejected: 2 problems\. Nothing was imported\./)).toBeInTheDocument()
     expect(within(r).getByText("no JSON object found")).toBeInTheDocument()
     expect(within(r).getByText("missing")).toBeInTheDocument()
-    fireEvent.click(within(r).getByRole("button", { name: "Afficher la réponse refusée de la partie 1" }))
+    fireEvent.click(within(r).getByRole("button", { name: "Show the rejected answer of part 1" }))
     expect(within(r).getByText("I am sorry, I cannot code these units.")).toBeInTheDocument()
-    expect(screen.queryByText(/Passe R1 complète/)).toBeNull()
+    expect(screen.queryByText(/Run R1 complete/)).toBeNull()
   })
 
   it("shows any other failure inline", async () => {
     const r = await tab()
     mock.on("POST", RUN_URI, { status: 500, body: { error: "`claude` exited with exit status: 3: boom", kind: "internal" } })
-    change(within(r).getByLabelText("Fournisseur"), "claude_cli")
-    fireEvent.click(within(r).getByRole("button", { name: "Lancer avec le fournisseur" }))
+    change(within(r).getByLabelText("Provider"), "claude_cli")
+    fireEvent.click(within(r).getByRole("button", { name: "Run with provider" }))
     expect(await within(r).findByRole("alert")).toHaveTextContent("exited with exit status: 3: boom")
   })
 
   it("shows the guard when the batch has no prompt part", async () => {
     const r = await tab()
     mock.on("POST", RUN_URI, { status: 409, body: { error: "protocol guard: batch 2 has no prompt part", kind: "guard" } })
-    change(within(r).getByLabelText("Fournisseur"), "gpt")
-    fireEvent.click(within(r).getByRole("button", { name: "Lancer avec le fournisseur" }))
+    change(within(r).getByLabelText("Provider"), "gpt")
+    fireEvent.click(within(r).getByRole("button", { name: "Run with provider" }))
     expect(await within(r).findByRole("alert")).toHaveTextContent("batch 2 has no prompt part")
   })
 
   it("keeps the manual flow when the registry cannot be read", async () => {
     mock.on("GET", "/api/providers", { status: 500, body: { error: "boom", kind: "internal" } })
     const r = await tab()
-    const select = within(r).getByLabelText("Fournisseur") as HTMLSelectElement
+    const select = within(r).getByLabelText("Provider") as HTMLSelectElement
     expect(select.value).toBe("copy_paste")
     expect(within(select).getAllByRole("option")).toHaveLength(1)
-    expect(screen.getByRole("button", { name: "Enregistrer la passe" })).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Record the run" })).toBeInTheDocument()
   })
 
   it("is not offered before any prompt has been generated", async () => {
     mock.on("GET", `/api/interviews/${ID}/phases/2/prompts`, { body: [] })
     renderWithClient(<AiPassTab id={ID} />)
-    await screen.findByRole("button", { name: "Générer les prompts" })
+    await screen.findByRole("button", { name: "Generate prompts" })
     await waitFor(() => expect(mock.to("GET", "/api/providers").length).toBeGreaterThanOrEqual(0))
-    expect(screen.queryByRole("button", { name: "Lancer avec le fournisseur" })).toBeNull()
-    const r = screen.getByRole("region", { name: "Lancer avec un fournisseur" })
-    expect(within(r).getByText("Générez d'abord les prompts.")).toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: "Run with provider" })).toBeNull()
+    const r = screen.getByRole("region", { name: "Run with a provider" })
+    expect(within(r).getByText("Generate the prompts first.")).toBeInTheDocument()
   })
 })

@@ -15,10 +15,10 @@ export interface MemoDraft {
 }
 
 export const MEMO_PARTS = [
-  { key: "documented", title: "Ce que les données documentent", hint: "Les passages et les cas qui touchent la question, dans les termes des répondants." },
-  { key: "interpretation", title: "Interprétation", hint: "Ce que les passages documentés signifient pour la question. Dites où la lecture reste fragile." },
-  { key: "rivals", title: "Explications concurrentes", hint: "Les autres lectures que les données permettent aussi, et ce qui les départagerait." },
-  { key: "limits", title: "Limites", hint: "Ce que les données ne peuvent pas montrer pour cette question, et qui n'a pas été entendu." },
+  { key: "documented", title: "What the data document", hint: "The passages and cases that bear on the question, in the respondents' terms." },
+  { key: "interpretation", title: "Interpretation", hint: "What the documented passages mean for the question. Say where the reading is thin." },
+  { key: "rivals", title: "Rival explanations", hint: "Other readings the data also allow, and what would tell them apart." },
+  { key: "limits", title: "Limits", hint: "What the data cannot show for this question, and who was not heard." },
 ] as const
 
 export function emptyMemoDraft(): MemoDraft {
