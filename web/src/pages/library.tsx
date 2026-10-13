@@ -92,8 +92,8 @@ export function LibraryPage() {
   return (
     <>
       <PageTitle
-        title="Interviews"
-        sub={state.data ? `${rows.length} in the library, codebook of ${state.data.codebook_size} codes` : " "}
+        title="Bibliothèque"
+        sub={state.data ? `${rows.length} entretiens, codebook de ${state.data.codebook_size} codes` : " "}
       />
 
       <form

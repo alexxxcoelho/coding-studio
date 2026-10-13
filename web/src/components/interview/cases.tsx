@@ -11,6 +11,7 @@ import { Plus, X } from "lucide-react"
 import { Banner, EmptyState, Section } from "@/components/bits"
 import { Button } from "@/components/ui/button"
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
+import { FIELD } from "@/components/ui/field-styles"
 import { Input } from "@/components/ui/input"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -32,7 +33,7 @@ function short(unitId: string): string {
   return `U${unitId.split("-U").pop()}`
 }
 
-const selectCls = "border-input bg-background h-9 rounded-md border px-2 text-sm"
+const selectCls = FIELD
 
 /** A unit used as evidence: chip linking to the unit in Coding, removable.
  * Shown as a warning when the unit is not attributed to the case. */

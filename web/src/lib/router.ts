@@ -1,5 +1,5 @@
 // Tiny hash router: #/interviews, #/interviews/ECO-07/coding?phase=2,
-// #/codebook, #/to-clarify, #/cross-case, #/audit. Hash routing keeps the
+// #/codebook, #/to-clarify, #/cross-case, #/audit, #/guide/coder-detail. Hash routing keeps the
 // embedded server stateless. `?unit=ECO-07-U003` selects a unit in Coding.
 
 import { useSyncExternalStore } from "react"
@@ -21,6 +21,10 @@ export type Route =
   | { page: "saturation" }
   | { page: "settings" }
   | { page: "audit" }
+  | { page: "analyser" }
+  | { page: "rediger" }
+  /** The guide; `anchor` is a section or heading anchor of docs/guide/guide.json. */
+  | { page: "guide"; anchor: string | null }
 
 export function parseHash(hash: string): Route {
   const raw = hash.replace(/^#\/?/, "")
@@ -41,6 +45,9 @@ export function parseHash(hash: string): Route {
   if (parts[0] === "saturation") return { page: "saturation" }
   if (parts[0] === "settings") return { page: "settings" }
   if (parts[0] === "audit") return { page: "audit" }
+  if (parts[0] === "analyser") return { page: "analyser" }
+  if (parts[0] === "rediger") return { page: "rediger" }
+  if (parts[0] === "guide") return { page: "guide", anchor: parts[1] ?? null }
   return { page: "library" }
 }
 

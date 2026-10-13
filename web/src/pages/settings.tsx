@@ -1,19 +1,36 @@
-// Settings: study configuration, codebook import and model providers. Each
-// part is a region of its own; a refusal of the server is shown inside the
+// Paramètres de l'étude: the study configuration and the codebook import. The
+// settings of the application (appearance, model providers) are in Réglages.
+// Each part is a region of its own; a refusal of the server is shown inside the
 // region that made the request.
 
-import { PageTitle } from "@/components/bits"
+import { PageTitle, Section } from "@/components/bits"
 import { CodebookImportSection } from "@/components/settings/codebook-import"
-import { ProvidersSection } from "@/components/settings/model-providers"
 import { StudyConfigSection } from "@/components/settings/study-config"
 
-export function SettingsPage({ pollMs = 1500 }: { pollMs?: number }) {
+const EXPORTS = [
+  { href: "#/audit", label: "Journal d'audit", note: "Chaque action, en ajout seul, avec la chaîne SHA-256." },
+  { href: "#/saturation", label: "Saturation", note: "Premier usage et création des codes, entretien par entretien." },
+  { href: "#/to-clarify", label: "À clarifier", note: "Étiquettes provisoires posées en phase 2." },
+]
+
+export function SettingsPage() {
   return (
     <div className="flex flex-col gap-5">
-      <PageTitle title="Settings" sub="The study configuration, the codebook import and the model providers of this database." />
+      <PageTitle title="Paramètres de l'étude" sub="Configuration de l'étude et import du codebook de cette base" />
       <StudyConfigSection />
       <CodebookImportSection />
-      <ProvidersSection pollMs={pollMs} />
+      <Section title="Exports et vérification" aside="pages sans entrée dans la barre latérale">
+        <ul className="m-0 flex list-none flex-col gap-2 p-0">
+          {EXPORTS.map((e) => (
+            <li key={e.href} className="flex flex-wrap items-baseline gap-x-3">
+              <a href={e.href} className="font-medium">
+                {e.label}
+              </a>
+              <span className="text-label2 text-xs">{e.note}</span>
+            </li>
+          ))}
+        </ul>
+      </Section>
     </div>
   )
 }

@@ -38,3 +38,12 @@ describe("router v5", () => {
     expect(parseHash("#/settings")).toEqual({ page: "settings" })
   })
 })
+
+describe("router lot 0", () => {
+  it("parses the new shell pages and the guide anchor", () => {
+    expect(parseHash("#/analyser")).toEqual({ page: "analyser" })
+    expect(parseHash("#/rediger")).toEqual({ page: "rediger" })
+    expect(parseHash("#/guide")).toEqual({ page: "guide", anchor: null })
+    expect(parseHash("#/guide/coder-detail")).toEqual({ page: "guide", anchor: "coder-detail" })
+  })
+})

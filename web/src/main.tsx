@@ -7,6 +7,11 @@ import App from "./App.tsx"
 import { Toaster } from "@/components/ui/sonner"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { ApiError } from "@/lib/api"
+import { applyStored } from "@/lib/theme"
+import { markDesktop } from "@/lib/desktop"
+
+applyStored()
+markDesktop()
 
 const queryClient = new QueryClient({
   defaultOptions: {

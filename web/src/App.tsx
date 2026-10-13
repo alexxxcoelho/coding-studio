@@ -1,5 +1,7 @@
 import { AppShell } from "@/components/app-shell"
 import { useRoute } from "@/lib/router"
+import { GuidePage } from "@/pages/guide"
+import { AnalyserPage, RedigerPage } from "@/pages/placeholder"
 import { AnswersPage } from "@/pages/answers"
 import { AuditPage } from "@/pages/audit"
 import { CodebookPage } from "@/pages/codebook"
@@ -23,6 +25,9 @@ export default function App() {
       {route.page === "saturation" && <SaturationPage />}
       {route.page === "settings" && <SettingsPage />}
       {route.page === "audit" && <AuditPage />}
+      {route.page === "analyser" && <AnalyserPage />}
+      {route.page === "rediger" && <RedigerPage />}
+      {route.page === "guide" && <GuidePage anchor={route.anchor} />}
     </AppShell>
   )
 }

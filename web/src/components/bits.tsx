@@ -4,6 +4,7 @@
 import { useId, type ReactNode } from "react"
 import { AlertTriangle, CheckCircle2, Info, Lock, OctagonX } from "lucide-react"
 
+import { ToolbarActions, ToolbarTitle } from "@/components/toolbar"
 import { familyKey, familyOf, FAMILY_ORDER, NA, type DiffMark } from "@/lib/codes"
 import { cn } from "@/lib/utils"
 import type { Code } from "@/lib/types"
@@ -115,15 +116,13 @@ export function EmptyState({ title, children, action }: { title: string; childre
   )
 }
 
+/** Page title: rendered in the unified toolbar of the shell, inline without one. */
 export function PageTitle({ title, sub, actions }: { title: ReactNode; sub?: ReactNode; actions?: ReactNode }) {
   return (
-    <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
-      <div className="min-w-0">
-        <h1 className="text-xl font-semibold tracking-tight">{title}</h1>
-        {sub && <p className="text-muted-foreground mt-0.5 text-sm">{sub}</p>}
-      </div>
-      {actions && <div className="flex items-center gap-2">{actions}</div>}
-    </div>
+    <>
+      <ToolbarTitle title={title} sub={sub} />
+      {actions && <ToolbarActions>{actions}</ToolbarActions>}
+    </>
   )
 }
 

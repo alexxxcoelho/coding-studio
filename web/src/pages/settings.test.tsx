@@ -1,8 +1,8 @@
 // Contract of the Settings page. Accessible names, texts and request bodies
 // below are the interface the implementation must honour.
 //
-// - Three regions, named by their heading: "Study configuration",
-//   "Codebook import", "Model providers".
+// - Regions named by their heading: "Study configuration", "Codebook import"
+//   (page Paramètres de l'étude) and "Model providers" (tab of Réglages).
 // - Selects are native <select> elements, so tests drive them with change events.
 // - Server refusals of a save are shown inside the region (role="alert"),
 //   never only as a toast.
@@ -10,6 +10,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react"
 
+import { ProvidersSection } from "@/components/settings/model-providers"
 import { SettingsPage } from "@/pages/settings"
 import { mockApi, renderWithClient, type MockApi } from "@/test-utils"
 import type { IsolationReport, ProviderConfig, ProviderEntry, StudyConfig } from "@/lib/types"
@@ -89,7 +90,7 @@ afterEach(() => {
 })
 
 async function study() {
-  renderWithClient(<SettingsPage pollMs={5} />)
+  renderWithClient(<SettingsPage />)
   const region = await screen.findByRole("region", { name: "Study configuration" })
   await within(region).findByDisplayValue("Pilot")
   return region
@@ -250,7 +251,7 @@ describe("study configuration form", () => {
 
 describe("codebook import", () => {
   async function region() {
-    renderWithClient(<SettingsPage pollMs={5} />)
+    renderWithClient(<SettingsPage />)
     return screen.findByRole("region", { name: "Codebook import" })
   }
 
@@ -314,7 +315,7 @@ describe("codebook import", () => {
 
 describe("model providers", () => {
   async function region() {
-    renderWithClient(<SettingsPage pollMs={5} />)
+    renderWithClient(<ProvidersSection pollMs={5} />)
     const r = await screen.findByRole("region", { name: "Model providers" })
     await within(r).findByText("claude_cli")
     return r
@@ -504,7 +505,7 @@ describe("model providers", () => {
         ? { body: { connected: false, pending: true, profile: null, error: null } }
         : { body: { connected: true, pending: false, profile: { id: "p1", email: "me@example.org" }, error: null } },
     )
-    renderWithClient(<SettingsPage pollMs={5} />)
+    renderWithClient(<ProvidersSection pollMs={5} />)
     const r = await screen.findByRole("region", { name: "Model providers" })
     fireEvent.click(await within(r).findByRole("button", { name: "Connect chatgpt" }))
     const link = await within(r).findByRole("link", { name: "https://auth.example/authorize?state=abc" })
@@ -524,7 +525,7 @@ describe("model providers", () => {
     mock.on("GET", "/api/providers", () => ({ body: listing(stored, { chatgpt: false }) }))
     mock.on("POST", "/api/providers/chatgpt/oauth/begin", { body: { url: "https://auth.example/a", state: "s" } })
     mock.on("GET", "/api/providers/chatgpt/oauth/status", { body: { connected: false, pending: false, profile: null, error: "the sign-in timed out" } })
-    renderWithClient(<SettingsPage pollMs={5} />)
+    renderWithClient(<ProvidersSection pollMs={5} />)
     const r = await screen.findByRole("region", { name: "Model providers" })
     fireEvent.click(await within(r).findByRole("button", { name: "Connect chatgpt" }))
     expect(await within(r).findByRole("alert")).toHaveTextContent("the sign-in timed out")
