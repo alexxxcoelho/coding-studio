@@ -56,12 +56,14 @@ export function RedigerPage() {
       <PageTitle title="Rédiger" sub="Les résultats, thème par thème" />
       <ToolbarActions>
         <TabBar tabs={tabs} value={tab} onChange={setPicked} label="Onglets de Rédiger" />
+      </ToolbarActions>
+      <div className="flex justify-end">
         <Capsule>
           <CapsuleItem onClick={() => exportMd.mutate()} disabled={exportMd.isPending}>
             Exporter en Markdown
           </CapsuleItem>
         </Capsule>
-      </ToolbarActions>
+      </div>
       <div role="tabpanel" aria-label={tabs.find((t) => t.id === tab)?.label} className="pt-1">
         {(projectQ.isLoading || themesQ.isLoading) && tab !== "decisions" && <Skeleton className="h-96 w-full" />}
         {project && !themesQ.isLoading && tab === "theme" && <ByThemeTab themes={themes} project={project} />}

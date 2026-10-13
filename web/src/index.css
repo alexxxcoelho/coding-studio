@@ -397,7 +397,7 @@
   .tok { display: inline-flex; align-items: center; gap: 4px; height: 20px; padding: 0 8px; border-radius: 999px; background: var(--fill2); font-size: 12px; }
   .tok button { border: 0; background: transparent; padding: 0; font: inherit; color: var(--label2); cursor: pointer; line-height: 1; }
   .note-warn { display: flex; gap: 8px; align-items: center; padding: 8px 10px; border-radius: 8px; background: var(--warn-soft); color: var(--warn); font-size: 12px; line-height: 1.4; }
-  .note-err { display: flex; gap: 8px; align-items: center; padding: 8px 10px; border-radius: 8px; background: var(--danger-soft); color: var(--red-text); font-size: 12px; line-height: 1.4; }
+  .note-err { display: flex; gap: 8px; align-items: center; padding: 8px 10px; border-radius: 8px; background: var(--danger-soft); color: color-mix(in srgb, var(--red-text) 75%, var(--label)); font-size: 12px; line-height: 1.4; }
 
   /* Screens with a list and an inspector */
   .content { display: flex; flex-wrap: wrap; min-height: 0; margin: 0 -1.25rem; }
@@ -414,7 +414,7 @@
   .tbl tr.row-click { cursor: default; }
   .tbl tr.sel .bar, .tbl tr[data-state="selected"] .bar { background: rgba(255, 255, 255, .3); }
   .tbl tr.sel .bar b, .tbl tr[data-state="selected"] .bar b { background: #fff; }
-  .tbl tr.sel .badge, .tbl tr[data-state="selected"] .badge { background: rgba(255, 255, 255, .2); color: #fff; }
+  .tbl tr.sel .badge, .tbl tr[data-state="selected"] .badge { background: transparent; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--on-accent) 55%, transparent); color: var(--on-accent); }
   .tbl tr.sel a, .tbl tr[data-state="selected"] a { color: #fff; }
 
   /* Coder: turns, gutter stripes, applied codes, code list */

@@ -155,7 +155,7 @@ export async function request<T>(method: string, path: string, body?: unknown): 
       body: body === undefined ? undefined : JSON.stringify(body),
     })
   } catch {
-    throw new ApiError(0, "network", "The Coding Studio server cannot be reached. Is it still running?")
+    throw new ApiError(0, "network", "Le serveur de Coding Studio est injoignable. Est-il toujours lancé ?")
   }
   const text = await res.text()
   let parsed: unknown = text

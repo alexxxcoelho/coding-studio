@@ -179,7 +179,7 @@ function Cell({ cell, row, selected, max, onSelect, colLabel }: { cell: MatrixCe
       aria-label={`${row.label}, ${colLabel}`}
       className={cn(
         "flex min-h-[66px] w-full flex-col gap-0.5 rounded-lg p-2 text-left",
-        v.state === "none" ? "text-muted-foreground items-center justify-center text-xs shadow-[inset_0_0_0_.5px_var(--sep)]" : HEAT[v.heat],
+        v.state === "none" ? "text-muted-foreground items-center justify-center text-xs shadow-[inset_0_0_0_.5px_var(--sep)]" : HEAT[v.heat] + " text-foreground",
         selected && "shadow-[0_0_0_2.5px_var(--accent-fill)]",
       )}
     >
@@ -191,7 +191,7 @@ function Cell({ cell, row, selected, max, onSelect, colLabel }: { cell: MatrixCe
             {v.label}
             {v.contradiction && <span className="text-warn ml-1.5 text-[11px]">à traiter</span>}
           </span>
-          <span className="text-muted-foreground text-[11.5px]">{v.countText}</span>
+          <span className="text-foreground/80 text-[11.5px]">{v.countText}</span>
           {v.summary && <span className="text-xs leading-snug">{v.summary}</span>}
         </>
       )}

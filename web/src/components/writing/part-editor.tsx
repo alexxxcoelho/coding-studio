@@ -29,7 +29,7 @@ function LinkRow({
   const label = linkChipLabel(link, types)
   return (
     <li className="flex flex-wrap items-center gap-2" data-link={link.link_id}>
-      <span className="bg-fill2 rounded-full px-2 py-0.5 text-[11.5px] font-medium whitespace-nowrap" title={link.passage.text}>
+      <span data-no-i18n className="bg-fill2 rounded-full px-2 py-0.5 text-[11.5px] font-medium whitespace-nowrap" title={link.passage.text}>
         {label}
       </span>
       <NativeSelect

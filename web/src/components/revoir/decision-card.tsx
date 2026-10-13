@@ -170,10 +170,10 @@ export function DecisionCard({
 
       {question && (
         <div className="small l2">
-          Après l'intervieweur : « {question.text} »
+          Après l'intervieweur : « <span data-no-i18n>{question.text}</span> »
         </div>
       )}
-      <p className="rv-quote">{item.unit.text}</p>
+      <p className="rv-quote verbatim">{item.unit.text}</p>
 
       <table className="tbl rv-cmp">
         <thead>

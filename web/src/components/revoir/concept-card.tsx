@@ -91,7 +91,7 @@ export function ConceptCard({
               <a className="mono" href={unitHref(uid, 1)}>
                 {uid.split("-U").pop() ? `U${uid.split("-U").pop()}` : uid}
               </a>
-              {units.get(uid) && <p className="rv-quote" style={{ marginTop: 4 }}>{units.get(uid)!.text}</p>}
+              {units.get(uid) && <p className="rv-quote verbatim" style={{ marginTop: 4 }}>{units.get(uid)!.text}</p>}
             </div>
           ))}
         </div>

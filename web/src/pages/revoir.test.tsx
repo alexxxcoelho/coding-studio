@@ -358,7 +358,7 @@ describe("Décisions", () => {
     renderWithClient(<RevoirPage id={ID} part="review" />)
     const c = await card()
     expect(c.getByText("Réponse numéro 2")).toBeInTheDocument()
-    expect(await c.findByText(/Après l'intervieweur : « Combien de temps a pris le déploiement \? »/)).toBeInTheDocument()
+    expect(await c.findByText(/Après l'intervieweur/)).toHaveTextContent("« Combien de temps a pris le déploiement ? »")
     const table = within(c.getByRole("table"))
     expect(table.getByText("COST")).toBeInTheDocument()
     expect(table.getByText("SKILLS")).toBeInTheDocument()

@@ -151,7 +151,7 @@ export function PassageCard({
         </a>
         {top}
       </div>
-      <q className="leading-snug [quotes:none]">{passage.text}</q>
+      <q className="verbatim leading-snug [quotes:none]">{passage.text}</q>
       <div className="flex flex-wrap items-center gap-2">
         <VerificationLabel state={passage.verification} />
         {foot}

@@ -105,6 +105,32 @@ def _selection_menu(page: Page):
     page.wait_for_timeout(250)
 
 
+def _tab(label: str):
+    def act(page: Page):
+        page.get_by_role("tab", name=label).click()
+        _settle(page)
+    return act
+
+
+def _matrix_cell(page: Page):
+    page.get_by_role("tab", name="Matrice").click()
+    page.get_by_role("table", name="Matrice").wait_for()
+    page.get_by_role("table", name="Matrice").locator("button").first.click()
+    _settle(page)
+
+
+def _coder_detail(page: Page):
+    page.locator('[data-unit="INT-01-U008"]').click()
+    page.locator('[data-unit="INT-01-U008"] [data-passage]').first.click()
+    page.get_by_label("Origine du propos").wait_for()
+    page.wait_for_timeout(250)
+
+
+def _theme_checks(page: Page):
+    page.get_by_role("button", name="Contrôles avant « retenu »").click()
+    page.wait_for_timeout(250)
+
+
 def _first_row(page: Page):
     rows = page.locator("table tbody tr")
     if rows.count():
@@ -132,7 +158,16 @@ ROUTES: list[dict] = [
     {"name": "saturation", "hash": "/saturation"},
     {"name": "to-clarify", "hash": "/to-clarify"},
     {"name": "analyser", "hash": "/analyser"},
+    {"name": "analyser-checks", "hash": "/analyser", "act": _theme_checks},
+    {"name": "analyser-matrice", "hash": "/analyser", "act": _matrix_cell},
+    {"name": "analyser-explorer", "hash": "/analyser", "act": _tab("Explorer")},
+    {"name": "analyser-decisions", "hash": "/analyser", "act": _tab("Décisions documentées")},
     {"name": "rediger", "hash": "/rediger"},
+    {"name": "rediger-synthese", "hash": "/rediger", "act": _tab("Synthèse par question")},
+    {"name": "rediger-audit", "hash": "/rediger", "act": _tab("Audit final")},
+    {"name": "rediger-decisions", "hash": "/rediger", "act": _tab("Décisions documentées")},
+    {"name": "coder-detail", "hash": f"/interviews/{INTERVIEW}/coding?phase=2", "act": _coder_detail},
+    {"name": "codebook-code", "hash": "/codebook", "act": _first_row},
     {"name": "dialog-reglages-general", "hash": "/interviews", "act": _open_settings_tab("Général")},
     {"name": "dialog-reglages-providers", "hash": "/interviews", "act": _open_settings_tab("Fournisseurs IA")},
     {"name": "dialog-reglages-advanced", "hash": "/interviews", "act": _open_settings_tab("Avancé")},
