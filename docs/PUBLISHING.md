@@ -19,7 +19,7 @@ For the first public release (0.1.0). Work through the list in order; every item
 ## 2. Continuous integration
 
 - [ ] The workflow `.github/workflows/ci.yml` is green on `main` on ubuntu-latest, macos-latest and windows-latest, and the web job passes.
-- [ ] The Windows job runs without the unix-only provider tests. Remove that exclusion once `tests/providers.rs` and `tests/providers_api.rs` are gated with `#![cfg(unix)]` or made portable.
+- [x] The Windows job runs the same commands as the other platforms: `tests/providers.rs` (cs-ai) and `tests/providers_api.rs` (cs-app) are gated with `#![cfg(unix)]`.
 - [ ] Action pins are current; the commit SHA and the tag in each comment agree.
 
 ## 3. Examples
@@ -27,7 +27,7 @@ For the first public release (0.1.0). Work through the list in order; every item
 - [ ] `cargo run --release -p cs-app -- --library examples/library --db /tmp/example.db` starts.
 - [ ] `POST /api/library/scan` lists `INT-01`, and segmentation of `INT-01` gives 28 units.
 - [ ] `POST /api/codebook/import` with `examples/codebook.csv` loads 10 codes.
-- [ ] `examples/providers.example.json` is accepted by the providers endpoint once it is released.
+- [ ] `examples/providers.example.json` is accepted by `PUT /api/providers`.
 
 ## 4. Release
 

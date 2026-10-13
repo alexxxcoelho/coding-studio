@@ -1,6 +1,6 @@
 import type { ReactNode } from "react"
 import { useQuery } from "@tanstack/react-query"
-import { BookMarked, FolderOpen, Grid3x3, HelpCircle, NotebookPen, ScrollText, ShieldAlert, ShieldCheck, TrendingUp } from "lucide-react"
+import { BookMarked, FolderOpen, Grid3x3, HelpCircle, NotebookPen, ScrollText, Settings, ShieldAlert, ShieldCheck, TrendingUp } from "lucide-react"
 
 import { ThemeSwitch } from "@/components/theme-switch"
 import { api } from "@/lib/api"
@@ -14,6 +14,7 @@ const NAV = [
   { href: "#/cross-case", page: "cross-case", label: "Cross-case", Icon: Grid3x3 },
   { href: "#/answers", page: "answers", label: "Answers", Icon: NotebookPen },
   { href: "#/saturation", page: "saturation", label: "Saturation", Icon: TrendingUp },
+  { href: "#/settings", page: "settings", label: "Settings", Icon: Settings },
   { href: "#/audit", page: "audit", label: "Audit trail", Icon: ScrollText },
 ] as const
 

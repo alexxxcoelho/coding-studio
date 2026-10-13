@@ -36,3 +36,16 @@ describe("request", () => {
     expect(err.kind).toBe("network")
   })
 })
+
+describe("provider run refusals", () => {
+  it("keeps the rejected raw answers of a 400", () => {
+    const e = toApiError(400, {
+      error: "the AI answer was rejected: 1 problem(s) found",
+      kind: "validation",
+      issues: [{ location: "$", message: "no JSON object found" }],
+      rejected: [{ part: 2, raw: "sorry" }],
+    })
+    expect(e.rejected).toEqual([{ part: 2, raw: "sorry" }])
+    expect(toApiError(400, { error: "x", kind: "validation" }).rejected).toEqual([])
+  })
+})

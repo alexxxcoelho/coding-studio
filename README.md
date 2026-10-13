@@ -119,7 +119,7 @@ A CLI provider comes with an isolation probe: the model is asked what files and 
 
 Each provider call reports the model name, the parameters it could set (temperature, seed, maximum tokens) and those it could not, where the execution happens, the SHA-256 of the prompt and the raw answer exactly as returned, which the run then records.
 
-Providers are described by a JSON document, `examples/providers.example.json`, with one entry of each kind. The copy-and-paste workflow is always listed first. The adapters are implemented and tested in `cs-ai`; their HTTP wiring (`GET` and `PUT /api/providers`, and running a batch through a provider) is being completed, and until it is released the interface offers the copy-and-paste workflow only.
+Providers are described by a JSON document, `examples/providers.example.json`, with one entry of each kind, edited on the Settings page or with `PUT /api/providers`. The copy-and-paste workflow is always listed first. The registry, the isolation probe, the run of a prompt batch through a provider (`POST /api/interviews/{id}/batches/{batch_id}/run`) and the ChatGPT sign-in are wired to the HTTP API; the routes and their refusals are documented in `docs/API.md`, "Providers and run".
 
 ## Workflow
 

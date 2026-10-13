@@ -8,6 +8,7 @@ import { ToClarifyPage } from "@/pages/to-clarify"
 import { InterviewPage } from "@/pages/interview"
 import { LibraryPage } from "@/pages/library"
 import { SaturationPage } from "@/pages/saturation"
+import { SettingsPage } from "@/pages/settings"
 
 export default function App() {
   const route = useRoute()
@@ -20,6 +21,7 @@ export default function App() {
       {route.page === "cross-case" && <CrossCasePage />}
       {route.page === "answers" && <AnswersPage />}
       {route.page === "saturation" && <SaturationPage />}
+      {route.page === "settings" && <SettingsPage />}
       {route.page === "audit" && <AuditPage />}
     </AppShell>
   )

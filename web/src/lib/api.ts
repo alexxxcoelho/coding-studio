@@ -18,6 +18,7 @@ import type {
   CodeEdit,
   CodeUnit,
   CoConstructedKind,
+  CodebookImportAnswer,
   CrossCaseAnswer,
   ExportAnswer,
   FileView,
@@ -27,10 +28,18 @@ import type {
   InterviewDetail,
   InterviewEntry,
   InterviewSummary,
+  IsolationReport,
   MergeAnswer,
+  OAuthBegin,
+  OAuthStatus,
   Phase,
   PhaseState,
   PromptPart,
+  ProviderEntry,
+  ProviderRunAnswer,
+  ProviderRunBody,
+  ProvidersConfig,
+  RejectedAnswer,
   ResearchQuestion,
   ResolveAnswer,
   ReviewAnswer,
@@ -38,6 +47,7 @@ import type {
   SaturationRow,
   Segmentation,
   SpeakerRole,
+  StudyConfig,
   ToClarify,
   UnitCorrection,
   UnitFlags,
@@ -55,13 +65,16 @@ export class ApiError extends Error {
   readonly status: number
   readonly kind: ErrorKind
   readonly issues: ValidationIssue[]
+  /** Raw provider answers refused by the validation (400 of a provider run). */
+  readonly rejected: RejectedAnswer[]
 
-  constructor(status: number, kind: ErrorKind, message: string, issues: ValidationIssue[] = []) {
+  constructor(status: number, kind: ErrorKind, message: string, issues: ValidationIssue[] = [], rejected: RejectedAnswer[] = []) {
     super(message)
     this.name = "ApiError"
     this.status = status
     this.kind = kind
     this.issues = issues
+    this.rejected = rejected
   }
 
   /** A protocol lock refused the action (HTTP 409). */
@@ -82,10 +95,11 @@ function kindFromStatus(status: number): ErrorKind {
 /** Builds an ApiError from a failed response body (JSON or text). */
 export function toApiError(status: number, body: unknown): ApiError {
   if (body && typeof body === "object" && "error" in body) {
-    const b = body as { error: unknown; kind?: unknown; issues?: unknown }
+    const b = body as { error: unknown; kind?: unknown; issues?: unknown; rejected?: unknown }
     const kind = KINDS.includes(b.kind as ErrorKind) ? (b.kind as ErrorKind) : kindFromStatus(status)
     const issues = Array.isArray(b.issues) ? (b.issues as ValidationIssue[]) : []
-    return new ApiError(status, kind, String(b.error), issues)
+    const rejected = Array.isArray(b.rejected) ? (b.rejected as RejectedAnswer[]) : []
+    return new ApiError(status, kind, String(b.error), issues, rejected)
   }
   const text = typeof body === "string" && body.trim() ? body.trim() : `Request failed with status ${status}`
   return new ApiError(status, kindFromStatus(status), text)
@@ -187,6 +201,24 @@ export const api = {
     request<Codebook>("PUT", `/api/codebook/codes/${enc(code)}/in_prompt`, { in_prompt }),
   codeUnits: (code: string) => request<CodeUnit[]>("GET", `/api/codebook/codes/${enc(code)}/units`),
   exportCodebook: () => request<WrittenFiles>("POST", "/api/codebook/export"),
+
+  /** v5: import by kind (csv, json or coding_db); the answer carries the counts. */
+  importCodebookFrom: (kind: "csv" | "json" | "coding_db", path: string) =>
+    request<CodebookImportAnswer>("POST", "/api/codebook/import", { kind, path }),
+
+  // ---- study configuration (v5); a 409 guard is re-sent with force
+  config: () => request<StudyConfig>("GET", "/api/config"),
+  setConfig: (cfg: StudyConfig, force = false) =>
+    request<StudyConfig>("PUT", force ? "/api/config?force=true" : "/api/config", cfg),
+
+  // ---- providers (v5)
+  providers: () => request<ProviderEntry[]>("GET", "/api/providers"),
+  setProviders: (cfg: ProvidersConfig) => request<ProviderEntry[]>("PUT", "/api/providers", cfg),
+  probeProvider: (id: string) => request<IsolationReport>("POST", `/api/providers/${enc(id)}/probe`),
+  oauthBegin: (id: string) => request<OAuthBegin>("POST", `/api/providers/${enc(id)}/oauth/begin`, {}),
+  oauthStatus: (id: string) => request<OAuthStatus>("GET", `/api/providers/${enc(id)}/oauth/status`),
+  runWithProvider: (id: string, batchId: number, body: ProviderRunBody) =>
+    request<ProviderRunAnswer>("POST", `${iv(id)}/batches/${batchId}/run`, body),
 
   // ---- research questions
   questions: () => request<ResearchQuestion[]>("GET", "/api/research-questions"),

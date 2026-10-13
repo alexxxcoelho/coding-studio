@@ -32,3 +32,9 @@ describe("router v4", () => {
     expect(parseHash("#/saturation")).toEqual({ page: "saturation" })
   })
 })
+
+describe("router v5", () => {
+  it("parses the settings page", () => {
+    expect(parseHash("#/settings")).toEqual({ page: "settings" })
+  })
+})

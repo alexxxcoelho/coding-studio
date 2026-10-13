@@ -19,6 +19,7 @@ export type Route =
   | { page: "cross-case" }
   | { page: "answers" }
   | { page: "saturation" }
+  | { page: "settings" }
   | { page: "audit" }
 
 export function parseHash(hash: string): Route {
@@ -38,6 +39,7 @@ export function parseHash(hash: string): Route {
   if (parts[0] === "cross-case") return { page: "cross-case" }
   if (parts[0] === "answers") return { page: "answers" }
   if (parts[0] === "saturation") return { page: "saturation" }
+  if (parts[0] === "settings") return { page: "settings" }
   if (parts[0] === "audit") return { page: "audit" }
   return { page: "library" }
 }

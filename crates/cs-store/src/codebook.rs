@@ -71,6 +71,17 @@ fn present<'de, D: Deserializer<'de>>(
     Option::<String>::deserialize(d).map(Some)
 }
 
+/// What a codebook import changed, by code id.
+#[derive(Debug, Clone, Default, PartialEq, Eq, serde::Serialize)]
+pub struct ImportReport {
+    /// Codes new to the codebook.
+    pub added: Vec<String>,
+    /// Codes that existed and were rewritten from the file.
+    pub updated: Vec<String>,
+    /// Codes of the codebook the file does not contain.
+    pub absent: Vec<String>,
+}
+
 /// Result of a merge.
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 pub struct MergeOutcome {
@@ -158,6 +169,17 @@ impl Store {
     /// created when absent. Codes created or edited in Coding Studio are never
     /// overwritten; codes absent upstream are deactivated, never deleted.
     pub fn import_codebook(&self, coding_db: &Path, actor: &str) -> Result<Codebook> {
+        Ok(self.import_codebook_reported(coding_db, actor)?.0)
+    }
+
+    /// Like [`Self::import_codebook`], and says which codes were added,
+    /// updated (rewritten from the file) and absent (codebook codes the file
+    /// lacks, deactivated or kept as they were).
+    pub fn import_codebook_reported(
+        &self,
+        coding_db: &Path,
+        actor: &str,
+    ) -> Result<(Codebook, ImportReport)> {
         let bytes = std::fs::read(coding_db)
             .with_context(|| format!("cannot read {}", coding_db.display()))?;
         let file_sha = sha256_hex(&bytes);
@@ -237,6 +259,7 @@ impl Store {
 
         let tx = self.conn.unchecked_transaction()?;
         let mut added = Vec::new();
+        let mut updated = Vec::new();
         let mut kept_local = Vec::new();
         let mut new_rq: Vec<String> = Vec::new();
         let upstream_codes: BTreeSet<&str> = upstream.iter().map(|u| u.0.as_str()).collect();
@@ -260,7 +283,10 @@ impl Store {
                     kept_local.push(code.clone());
                     continue;
                 }
-                Some((keep, false, _)) => *keep,
+                Some((keep, false, _)) => {
+                    updated.push(code.clone());
+                    *keep
+                }
                 None => {
                     added.push(code.clone());
                     *active && origin != "legacy"
@@ -287,6 +313,11 @@ impl Store {
                 ],
             )?;
         }
+        let absent: Vec<String> = existing
+            .keys()
+            .filter(|c| !upstream_codes.contains(c.as_str()))
+            .cloned()
+            .collect();
         let mut deactivated = Vec::new();
         for (code, (_, local, active)) in &existing {
             if !local && *active && !upstream_codes.contains(code.as_str()) {
@@ -322,13 +353,20 @@ impl Store {
                 "sha256": file_sha,
                 "n_codes": upstream.len(),
                 "added": added,
+                "updated": updated,
+                "absent": absent,
                 "removed": deactivated,
                 "kept_local": kept_local,
                 "research_questions_created": new_rq,
             }),
         )?;
         tx.commit()?;
-        self.codebook()
+        let report = ImportReport {
+            added,
+            updated,
+            absent,
+        };
+        Ok((self.codebook()?, report))
     }
 
     pub fn codebook(&self) -> Result<Codebook> {

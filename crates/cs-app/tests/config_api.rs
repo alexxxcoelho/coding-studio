@@ -642,3 +642,44 @@ fn binary_runs_without_coding_db_argument() {
     assert!(state["coding_db"].is_null(), "{state}");
     assert_eq!(state["codebook_size"], 0);
 }
+
+/// v5 contract: the import answer is the codebook plus `report: {added,
+/// updated, absent}` (counts). `added` are new codes, `updated` existing codes
+/// rewritten from the file, `absent` codes of the codebook the file lacks.
+/// Red until implemented.
+#[tokio::test]
+async fn codebook_import_reports_counts() {
+    let ctx = setup();
+    let (st, first) = call(
+        &ctx.app,
+        "POST",
+        "/api/codebook/import",
+        Some(json!({ "kind": "coding_db", "path": ctx.coding_db })),
+    )
+    .await;
+    assert_eq!(st, StatusCode::OK, "{first}");
+    assert_eq!(
+        first["report"],
+        json!({ "added": 6, "updated": 0, "absent": 0 }),
+        "{first}"
+    );
+    let path = write(
+        &ctx,
+        "partial.csv",
+        "code,definition,origin\nTECH-ADV,A reworded definition.,literature\nNEW-FIELD,Created in the field.,field\n",
+    );
+    let (st, second) = call(
+        &ctx.app,
+        "POST",
+        "/api/codebook/import",
+        Some(json!({ "kind": "csv", "path": path })),
+    )
+    .await;
+    assert_eq!(st, StatusCode::OK, "{second}");
+    assert_eq!(
+        second["report"],
+        json!({ "added": 1, "updated": 1, "absent": 5 }),
+        "{second}"
+    );
+    assert!(second["codes"].is_array());
+}

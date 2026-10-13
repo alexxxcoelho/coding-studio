@@ -25,7 +25,7 @@ mod saturation;
 mod study_config;
 mod verification;
 
-pub use codebook::{CodePatch, MergeOutcome};
+pub use codebook::{CodePatch, ImportReport, MergeOutcome};
 pub use coding::ResolveRequest;
 pub use review::{Review, ReviewEntry};
 
@@ -239,6 +239,17 @@ impl Store {
             ));
         }
         conn.execute_batch(SCHEMA)?;
+        // Databases made before providers existed lack the column: added in
+        // place, so that their content is kept.
+        let has_provider: bool = conn
+            .prepare("SELECT name FROM pragma_table_info('ai_runs')")?
+            .query_map([], |r| r.get::<_, String>(0))?
+            .collect::<rusqlite::Result<Vec<_>>>()?
+            .iter()
+            .any(|n| n == "provider");
+        if !has_provider {
+            conn.execute_batch("ALTER TABLE ai_runs ADD COLUMN provider TEXT;")?;
+        }
         conn.execute_batch(&format!("PRAGMA user_version = {SCHEMA_VERSION};"))?;
         Ok(Store { conn })
     }

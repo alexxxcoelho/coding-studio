@@ -1,3 +1,4 @@
+#![cfg(unix)]
 //! Tests of the optional AI providers. Offline and deterministic: the CLI is
 //! a shell script written by the test, the HTTP API is a loopback server
 //! written below. The copy-and-paste workflow stays the reference.

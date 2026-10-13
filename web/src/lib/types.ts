@@ -110,6 +110,8 @@ export interface AiRunMeta {
   notes: string | null
   /** Prompt batch the run answers; null = the latest batch. */
   batch_id?: number | null
+  /** Set when a provider ran the batch (v5); absent for pasted runs. */
+  provider?: RunProviderRecord | null
 }
 
 export interface PromptPart {
@@ -614,4 +616,147 @@ export interface ExportAnswer {
     n_to_clarify_open: number
     n_cases: number
   }
+}
+
+// ------------------------------------------------- study configuration (v5)
+
+export type FrameworkPreset = "toe" | "tam_utaut" | "none" | "custom"
+
+export interface Category {
+  code: string
+  label: string
+  definition: string
+  /** TOE letter that phase 2 codes attached to the category carry, or null. */
+  attachment: string | null
+}
+
+export interface PromptTemplate {
+  version: string
+  header: string
+  codebook_intro: string
+  units_intro: string
+  footer: string
+}
+
+export interface StudyConfig {
+  framework: FrameworkPreset
+  phase1_categories: Category[]
+  id_prefixes: string[]
+  interviewers: string[]
+  max_words: number
+  prompt_template: PromptTemplate
+  study_name: string
+}
+
+/** `POST /api/codebook/import` answers the codebook plus a report of the import. */
+export interface CodebookImportAnswer extends Codebook {
+  report: { added: number; updated: number; absent: number }
+}
+
+// ----------------------------------------------------------- providers (v5)
+
+export type Execution = { kind: "local" } | { kind: "hosted"; vendor: string; endpoint: string }
+export type PromptVia = "stdin" | "arg"
+export type Preset = "openai" | "zai" | "custom"
+export type ProviderKind = "copy_paste" | "cli" | "open_ai_compatible" | "oauth_chat_gpt"
+
+export interface CliProviderConfig {
+  type: "cli"
+  id: string
+  command: string
+  args: string[]
+  prompt_via: PromptVia
+  disable_flags: string[]
+  declared_execution: Execution
+  model_label: string | null
+}
+
+export interface OpenAiProviderConfig {
+  type: "open_ai_compatible"
+  id: string
+  preset: Preset
+  base_url: string | null
+  /** Name of the environment variable that holds the key, never the key. */
+  api_key_env: string
+  model: string
+}
+
+export interface OAuthProviderConfig {
+  type: "oauth_chat_gpt"
+  id: string
+  profile_id: string | null
+  model: string | null
+  token_dir: string | null
+}
+
+export type ProviderConfig = CliProviderConfig | OpenAiProviderConfig | OAuthProviderConfig
+
+export interface ProvidersConfig {
+  providers: ProviderConfig[]
+}
+
+export interface ProviderDescription {
+  id: string
+  kind: ProviderKind
+  sends: string[]
+  execution: Execution
+}
+
+/** One row of `GET /api/providers`; `copy_paste` is first and has no config. */
+export interface ProviderEntry {
+  id: string
+  kind: ProviderKind
+  description: ProviderDescription
+  configured: boolean
+  config: ProviderConfig | null
+}
+
+export interface IsolationReport {
+  ok: boolean
+  cwd_empty: boolean
+  env_scrubbed: boolean
+  instruction_files_absent: boolean
+  probe_answer: string
+}
+
+/** Body of `POST /api/interviews/{id}/batches/{batch_id}/run`. */
+export interface ProviderRunBody {
+  provider_id: string
+  run_label: string
+  model?: string
+  temperature?: number
+  seed?: number
+  max_tokens?: number
+}
+
+export interface RunProviderRecord {
+  id: string
+  execution: Execution
+  parameters_exposed: string[]
+  parameters_not_exposed: string[]
+  parts: { part: number; request_sha256: string; started_at: string; finished_at: string }[]
+}
+
+export interface ProviderRunAnswer {
+  run: AiRun
+  /** "command local, model hosted", "local" or "hosted (vendor, endpoint)". */
+  journal_line: string
+}
+
+/** A raw answer refused by the validation, returned in the 400 body. */
+export interface RejectedAnswer {
+  part: number
+  raw: string
+}
+
+export interface OAuthBegin {
+  url: string
+  state: string
+}
+
+export interface OAuthStatus {
+  connected: boolean
+  pending: boolean
+  profile: { id: string; email: string } | null
+  error: string | null
 }

@@ -364,6 +364,41 @@ pub struct AiRunMeta {
     /// Prompt batch the run answers; the latest batch when omitted.
     #[serde(default)]
     pub batch_id: Option<i64>,
+    /// The provider that produced the answers. Absent for a run whose answers
+    /// were pasted by hand, so that their serialisation is unchanged.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub provider: Option<ProviderRecord>,
+}
+
+/// Where a provider runs, as declared in its configuration (never guessed).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum ProviderExecution {
+    Local,
+    Hosted { vendor: String, endpoint: String },
+}
+
+/// What the journal keeps of a provider run: which provider, where it runs,
+/// which parameters it could and could not fix, and when each prompt part was
+/// sent. Never holds a credential.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ProviderRecord {
+    pub id: String,
+    pub execution: ProviderExecution,
+    pub parameters_exposed: Vec<String>,
+    pub parameters_not_exposed: Vec<String>,
+    /// One entry per prompt part, in part order.
+    pub parts: Vec<ProviderPartRecord>,
+}
+
+/// One call of a provider: the prompt part it sent (its SHA-256 as stored in
+/// the prompt), and the instants that bracket the call (RFC 3339 UTC).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ProviderPartRecord {
+    pub part: u32,
+    pub request_sha256: String,
+    pub started_at: String,
+    pub finished_at: String,
 }
 
 /// One copy-paste prompt. Long interviews are split into parts.

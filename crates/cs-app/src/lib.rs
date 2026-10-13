@@ -5,6 +5,7 @@
 
 mod error;
 mod export;
+mod providers;
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
@@ -209,6 +210,20 @@ pub fn router(state: AppState) -> Router {
         .route("/api/export/cross-case", post(export_cross_case))
         .route("/api/audit", get(audit))
         .route("/api/audit/verify", get(audit_verify))
+        .route("/api/providers", get(providers::list).put(providers::put))
+        .route("/api/providers/{id}/probe", post(providers::probe))
+        .route(
+            "/api/providers/{id}/oauth/begin",
+            post(providers::oauth_begin),
+        )
+        .route(
+            "/api/providers/{id}/oauth/status",
+            get(providers::oauth_status),
+        )
+        .route(
+            &format!("{I}/batches/{{batch_id}}/run"),
+            post(providers::run_batch),
+        )
         .fallback(static_file)
         .with_state(state)
 }
@@ -448,6 +463,7 @@ async fn pick(State(st): State<AppState>, Json(body): Json<PickBody>) -> ApiResu
         kind: "validation",
         message: "native dialogs exist in the desktop app only; type the path".into(),
         issues: None,
+        rejected: None,
     })?;
     let title = body.title.unwrap_or_default();
     let chosen = tokio::task::spawn_blocking(move || picker(body.kind, &title))
@@ -871,12 +887,19 @@ async fn import_codebook(
         return Err(invalid(format!("{} is not a file", path.display())));
     }
     let store = st.store();
-    let book = match kind.as_str() {
-        "csv" => store.import_codebook_csv(&path, &st.actor)?,
-        "json" => store.import_codebook_json(&path, &st.actor)?,
-        _ => store.import_codebook(&path, &st.actor)?,
+    let (book, report) = match kind.as_str() {
+        "csv" => store.import_codebook_csv_reported(&path, &st.actor)?,
+        "json" => store.import_codebook_json_reported(&path, &st.actor)?,
+        _ => store.import_codebook_reported(&path, &st.actor)?,
     };
-    Ok(Json(json!(book)))
+    // The codebook, and the counts of what the import changed.
+    let mut answer = json!(book);
+    answer["report"] = json!({
+        "added": report.added.len(),
+        "updated": report.updated.len(),
+        "absent": report.absent.len(),
+    });
+    Ok(Json(answer))
 }
 
 #[derive(Deserialize)]
@@ -1393,6 +1416,7 @@ async fn create_run(
         },
         notes: body.notes,
         batch_id: body.batch_id,
+        provider: None,
     };
     require_interview(&store, &id)?;
     let run_id = store.create_ai_run(&id, &meta, &st.actor)?;

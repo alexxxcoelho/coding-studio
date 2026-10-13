@@ -229,6 +229,7 @@ CREATE TABLE IF NOT EXISTS ai_runs (
     executed_at        TEXT NOT NULL,
     notes              TEXT,
     created_at         TEXT NOT NULL,
+    provider           TEXT,             -- JSON of cs_model::ProviderRecord; NULL for a pasted run
     UNIQUE (interview_id, run_label)
 );
 

@@ -1,7 +1,7 @@
 // Small shared pieces: code chips, the coding rail, banners, empty states,
 // error reporting.
 
-import type { ReactNode } from "react"
+import { useId, type ReactNode } from "react"
 import { AlertTriangle, CheckCircle2, Info, Lock, OctagonX } from "lucide-react"
 
 import { familyKey, familyOf, FAMILY_ORDER, NA, type DiffMark } from "@/lib/codes"
@@ -128,10 +128,14 @@ export function PageTitle({ title, sub, actions }: { title: ReactNode; sub?: Rea
 }
 
 export function Section({ title, aside, children, className }: { title: ReactNode; aside?: ReactNode; children: ReactNode; className?: string }) {
+  // Named by its title, so that it is a labelled region for assistive tech.
+  const titleId = useId()
   return (
-    <section className={cn("bg-card rounded-md border", className)}>
+    <section aria-labelledby={titleId} className={cn("bg-card rounded-md border", className)}>
       <header className="flex items-center justify-between gap-3 border-b px-4 py-2.5">
-        <h2 className="text-sm font-semibold">{title}</h2>
+        <h2 id={titleId} className="text-sm font-semibold">
+          {title}
+        </h2>
         {aside && <div className="text-muted-foreground text-xs">{aside}</div>}
       </header>
       <div className="p-4">{children}</div>

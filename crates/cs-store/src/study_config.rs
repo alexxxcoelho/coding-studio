@@ -22,6 +22,7 @@ use rusqlite::params;
 use serde::Deserialize;
 use serde_json::json;
 
+use crate::codebook::ImportReport;
 use crate::{append_event, from_json, guard_err, now, to_json, validation, Store};
 
 /// Origins a codebook file may declare (empty means `field`).
@@ -142,6 +143,15 @@ impl Store {
     /// `in_prompt`, `merged_into`, `created_at`). RFC 4180 quoting.
     /// All or nothing: any invalid row refuses the whole file.
     pub fn import_codebook_csv(&self, path: &Path, actor: &str) -> Result<Codebook> {
+        Ok(self.import_codebook_csv_reported(path, actor)?.0)
+    }
+
+    /// Like [`Self::import_codebook_csv`], with the report of the import.
+    pub fn import_codebook_csv_reported(
+        &self,
+        path: &Path,
+        actor: &str,
+    ) -> Result<(Codebook, ImportReport)> {
         let bytes = read_file(path)?;
         let sha = sha256_hex(&bytes);
         let text = String::from_utf8(bytes)
@@ -225,6 +235,15 @@ impl Store {
     /// Imports a codebook from the JSON form of `Codebook`
     /// (`{source, codes: Code[]}`), with the same checks as the CSV import.
     pub fn import_codebook_json(&self, path: &Path, actor: &str) -> Result<Codebook> {
+        Ok(self.import_codebook_json_reported(path, actor)?.0)
+    }
+
+    /// Like [`Self::import_codebook_json`], with the report of the import.
+    pub fn import_codebook_json_reported(
+        &self,
+        path: &Path,
+        actor: &str,
+    ) -> Result<(Codebook, ImportReport)> {
         let bytes = read_file(path)?;
         let sha = sha256_hex(&bytes);
         let text = String::from_utf8(bytes)
@@ -278,7 +297,7 @@ impl Store {
         path: &Path,
         sha: &str,
         actor: &str,
-    ) -> Result<Codebook> {
+    ) -> Result<(Codebook, ImportReport)> {
         let mut codes: Vec<Code> = Vec::new();
         let mut first_row: BTreeMap<String, String> = BTreeMap::new();
         for (at, raw) in raws {
@@ -383,7 +402,14 @@ impl Store {
             }),
         )?;
         tx.commit()?;
-        self.codebook()
+        Ok((
+            self.codebook()?,
+            ImportReport {
+                added,
+                updated,
+                absent,
+            },
+        ))
     }
 }
 

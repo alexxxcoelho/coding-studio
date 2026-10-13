@@ -2,7 +2,7 @@
 
 Local JSON API served by `cs-app` on 127.0.0.1. The web UI (`web/`) is its only client. Design: `docs/DESIGN_V3.md`. Types are the serde forms of `crates/cs-model/src/lib.rs` (snake_case field names, snake_case enum values). Phase 1 is the candidate's provisional TOE pre-classification; phase 2 carries the concrete codes and is the only phase the AI challenges.
 
-Errors: status 400 (validation), 404 (not found), 409 (protocol guard), 500 (internal), 501 (native dialog unavailable); body `{"error": string, "kind": "validation"|"guard"|"not_found"|"internal", "issues"?: ValidationIssue[]}`.
+Errors: status 400 (validation), 404 (not found), 409 (protocol guard), 500 (internal), 501 (native dialog unavailable); body `{"error": string, "kind": "validation"|"guard"|"not_found"|"internal", "issues"?: ValidationIssue[], "rejected"?: {part, raw}[]}` (`rejected` only when a provider run refuses answers).
 
 ## Types (JSON)
 
@@ -79,7 +79,7 @@ Errors: status 400 (validation), 404 (not found), 409 (protocol guard), 500 (int
 | Method | Path | Body | Answer |
 |---|---|---|---|
 | GET | `/api/codebook` | | `Codebook` |
-| POST | `/api/codebook/import` | `{coding_db?}` | `Codebook` |
+| POST | `/api/codebook/import` | `{kind: "csv"\|"json"\|"coding_db", path}`; legacy `{coding_db?}` still accepted | `Codebook` plus `report: {added, updated, absent}` (counts: codes new, rewritten from the file, and codebook codes the file lacks) |
 | POST | `/api/codebook/codes` | `Code` (`origin` literature or field, default field; `definition` required; `toe` T, O, E or null; `research_questions` must exist) | `Codebook` |
 | PUT | `/api/codebook/codes/{code}` | `{label?, definition?, toe?, research_questions?, example?, reason?, in_prompt?}` (omitted = unchanged; `toe: null` clears) | `Codebook` (version incremented) |
 | PUT | `/api/codebook/codes/{code}/in_prompt` | `{in_prompt}` | `Codebook` |
@@ -132,3 +132,22 @@ The interview export package holds `units.csv`, `phase1_contexts.csv`, `phase2_c
 - Saturation: `GET /api/saturation` -> `SaturationRow[]` (provisional).
 - Exports: per interview adds `units_verification.csv`, `unit_corrections.csv`, `claims.csv`, `ev_distribution.csv`, `provenance_distribution.csv`, `roles_distribution.csv`, `state.json` (digest of the whole state, generator version and git description) and `db_snapshot.sqlite`; `POST /api/export/cross-case` writes `answers.md`, `cross_case.csv`, `saturation.csv`, `saturation.md`, `cases.csv`, `state.json`, `manifest.json`, `README.md`.
 - Prompt version `CS-P04-EN v3.1`: unit identifiers found in code texts are redacted as `[unit]`.
+
+## Providers and run (v5)
+
+Model providers are optional. The copy-and-paste workflow is always listed first and is the reference; a provider only automates the copy of the prompt and the paste of the answer. Settings page of the interface: "Study configuration", "Codebook import" and "Model providers" (the list is edited there; the "Run with a provider" control sits in the AI pass of an interview).
+
+- `GET /api/providers` -> `[{id, kind, description, configured, config}]`. `kind`: `copy_paste`, `cli`, `open_ai_compatible` or `oauth_chat_gpt`; `description`: `{id, kind, sends: string[], execution}` with `execution` `{kind: "local"}` or `{kind: "hosted", vendor, endpoint}`; `configured`: the command is found, the API key variable is set, or a ChatGPT profile is connected (`copy_paste` is always configured); `config`: the stored entry, or null.
+- `PUT /api/providers` `{providers: Entry[]}` -> the same list. Entries are those of `examples/providers.example.json`. The whole list is checked first: an unknown type or field, an empty id, the reserved id `copy_paste`, a duplicate id, or a `custom` preset without `base_url` gives 400 `validation` naming the entry, and nothing is stored or audited. Stored as JSON under the settings key `providers_config`, exactly as given; an API key is named by its environment variable and never stored. Audit `providers.update` with `{before, after}`.
+- `POST /api/providers/{id}/probe` -> `{ok, cwd_empty, env_scrubbed, instruction_files_absent, probe_answer}`. The isolation probe of a `cli` provider: the model is asked what it can see from an empty working directory, with a clean environment. `ok` only when the answer is `NONE`. For any other kind: 400 "does not apply"; unknown id: 404.
+- `POST /api/interviews/{id}/batches/{batch_id}/run` `{provider_id, run_label, model?, temperature?, seed?, max_tokens?}` -> `{run: AiRun, journal_line}`. Every part of the batch is sent with its prompt text byte for byte; every answer is then validated against the batch as a pasted answer is (`parse_ai_output`), and the run is created only when all of them are valid. Refusals:
+  - 409 `guard` when the batch has no prompt, or a unit of it is not yet coded by the candidate (blind coding guard).
+  - 400 `validation` for `copy_paste` (message: the manual workflow runs no model, paste the answer instead), for a blank or already used run label.
+  - 404 for an unknown provider or interview.
+  - 400 `validation` with `issues` and `rejected: [{part, raw}]` when any answer is refused; `raw` is the answer exactly as returned. Nothing is kept.
+  - 500 `internal` when the command fails (its message says it exited).
+  Success audits `ai_run.provider` with `{run_id, provider_id, journal_line, batch_id, parts}`; `journal_line` is `command local, model hosted` or `command local, model local` for a command, `hosted (<vendor>, <endpoint>)` or `local` otherwise.
+- `AiRunMeta.provider` (absent for a pasted run): `{id, execution, parameters_exposed: string[], parameters_not_exposed: string[], parts: [{part, request_sha256, started_at, finished_at}]}`. `parameters_*` name `temperature`, `seed`, `max_tokens` and `model`; `meta.temperature` and `meta.seed` are set only when the provider exposed them. `request_sha256` is the SHA-256 of the prompt part as sent. The export keeps each raw answer as `phase2_ai_run<id>_<label>_part<n>_raw.txt`, byte for byte, and the run in `phase2_run<id>_<label>.json` carries the record.
+- `POST /api/providers/{id}/oauth/begin` -> `{url, state}`. Only for `oauth_chat_gpt` with a `token_dir` (otherwise 400). A loopback listener on a free port receives the callback; the sign-in completes in the background (5 minutes at most).
+- `GET /api/providers/{id}/oauth/status` -> `{connected, pending, profile, error}`; `profile` is the connected ChatGPT profile (`{id, email, subject, client_id, connected}`) or null, `error` the message of the last failed sign-in or null. Same refusals as `begin`.
+

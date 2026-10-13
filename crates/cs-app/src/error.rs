@@ -4,15 +4,18 @@ use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use axum::Json;
 use cs_model::{CsError, ValidationIssue};
-use serde_json::json;
+use serde_json::{json, Value};
 
-/// Error returned by every API route: `{"error", "kind", "issues"?}`.
+/// Error returned by every API route: `{"error", "kind", "issues"?, "rejected"?}`.
 #[derive(Debug)]
 pub struct ApiError {
     pub status: StatusCode,
     pub kind: &'static str,
     pub message: String,
     pub issues: Option<Vec<ValidationIssue>>,
+    /// Raw answers a provider run got back and that were refused, as
+    /// `{part, raw}`, so that the candidate can read them.
+    pub rejected: Option<Vec<Value>>,
 }
 
 impl ApiError {
@@ -26,6 +29,7 @@ impl ApiError {
                 issues.len()
             ),
             issues: Some(issues),
+            rejected: None,
         }
     }
 }
@@ -45,6 +49,7 @@ impl From<anyhow::Error> for ApiError {
             kind,
             message: format!("{err:#}"),
             issues: None,
+            rejected: None,
         }
     }
 }
@@ -54,6 +59,9 @@ impl IntoResponse for ApiError {
         let mut body = json!({ "error": self.message, "kind": self.kind });
         if let Some(issues) = self.issues {
             body["issues"] = json!(issues);
+        }
+        if let Some(rejected) = self.rejected {
+            body["rejected"] = json!(rejected);
         }
         (self.status, Json(body)).into_response()
     }

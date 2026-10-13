@@ -40,34 +40,13 @@ jobs:
         run: cargo fmt --all -- --check
 
       # cs-desktop needs GTK (Linux) and the Tauri toolchain; it is built and
-      # tested locally with `make desktop-check`.
-      - name: Clippy (Linux and macOS)
-        if: runner.os != 'Windows'
+      # tested locally with `make desktop-check`. The same commands run on every
+      # platform: the unix-only provider tests are gated with #![cfg(unix)].
+      - name: Clippy
         run: cargo clippy --workspace --exclude cs-desktop --all-targets -- -D warnings
 
-      # Windows, reduced. tests/providers.rs (cs-ai) and tests/providers_api.rs
-      # (cs-app) import std::os::unix and run /bin/sh scripts, so they do not
-      # compile on Windows. They are left out of the Windows job until they are
-      # gated with #![cfg(unix)] (see the item in docs/PUBLISHING.md).
-      - name: Clippy (Windows, without the unix-only provider tests)
-        if: runner.os == 'Windows'
-        shell: bash
-        run: |
-          cargo clippy --workspace --exclude cs-desktop --exclude cs-ai --exclude cs-app --all-targets -- -D warnings
-          cargo clippy -p cs-ai --lib --test oauth --test prompt_template -- -D warnings
-          cargo clippy -p cs-app --lib --bins --test api --test config_api --test e2e -- -D warnings
-
-      - name: Tests (Linux and macOS)
-        if: runner.os != 'Windows'
+      - name: Tests
         run: cargo test --workspace --exclude cs-desktop
-
-      - name: Tests (Windows, without the unix-only provider tests)
-        if: runner.os == 'Windows'
-        shell: bash
-        run: |
-          cargo test --workspace --exclude cs-desktop --exclude cs-ai --exclude cs-app
-          cargo test -p cs-ai --lib --test oauth --test prompt_template
-          cargo test -p cs-app --lib --bins --test api --test config_api --test e2e
 
   web:
     name: Web interface
