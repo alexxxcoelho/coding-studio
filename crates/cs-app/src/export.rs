@@ -495,7 +495,7 @@ pub(crate) fn cases_md(
 /// Overlays the corrections on the segmented units. Returns the current units
 /// (text and role of the latest correction, `corrected` set) and every
 /// correction of the interview, oldest first. The segmentation is not touched.
-fn current_units(
+pub(crate) fn current_units(
     store: &Store,
     interview_id: &str,
     seg: &cs_model::Segmentation,
@@ -518,7 +518,7 @@ fn current_units(
 }
 
 /// Speaker field of a unit as in the segmentation: INT, RESP, or the source label when unknown.
-fn speaker_of(unit: &Unit) -> &str {
+pub(crate) fn speaker_of(unit: &Unit) -> &str {
     match unit.role {
         cs_model::SpeakerRole::Unknown => unit.speaker_raw.as_str(),
         role => role.short(),
@@ -1087,6 +1087,14 @@ pub(crate) fn write_package_with(
         "attributes.csv",
         crate::export_v1::attributes_csv(store, &ids)?.as_bytes(),
     )?;
+    w.write(
+        "persons.csv",
+        crate::export_persons::persons_csv_full(store, Some(&ids))?.as_bytes(),
+    )?;
+    w.write(
+        "groups.csv",
+        crate::export_persons::groups_csv(store)?.as_bytes(),
+    )?;
     w.write("memos.json", &crate::export_v1::memos_json(store, &ids)?)?;
     w.write("review.json", &crate::export_v1::review_json(store, &ids)?)?;
     w.write(
@@ -1238,6 +1246,8 @@ fn readme(id: &str, folder: &str, seg: &cs_model::Segmentation, st: &CodingStatu
         ("passages.csv", "Every passage (a selected part of a turn), highlights included: `passage_id,interview_id,unit_id,start,end,text,kind,code_ids,code_names,later,later_note,stale,anchor_digest,created_at,created_by,transcript_version`. `transcript_version` is the version of the transcript the offsets were checked against (the current one, or the one a passage waiting for review is still anchored on). Positions count Unicode characters from 0, end excluded. `later` is 1 for the reserved code Plus tard, which is not in `code_ids` and counts in no analysis. `stale` is 1 when the turn text no longer matches `anchor_digest`."),
         ("highlights.csv", "The passages that carry no code yet, `passage_id,interview_id,unit_id,start,end,text,stale,created_at,created_by`."),
         ("attributes.csv", "The interview attribute values, `interview_id,attribute_id,label,kind,value`, one row per attribute that has a value."),
+        ("persons.csv", crate::export_persons::PERSONS_README),
+        ("groups.csv", crate::export_persons::GROUPS_README),
         ("memos.json", "The familiarisation memo of each interview (template and version, the interview's own added, removed and reworded questions, answers with their time) and its end-of-interview checklist (items, checked flags with time, note)."),
         ("review.json", "Review (lot 4): the candidate concepts the model proposed with their decisions (create, map or reject, with reason and time), the digest, the categories and the number of entries of the pseudonymisation list (never the names), the harmonisation worklist (merge, redefinition, new sub-code) and the review state of each interview. Candidate texts are kept as the model saw them, pseudonymised."),
         ("co-occurrence.csv", "Code co-occurrence (F-56), `relation,group,kind,code_a_id,code_a_name,code_b_id,code_b_name,passages,units,interviews,passage_pairs,jaccard`, for the three relations `same_passage`, `overlap` and `same_unit`, over the interviews of the package. `kind` is `single` for a code alone (`passages`, `units` and `interviews` of the code) and `pair` for two codes (turns, interviews and passage pairs, counted apart; `jaccard` is the turns with both codes over the turns with either). Codes are listed in codebook order and a pair once. It describes how the coding falls together, not causation or prevalence; the reserved code Plus tard is left out."),
@@ -1287,6 +1297,8 @@ fn cross_case_readme(
         ("passages.csv", "Every passage of every interview (a selected part of a turn), highlights included: `passage_id,interview_id,unit_id,start,end,text,kind,code_ids,code_names,later,later_note,stale,anchor_digest,created_at,created_by,transcript_version`. `transcript_version` is the version of the transcript the offsets were checked against (the current one, or the one a passage waiting for review is still anchored on). Positions count Unicode characters from 0, end excluded. `later` is 1 for the reserved code Plus tard, which is not in `code_ids` and counts in no analysis. `stale` is 1 when the turn text no longer matches `anchor_digest`."),
         ("highlights.csv", "The passages that carry no code yet, `passage_id,interview_id,unit_id,start,end,text,stale,created_at,created_by`."),
         ("attributes.csv", "The interview attribute values of every interview, `interview_id,attribute_id,label,kind,value`, one row per attribute that has a value."),
+        ("persons.csv", crate::export_persons::PERSONS_README),
+        ("groups.csv", crate::export_persons::GROUPS_README),
         ("memos.json", "The familiarisation memo of every interview (template and version, the interview's own added, removed and reworded questions, answers with their time) and its end-of-interview checklist (items, checked flags with time, note)."),
         ("study_config.json", "The study configuration as a project template: study description and settings, research questions, attribute definitions, memo templates, checklist, theme checks, evidence natures, link types, matrix dimensions and interpretive framework. It holds no interview data."),
         ("co-occurrence.csv", "Code co-occurrence (F-56), `relation,group,kind,code_a_id,code_a_name,code_b_id,code_b_name,passages,units,interviews,passage_pairs,jaccard`, for the three relations `same_passage`, `overlap` and `same_unit`, over the interviews of the package. `kind` is `single` for a code alone (`passages`, `units` and `interviews` of the code) and `pair` for two codes (turns, interviews and passage pairs, counted apart; `jaccard` is the turns with both codes over the turns with either). Codes are listed in codebook order and a pair once. It describes how the coding falls together, not causation or prevalence; the reserved code Plus tard is left out."),
@@ -1367,6 +1379,14 @@ pub(crate) fn write_cross_case_with(
     w.write(
         "attributes.csv",
         crate::export_v1::attributes_csv(store, &interview_ids)?.as_bytes(),
+    )?;
+    w.write(
+        "persons.csv",
+        crate::export_persons::persons_csv_full(store, None)?.as_bytes(),
+    )?;
+    w.write(
+        "groups.csv",
+        crate::export_persons::groups_csv(store)?.as_bytes(),
     )?;
     w.write(
         "memos.json",

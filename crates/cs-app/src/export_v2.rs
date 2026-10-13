@@ -398,8 +398,22 @@ pub fn write_anonymised(
                 continue;
             };
             let masked = if name == "README.md" {
-                original_readme = masker.mask(&text);
+                original_readme = masker.mask(&text).replace(
+                    crate::export_persons::PERSONS_README,
+                    crate::export_persons::PERSONS_PUBLIC_README,
+                );
                 continue;
+            } else if name == "persons.csv" {
+                // Not the register with names: the public one (pseudonym for
+                // a record that is anonymised, no contact detail).
+                let ids = match scope {
+                    Scope::Interview(id) => Some(vec![id.clone()]),
+                    _ => None,
+                };
+                mask_csv(
+                    &crate::export_persons::persons_csv_public(store, ids.as_deref())?,
+                    &masker,
+                )
             } else if name == "state.json" {
                 mask_state(&text, &masker)?
             } else if name.ends_with(".csv") {
