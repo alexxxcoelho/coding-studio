@@ -15,6 +15,7 @@
 //! Protocol refusals are returned as `cs_model::CsError::Guard`, bad input as
 //! `CsError::Validation`, unknown ids as `CsError::NotFound` (wrapped in anyhow).
 
+mod analysis_schema;
 mod cases;
 mod claims;
 mod codebook;
@@ -57,8 +58,12 @@ pub const SCHEMA: &str = include_str!("schema.sql");
 
 /// Schema version stored in `PRAGMA user_version`. Versions 1 and 2 used the
 /// earlier, locked two-phase procedure. Version 4 adds the V1 lot 1 and 2
-/// tables and columns to version 3, which is migrated in place.
-pub const SCHEMA_VERSION: i64 = 4;
+/// tables and columns to version 3, which is migrated in place. Version 5 is
+/// reserved for the lexical and review lots. Version 6 adds the tables of
+/// lot 5 (Analyse and Write) and the columns of the API gaps; its migration
+/// (`analysis_schema::migrate`) is idempotent and runs on every open, so the
+/// result does not depend on the order the lots are merged in.
+pub const SCHEMA_VERSION: i64 = 6;
 
 /// Oldest schema version that is migrated in place.
 const MIN_SCHEMA_VERSION: i64 = 3;
@@ -285,6 +290,7 @@ impl Store {
             migrate_codes_v4(&conn)?;
         }
         conn.execute_batch(SCHEMA)?;
+        analysis_schema::migrate(&conn)?;
         // Databases made before providers existed lack the column: added in
         // place, so that their content is kept.
         let has_provider: bool = conn

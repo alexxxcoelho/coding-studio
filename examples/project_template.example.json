@@ -209,6 +209,8 @@
     }
   ],
   "study_config": {
+    "coding_rules": "",
+    "description": "",
     "framework": "toe",
     "id_prefixes": [
       "INT",

@@ -9,6 +9,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
+pub mod analysis;
 pub mod config;
 pub mod passage;
 pub mod phase;
