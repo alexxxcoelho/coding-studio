@@ -90,7 +90,7 @@ fn context_of(text: &str, start: usize, end: usize) -> (String, String) {
 }
 
 impl Store {
-    fn current_units(&self, interview_id: &str) -> Result<UnitMap> {
+    pub(crate) fn current_units(&self, interview_id: &str) -> Result<UnitMap> {
         let Some(seg) = self.segmentation(interview_id)? else {
             return Ok(UnitMap::new());
         };

@@ -671,6 +671,7 @@ dependencies = [
  "clap",
  "cs-ai",
  "cs-ingest",
+ "cs-lex",
  "cs-model",
  "cs-store",
  "hex",
@@ -744,6 +745,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "chrono",
+ "cs-lex",
  "cs-model",
  "rusqlite",
  "serde",

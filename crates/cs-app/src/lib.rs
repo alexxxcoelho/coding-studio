@@ -6,6 +6,7 @@
 mod error;
 mod export;
 mod export_v1;
+mod lexicon;
 mod providers;
 mod v1;
 mod v1_project;
@@ -230,6 +231,7 @@ pub fn router(state: AppState) -> Router {
         )
         .merge(v1::routes())
         .merge(v1_project::routes())
+        .merge(lexicon::routes())
         .fallback(static_file)
         .with_state(state)
 }

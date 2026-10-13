@@ -6,6 +6,7 @@ license.workspace = true
 
 [dependencies]
 cs-model.workspace = true
+cs-lex.workspace = true
 anyhow.workspace = true
 rusqlite.workspace = true
 serde.workspace = true

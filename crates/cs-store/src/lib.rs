@@ -20,6 +20,7 @@ mod claims;
 mod codebook;
 mod codetree;
 mod coding;
+mod lexicon;
 mod memos;
 mod passages;
 mod project;
@@ -32,6 +33,7 @@ mod verification;
 pub use codebook::{CodePatch, ImportReport, MergeOutcome};
 pub use codetree::{CodeUpdate, NewCodeFromPassage, ResolvedCode, Revision};
 pub use coding::ResolveRequest;
+pub use lexicon::{CodeRef, LexiconConfig, SimilarItem, SimilarOptions, LEXICON_CONFIG_KEY};
 pub use passages::{NewPassage, PassageFilter};
 pub use project::{
     AttributeView, ChecklistItemView, ChecklistView, MemoAnswer, MemoOverrides, MemoQuestionView,
@@ -42,6 +44,7 @@ pub use simple::SimpleProgress;
 
 use std::collections::BTreeMap;
 use std::path::Path;
+use std::sync::{Arc, Mutex};
 
 use anyhow::{Context, Result};
 use cs_model::{
@@ -68,6 +71,9 @@ pub const GENESIS_HASH: &str = "000000000000000000000000000000000000000000000000
 
 pub struct Store {
     conn: Connection,
+    /// Lexical index of the corpus with the fingerprint it was built for
+    /// (see `lexicon.rs`). Never persisted.
+    lex_cache: Mutex<Option<(String, Arc<cs_lex::LexIndex>)>>,
 }
 
 /// Result of the blind-coding guard of one phase.
@@ -315,7 +321,10 @@ impl Store {
             )?;
         }
         conn.execute_batch(&format!("PRAGMA user_version = {SCHEMA_VERSION};"))?;
-        Ok(Store { conn })
+        Ok(Store {
+            conn,
+            lex_cache: Mutex::new(None),
+        })
     }
 
     /// Raw connection, for read-only queries by callers and tests.

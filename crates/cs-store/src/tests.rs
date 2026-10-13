@@ -1527,6 +1527,7 @@ mod claims_v4;
 mod codebook_import_v5;
 mod codes_from_passage_v1;
 mod codes_v1;
+mod lexicon_v1;
 mod memos_saturation_v4;
 mod passages_v1;
 #[allow(clippy::field_reassign_with_default)]

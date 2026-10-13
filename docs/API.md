@@ -250,3 +250,28 @@ Import is all or nothing and reports every problem at once; with a problem, or w
 ### Exports (additions)
 
 The interview package and the cross-case package gain `passages.csv`, `highlights.csv`, `attributes.csv`, `memos.json` and `study_config.json`; the cross-case package also gains `codebook.csv`. `codebook.csv` gains six trailing columns `code_id,name,parent_id,aliases,includes,excludes` (aliases joined with `;`, the name excluded); the first thirteen columns and the codebook import are unchanged. `state.json` parts gain `passages`, `attribute_values`, `memos_and_checklists`, `project_config` and `code_tree`, so the state digest moves with them. All new files are in `manifest.json` with their SHA-256. Formats are in `docs/CONTRACTS.md`, section 10.
+
+
+## V1 lots 3 and 4
+
+Server side of the lexical workbench (lot 3) and of the review (lot 4). Everything is additive. Errors follow the usual mapping: 400 `validation`, 404 not found, 409 `guard`. The lexical routes are read-only apart from the language setting; none calls a model.
+
+### Lexical workbench (lot 3)
+
+Deterministic and local: French, English and German tokenisation, stop words, Snowball stems, YAKE keyphrases, TF-IDF over the respondent units only (interviewer turns are never indexed for similarity), cosine similarity. The index is built from the current text of the units (corrections applied), kept in memory, and rebuilt when a segmentation, a correction or the language setting changes (a fingerprint is compared before each query). A corpus of 30 interviews of 15,000 words indexes in about 3 s in a debug build; each query answers in well under 300 ms.
+
+Language: the project language (default `fr`) and an optional language per interview.
+
+| Method | Path | Body or query | Answer |
+|---|---|---|---|
+| GET | `/api/lexicon/config` | | `{language, interview_languages: {interview_id: lang}}` |
+| PUT | `/api/lexicon/config` | `{language: fr\|en\|de, interview_languages?}` | the stored configuration. 400 for an unknown language or interview. An interview already in the project language is not kept. Audit `lexicon.config.update` |
+| GET | `/api/lexicon/status` | | `{config, languages, index: {n_interviews, n_units, n_respondent_units, n_words, n_stems}, fingerprint, method, note}` |
+| GET | `/api/passages/{pid}/lexical` | | The lexical panel of a passage: `{language, keyphrases: [{phrase, score, count}], stems: [{stem, forms, count}], label, provisional: true, note}`. YAKE scores: lower is better. `label` is a provisional name the researcher may use or ignore |
+| GET | `/api/passages/{pid}/similar` | `k` (10, max 100), `min_score`, `interview_id`, `attribute`+`value`, `include_own_unit`, `without_code` | `{passage_id, items, note}`. Each item: `{interview_id, unit_id, seq, score, shared_terms: [{stem, form, weight}], text, coded_with: [{code_id, name}]}`, ranked by score then by position. `coded_with` lists the codes of the passages of that unit. `without_code` (id, name, alias or token) leaves out the units that already carry the code: what is left is what coding may have missed. The note says that the method sees neither synonyms nor other languages |
+| GET | `/api/interviews/{id}/units/{unit_id}/similar` | same | the same for a unit (an unknown unit gives 404; the results are always respondent units) |
+| GET | `/api/lexicon/keywords` | `scope` (`highlights` default, or `passages`), `min_passages` (1), `limit` (100), `interview_id`, `attribute`+`value` | `{scope, n_passages, n_terms_in_passages, n_rows, rows, note}`. A row: `{stem, forms, n_passages, n_interviews, interviews, passage_ids, n_occurrences, corpus_occurrences, keyness}`. `keyness` is the log-likelihood (G2) of the stem in these passages against the rest of the respondent text, negative when rarer. Rows are sorted by keyness, then passages, then stem. A table with the passages behind each count, never a word cloud. The highlights are the passages with no active code |
+| GET | `/api/lexicon/kwic` | `q` (word or phrase, required), `stem` (false), `width` (60 characters each side), `interview_id`, `attribute`+`value`, `speakers` (`respondent` default, `interviewer`, `all`), `limit` (200, max 1000), `offset` | `{query, stem, query_tokens, total, n_interviews, by_interview: [{interview_id, n}], hits, offset}`. A hit: `{interview_id, unit_id, seq, role, start, end, left, match, right}` with `start` and `end` in Unicode scalar positions of the unit text, end excluded. Case and accents are ignored; a phrase must be adjacent words; with `stem` every word of the query is compared by its stem. `total` counts every occurrence, `limit` and `offset` page the hits |
+| GET | `/api/lexicon/term-frequency` | `attribute` (required), `terms` (comma-separated), `stem`, `speakers`, `top` (10) | With `terms`: `{attribute, mode: "terms", stem, terms: [{term, by_value: [{value, n_interviews, n_interviews_with_term, n_units_with_term, n_occurrences, n_words, per_1000_words}]}], note}`; `value` is null for the interviews where the attribute is empty. Without `terms`: `{attribute, mode: "top_terms", values: [{value, terms: [{stem, form, n_occurrences, n_interviews}]}]}` |
+
+The attribute and value filters are the ones of `/api/codes`: both or neither (400 otherwise), an unknown attribute is 400; with `interview_id` too, the two filters intersect.
