@@ -2,13 +2,15 @@
 
 Coding Studio is a local tool for qualitative coding of interview transcripts. It takes each interview from a raw transcript to an arbitrated, auditable coding. A language model can act as a blind second coder, but it never sees the human coding before its own answer is recorded, and every step is written to a tamper-evident log that can be exported with the interview.
 
-The tool does five things:
+The tool does the following:
 
-1. Scans a folder holding one sub-folder per interview and builds a library, with an inventory of every source file and its SHA-256 digest.
-2. Segments a transcript into numbered units with a fixed, deterministic rule.
-3. Lets the coder code every unit against a codebook (a theoretical framework such as TOE, a custom list, or none, plus codes that emerge from the data).
-4. Generates a prompt for a blind AI challenger with a strict JSON answer format, and imports the answer after validating it.
-5. Lists every unit where the human and the AI codings differ, and records the coder's decision and rationale for each.
+1. Scans a folder with one sub-folder per interview, builds a library, and records the SHA-256 digest of every source file. It reads platform VTT, timestamped text, cleaned Markdown, Budgie Echo Markdown, written responses, DOCX, text PDF and SRT.
+2. Segments each transcript into numbered speaker-turn units with a deterministic rule. Interviewer turns are shown for context and are never coded.
+3. Codes in one four-step flow. Whole turns or precise passages get one or several codes, in a code tree with stable ids, aliases, merges, moves and creation from a passage. The coder also highlights passages, parks hesitations under "Plus tard", marks units to review, and keeps a familiarisation memo and an end-of-interview checklist for each interview.
+4. Offers a lexical workbench that uses no generative AI: keyphrases (YAKE), stems (Snowball), similar passages (TF-IDF), a keyword table and keyword in context, in French, English and German.
+5. Optionally runs a blind AI second coder. The prompt is built from the study configuration and is generated only after the human coding is frozen. Answers are validated strictly and stored verbatim, concepts the model reports as missing become candidates for a human decision, and each disagreement is arbitrated with a written reason.
+6. Builds themes as analytical propositions, a configurable matrix, cases with a cross-case view, a saturation record, typed links to the written text, and a final audit that traces three random claims to their sources.
+7. Exports each interview and the whole corpus as a package with a SHA-256 manifest, and reads and writes REFI-QDA project and codebook files (`.qdpx`, `.qdc`).
 
 Every action is written to an append-only, hash-chained audit log. Each interview can be exported as a self-describing package whose files are never overwritten.
 
@@ -75,7 +77,7 @@ pnpm --dir web install        # une seule fois
 make desktop-dev              # équivaut à : cd crates/cs-desktop && cargo tauri dev
 ```
 
-`cargo tauri dev` est prévu pour être lancé depuis `crates/cs-desktop` (le dossier de `tauri.conf.json`). Depuis la racine du dépôt, le CLI retrouve aussi la configuration, mais `make desktop-dev` est la forme de référence. La commande démarre le serveur Vite de `web/` sur `http://127.0.0.1:5199` (port strict, `CS_GUIDE_DIR` pointe sur `docs/guide`), compile `cs-desktop` et ouvre la fenêtre sur ce serveur. Une erreur « port 5199 already in use » signifie qu'un autre Vite tourne : l'arrêter.
+`cargo tauri dev` se lance depuis `crates/cs-desktop` (le dossier de `tauri.conf.json`). `make desktop-dev` fait exactement cela : c'est la forme de référence. La commande démarre le serveur Vite de `web/` sur `http://127.0.0.1:5199` (port strict, `CS_GUIDE_DIR` pointe sur `docs/guide`), compile `cs-desktop` et ouvre la fenêtre sur ce serveur. Une erreur « port 5199 already in use » signifie qu'un autre Vite tourne : l'arrêter.
 
 Paquet distribuable :
 
