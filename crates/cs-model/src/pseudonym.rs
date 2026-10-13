@@ -21,6 +21,21 @@ pub const KINDS: [&str; 2] = ["person", "organisation"];
 /// What the interface and the run records say about the limits of the method.
 pub const FREE_TEXT_NOTE: &str = "La liste remplace les noms qu'elle contient, sous la forme exacte où ils sont listés, dans tout ce qui part vers un modèle. Elle ne couvre ni une autre forme d'un nom ni le texte libre (mémos, notes) : relisez le prompt avant de l'envoyer à un fournisseur hébergé.";
 
+/// What a run records of the pseudonymisation applied to its prompt.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PseudonymisationRecord {
+    /// Whether the option was on when the prompt was built.
+    pub enabled: bool,
+    /// Digest of the list the prompt was built with.
+    pub digest: String,
+    /// Kinds of names that were masked (`person`, `organisation`).
+    pub categories: Vec<String>,
+    pub n_entries: usize,
+    /// The list does not cover free text; the researcher reads the prompt.
+    pub free_text_covered: bool,
+    pub note: String,
+}
+
 /// One real name and its replacement.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PseudonymEntry {

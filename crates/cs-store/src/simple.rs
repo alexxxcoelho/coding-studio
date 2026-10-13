@@ -133,9 +133,10 @@ fn toe_rank(family: &str) -> Option<u8> {
 
 impl Store {
     /// Units of the current segmentation whose role is interviewer.
-    pub(crate) fn interviewer_units(&self, interview_id: &str) -> Result<BTreeSet<String>> {
+    pub fn interviewer_units(&self, interview_id: &str) -> Result<BTreeSet<String>> {
+        // The role of a unit may have been corrected: the corrected role rules.
         Ok(self
-            .segmentation(interview_id)?
+            .corrected_segmentation(interview_id)?
             .map(|s| {
                 s.units
                     .into_iter()

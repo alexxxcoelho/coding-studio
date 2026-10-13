@@ -510,12 +510,7 @@ fn the_review_state_declares_what_was_covered() {
     // Decide everything: the disagreement, the sample, the candidate.
     s.record_decision(
         ID,
-        &decision(
-            U3,
-            ArbitrationChoice::Human,
-            &["ORG-SKILLS"],
-            "ma lecture",
-        ),
+        &decision(U3, ArbitrationChoice::Human, &["ORG-SKILLS"], "ma lecture"),
         ACTOR,
     )
     .unwrap();

@@ -13,6 +13,7 @@ mod qdpx;
 mod v1;
 mod v1_analysis;
 mod v1_project;
+mod v1_review;
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
@@ -235,6 +236,7 @@ pub fn router(state: AppState) -> Router {
         .merge(v1::routes())
         .merge(v1_project::routes())
         .merge(lexicon::routes())
+        .merge(v1_review::routes())
         .merge(qdpx::routes())
         .merge(v1_analysis::routes())
         .fallback(static_file)
@@ -1359,8 +1361,18 @@ async fn generate_prompts(
     let batch = body.map(|b| b.0.batch_size).unwrap_or(0);
     let store = st.store();
     let template = store.study_config()?.prompt_template;
-    let seg = require_segmentation(&store, &id)?;
-    let unit_ids = store.phase_units(&id, PHASE_2)?;
+    require_segmentation(&store, &id)?;
+    // The units as they read now (corrections applied); an interviewer turn
+    // is never a unit to code, whatever the phase 1 says.
+    let seg = store
+        .corrected_segmentation(&id)?
+        .ok_or_else(|| invalid(format!("{id} has no segmentation yet")))?;
+    let interviewers = store.interviewer_units(&id)?;
+    let unit_ids: Vec<String> = store
+        .phase_units(&id, PHASE_2)?
+        .into_iter()
+        .filter(|u| !interviewers.contains(u))
+        .collect();
     if unit_ids.is_empty() {
         return Err(invalid(format!(
             "{id} has no unit in phase 2: give units a phase 1 category other than NA first"
@@ -1373,13 +1385,18 @@ async fn generate_prompts(
             "no code can be offered to the AI; import or create codes first",
         ));
     }
-    let parts = cs_ai::build_prompts_with(
+    // The prompt is built from the configuration only: this context holds no
+    // coding of the researcher. The human reference is frozen by
+    // `record_prompts`, ahead of the prompt in the audit chain.
+    let ctx = v1_review::prompt_context(&store, &seg, &unit_ids, &codes)?;
+    let parts = cs_ai::build_prompts_configured(
         &template,
         &cs_ai::PromptInput {
             seg: &seg,
             unit_ids: &unit_ids,
             codes: &codes,
         },
+        &ctx,
         batch,
     );
     Ok(Json(json!(store.record_prompts(&parts, &st.actor)?)))
@@ -1446,6 +1463,7 @@ async fn create_run(
         notes: body.notes,
         batch_id: body.batch_id,
         provider: None,
+        pseudonymisation: v1_review::batch_run_record(&store, &id, body.batch_id)?,
     };
     require_interview(&store, &id)?;
     let run_id = store.create_ai_run(&id, &meta, &st.actor)?;
@@ -1484,6 +1502,7 @@ async fn import_output(
     };
     let parsed = cs_ai::parse_ai_output(&body.raw, &scope, body.part.zip(body.of))
         .map_err(ApiError::with_issues)?;
+    v1_review::check_answer(&store, &id, &parsed)?;
     store.record_ai_output(run_id, &body.raw, &parsed, &st.actor)?;
     Ok(Json(json!(store.ai_run(run_id)?)))
 }

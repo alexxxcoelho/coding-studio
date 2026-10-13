@@ -274,7 +274,40 @@ impl Store {
     }
 }
 
+// -------------------------------------------------------------- segmentation
+
+impl Store {
+    /// The current segmentation with the corrections of the transcript applied
+    /// to the text and the role of the units. The hash is the segmentation's:
+    /// it still binds the prompts and the answers to the stored units.
+    pub fn corrected_segmentation(
+        &self,
+        interview_id: &str,
+    ) -> Result<Option<cs_model::Segmentation>> {
+        let Some(mut seg) = self.segmentation(interview_id)? else {
+            return Ok(None);
+        };
+        let current = self.current_units(interview_id)?;
+        for unit in &mut seg.units {
+            if let Some(c) = current.get(&unit.unit_id) {
+                *unit = c.clone();
+            }
+        }
+        Ok(Some(seg))
+    }
+}
+
 // -------------------------------------------------------------- candidates
+
+/// (candidate_id, label, description, run_label, unit_ids, evidence).
+type CandidateRow = (
+    String,
+    String,
+    Option<String>,
+    Option<String>,
+    String,
+    String,
+);
 
 impl Store {
     /// Stores the candidate concepts of an accepted answer part, inside the
@@ -352,14 +385,7 @@ impl Store {
              FROM concept_candidates c LEFT JOIN ai_runs r USING (run_id)
              WHERE c.interview_id = ?1 ORDER BY c.candidate_id",
         )?;
-        let rows: Vec<(
-            String,
-            String,
-            Option<String>,
-            Option<String>,
-            String,
-            String,
-        )> = stmt
+        let rows: Vec<CandidateRow> = stmt
             .query_map([interview_id], |r| {
                 Ok((
                     r.get(0)?,
@@ -599,7 +625,7 @@ impl Store {
                 });
             }
         }
-        out.sort_by(|a, b| a.original.to_lowercase().cmp(&b.original.to_lowercase()));
+        out.sort_by_key(|u| u.original.to_lowercase());
         Ok(out)
     }
 }

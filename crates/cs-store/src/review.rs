@@ -374,8 +374,9 @@ impl Store {
         let tx = self.conn.unchecked_transaction()?;
         tx.execute(
             "INSERT INTO ai_runs (interview_id, batch_id, run_label, model_name, model_version, temperature, seed,
-               context_length, batch_size, prompt_id_version, executed_at, notes, created_at, provider)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)",
+               context_length, batch_size, prompt_id_version, executed_at, notes, created_at, provider,
+               pseudonymisation)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)",
             params![
                 interview_id,
                 batch_id,
@@ -390,7 +391,8 @@ impl Store {
                 meta.executed_at,
                 meta.notes,
                 now(),
-                meta.provider.as_ref().map(to_json)
+                meta.provider.as_ref().map(to_json),
+                meta.pseudonymisation.as_ref().map(to_json)
             ],
         )?;
         let run_id = tx.last_insert_rowid();
@@ -408,16 +410,18 @@ impl Store {
 
     /// (interview_id, batch_id, meta) of a run.
     fn run_row(&self, run_id: i64) -> Result<(String, i64, AiRunMeta)> {
-        let (interview_id, batch_id, meta, provider) = self
+        let (interview_id, batch_id, meta, provider, pseudo) = self
             .conn
             .query_row(
                 "SELECT interview_id, batch_id, run_label, model_name, model_version, temperature, seed,
-                   context_length, batch_size, prompt_id_version, executed_at, notes, provider
+                   context_length, batch_size, prompt_id_version, executed_at, notes, provider,
+                   pseudonymisation
                  FROM ai_runs WHERE run_id = ?1",
                 [run_id],
                 |r| {
                     let batch_id: i64 = r.get(1)?;
                     let provider: Option<String> = r.get(12)?;
+                    let pseudo: Option<String> = r.get(13)?;
                     Ok((
                         r.get::<_, String>(0)?,
                         batch_id,
@@ -434,8 +438,10 @@ impl Store {
                             notes: r.get(11)?,
                             batch_id: Some(batch_id),
                             provider: None,
+                            pseudonymisation: None,
                         },
                         provider,
+                        pseudo,
                     ))
                 },
             )
@@ -443,6 +449,7 @@ impl Store {
             .ok_or_else(|| not_found(format!("AI run {run_id}")))?;
         let mut meta = meta;
         meta.provider = provider.map(|p| from_json(&p)).transpose()?;
+        meta.pseudonymisation = pseudo.map(|p| from_json(&p)).transpose()?;
         Ok((interview_id, batch_id, meta))
     }
 

@@ -420,7 +420,9 @@ fn render(
         .codebook_intro
         .replace(CODE_COUNT_PLACEHOLDER, &listed.len().to_string());
     let _ = writeln!(t, "{intro}");
-    match ctx.filter(|c| !c.tree.is_empty()) {
+    // A codebook with sub-codes is shown as a tree; a flat one keeps the
+    // grouping by TOE attachment, with the same fields on each line.
+    match ctx.filter(|c| c.tree.iter().any(|n| n.parent.is_some())) {
         Some(c) => {
             let _ = writeln!(t);
             let _ = writeln!(
@@ -443,7 +445,11 @@ fn render(
                 let _ = writeln!(t, "### {title}");
                 let _ = writeln!(t);
                 for c in group {
-                    let _ = writeln!(t, "{}", code_line(c));
+                    let line = match ctx.and_then(|x| x.tree.iter().find(|n| n.code == c.code)) {
+                        Some(node) => tree_line(node, &m),
+                        None => code_line(c),
+                    };
+                    let _ = writeln!(t, "{line}");
                 }
             }
         }
@@ -465,26 +471,42 @@ fn render(
     }
     let _ = writeln!(t);
 
+    if let Some(c) = ctx {
+        let asked: Vec<(&str, &String)> = units
+            .iter()
+            .filter_map(|u| c.preceding.get(&u.unit_id).map(|q| (u.unit_id.as_str(), q)))
+            .collect();
+        if !asked.is_empty() {
+            let _ = writeln!(t, "## Interviewer questions");
+            let _ = writeln!(t);
+            let _ = writeln!(
+                t,
+                "Context only. Each line gives the interviewer turn that comes right before the unit named in before_unit. It is not a unit: never code it and never answer for it."
+            );
+            let _ = writeln!(t);
+            for (unit_id, q) in asked {
+                let fields = vec![
+                    ("before_unit", json!(unit_id)),
+                    ("speaker", json!("INT")),
+                    ("question", json!(m(q))),
+                ];
+                let _ = writeln!(t, "{}", json_line(&fields));
+            }
+            let _ = writeln!(t);
+        }
+    }
+
     let _ = writeln!(t, "## Units");
     let _ = writeln!(t);
     let _ = writeln!(t, "{}", template.units_intro.trim());
-    if ctx.is_some() {
-        let _ = writeln!(
-            t,
-            "The field preceding_question, when present, is the interviewer turn that comes right before the unit. It is context only: it is not a unit, it is never coded and it needs no answer."
-        );
-    }
     let _ = writeln!(t);
     for u in units {
-        let mut fields = vec![
+        let fields = vec![
             ("unit_id", json!(u.unit_id)),
             ("speaker", json!(speaker_label(u))),
             ("timestamp", json!(u.timestamp)),
             ("text", json!(m(&u.text))),
         ];
-        if let Some(q) = ctx.and_then(|c| c.preceding.get(&u.unit_id)) {
-            fields.push(("preceding_question", json!(m(q))));
-        }
         let _ = writeln!(t, "{}", json_line(&fields));
     }
     let _ = writeln!(t);

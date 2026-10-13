@@ -332,6 +332,7 @@ pub async fn run_batch(
     Json(body): Json<RunBody>,
 ) -> ApiResult {
     let plan = plan_run(&st, &id, batch_id, &body)?;
+    crate::v1_review::refuse_unmasked(&st.store(), &plan.parts)?;
     let requests: Vec<ProviderRequest> = plan
         .parts
         .iter()
@@ -380,7 +381,13 @@ fn finish_run(
     let mut issues = Vec::new();
     let mut rejected = Vec::new();
     for (part, resp) in plan.parts.iter().zip(&responses) {
-        match cs_ai::parse_ai_output(&resp.raw, &scope, Some((part.part, part.of))) {
+        let checked = cs_ai::parse_ai_output(&resp.raw, &scope, Some((part.part, part.of)))
+            .and_then(|out| {
+                crate::v1_review::check_answer(&st.store(), &plan.interview_id, &out)
+                    .map(|_| out)
+                    .map_err(|e| e.issues.unwrap_or_default())
+            });
+        match checked {
             Ok(out) => parsed.push((resp.raw.clone(), out)),
             Err(found) => {
                 issues.extend(found);
@@ -430,6 +437,7 @@ fn finish_run(
         notes: None,
         batch_id: Some(plan.batch_id),
         provider: Some(record),
+        pseudonymisation: crate::v1_review::run_record(&st.store(), &plan.parts[0].text)?,
     };
 
     let store = st.store();

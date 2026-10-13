@@ -13,10 +13,12 @@ use rusqlite::Connection;
 const REVIEW_SCHEMA: &str = include_str!("review_schema.sql");
 
 /// Columns that lot 4 adds to existing tables: table, column, definition.
-const ADDED_COLUMNS: [(&str, &str, &str); 1] = [
+const ADDED_COLUMNS: [(&str, &str, &str); 2] = [
     // `passages` when the unit coding was written from the codings of the
     // passages of the unit; NULL when the candidate wrote it by hand.
     ("human_codings", "source", "TEXT"),
+    // JSON of `PseudonymisationRecord`; NULL for a batch built without it.
+    ("ai_runs", "pseudonymisation", "TEXT"),
 ];
 
 fn has_column(conn: &Connection, table: &str, column: &str) -> Result<bool> {

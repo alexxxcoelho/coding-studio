@@ -379,6 +379,11 @@ pub struct AiRunMeta {
     /// were pasted by hand, so that their serialisation is unchanged.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub provider: Option<ProviderRecord>,
+    /// What the pseudonymisation of the prompt batch was, so that the run says
+    /// which kinds of names were masked. Absent when the batch was built
+    /// without the option.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pseudonymisation: Option<pseudonym::PseudonymisationRecord>,
 }
 
 /// Where a provider runs, as declared in its configuration (never guessed).

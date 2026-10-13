@@ -180,18 +180,19 @@ fn interviewer_turns_are_context_only_never_units() {
         .unit_ids
         .iter()
         .any(|u| u == "ECO-16-U001" || u == "ECO-16-U004"));
-    // The preceding question rides on the unit it precedes.
+    // The preceding question is named in a context section, outside the units.
+    let block = &t[t.find("## Interviewer questions").unwrap()..t.find("## Units").unwrap()];
+    assert!(block.contains(
+        "{\"before_unit\":\"ECO-16-U005\",\"speaker\":\"INT\",\"question\":\"Et ensuite ?\"}"
+    ));
+    // A unit with no interviewer turn before it has no question.
+    assert!(!block.contains("ECO-16-U003"));
+    // The unit lines keep their four fields.
     let line = t
         .lines()
         .find(|l| l.contains("\"unit_id\":\"ECO-16-U005\""))
         .unwrap();
-    assert!(line.contains("\"preceding_question\":\"Et ensuite ?\""));
-    // A unit with no interviewer turn before it has no such field.
-    let line = t
-        .lines()
-        .find(|l| l.contains("\"unit_id\":\"ECO-16-U003\""))
-        .unwrap();
-    assert!(!line.contains("preceding_question"));
+    assert!(!line.contains("question"));
     // No line of the prompt is an interviewer unit.
     assert!(!t.lines().any(|l| l.contains("\"unit_id\":\"ECO-16-U001\"")));
     assert!(!t.lines().any(|l| l.contains("\"unit_id\":\"ECO-16-U004\"")));

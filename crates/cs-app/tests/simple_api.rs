@@ -398,10 +398,23 @@ async fn interviewer_units_never_reach_phase_2_or_the_prompts() {
     in_prompts.sort();
     assert_eq!(in_prompts, [u[1].clone(), u[3].clone(), u[5].clone()]);
     let text = parts[0]["text"].as_str().unwrap();
+    // A28: an interviewer turn is no unit. It appears only as the question
+    // that precedes a respondent unit, in the context section (lot 4).
+    let units_block = &text[text.find("## Units").unwrap()..text.find("## Output").unwrap()];
     assert!(
-        !text.contains("Could you describe your role?"),
-        "no interviewer turn in the prompt"
+        !units_block.contains("Could you describe your role?"),
+        "no interviewer turn among the units"
     );
+    for iu in [&u[0], &u[2], &u[4]] {
+        assert!(
+            !units_block.contains(iu.as_str()),
+            "{iu} is not a unit of the prompt"
+        );
+    }
+    let context =
+        &text[text.find("## Interviewer questions").unwrap()..text.find("## Units").unwrap()];
+    assert!(context.contains("Could you describe your role?"));
+    assert!(context.contains(&format!("\"before_unit\":\"{}\"", u[1])));
 }
 
 #[tokio::test]
