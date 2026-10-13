@@ -66,7 +66,7 @@ pub async fn setup() -> Ctx {
         db_path: db.clone(),
         coding_db: Some(coding_db.clone()),
         actor: "candidate".into(),
-        interviewer_names: vec!["Dos Santos Alexandre".into()],
+        interviewer_names: vec!["Interviewer Person A".into()],
         picker: None,
     };
     let ctx = Ctx {

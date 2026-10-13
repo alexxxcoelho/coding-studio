@@ -35,20 +35,15 @@ fn refused(cfg: &StudyConfig) -> String {
 // ------------------------------------------------------------ defaults
 
 #[test]
-fn default_config_equals_the_current_constants() {
+fn default_config_is_neutral() {
     let cfg = StudyConfig::default();
     assert_eq!(cfg.framework, FrameworkPreset::Toe);
-    assert_eq!(cfg.id_prefixes, ["INT", "ECO", "RET", "ADJ"]);
+    assert_eq!(cfg.id_prefixes, ["INT"]);
     assert_eq!(cfg.max_words, MAX_WORDS);
     assert_eq!(cfg.max_words, 150);
     assert_eq!(
         cfg.interviewers,
-        [
-            "Dos Santos Alexandre",
-            "Alexandre Dos Santos",
-            "Alexandre Dos Santos Coelho",
-            "Alex"
-        ]
+        ["Interviewer", "Intervieweur", "Intervieweuse"]
     );
     assert_eq!(cfg.prompt_template.version, "CS-P04-EN v3.1");
 

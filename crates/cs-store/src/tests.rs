@@ -453,7 +453,11 @@ fn import_never_writes_the_source_database() {
 
 #[test]
 fn real_coding_db_smoke_read_only() {
-    let real = Path::new("/Users/alex/kDrive/_EMBA/Thesis/05_Analysis/coding/coding.db");
+    // Set CS_REAL_CODING_DB to a legacy coding.db to run this smoke test.
+    let Some(real_path) = std::env::var_os("CS_REAL_CODING_DB") else {
+        return;
+    };
+    let real = Path::new(&real_path);
     if !real.exists() {
         return;
     }
@@ -613,7 +617,12 @@ fn codebook_export_sql_applies_to_the_thesis_schema() {
     assert!(csv.contains("LEGAL-OBLIGATION,Legal obligation"));
     assert!(sql.contains("'LEGAL-OBLIGATION','ENV'"));
     assert!(sql.contains("'inductive'"), "field written as inductive");
-    let schema = Path::new("/Users/alex/kDrive/_EMBA/Thesis/05_Analysis/coding/schema.sql");
+    // Set CS_REAL_SCHEMA_SQL to the schema of a legacy coding.db to check the SQL export against it.
+    let schema_env = std::env::var_os("CS_REAL_SCHEMA_SQL");
+    let schema = schema_env
+        .as_deref()
+        .map(Path::new)
+        .unwrap_or(Path::new("/nonexistent/schema.sql"));
     let c = Connection::open_in_memory().unwrap();
     if schema.exists() {
         c.execute_batch(&std::fs::read_to_string(schema).unwrap())

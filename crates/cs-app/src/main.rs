@@ -15,7 +15,7 @@ struct Args {
     /// Folder holding one sub-folder per interview (saved as the default library).
     #[arg(long)]
     library: Option<PathBuf>,
-    /// Thesis coding.db, read only, source of the codebook.
+    /// Legacy coding.db, read only, source of the codebook.
     #[arg(long)]
     coding_db: Option<PathBuf>,
     #[arg(long, default_value_t = 7878)]

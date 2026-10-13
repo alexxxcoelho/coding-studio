@@ -6,7 +6,7 @@ use std::io::{Cursor, Write};
 use std::path::{Path, PathBuf};
 
 use cs_ingest::{
-    build_segmentation, classify, default_interviewer_names, parse_document, parse_source,
+    build_segmentation, classify, parse_document, parse_source,
     scan_library,
 };
 use cs_model::{SourceKind, SpeakerRole, Turn};
@@ -73,24 +73,29 @@ fn docx_bytes(paragraphs: &[Vec<(&str, bool)>]) -> Vec<u8> {
 
 // ---------------------------------------------------------------- DOCX
 
+/// The label the fixtures give to the interviewer.
+fn fixture_names() -> Vec<String> {
+    vec!["Interviewer Person A".to_string()]
+}
+
 #[test]
 fn docx_speakers_from_name_prefix_and_bold_run() {
     let bytes = docx_bytes(&[
-        vec![("[00:01:02] Dos Santos Alexandre: Hello there.", false)],
+        vec![("[00:01:02] Interviewer Person A: Hello there.", false)],
         vec![("Roueche Celine", true), (": Hi, good morning.", false)],
         vec![("and thanks for having me.", false)],
-        vec![("Dos Santos Alexandre: How are you today?", false)],
+        vec![("Interviewer Person A: How are you today?", false)],
     ]);
     let dir = tempfile::tempdir().unwrap();
     let path = write_tmp(&dir, "interview.docx", &bytes);
 
-    let (turns, warnings) = parse_document(&path, &default_interviewer_names()).unwrap();
+    let (turns, warnings) = parse_document(&path, &fixture_names()).unwrap();
 
     assert_eq!(
         rows(&turns),
         vec![
             row(
-                "Dos Santos Alexandre",
+                "Interviewer Person A",
                 "00:01:02",
                 SpeakerRole::Interviewer,
                 "Hello there."
@@ -102,7 +107,7 @@ fn docx_speakers_from_name_prefix_and_bold_run() {
                 "Hi, good morning. and thanks for having me."
             ),
             row(
-                "Dos Santos Alexandre",
+                "Interviewer Person A",
                 "--:--",
                 SpeakerRole::Interviewer,
                 "How are you today?"
@@ -187,7 +192,7 @@ fn docx_without_document_xml_is_an_error() {
 fn pdf_text_layer_gives_speaker_turns() {
     let (turns, warnings) = parse_document(
         &fixture("interview_text_layer.pdf"),
-        &default_interviewer_names(),
+        &fixture_names(),
     )
     .unwrap();
 
@@ -195,7 +200,7 @@ fn pdf_text_layer_gives_speaker_turns() {
         rows(&turns),
         vec![
             row(
-                "Dos Santos Alexandre",
+                "Interviewer Person A",
                 "--:--",
                 SpeakerRole::Interviewer,
                 "Hello there."
@@ -207,7 +212,7 @@ fn pdf_text_layer_gives_speaker_turns() {
                 "Hi, good morning. and thanks for having me."
             ),
             row(
-                "Dos Santos Alexandre",
+                "Interviewer Person A",
                 "--:--",
                 SpeakerRole::Interviewer,
                 "How are you today?"
@@ -221,7 +226,7 @@ fn pdf_text_layer_gives_speaker_turns() {
 fn pdf_without_text_layer_warns_and_yields_no_turns() {
     let (turns, warnings) = parse_document(
         &fixture("interview_no_text_layer.pdf"),
-        &default_interviewer_names(),
+        &fixture_names(),
     )
     .unwrap();
 
@@ -244,7 +249,7 @@ fn broken_pdf_is_an_error_not_a_panic() {
 
 #[test]
 fn srt_name_prefix_merges_cues_keeping_first_timestamp() {
-    let names = default_interviewer_names();
+    let names = fixture_names();
     let (turns, warnings) = parse_document(&fixture("interview_subtitles.srt"), &names).unwrap();
 
     assert!(warnings.is_empty(), "{warnings:?}");
@@ -252,7 +257,7 @@ fn srt_name_prefix_merges_cues_keeping_first_timestamp() {
         rows(&turns),
         vec![
             row(
-                "Dos Santos Alexandre",
+                "Interviewer Person A",
                 "00:00:01",
                 SpeakerRole::Interviewer,
                 "Hello there."
@@ -264,7 +269,7 @@ fn srt_name_prefix_merges_cues_keeping_first_timestamp() {
                 "Hi, good morning. And thanks for having me."
             ),
             row(
-                "Dos Santos Alexandre",
+                "Interviewer Person A",
                 "00:00:09",
                 SpeakerRole::Interviewer,
                 "How are you today?"
@@ -275,7 +280,7 @@ fn srt_name_prefix_merges_cues_keeping_first_timestamp() {
 
 #[test]
 fn srt_is_read_the_same_through_the_kind_based_api() {
-    let names = default_interviewer_names();
+    let names = fixture_names();
     let path = fixture("interview_subtitles.srt");
     assert_eq!(classify("interview_subtitles.srt"), SourceKind::Vtt);
     let (direct, _) = parse_document(&path, &names).unwrap();
@@ -285,11 +290,11 @@ fn srt_is_read_the_same_through_the_kind_based_api() {
 
 #[test]
 fn srt_with_crlf_line_endings_parses() {
-    let text = "1\r\n00:00:01,000 --> 00:00:02,000\r\nDos Santos Alexandre: Hi.\r\n\r\n\
+    let text = "1\r\n00:00:01,000 --> 00:00:02,000\r\nInterviewer Person A: Hi.\r\n\r\n\
                 2\r\n00:00:02,500 --> 00:00:04,000\r\nRoueche Celine: Hello.\r\n";
     let dir = tempfile::tempdir().unwrap();
     let path = write_tmp(&dir, "crlf.srt", text.as_bytes());
-    let (turns, _) = parse_document(&path, &default_interviewer_names()).unwrap();
+    let (turns, _) = parse_document(&path, &fixture_names()).unwrap();
     assert_eq!(turns.len(), 2);
     assert_eq!(turns[1].speaker_raw, "Roueche Celine");
     assert_eq!(turns[1].timestamp, "00:00:02");
@@ -297,13 +302,13 @@ fn srt_with_crlf_line_endings_parses() {
 
 #[test]
 fn vtt_file_voice_tags_merge_and_decode_entities() {
-    let names = default_interviewer_names();
+    let names = fixture_names();
     let (turns, _) = parse_document(&fixture("interview_conference.vtt"), &names).unwrap();
     assert_eq!(
         rows(&turns),
         vec![
             row(
-                "Dos Santos Alexandre",
+                "Interviewer Person A",
                 "00:00:01",
                 SpeakerRole::Interviewer,
                 "Hello there."
@@ -339,7 +344,7 @@ fn missing_file_is_an_error() {
 /// One interview folder holding a single file, under a fresh library root.
 fn library_with(file_name: &str, bytes: &[u8]) -> tempfile::TempDir {
     let dir = tempfile::tempdir().unwrap();
-    let folder = dir.path().join("ECO33_RomanEppenberger");
+    let folder = dir.path().join("INT33_RomanEppenberger");
     std::fs::create_dir_all(&folder).unwrap();
     std::fs::write(folder.join(file_name), bytes).unwrap();
     dir
@@ -348,9 +353,9 @@ fn library_with(file_name: &str, bytes: &[u8]) -> tempfile::TempDir {
 #[test]
 fn docx_only_interview_is_scanned_and_segmentable() {
     let bytes = docx_bytes(&[
-        vec![("[00:01:02] Dos Santos Alexandre: Hello there.", false)],
+        vec![("[00:01:02] Interviewer Person A: Hello there.", false)],
         vec![("Roueche Celine", true), (": Hi, good morning.", false)],
-        vec![("Dos Santos Alexandre: How are you today?", false)],
+        vec![("Interviewer Person A: How are you today?", false)],
     ]);
     let lib = library_with("EMBA - Interview - Roman.docx", &bytes);
     let entries = scan_library(lib.path()).unwrap();
@@ -370,7 +375,7 @@ fn docx_only_interview_is_scanned_and_segmentable() {
     let seg = build_segmentation(
         entry,
         "EMBA - Interview - Roman.docx",
-        &default_interviewer_names(),
+        &fixture_names(),
     )
     .unwrap();
     assert_eq!(seg.units.len(), 3);
@@ -398,7 +403,7 @@ fn text_pdf_only_interview_is_scanned_and_segmentable() {
     let seg = build_segmentation(
         entry,
         "EMBA - Interview - Roman.pdf",
-        &default_interviewer_names(),
+        &fixture_names(),
     )
     .unwrap();
     assert_eq!(seg.units.len(), 3);

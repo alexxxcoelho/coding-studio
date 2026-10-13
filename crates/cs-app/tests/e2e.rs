@@ -77,7 +77,7 @@ fn transcript() -> String {
     t
 }
 
-const VTT: &str = "WEBVTT\n\nabc/1-0\n00:00:01.000 --> 00:00:03.000\n<v Dos Santos Alexandre>Hello, can you hear me?</v>\n\nabc/2-0\n00:00:04.000 --> 00:00:08.000\n<v Jane Roe>Yes, perfectly. We use RFID in two stores.</v>\n\nabc/3-0\n00:00:09.000 --> 00:00:12.000\n<v Dos Santos Alexandre>Why only two?</v>\n\nabc/4-0\n00:00:13.000 --> 00:00:18.000\n<v Jane Roe>Our partner did not want to tag at source.</v>\n";
+const VTT: &str = "WEBVTT\n\nabc/1-0\n00:00:01.000 --> 00:00:03.000\n<v Interviewer Person A>Hello, can you hear me?</v>\n\nabc/2-0\n00:00:04.000 --> 00:00:08.000\n<v Jane Roe>Yes, perfectly. We use RFID in two stores.</v>\n\nabc/3-0\n00:00:09.000 --> 00:00:12.000\n<v Interviewer Person A>Why only two?</v>\n\nabc/4-0\n00:00:13.000 --> 00:00:18.000\n<v Jane Roe>Our partner did not want to tag at source.</v>\n";
 
 fn make_codebook(path: &Path) {
     let conn = rusqlite::Connection::open(path).unwrap();
@@ -123,7 +123,7 @@ fn setup() -> Ctx {
         db_path: db.clone(),
         coding_db: Some(coding_db.clone()),
         actor: "candidate".into(),
-        interviewer_names: vec!["Dos Santos Alexandre".into()],
+        interviewer_names: vec!["Interviewer Person A".into()],
         picker: None,
     };
     Ctx {

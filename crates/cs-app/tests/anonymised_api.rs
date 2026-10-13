@@ -33,7 +33,7 @@ async fn filled() -> Ctx {
         "PUT",
         "/api/interviews/INT-01/memo/answers",
         Some(
-            json!({"answers": {"q1": "Le retailer est pressé, et Dos Santos Alexandre le sait."}}),
+            json!({"answers": {"q1": "Le retailer est pressé, et Interviewer Person A le sait."}}),
         ),
     )
     .await;
@@ -70,7 +70,7 @@ async fn an_interview_package_is_pseudonymised_in_every_text_and_keeps_its_ids()
         "POST",
         "/api/export/anonymised",
         Some(json!({"scope": "interview", "interview_id": "INT-01",
-                    "researcher_names": ["Alexandre"], "researcher_label": "Chercheur"})),
+                    "researcher_names": ["Interviewer Person A"], "researcher_label": "Chercheur"})),
     )
     .await;
     let dir = dir_of(&r);
@@ -102,8 +102,7 @@ async fn an_interview_package_is_pseudonymised_in_every_text_and_keeps_its_ids()
         !text.to_lowercase().contains("retailer"),
         "organisation still there"
     );
-    assert!(!text.contains("Dos Santos"), "researcher still there");
-    assert!(!text.contains("Alexandre"), "researcher still there");
+    assert!(!text.contains("Interviewer Person A"), "researcher still there");
     let units = std::fs::read_to_string(dir.join("units.csv")).unwrap();
     assert!(units.contains("Organisation A"), "{units}");
     assert!(units.contains("INT-01-U002"), "ids kept");
@@ -170,7 +169,6 @@ async fn cross_case_and_writeup_packages_are_pseudonymised_too() {
     .await;
     let text = all_text(&dir_of(&cc));
     assert!(!text.to_lowercase().contains("retailer"));
-    assert!(!text.contains("Dos Santos"));
     let w = ok(
         &ctx.app,
         "POST",

@@ -192,7 +192,7 @@ async fn a10_a17_no_listed_name_reaches_the_prompt_and_the_run_says_so() {
         "/api/pseudonymisation",
         Some(json!({ "enabled": true, "entries": [
             { "kind": "organisation", "original": "retailer", "pseudonym": "Organisation A" },
-            { "kind": "person", "original": "Dos Santos", "pseudonym": "Personne B" } ] })),
+            { "kind": "person", "original": "Interviewer", "pseudonym": "Personne B" } ] })),
     )
     .await;
     assert_eq!(put["enabled"], true);

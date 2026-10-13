@@ -32,13 +32,13 @@ fn config(prefixes: &[&str]) -> StudyConfig {
 fn default_config_parses_ids_like_the_old_function() {
     let cfg = StudyConfig::default();
     for name in [
-        "ECO33_RomanEppenberger",
-        "ECO35-Schwarz",
+        "INT33_RomanEppenberger",
+        "INT35-Schwarz",
         "RET-22_von-Grone",
-        "ECO-05_Vieweger",
+        "INT-05_Vieweger",
         "ADJ-01_Bilal",
         "INT-01_Test",
-        "eco-05",
+        "int-05",
         "Pasted clipping",
         "XYZ12_Someone",
     ] {
@@ -49,8 +49,8 @@ fn default_config_parses_ids_like_the_old_function() {
         );
     }
     assert_eq!(
-        parse_interview_id_with(&cfg, "ECO33_RomanEppenberger").as_deref(),
-        Some("ECO-33")
+        parse_interview_id_with(&cfg, "INT33_RomanEppenberger").as_deref(),
+        Some("INT-33")
     );
 }
 
@@ -65,17 +65,17 @@ fn configured_prefixes_replace_the_hard_coded_ones() {
         parse_interview_id_with(&cfg, "AB-7_Jane").as_deref(),
         Some("AB-7")
     );
-    assert_eq!(parse_interview_id_with(&cfg, "ECO33_Roman"), None);
+    assert_eq!(parse_interview_id_with(&cfg, "INT33_Roman"), None);
     // The old function is unchanged.
     assert_eq!(parse_interview_id("XYZ12_Someone"), None);
-    assert_eq!(parse_interview_id("ECO33_Roman").as_deref(), Some("ECO-33"));
+    assert_eq!(parse_interview_id("INT33_Roman").as_deref(), Some("INT-33"));
 }
 
 fn make_library(root: &Path) {
-    for dir in ["ECO-02_Other", "XYZ-05_Custom", "Notes"] {
+    for dir in ["INT-02_Other", "XYZ-05_Custom", "Notes"] {
         std::fs::create_dir_all(root.join(dir)).unwrap();
     }
-    std::fs::write(root.join("ECO-02_Other/note.txt"), "x").unwrap();
+    std::fs::write(root.join("INT-02_Other/note.txt"), "x").unwrap();
     std::fs::write(root.join("XYZ-05_Custom/note.txt"), "y").unwrap();
 }
 
@@ -91,14 +91,14 @@ fn scan_uses_the_configured_prefixes() {
         ["XYZ-05"]
     );
     assert_eq!(
-        ids(scan_library_with(&config(&["XYZ", "ECO"]), dir.path()).unwrap()),
-        ["ECO-02", "XYZ-05"]
+        ids(scan_library_with(&config(&["XYZ", "INT"]), dir.path()).unwrap()),
+        ["INT-02", "XYZ-05"]
     );
     // Old behaviour: default prefixes only.
-    assert_eq!(ids(scan_library(dir.path()).unwrap()), ["ECO-02"]);
+    assert_eq!(ids(scan_library(dir.path()).unwrap()), ["INT-02"]);
     assert_eq!(
         ids(scan_library_with(&StudyConfig::default(), dir.path()).unwrap()),
-        ["ECO-02"]
+        ["INT-02"]
     );
 }
 
@@ -141,18 +141,18 @@ fn segment_keeps_its_behaviour_through_the_default_config() {
         turn("RESP", SpeakerRole::Respondent, "  "),
     ];
     // 180 words > 150: the old function splits, and so does the default config.
-    let old = segment("ECO-16", &turns);
+    let old = segment("INT-16", &turns);
     assert_eq!(old.len(), 3);
-    assert_eq!(segment_with(&StudyConfig::default(), "ECO-16", &turns), old);
+    assert_eq!(segment_with(&StudyConfig::default(), "INT-16", &turns), old);
 }
 
 // ------------------------------------------------- roles from the config
 
-const VTT: &str = "WEBVTT\n\n00:00:01.000 --> 00:00:03.000\n<v Dos Santos Alexandre>Hello, can you hear me?</v>\n\n00:00:04.000 --> 00:00:08.000\n<v Jane Roe>Yes, perfectly. We use RFID in two stores.</v>\n\n00:00:09.000 --> 00:00:12.000\n<v Dos Santos Alexandre>Why only two?</v>\n";
+const VTT: &str = "WEBVTT\n\n00:00:01.000 --> 00:00:03.000\n<v Interviewer Person A>Hello, can you hear me?</v>\n\n00:00:04.000 --> 00:00:08.000\n<v Jane Roe>Yes, perfectly. We use RFID in two stores.</v>\n\n00:00:09.000 --> 00:00:12.000\n<v Interviewer Person A>Why only two?</v>\n";
 
 fn entry_with_vtt() -> (tempfile::TempDir, cs_model::InterviewEntry) {
     let dir = tempfile::tempdir().unwrap();
-    let folder = dir.path().join("ECO-02_Other");
+    let folder = dir.path().join("INT-02_Other");
     std::fs::create_dir_all(&folder).unwrap();
     std::fs::write(folder.join("01_transcript_raw.vtt"), VTT).unwrap();
     let entry = scan_library(dir.path()).unwrap().remove(0);
@@ -179,7 +179,7 @@ fn interviewer_labels_come_from_the_config() {
         ]
     );
 
-    cfg.interviewers = vec!["Dos Santos Alexandre".into()];
+    cfg.interviewers = vec!["Interviewer Person A".into()];
     let seg = build_segmentation_with(&cfg, &entry, "01_transcript_raw.vtt").unwrap();
     assert_eq!(
         roles(&seg),
@@ -208,14 +208,8 @@ fn old_build_segmentation_equals_the_default_config() {
     let new =
         build_segmentation_with(&StudyConfig::default(), &entry, "01_transcript_raw.vtt").unwrap();
     assert_eq!(new, old);
-    assert_eq!(
-        roles(&old),
-        [
-            SpeakerRole::Interviewer,
-            SpeakerRole::Respondent,
-            SpeakerRole::Interviewer
-        ]
-    );
+    // Neutral defaults: nobody is listed, so every speaker is unknown.
+    assert!(roles(&old).iter().all(|r| *r == SpeakerRole::Unknown));
 }
 
 #[test]

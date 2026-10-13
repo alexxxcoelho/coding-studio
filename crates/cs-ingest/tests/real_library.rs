@@ -1,5 +1,5 @@
-//! Smoke test on the real interview folder of the thesis, when present.
-//! Read-only: the scan and the parsers never write. Skipped elsewhere.
+//! Smoke test on a real interview folder, when `CS_REAL_LIBRARY` names one.
+//! Read-only: the scan and the parsers never write. Skipped otherwise.
 //! Run with `cargo test -p cs-ingest --test real_library -- --nocapture` to see the table.
 
 use std::path::Path;
@@ -7,11 +7,14 @@ use std::path::Path;
 use cs_ingest::{build_segmentation, default_interviewer_names, scan_library};
 use cs_model::SourceKind;
 
-const LIBRARY: &str = "/Users/alex/kDrive/_EMBA/Thesis/04_Fieldwork/Interviews";
 
 #[test]
 fn real_library_segments_every_transcript() {
-    let root = Path::new(LIBRARY);
+    let Some(library) = std::env::var_os("CS_REAL_LIBRARY") else {
+        eprintln!("CS_REAL_LIBRARY not set, test skipped");
+        return;
+    };
+    let root = Path::new(&library);
     if !root.is_dir() {
         eprintln!("real library not found, test skipped");
         return;

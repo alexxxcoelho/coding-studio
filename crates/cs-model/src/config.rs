@@ -22,16 +22,13 @@ pub const MIN_MAX_WORDS: usize = 20;
 /// Identifier of the prompt template shipped with the tool.
 pub const DEFAULT_PROMPT_VERSION: &str = "CS-P04-EN v3.1";
 
-/// Speaker labels the candidate appears under in platform transcripts.
-pub const DEFAULT_INTERVIEWERS: &[&str] = &[
-    "Dos Santos Alexandre",
-    "Alexandre Dos Santos",
-    "Alexandre Dos Santos Coelho",
-    "Alex",
-];
+/// Generic speaker labels the interviewer appears under in platform
+/// transcripts. A study lists its own labels in its configuration.
+pub const DEFAULT_INTERVIEWERS: &[&str] = &["Interviewer", "Intervieweur", "Intervieweuse"];
 
-/// Interview id prefixes of the thesis corpus.
-pub const DEFAULT_ID_PREFIXES: &[&str] = &["INT", "ECO", "RET", "ADJ"];
+/// Interview id prefix of a new project. A study lists its own prefixes in
+/// its configuration (`examples/project_template.thesis.example.json` shows four).
+pub const DEFAULT_ID_PREFIXES: &[&str] = &["INT"];
 
 /// Placeholder replaced by the number of codes offered in `codebook_intro`.
 pub const CODE_COUNT_PLACEHOLDER: &str = "{count}";
