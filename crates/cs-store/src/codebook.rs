@@ -721,6 +721,14 @@ impl Store {
             out
         };
         let tx = self.conn.unchecked_transaction()?;
+        let journal_before = {
+            let id_of = |token: &str| -> Result<String> {
+                Ok(tx.query_row("SELECT code_id FROM codes WHERE code = ?1", [token], |r| {
+                    r.get::<_, String>(0)
+                })?)
+            };
+            self.merge_before(&tx, &id_of(from)?, &id_of(into)?)?
+        };
         for (iid, before) in &codings {
             let mut after = before.clone();
             after.codes = rewrite(&before.codes);
@@ -771,6 +779,36 @@ impl Store {
             "merge",
             &format!("{from} fusionné dans {into}"),
             &harmonise,
+            actor,
+        )?;
+        let unit_journal: Vec<(String, String, Vec<String>, Vec<String>)> = codings
+            .iter()
+            .map(|(i, h)| {
+                (
+                    i.clone(),
+                    h.unit_id.clone(),
+                    h.codes.iter().cloned().collect(),
+                    rewrite(&h.codes).into_iter().collect(),
+                )
+            })
+            .collect();
+        let decision_journal: Vec<(String, String, Vec<String>, Vec<String>)> = decisions
+            .iter()
+            .map(|(i, d)| {
+                (
+                    i.clone(),
+                    d.unit_id.clone(),
+                    d.final_codes.iter().cloned().collect(),
+                    rewrite(&d.final_codes).into_iter().collect(),
+                )
+            })
+            .collect();
+        self.merge_record(
+            &tx,
+            &journal_before,
+            &unit_journal,
+            &decision_journal,
+            rationale,
             actor,
         )?;
         crate::codetree::bump_revision(&tx, actor, "merge", Some(from))?;

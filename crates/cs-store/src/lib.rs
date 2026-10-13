@@ -21,6 +21,7 @@ mod audio;
 mod cases;
 mod claims;
 mod codebook;
+mod codeops;
 mod codesearch;
 mod cooccurrence;
 mod codestats;
@@ -50,6 +51,10 @@ mod writing;
 
 pub use audio::{AudioOffset, MAX_AUDIO_OFFSET};
 pub use codebook::{CodePatch, ImportReport, MergeOutcome};
+pub use codeops::{
+    OpView, SplitDecision, SplitItem, SplitOutcome, SplitPart, SplitRequest, SplitWorklist, UndoReport,
+    UndoView,
+};
 pub use cooccurrence::{
     CoCell, CoCode, CoDiagonal, CoGroup, CoItem, CoMatrix, CoOverlap, CoPair, CoPassage, CoRequest,
     Relation,
@@ -364,6 +369,7 @@ impl Store {
         review_schema::migrate(&conn)?;
         transcripts::migrate(&conn)?;
         audio::migrate(&conn)?;
+        codeops::migrate(&conn)?;
         // Databases made before providers existed lack the column: added in
         // place, so that their content is kept.
         let has_provider: bool = conn
