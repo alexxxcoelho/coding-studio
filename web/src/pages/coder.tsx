@@ -16,6 +16,8 @@ import { SelectionMenu } from "@/components/coder/selection-menu"
 import { Turn } from "@/components/coder/turn"
 import { EmptyState, PageTitle } from "@/components/bits"
 import { SearchIcon } from "@/components/icons"
+import { ReviewDialog } from "@/components/coder/review-dialog"
+import { useReviewCounts } from "@/lib/transcript-review"
 import { ToolbarActions } from "@/components/toolbar"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -92,6 +94,8 @@ export function CoderPage({ id, unit: askedUnit = null }: { id: string; unit?: s
   const [undo] = useState(() => new UndoStack())
   const actions = useCodingActions(id, undo)
 
+  const [reviewOpen, setReviewOpen] = useState(false)
+  const nReview = useReviewCounts().get(id) ?? 0
   const [filter, setFilter] = useState<CoderFilter>("all")
   const [search, setSearch] = useState("")
   const [picked, setSelected] = useState<string | null>(null)
@@ -372,6 +376,11 @@ export function CoderPage({ id, unit: askedUnit = null }: { id: string; unit?: s
       <PageTitle title={id} sub={`Codage · ${counts.examined} sur ${total} unités examinées`} />
       <ToolbarActions>
         <StepsCapsule id={id} current="coder" highlights={nHighlights} />
+        <nav className="cap" aria-label="Texte de l'entretien">
+          <button type="button" className="ci" onClick={() => setReviewOpen(true)} title="Versions du texte et passages à revoir">
+            Versions{nReview > 0 && <span className="n" aria-label={`${nReview} passage${nReview > 1 ? "s" : ""} à revoir`}>{nReview}</span>}
+          </button>
+        </nav>
         <label className="search">
           <SearchIcon />
           <input type="search" value={search} placeholder="Rechercher dans l'entretien" aria-label="Rechercher dans l'entretien" onChange={(e) => setSearch(e.target.value)} />
@@ -548,6 +557,7 @@ export function CoderPage({ id, unit: askedUnit = null }: { id: string; unit?: s
         <span style={{ marginLeft: "auto" }}>Sans sélection, le code couvre le tour entier</span>
       </div>
 
+      <ReviewDialog interviewId={id} open={reviewOpen} onClose={() => setReviewOpen(false)} />
       <NewCodeDialog interviewId={id} target={newCode} codes={codes} undo={undo} onClose={() => setNewCode(null)} />
     </>
   )

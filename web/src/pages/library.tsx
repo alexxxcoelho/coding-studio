@@ -22,6 +22,7 @@ import { codingProgress, matchesInterview, nextAction, pipelineSteps, stageOf, t
 import { interviewHref, navigate } from "@/lib/router"
 import type { InterviewSummary } from "@/lib/types"
 import { cn } from "@/lib/utils"
+import { useReviewCounts } from "@/lib/transcript-review"
 
 type Filter = "progress" | "ready" | "all"
 
@@ -60,6 +61,7 @@ export function LibraryPage() {
   const rows = useMemo(() => list.data ?? [], [list.data])
   const progress = useProgress(rows)
   const reviews = useReviewStates()
+  const reviewCounts = useReviewCounts()
   const stage = (s: InterviewSummary): Stage => stageOf(s, progress.get(s.interview_id) ?? null, reviews.get(s.interview_id))
   const counts = {
     progress: rows.filter((s) => stage(s) !== "ready").length,
@@ -218,6 +220,13 @@ export function LibraryPage() {
                             </div>
                           ))}
                         </div>
+                        {(reviewCounts.get(s.interview_id) ?? 0) > 0 && (
+                          <div className="small" style={{ marginTop: 4 }}>
+                            <a href={interviewHref(s.interview_id, "coding")} onClick={(e) => e.stopPropagation()} className="badge" title="Passages dont l'emplacement est à vérifier après une correction du texte">
+                              {reviewCounts.get(s.interview_id)} passage{(reviewCounts.get(s.interview_id) ?? 0) > 1 ? "s" : ""} à revoir
+                            </a>
+                          </div>
+                        )}
                       </td>
                       <td style={{ textAlign: "right" }}>
                         {next.kind === "segment" ? (
