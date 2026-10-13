@@ -138,6 +138,7 @@ pub struct ThemeHistoryEntry {
     pub after: Option<String>,
     pub reason: String,
     /// A move to "retained" with checks left undone.
+    #[serde(rename = "override")]
     pub override_checks: bool,
     pub at: String,
     pub by: String,

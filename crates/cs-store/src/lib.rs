@@ -50,8 +50,8 @@ pub use library::{
 };
 pub use links::{LinkView, PassageBrief};
 pub use matrix::{
-    CellPatch, Matrix, MatrixAxis, MatrixCell, MatrixConfig, MatrixEntry, MatrixFilter,
-    MatrixOptions, MatrixViewRecord,
+    CellDetail, CellPassage, CellPatch, Matrix, MatrixAxis, MatrixCell, MatrixConfig, MatrixEntry,
+    MatrixFilter, MatrixOptions, MatrixViewRecord,
 };
 pub use passages::{NewPassage, PassageFilter};
 pub use project::{

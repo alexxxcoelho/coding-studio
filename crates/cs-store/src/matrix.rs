@@ -1016,3 +1016,98 @@ fn restrict(idx: &Index, set: BTreeSet<usize>, scope: &[String]) -> BTreeSet<usi
         .filter(|i| scope.contains(&idx.passages[*i].interview_id))
         .collect()
 }
+
+/// A passage of a cell, with who spoke.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct CellPassage {
+    #[serde(flatten)]
+    pub brief: crate::links::PassageBrief,
+    pub speaker: String,
+}
+
+/// One cell opened: its passages and what the researcher said of it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct CellDetail {
+    pub row_key: String,
+    pub col_key: String,
+    pub row_label: String,
+    pub col_label: String,
+    pub value: Option<String>,
+    pub value_label: Option<String>,
+    pub summary: String,
+    pub passages: Vec<CellPassage>,
+    pub n_interviews: usize,
+    pub manual: bool,
+}
+
+/// The axis that lists exactly the entry of a key.
+fn axis_of_key(key: &str) -> Result<MatrixAxis> {
+    let axis = |kind: &str, ids: Vec<String>, attribute: Option<String>| MatrixAxis {
+        kind: kind.into(),
+        ids,
+        attribute,
+        status: None,
+    };
+    Ok(match parse_key(key)? {
+        Key::Interview(id) => axis("interviews", vec![id], None),
+        Key::AttrValue(a) => {
+            let value = key
+                .split_once('=')
+                .map(|(_, v)| v.to_string())
+                .unwrap_or_default();
+            axis("attribute", vec![value], Some(a))
+        }
+        Key::Theme(id) => axis("themes", vec![id], None),
+        Key::Code(id) => axis("codes", vec![id], None),
+        Key::Dim(id) => axis("dimensions", vec![id], None),
+        Key::Case(id) => axis("cases", vec![id], None),
+    })
+}
+
+impl Store {
+    /// Opens one cell: the passages behind it, who spoke, the value and summary.
+    pub fn matrix_cell_detail(
+        &self,
+        row_key: &str,
+        col_key: &str,
+        filters: &[MatrixFilter],
+    ) -> Result<CellDetail> {
+        let config = MatrixConfig {
+            rows: vec![axis_of_key(row_key)?],
+            cols: vec![axis_of_key(col_key)?],
+            filters: filters.to_vec(),
+        };
+        let m = self.compute_matrix(&config)?;
+        let (Some(r), Some(c)) = (m.rows.first(), m.cols.first()) else {
+            return Err(not_found(format!(
+                "cell {row_key} x {col_key} (outside the filters)"
+            )));
+        };
+        let cell = &m.cells[0][0];
+        let words = self.verification_words()?;
+        let mut passages = Vec::new();
+        for pid in &cell.passage_ids {
+            let p = self.passage(pid)?;
+            let speaker = self
+                .current_unit(&p.interview_id, &p.unit_id)
+                .map(|u| u.speaker_raw)
+                .unwrap_or_default();
+            passages.push(CellPassage {
+                brief: self.brief_of(&p, &words),
+                speaker,
+            });
+        }
+        Ok(CellDetail {
+            row_key: r.key.clone(),
+            col_key: c.key.clone(),
+            row_label: r.label.clone(),
+            col_label: c.label.clone(),
+            value: cell.value.clone(),
+            value_label: cell.value_label.clone(),
+            summary: cell.summary.clone(),
+            passages,
+            n_interviews: cell.interviews,
+            manual: cell.manual,
+        })
+    }
+}

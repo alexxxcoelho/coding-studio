@@ -1043,7 +1043,15 @@ impl Store {
             [],
             |r| r.get(0),
         )?;
-        Ok(format!("C-{:04}", max + 1))
+        // A stable id is never reused: the ids of codes removed by an undo are
+        // still in the audit log.
+        let gone: i64 = conn.query_row(
+            "SELECT COALESCE(MAX(CAST(substr(target, 3) AS INTEGER)), 0) FROM audit_log
+             WHERE action = 'codebook.code.undo_create_from_passage' AND target GLOB 'C-[0-9]*'",
+            [],
+            |r| r.get(0),
+        )?;
+        Ok(format!("C-{:04}", max.max(gone) + 1))
     }
 }
 

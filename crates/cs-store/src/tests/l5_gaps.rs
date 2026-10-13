@@ -237,7 +237,9 @@ fn gap_7_undo_removes_the_coding_the_code_and_the_selection() {
         .unwrap();
     assert_eq!(ev.detail["code_deleted"], true);
     assert!(s.verify_chain().unwrap().ok);
-    // the name is free again
+    // the name is free again, the stable id is not reused
+    let again = s.create_code_v1(&new_code("Autre"), ACTOR).unwrap();
+    assert_ne!(again.code_id, code.code_id);
     s.create_code_v1(&new_code("Retour rapide"), ACTOR).unwrap();
 }
 
