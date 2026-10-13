@@ -250,3 +250,20 @@ Import is all or nothing and reports every problem at once; with a problem, or w
 ### Exports (additions)
 
 The interview package and the cross-case package gain `passages.csv`, `highlights.csv`, `attributes.csv`, `memos.json` and `study_config.json`; the cross-case package also gains `codebook.csv`. `codebook.csv` gains six trailing columns `code_id,name,parent_id,aliases,includes,excludes` (aliases joined with `;`, the name excluded); the first thirteen columns and the codebook import are unchanged. `state.json` parts gain `passages`, `attribute_values`, `memos_and_checklists`, `project_config` and `code_tree`, so the state digest moves with them. All new files are in `manifest.json` with their SHA-256. Formats are in `docs/CONTRACTS.md`, section 10.
+
+## REFI-QDA exchange (F-103)
+
+Files for NVivo, MAXQDA and ATLAS.ti. Rules in `docs/CONTRACTS.md`, section 11. Implemented in `crates/cs-qdpx`, routes in `crates/cs-app/src/qdpx.rs`.
+
+| Method | Path | Body | Answer |
+|---|---|---|---|
+| GET | `/api/export/qdc` | | `application/xml`, attachment `codebook.qdc`. Headers `X-Export-Sha256` and `X-Export-Summary` (JSON: `format, codes, sources, selections, codings, skipped_stale, skipped_highlights, skipped_without_exported_code, bytes, sha256`) |
+| GET | `/api/export/qdpx?highlights=&name=` | | `application/zip`, attachment `project.qdpx`, same headers. `highlights=true` exports highlights under the code "Surlignages"; `name` is the REFI project name (default "Coding Studio") |
+| POST | `/api/import/qdc?apply=` | the `.qdc` file as the raw body | `ImportReport` |
+| POST | `/api/import/qdpx?apply=` | the `.qdpx` file as the raw body | `ImportReport` |
+
+`apply` is false by default: the call is a dry run that reads the file, compares it with the project and returns the plan, writing nothing and logging nothing. `apply=true` does the same and writes. Bodies up to 256 MB.
+
+`ImportReport`: `{kind: "qdc"|"qdpx", applied, codes_created, codes_matched, codes_skipped, sources_imported, sources_skipped, passages_created, codings_added, codings_existing, selections_skipped, codes: [{path, name, outcome: "create"|"match"|"skip", code_id, matched_by: "guid"|"name"|"file"|null, parent, reason}], sources: [{name, interview_id, matched_by: "guid"|"name"|"digest"|null, imported, reason, selections, selections_skipped, passages_new, codings_new, codings_existing}], other_sources_ignored: string[], issues: [{severity: "warning", location, message}]}`. `code_id` is filled for matched codes, and for created codes once applied. For `.qdc` the source fields are zero or empty. `issues` lists everything skipped, clipped or left where it was, at most 500 entries.
+
+A file that cannot be used answers 400 `{error: "file rejected: n problem(s) found", kind: "validation", issues: [{location, message}]}` with every problem found (malformed XML with its position, wrong root element, not a ZIP, no `project.qde`, duplicated GUIDs, a code without name). Nothing is written.
