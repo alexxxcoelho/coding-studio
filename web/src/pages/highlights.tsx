@@ -1,11 +1,12 @@
 // Surlignages (design/macos/Lexique.dc.html, highlights part): the passages
 // of the interview marked without a code, each to be coded with an existing
-// code or to become a new code. The lexical analysis (keywords, near passages)
-// comes with a later lot.
+// code or to become a new code. The inspector is the lexical help: keyphrases of
+// the selected highlight, keywords of all highlights, near passages.
 
 import { useMemo, useState } from "react"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 
+import { LexiconInspector } from "@/components/lexicon/inspector"
 import { NewCodeDialog, type NewCodeTarget } from "@/components/coder/new-code-dialog"
 import { shortId } from "@/components/coder/turn"
 import { StepsCapsule } from "@/pages/coder"
@@ -29,6 +30,7 @@ export function HighlightsPage({ id }: { id: string }) {
   const codesQ = useCodes()
   const [search, setSearch] = useState("")
   const [target, setTarget] = useState<NewCodeTarget | null>(null)
+  const [pickedId, setPickedId] = useState<string | null>(null)
 
   const codes = useMemo(() => codesQ.data?.codes ?? [], [codesQ.data])
   const usable = codes.filter(isApplicable)
@@ -41,6 +43,7 @@ export function HighlightsPage({ id }: { id: string }) {
         .sort((a, b) => (order.get(a.unit_id) ?? 0) - (order.get(b.unit_id) ?? 0) || a.start - b.start),
     [passagesQ.data, order],
   )
+  const selected = highlights.find((p) => p.passage_id === pickedId) ?? highlights[0] ?? null
   const q = search.trim().toLowerCase()
   const shown = q ? highlights.filter((p) => p.text.toLowerCase().includes(q) || p.unit_id.toLowerCase().includes(q)) : highlights
 
@@ -86,7 +89,13 @@ export function HighlightsPage({ id }: { id: string }) {
             shown.map((p) => {
               const unit = units.get(p.unit_id)
               return (
-                <article key={p.passage_id} className="u resp" style={{ gridTemplateColumns: "64px minmax(0, 1fr)" }}>
+                <article
+                  key={p.passage_id}
+                  className={`u resp${selected?.passage_id === p.passage_id ? " sel" : ""}`}
+                  style={{ gridTemplateColumns: "64px minmax(0, 1fr)" }}
+                  aria-current={selected?.passage_id === p.passage_id ? "true" : undefined}
+                  onClick={() => setPickedId(p.passage_id)}
+                >
                   <div className="meta">
                     <a className="mono" href={interviewHref(id, "coding", 1, p.unit_id)}>
                       {shortId(p.unit_id)}
@@ -127,18 +136,11 @@ export function HighlightsPage({ id }: { id: string }) {
           )}
         </section>
         <aside className="insp insp-sticky" style={{ flexBasis: 340 }} aria-label="Lexique">
-          <div className="insp-in">
-            <div className="hs">Lexique</div>
-            <p className="small l2" style={{ margin: 0 }}>
-              Les mots-clés de vos surlignages, leurs racines et les passages proches d'autres entretiens arrivent avec l'analyse lexicale. Le lexique ne jugera rien et n'utilisera aucune IA générative.
-            </p>
-            <div className="grp">
-              <div className="row">
-                <span className="k">Surlignages sans code</span>
-                <span className="v">{highlights.length}</span>
-              </div>
-            </div>
-          </div>
+          <LexiconInspector
+            passageId={selected?.passage_id ?? null}
+            unitLabel={selected ? shortId(selected.unit_id) : null}
+            onUseLabel={(label) => selected && setTarget({ unitId: selected.unit_id, passageId: selected.passage_id, range: null, text: selected.text, name: label })}
+          />
         </aside>
       </div>
       <div className="keys" aria-label="Raccourcis" style={{ margin: "0 -1.25rem" }}>

@@ -24,6 +24,10 @@ export interface NewCodeTarget {
   range: { start: number; end: number } | null
   /** The text the code is made from, shown as a reminder. */
   text: string
+  /** Proposed name, for a code that starts from words (Lexique: the selected terms). */
+  name?: string
+  /** Other highlights to code with the new code once it exists (Lexique: the highlights holding the terms). */
+  alsoPassageIds?: string[]
 }
 
 export function NewCodeDialog({
@@ -48,7 +52,7 @@ export function NewCodeDialog({
   if (target !== seen) {
     setSeen(target)
     if (target) {
-      setName("")
+      setName(target.name ?? "")
       setDefinition("")
       setParent("")
       setError(null)
@@ -73,8 +77,13 @@ export function NewCodeDialog({
             }),
       }),
     onSuccess: async (res) => {
+      const also = (target?.alsoPassageIds ?? []).filter((pid) => pid !== res.passage.passage_id)
+      const done = await Promise.allSettled(also.map((pid) => api.addCoding(pid, res.code.code_id)))
+      const failed = done.filter((d) => d.status === "rejected").length
       await invalidatePassages(qc, interviewId)
-      toast.success(`Code « ${res.code.name} » créé et posé`)
+      if (also.length > 0) await qc.invalidateQueries({ queryKey: ["passages"] })
+      if (failed > 0) toast.error(`Code « ${res.code.name} » créé, mais posé sur ${also.length - failed} surlignage${also.length - failed > 1 ? "s" : ""} de ${also.length}`)
+      else toast.success(also.length > 0 ? `Code « ${res.code.name} » créé et posé sur ${also.length + 1} surlignages` : `Code « ${res.code.name} » créé et posé`)
       onClose()
     },
     onError: (e) => setError(e instanceof ApiError ? e.message : String(e)),

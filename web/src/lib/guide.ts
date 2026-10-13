@@ -50,6 +50,8 @@ export function screenForRoute(route: Route): string {
       return "coder"
     case "codebook":
       return "codebook"
+    case "lexique":
+      return "coder"
     case "analyser":
     case "cross-case":
     case "saturation":
