@@ -1,0 +1,349 @@
+# Release: builds the desktop app and attaches it to a GitHub Release for a tag
+# v*. Runs on a tag push, or on workflow_dispatch with the tag name as input.
+# Action versions are pinned to commit SHAs, as in ci.yml; the tag they came
+# from is in the comment.
+#
+# Assets are uploaded with the gh CLI from each build job, so no artifact
+# actions are needed. Code signing and notarisation run only when all six Apple
+# secrets exist; otherwise the macOS build is unsigned and the release notes say so.
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing tag to build and attach to its release, for example v0.1.0"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  # Checks that the tag matches the version in the tree, then creates the
+  # release (once) with the notes. Build jobs add their files to it.
+  prepare:
+    name: Create release
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    env:
+      TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      APPLE_SIGNED: ${{ secrets.APPLE_CERTIFICATE != '' && secrets.APPLE_CERTIFICATE_PASSWORD != '' && secrets.APPLE_SIGNING_IDENTITY != '' && secrets.APPLE_ID != '' && secrets.APPLE_PASSWORD != '' && secrets.APPLE_TEAM_ID != '' }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+          ref: refs/tags/${{ env.TAG }}
+
+      - name: Tag matches the version in the tree
+        run: |
+          cargo_version=$(sed -n 's/^version = "\(.*\)"$/\1/p' Cargo.toml | head -n 1)
+          app_version=$(jq -r '.version' crates/cs-desktop/tauri.conf.json)
+          if [ "v$cargo_version" != "$TAG" ] || [ "v$app_version" != "$TAG" ]; then
+            echo "::error::Tag $TAG does not match Cargo.toml ($cargo_version) or crates/cs-desktop/tauri.conf.json ($app_version). Bump both, commit, then tag."
+            exit 1
+          fi
+
+      - name: Create the release
+        run: |
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG already exists; build jobs replace its files."
+            exit 0
+          fi
+          notes="$RUNNER_TEMP/notes.md"
+          {
+            printf 'Coding Studio %s\n\n' "$TAG"
+            if [ "$APPLE_SIGNED" = "true" ]; then
+              cat <<'EOF'
+          The macOS builds are signed with a Developer ID certificate and notarised by Apple.
+          EOF
+            else
+              cat <<'EOF'
+          The macOS builds are not signed or notarised, so macOS stops the first launch with a warning.
+          Open Coding Studio with right-click, then Open, and confirm Open once. From a terminal:
+          `xattr -dr com.apple.quarantine "Coding Studio.app"`.
+          EOF
+            fi
+            cat <<'EOF'
+
+          Files:
+
+          - `Coding-Studio_<version>_aarch64.dmg` and `Coding-Studio_<version>_aarch64.app.zip`: Apple silicon Macs.
+          - `Coding-Studio_<version>_x86_64.dmg` and `Coding-Studio_<version>_x86_64.app.zip`: Intel Macs.
+          - AppImage and deb (Linux), msi (Windows): attached when their build succeeded. They are unsigned.
+
+          Changes are listed in CHANGELOG.md.
+          EOF
+          } > "$notes"
+          gh release create "$TAG" --verify-tag --title "Coding Studio $TAG" --notes-file "$notes"
+
+  macos:
+    name: macOS (${{ matrix.target }})
+    needs: prepare
+    runs-on: macos-latest
+    timeout-minutes: 60
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [aarch64-apple-darwin, x86_64-apple-darwin]
+    env:
+      TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      APPLE_SIGNED: ${{ secrets.APPLE_CERTIFICATE != '' && secrets.APPLE_CERTIFICATE_PASSWORD != '' && secrets.APPLE_SIGNING_IDENTITY != '' && secrets.APPLE_ID != '' && secrets.APPLE_PASSWORD != '' && secrets.APPLE_TEAM_ID != '' }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+          ref: refs/tags/${{ env.TAG }}
+
+      - name: Rust stable and the target
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+          rustup target add "${{ matrix.target }}"
+          rustc --version
+
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          key: ${{ matrix.target }}
+
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        with:
+          version: 10
+
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+
+      # Same steps as `make web`: the interface is built from web/ and copied
+      # into crates/cs-app/web-dist, which Tauri embeds.
+      - name: Web interface
+        working-directory: web
+        run: |
+          pnpm install --frozen-lockfile
+          CS_GUIDE_DIR="$GITHUB_WORKSPACE/docs/guide" pnpm -s build
+
+      - name: Embed the built interface
+        run: |
+          rm -rf crates/cs-app/web-dist
+          cp -R web/dist crates/cs-app/web-dist
+
+      - name: Tauri CLI
+        run: |
+          cargo install tauri-cli --version 2.12.2 --locked
+          cargo tauri --version
+
+      # Tauri reads these variables itself. They are exported only when every
+      # secret exists, so an unsigned build never sees empty values.
+      - name: Apple signing and notarisation settings
+        if: env.APPLE_SIGNED == 'true'
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          for name in APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD APPLE_SIGNING_IDENTITY APPLE_ID APPLE_PASSWORD APPLE_TEAM_ID; do
+            printf '%s=%s\n' "$name" "${!name}" >> "$GITHUB_ENV"
+          done
+
+      - name: Build the app and the disk image
+        working-directory: crates/cs-desktop
+        run: |
+          cargo tauri build --target "${{ matrix.target }}" --bundles app,dmg --config '{"build":{"beforeBuildCommand":""}}'
+
+      - name: Zip the app and attach both files to the release
+        run: |
+          set -euo pipefail
+          bundle="$GITHUB_WORKSPACE/target/${{ matrix.target }}/release/bundle"
+          arch="${{ matrix.target }}"
+          arch="${arch%%-*}"
+          shopt -s nullglob
+          apps=("$bundle"/macos/*.app)
+          dmgs=("$bundle"/dmg/*.dmg)
+          if [ "${#apps[@]}" -ne 1 ] || [ "${#dmgs[@]}" -ne 1 ]; then
+            echo "::error::Expected one .app and one .dmg in $bundle"
+            exit 1
+          fi
+          out="$RUNNER_TEMP/dist"
+          mkdir -p "$out"
+          ditto -c -k --sequesterRsrc --keepParent "${apps[0]}" "$out/Coding-Studio_${TAG}_${arch}.app.zip"
+          cp "${dmgs[0]}" "$out/Coding-Studio_${TAG}_${arch}.dmg"
+          gh release upload "$TAG" "$out"/* --clobber
+
+  # Optional: the job may fail without failing the release.
+  linux:
+    name: Linux (AppImage, deb)
+    needs: prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    continue-on-error: true
+    permissions:
+      contents: write
+    env:
+      TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+          ref: refs/tags/${{ env.TAG }}
+
+      - name: GTK and WebKit libraries (Tauri prerequisites)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+
+      - name: Rust stable
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+          rustc --version
+
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        with:
+          version: 10
+
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+
+      - name: Web interface
+        working-directory: web
+        run: |
+          pnpm install --frozen-lockfile
+          CS_GUIDE_DIR="$GITHUB_WORKSPACE/docs/guide" pnpm -s build
+
+      - name: Embed the built interface
+        run: |
+          rm -rf crates/cs-app/web-dist
+          cp -R web/dist crates/cs-app/web-dist
+
+      - name: Tauri CLI
+        run: |
+          cargo install tauri-cli --version 2.12.2 --locked
+          cargo tauri --version
+
+      - name: Build AppImage and deb
+        working-directory: crates/cs-desktop
+        run: |
+          cargo tauri build --bundles appimage,deb --config '{"build":{"beforeBuildCommand":""}}'
+
+      - name: Attach to the release
+        run: |
+          set -euo pipefail
+          bundle="$GITHUB_WORKSPACE/target/release/bundle"
+          shopt -s nullglob
+          files=("$bundle"/appimage/*.AppImage "$bundle"/deb/*.deb)
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo "::error::No AppImage or deb found in $bundle"
+            exit 1
+          fi
+          out="$RUNNER_TEMP/dist"
+          mkdir -p "$out"
+          for f in "${files[@]}"; do
+            name=$(basename "$f")
+            cp "$f" "$out/${name// /-}"
+          done
+          gh release upload "$TAG" "$out"/* --clobber
+
+  # Optional: the job may fail without failing the release.
+  windows:
+    name: Windows (msi)
+    needs: prepare
+    runs-on: windows-latest
+    timeout-minutes: 60
+    continue-on-error: true
+    defaults:
+      run:
+        shell: bash
+    permissions:
+      contents: write
+    env:
+      TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+          ref: refs/tags/${{ env.TAG }}
+
+      - name: Rust stable
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+          rustc --version
+
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        with:
+          version: 10
+
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+
+      - name: Web interface
+        working-directory: web
+        run: |
+          pnpm install --frozen-lockfile
+          CS_GUIDE_DIR="$GITHUB_WORKSPACE/docs/guide" pnpm -s build
+
+      - name: Embed the built interface
+        run: |
+          rm -rf crates/cs-app/web-dist
+          cp -R web/dist crates/cs-app/web-dist
+
+      - name: Tauri CLI
+        run: |
+          cargo install tauri-cli --version 2.12.2 --locked
+          cargo tauri --version
+
+      - name: Build the msi
+        working-directory: crates/cs-desktop
+        run: |
+          cargo tauri build --bundles msi --config '{"build":{"beforeBuildCommand":""}}'
+
+      - name: Attach to the release
+        run: |
+          set -euo pipefail
+          bundle="$GITHUB_WORKSPACE/target/release/bundle"
+          shopt -s nullglob
+          msis=("$bundle"/msi/*.msi)
+          if [ "${#msis[@]}" -eq 0 ]; then
+            echo "::error::No msi found in $bundle"
+            exit 1
+          fi
+          out="$RUNNER_TEMP/dist"
+          mkdir -p "$out"
+          for f in "${msis[@]}"; do
+            name=$(basename "$f")
+            cp "$f" "$out/${name// /-}"
+          done
+          gh release upload "$TAG" "$out"/* --clobber
