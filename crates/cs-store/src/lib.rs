@@ -17,6 +17,7 @@
 
 mod analysis_index;
 mod analysis_schema;
+mod audio;
 mod cases;
 mod claims;
 mod codebook;
@@ -69,6 +70,7 @@ pub use project::{
     MemoView, TemplateChange, TemplateReport,
 };
 pub use review::{Review, ReviewEntry};
+pub use audio::{AudioOffset, MAX_AUDIO_OFFSET};
 pub use simple::SimpleProgress;
 pub use transcripts::{
     ProjectionItem, Resolution, ReviewCode, ReviewFilter, SpanView, TranscriptVersion,
@@ -345,6 +347,7 @@ impl Store {
         analysis_schema::migrate(&conn)?;
         review_schema::migrate(&conn)?;
         transcripts::migrate(&conn)?;
+        audio::migrate(&conn)?;
         // Databases made before providers existed lack the column: added in
         // place, so that their content is kept.
         let has_provider: bool = conn
