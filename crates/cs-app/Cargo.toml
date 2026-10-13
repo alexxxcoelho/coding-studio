@@ -27,10 +27,10 @@ include_dir.workspace = true
 mime_guess.workspace = true
 zip.workspace = true
 rusqlite.workspace = true
+tower = { version = "0.5", features = ["util"] }
 
 [dev-dependencies]
 tempfile.workspace = true
-tower = { version = "0.5", features = ["util"] }
 http-body-util = "0.1"
 sha2.workspace = true
 hex.workspace = true

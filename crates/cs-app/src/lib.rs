@@ -4,8 +4,10 @@
 //! The contract is documented in `docs/API.md`.
 
 pub mod bundle;
+pub mod cli;
 pub mod docx;
 mod error;
+pub mod example;
 mod export;
 mod export_analysis;
 mod export_v1;

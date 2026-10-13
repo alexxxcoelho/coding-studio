@@ -21,11 +21,33 @@ pub(crate) fn routes() -> Router<AppState> {
     Router::new()
         .route("/api/writing/export.docx", get(writeup_docx))
         .route("/api/export/anonymised", post(export_anonymised))
+        .route("/api/example/load", post(load_example))
         .route("/api/project/bundle", get(export_bundle))
         .route(
             "/api/project/bundle/import",
             post(import_bundle).layer(DefaultBodyLimit::max(MAX_UPLOAD)),
         )
+}
+
+#[derive(Deserialize, Default)]
+struct ExampleBody {
+    /// Folder the example transcript is copied to; absent, a temporary one.
+    #[serde(default)]
+    library: Option<String>,
+}
+
+/// `POST /api/example/load`: the example project into an empty database.
+async fn load_example(
+    State(st): State<AppState>,
+    body: Option<Json<ExampleBody>>,
+) -> Result<Json<Value>, ApiError> {
+    let library = body
+        .and_then(|b| b.0.library)
+        .map(|l| l.trim().to_string())
+        .filter(|l| !l.is_empty())
+        .map(PathBuf::from);
+    let report = crate::example::load(&st, library.as_deref())?;
+    Ok(Json(json!(report)))
 }
 
 /// Largest bundle accepted on import, in bytes.
