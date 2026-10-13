@@ -1,0 +1,10 @@
+[package]
+name = "cs-lex"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+rust-stemmers = "1.2"
+serde.workspace = true
+serde_json.workspace = true
