@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest"
 
 import type { PassageLink, LinkTarget } from "./analysis-api"
-import { decodeDrag, encodeDrag, MIME_CODE, MIME_PASSAGE, moveItem, planCodeAdd, planLink, readDrag, reorderByDrop, writeDrag } from "./analysis-dnd"
+import { decodeDrag, encodeDrag, mergeRetainedOrder, MIME_CODE, MIME_PASSAGE, moveItem, planCodeAdd, planLink, readDrag, reorderByDrop, writeDrag } from "./analysis-dnd"
 
 const target: LinkTarget = { kind: "theme_part", theme_id: "T-0001", part: "mechanism_evidence" }
 const brief = { passage_id: "P-1", interview_id: "ECO-07", unit_id: "ECO-07-U018", text: "Le lot suffit.", verification: null }
@@ -91,5 +91,24 @@ describe("reordering", () => {
   it("keeps the order when the drop changes nothing", () => {
     expect(reorderByDrop(["t1", "t2"], "t1", "t1")).toEqual(["t1", "t2"])
     expect(reorderByDrop(["t1", "t2"], "x", "t1")).toEqual(["t1", "t2"])
+  })
+})
+
+describe("mergeRetainedOrder", () => {
+  it("keeps the themes that are not retained where they are", () => {
+    const all = ["a", "r1", "b", "r2", "r3"]
+    expect(mergeRetainedOrder(all, ["r1", "r2", "r3"], ["r3", "r1", "r2"])).toEqual(["a", "r3", "b", "r1", "r2"])
+  })
+  it("changes nothing when the order is the same", () => {
+    expect(mergeRetainedOrder(["r1", "x", "r2"], ["r1", "r2"], ["r1", "r2"])).toEqual(["r1", "x", "r2"])
+  })
+})
+
+describe("theme drags", () => {
+  it("carry the theme id under their own type", () => {
+    const dt = fakeTransfer()
+    writeDrag(dt, { kind: "theme", id: "T-0002" })
+    expect(readDrag(dt, "theme")).toEqual({ kind: "theme", id: "T-0002" })
+    expect(readDrag(dt, "passage")).toBeNull()
   })
 })

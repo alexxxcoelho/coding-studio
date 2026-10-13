@@ -7,14 +7,15 @@ import type { LinkCreate, LinkTarget, PassageLink } from "./analysis-api"
 
 export const MIME_CODE = "application/x-cs-code"
 export const MIME_PASSAGE = "application/x-cs-passage"
+export const MIME_THEME = "application/x-cs-theme"
 
-export type DragKind = "code" | "passage"
+export type DragKind = "code" | "passage" | "theme"
 export interface DragPayload {
   kind: DragKind
   id: string
 }
 
-export const mimeOf = (kind: DragKind): string => (kind === "code" ? MIME_CODE : MIME_PASSAGE)
+export const mimeOf = (kind: DragKind): string => (kind === "code" ? MIME_CODE : kind === "theme" ? MIME_THEME : MIME_PASSAGE)
 
 export function encodeDrag(p: DragPayload): string {
   return JSON.stringify(p)
@@ -93,4 +94,15 @@ export function reorderByDrop(ids: string[], dragId: string, overId: string): st
   const to = ids.indexOf(overId)
   if (from < 0 || to < 0) return ids
   return moveItem(ids, from, to)
+}
+
+/**
+ * The order of every theme once the retained ones have been reordered: the other
+ * themes keep their places, the retained ones fill the places of the retained
+ * ones in the new order. This is what the server receives.
+ */
+export function mergeRetainedOrder(allIds: string[], retainedBefore: string[], retainedAfter: string[]): string[] {
+  const set = new Set(retainedBefore)
+  let i = 0
+  return allIds.map((id) => (set.has(id) ? (retainedAfter[i++] ?? id) : id))
 }

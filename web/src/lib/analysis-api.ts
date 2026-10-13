@@ -242,9 +242,10 @@ export interface ThemeWriting {
   parts: Record<ThemePartKey, PartState>
 }
 
+/** A save of a part: what is sent changes, what is left out stays as it is. */
 export interface PartEdit {
-  text: string
-  nature: string | null
+  text?: string
+  nature?: string | null
 }
 
 export interface QuestionSynthesis {
