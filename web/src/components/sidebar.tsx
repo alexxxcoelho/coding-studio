@@ -124,8 +124,8 @@ export function Sidebar({
           </NavItem>
           <button
             type="button"
-            aria-label={`Fermer ${id}`}
-            title={`Fermer ${id}`}
+            aria-label={t("sidebar.close_interview", { id })}
+            title={t("sidebar.close_interview", { id })}
             className="text-label2 hover:bg-fill2 absolute top-1/2 right-1 hidden size-4 -translate-y-1/2 cursor-pointer place-items-center rounded-full border-0 bg-transparent p-0 group-hover/open:grid focus-visible:grid"
             onClick={() => {
               openInterviews.close(id)

@@ -137,10 +137,10 @@ export function TermFrequency() {
                   {v.terms.length === 0 ? (
                     <span className="l3">{t("lexicon.term_frequency.aucun_mot")}</span>
                   ) : (
-                    v.terms.map((t, i) => (
-                      <span key={t.stem} title={`${t.n_interviews} entretien(s)`}>
+                    v.terms.map((term, i) => (
+                      <span key={term.stem} title={t("lexicon.term_frequency.n_interviews_title", { n: term.n_interviews })}>
                         {i > 0 && ", "}
-                        {t.form} <span className="l2 small">{t.n_occurrences}</span>
+                        {term.form} <span className="l2 small">{term.n_occurrences}</span>
                       </span>
                     ))
                   )}

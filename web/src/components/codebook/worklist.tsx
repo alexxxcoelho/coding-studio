@@ -241,7 +241,7 @@ function WorklistBody({ opId, onClose }: { opId: number; onClose: () => void }) 
       {error && <Alerts messages={[error]} />}
       <div className="r8" style={{ justifyContent: "space-between" }}>
         <span className="small l2">
-          <span className="kbd">↑ ↓</span> {t("codebook.worklist.passage")} <span className="kbd">1 à {Math.max(1, newCodes.length)}</span> {t("codebook.worklist.poser_ou_retirer_un_code")} <span className="kbd">L</span> {t("codebook.worklist.laisser_2")} <span className="kbd">{t("codebook.worklist.suppr")}</span> {t("codebook.worklist.effacer")}{" "}
+          <span className="kbd">↑ ↓</span> {t("codebook.worklist.passage")} <span className="kbd">{t("codebook.worklist.one_to_n", { n: Math.max(1, newCodes.length) })}</span> {t("codebook.worklist.poser_ou_retirer_un_code")} <span className="kbd">L</span> {t("codebook.worklist.laisser_2")} <span className="kbd">{t("codebook.worklist.suppr")}</span> {t("codebook.worklist.effacer")}{" "}
           <span className="kbd">{isMac() ? "⌘" : "Ctrl+"}{t("codebook.worklist.entree")}</span> {t("codebook.worklist.enregistrer")}
         </span>
         <span className="r8">

@@ -129,7 +129,7 @@ function PromptPanel({ id, guard, parts }: { id: string; guard: GuardStatus; par
         <>
           <p className="gf" style={{ marginTop: 10 }}>
             {[
-              snap ? shortStamp(snap.created_at).replace(" ", " à ") : null,
+              snap ? shortStamp(snap.created_at).replace(" ", t("common.at_time")) : null,
               `codebook ${shortHash(parts[0].codebook_hash, 8)}`,
               t("revoir.revue_ia.n_unites", { n: nUnits }),
               t("revoir.revue_ia.n_parties", { n: parts.length }),
@@ -236,7 +236,7 @@ function ImportPanel({ id, guard, parts, runs }: { id: string; guard: GuardStatu
     onSuccess: (run, p) => {
       setRaws((r) => ({ ...r, [p.part]: "" }))
       setIssues((i) => ({ ...i, [p.part]: [] }))
-      toast.success(`${run.meta.run_label} : partie ${partTitle(p)} importée${run.complete ? ", run complet" : ""}`)
+      toast.success(t(run.complete ? "revoir.revue_ia.part_imported_complete" : "revoir.revue_ia.part_imported", { run_label: run.meta.run_label, part: partTitle(p) }))
       if (run.complete) {
         setCreatedId(null)
         setAgain(false)

@@ -101,7 +101,7 @@ export function LibraryPage() {
   })
 
   const sub = state.data
-    ? `${rows.length} entretien${rows.length > 1 ? "s" : ""}${state.data.db_path ? t("library.basename_enregistre", { basename: basename(state.data.db_path) }) : ""}`
+    ? `${t("common.n_entretiens", { n: rows.length })}${state.data.db_path ? t("library.basename_enregistre", { basename: basename(state.data.db_path) }) : ""}`
     : " "
   const ready = counts.ready
 
