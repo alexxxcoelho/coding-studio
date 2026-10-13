@@ -1,0 +1,568 @@
+{
+  "lang": "fr",
+  "title": "Guide de Coding Studio",
+  "help_button": "Chaque écran porte un bouton « ? » en haut à droite qui ouvre la section de l'écran dans un tiroir latéral.",
+  "sections": [
+    {
+      "id": "sommaire",
+      "title": "Sommaire",
+      "file": "fr/00_sommaire.md",
+      "anchor": "sommaire",
+      "headings": [
+        {
+          "level": 2,
+          "title": "Ce que couvre ce guide",
+          "anchor": "sommaire-portee"
+        },
+        {
+          "level": 2,
+          "title": "Le parcours en une liste",
+          "anchor": "sommaire-parcours"
+        },
+        {
+          "level": 2,
+          "title": "Les écrans de l'application",
+          "anchor": "sommaire-ecrans"
+        },
+        {
+          "level": 2,
+          "title": "Comment lire ce guide",
+          "anchor": "sommaire-lire"
+        },
+        {
+          "level": 2,
+          "title": "Ce qui est personnalisable",
+          "anchor": "sommaire-personnalisable"
+        }
+      ]
+    },
+    {
+      "id": "preparer",
+      "title": "Préparer l'étude",
+      "file": "fr/01_preparer.md",
+      "anchor": "preparer",
+      "headings": [
+        {
+          "level": 2,
+          "title": "Pourquoi cette étape",
+          "anchor": "preparer-pourquoi"
+        },
+        {
+          "level": 2,
+          "title": "Ce que vous faites",
+          "anchor": "preparer-actions"
+        },
+        {
+          "level": 3,
+          "title": "1. Créer le projet",
+          "anchor": "preparer-projet"
+        },
+        {
+          "level": 3,
+          "title": "2. Ouvrir les Réglages",
+          "anchor": "preparer-reglages"
+        },
+        {
+          "level": 3,
+          "title": "3. Écrire les questions de recherche",
+          "anchor": "preparer-questions"
+        },
+        {
+          "level": 3,
+          "title": "4. Définir les attributs d'entretien",
+          "anchor": "preparer-attributs"
+        },
+        {
+          "level": 3,
+          "title": "5. Préparer les modèles de mémo",
+          "anchor": "preparer-memos"
+        },
+        {
+          "level": 3,
+          "title": "6. Régler la liste de contrôle de fin d'entretien",
+          "anchor": "preparer-checklist"
+        },
+        {
+          "level": 3,
+          "title": "7. Choisir un cadre d'interprétation, ou aucun",
+          "anchor": "preparer-cadre"
+        },
+        {
+          "level": 3,
+          "title": "8. Déclarer les intervieweurs",
+          "anchor": "preparer-intervieweurs"
+        },
+        {
+          "level": 3,
+          "title": "9. Importer les transcriptions et lire la Bibliothèque",
+          "anchor": "preparer-bibliotheque"
+        },
+        {
+          "level": 3,
+          "title": "10. Remplir la fiche d'entretien",
+          "anchor": "preparer-fiche"
+        },
+        {
+          "level": 3,
+          "title": "11. Régler la pseudonymisation",
+          "anchor": "preparer-pseudo"
+        },
+        {
+          "level": 3,
+          "title": "12. Exporter ou importer un modèle de projet",
+          "anchor": "preparer-modele"
+        },
+        {
+          "level": 2,
+          "title": "Pièges fréquents",
+          "anchor": "preparer-pieges"
+        },
+        {
+          "level": 2,
+          "title": "Ce qui sort de cette étape",
+          "anchor": "preparer-sortie"
+        }
+      ]
+    },
+    {
+      "id": "coder",
+      "title": "Coder un entretien",
+      "file": "fr/02_coder.md",
+      "anchor": "coder",
+      "headings": [
+        {
+          "level": 2,
+          "title": "Pourquoi cette étape",
+          "anchor": "coder-pourquoi"
+        },
+        {
+          "level": 2,
+          "title": "Ce que vous faites",
+          "anchor": "coder-actions"
+        },
+        {
+          "level": 3,
+          "title": "1. Écrire le mémo de familiarisation",
+          "anchor": "coder-memo"
+        },
+        {
+          "level": 3,
+          "title": "2. Parcourir les tours",
+          "anchor": "coder-parcourir"
+        },
+        {
+          "level": 3,
+          "title": "3. Coder un passage",
+          "anchor": "coder-passage"
+        },
+        {
+          "level": 3,
+          "title": "4. Poser plusieurs codes sur un passage",
+          "anchor": "coder-multicodes"
+        },
+        {
+          "level": 3,
+          "title": "5. Créer un code à la volée",
+          "anchor": "coder-nouveau-code"
+        },
+        {
+          "level": 3,
+          "title": "6. Utiliser le code Plus tard",
+          "anchor": "coder-plus-tard"
+        },
+        {
+          "level": 3,
+          "title": "7. Organiser l'arbre de codes",
+          "anchor": "coder-codebook"
+        },
+        {
+          "level": 3,
+          "title": "8. Tenir un mémo de code",
+          "anchor": "coder-memo-code"
+        },
+        {
+          "level": 3,
+          "title": "9. Surligner sans coder",
+          "anchor": "coder-surlignages"
+        },
+        {
+          "level": 3,
+          "title": "10. S'aider du lexique",
+          "anchor": "coder-lexique"
+        },
+        {
+          "level": 3,
+          "title": "11. Passer la liste de contrôle de fin d'entretien",
+          "anchor": "coder-checklist"
+        },
+        {
+          "level": 3,
+          "title": "12. Préparer une citation : le tiroir Détail",
+          "anchor": "coder-detail"
+        },
+        {
+          "level": 2,
+          "title": "Pièges fréquents",
+          "anchor": "coder-pieges"
+        },
+        {
+          "level": 2,
+          "title": "Ce qui sort de cette étape",
+          "anchor": "coder-sortie"
+        }
+      ]
+    },
+    {
+      "id": "revoir",
+      "title": "Revoir (facultatif)",
+      "file": "fr/03_revoir.md",
+      "anchor": "revoir",
+      "headings": [
+        {
+          "level": 2,
+          "title": "Pourquoi cette étape",
+          "anchor": "revoir-pourquoi"
+        },
+        {
+          "level": 2,
+          "title": "Ce que vous faites",
+          "anchor": "revoir-actions"
+        },
+        {
+          "level": 3,
+          "title": "1. Harmoniser sans IA",
+          "anchor": "revoir-harmoniser"
+        },
+        {
+          "level": 3,
+          "title": "2. Décider si une revue IA est utile",
+          "anchor": "revoir-decider"
+        },
+        {
+          "level": 3,
+          "title": "3. Configurer un fournisseur, ou y renoncer",
+          "anchor": "revoir-fournisseurs"
+        },
+        {
+          "level": 3,
+          "title": "4. Générer le prompt",
+          "anchor": "revoir-prompt"
+        },
+        {
+          "level": 3,
+          "title": "5. Importer la réponse du modèle",
+          "anchor": "revoir-reponse"
+        },
+        {
+          "level": 3,
+          "title": "6. Arbitrer les désaccords",
+          "anchor": "revoir-arbitrer"
+        },
+        {
+          "level": 3,
+          "title": "7. Contrôler un échantillon d'accords",
+          "anchor": "revoir-accords"
+        },
+        {
+          "level": 3,
+          "title": "8. Traiter les concepts absents du codebook",
+          "anchor": "revoir-concepts"
+        },
+        {
+          "level": 3,
+          "title": "9. Réviser le codebook après la revue",
+          "anchor": "revoir-codebook"
+        },
+        {
+          "level": 2,
+          "title": "Pièges fréquents",
+          "anchor": "revoir-pieges"
+        },
+        {
+          "level": 2,
+          "title": "Ce qui sort de cette étape",
+          "anchor": "revoir-sortie"
+        }
+      ]
+    },
+    {
+      "id": "analyser",
+      "title": "Analyser : des codes aux thèmes",
+      "file": "fr/04_analyser.md",
+      "anchor": "analyser",
+      "headings": [
+        {
+          "level": 2,
+          "title": "Pourquoi cette étape",
+          "anchor": "analyser-pourquoi"
+        },
+        {
+          "level": 2,
+          "title": "Ce que vous faites",
+          "anchor": "analyser-actions"
+        },
+        {
+          "level": 3,
+          "title": "1. Regrouper les codes",
+          "anchor": "analyser-regrouper"
+        },
+        {
+          "level": 3,
+          "title": "2. Créer un thème",
+          "anchor": "analyser-themes"
+        },
+        {
+          "level": 3,
+          "title": "3. Remplir la fiche de thème",
+          "anchor": "analyser-fiche"
+        },
+        {
+          "level": 3,
+          "title": "4. Régler le statut et passer les contrôles",
+          "anchor": "analyser-statut"
+        },
+        {
+          "level": 3,
+          "title": "5. Lire les thèmes avec un cadre, si vous en avez choisi un",
+          "anchor": "analyser-cadre"
+        },
+        {
+          "level": 3,
+          "title": "6. Régler la matrice",
+          "anchor": "analyser-matrice"
+        },
+        {
+          "level": 3,
+          "title": "7. Lire une cellule",
+          "anchor": "analyser-cellules"
+        },
+        {
+          "level": 3,
+          "title": "8. Filtrer pour faire apparaître les contrastes",
+          "anchor": "analyser-filtres"
+        },
+        {
+          "level": 3,
+          "title": "9. Explorer les données",
+          "anchor": "analyser-explorer"
+        },
+        {
+          "level": 3,
+          "title": "10. Documenter les décisions",
+          "anchor": "analyser-decisions"
+        },
+        {
+          "level": 2,
+          "title": "Pièges fréquents",
+          "anchor": "analyser-pieges"
+        },
+        {
+          "level": 2,
+          "title": "Ce qui sort de cette étape",
+          "anchor": "analyser-sortie"
+        }
+      ]
+    },
+    {
+      "id": "rediger",
+      "title": "Rédiger les résultats",
+      "file": "fr/05_rediger.md",
+      "anchor": "rediger",
+      "headings": [
+        {
+          "level": 2,
+          "title": "Pourquoi cette étape",
+          "anchor": "rediger-pourquoi"
+        },
+        {
+          "level": 2,
+          "title": "Ce que vous faites",
+          "anchor": "rediger-actions"
+        },
+        {
+          "level": 3,
+          "title": "1. Ouvrir l'onglet Par thème",
+          "anchor": "rediger-theme"
+        },
+        {
+          "level": 3,
+          "title": "2. Écrire les cinq parties du thème",
+          "anchor": "rediger-parties"
+        },
+        {
+          "level": 3,
+          "title": "3. Relier un passage à une partie",
+          "anchor": "rediger-liens"
+        },
+        {
+          "level": 3,
+          "title": "4. Écrire la synthèse par question de recherche",
+          "anchor": "rediger-question"
+        },
+        {
+          "level": 3,
+          "title": "5. Lire les thèmes avec le cadre",
+          "anchor": "rediger-tableau"
+        },
+        {
+          "level": 3,
+          "title": "6. Faire l'audit final de trois affirmations",
+          "anchor": "rediger-audit"
+        },
+        {
+          "level": 3,
+          "title": "7. Joindre des décisions documentées",
+          "anchor": "rediger-decisions"
+        },
+        {
+          "level": 2,
+          "title": "Pièges fréquents",
+          "anchor": "rediger-pieges"
+        },
+        {
+          "level": 2,
+          "title": "Ce qui sort de cette étape",
+          "anchor": "rediger-sortie"
+        }
+      ]
+    },
+    {
+      "id": "exporter",
+      "title": "Exporter et auditer",
+      "file": "fr/06_exporter_et_auditer.md",
+      "anchor": "exporter",
+      "headings": [
+        {
+          "level": 2,
+          "title": "Pourquoi cette étape",
+          "anchor": "exporter-pourquoi"
+        },
+        {
+          "level": 2,
+          "title": "Ce que vous faites",
+          "anchor": "exporter-actions"
+        },
+        {
+          "level": 3,
+          "title": "1. Exporter un entretien",
+          "anchor": "exporter-entretien"
+        },
+        {
+          "level": 3,
+          "title": "2. Exporter le transversal",
+          "anchor": "exporter-transversal"
+        },
+        {
+          "level": 3,
+          "title": "3. Lire le manifeste",
+          "anchor": "exporter-manifeste"
+        },
+        {
+          "level": 3,
+          "title": "4. Vérifier la chaîne du journal d'audit",
+          "anchor": "exporter-journal"
+        },
+        {
+          "level": 3,
+          "title": "5. Rejouer l'audit final",
+          "anchor": "exporter-audit-final"
+        },
+        {
+          "level": 3,
+          "title": "6. Choisir ce qui va en annexe",
+          "anchor": "exporter-annexes"
+        },
+        {
+          "level": 2,
+          "title": "Pièges fréquents",
+          "anchor": "exporter-pieges"
+        },
+        {
+          "level": 2,
+          "title": "Ce qui sort de cette étape",
+          "anchor": "exporter-sortie"
+        }
+      ]
+    },
+    {
+      "id": "glossaire",
+      "title": "Glossaire",
+      "file": "fr/07_glossaire.md",
+      "anchor": "glossaire",
+      "headings": [
+        {
+          "level": 2,
+          "title": "A à C",
+          "anchor": "glossaire-a-c"
+        },
+        {
+          "level": 2,
+          "title": "D à M",
+          "anchor": "glossaire-d-m"
+        },
+        {
+          "level": 2,
+          "title": "N à Z",
+          "anchor": "glossaire-n-z"
+        }
+      ]
+    }
+  ],
+  "screens": {
+    "bibliotheque": {
+      "section": "preparer",
+      "file": "fr/01_preparer.md",
+      "anchor": "preparer-bibliotheque"
+    },
+    "coder": {
+      "section": "coder",
+      "file": "fr/02_coder.md",
+      "anchor": "coder-parcourir"
+    },
+    "detail": {
+      "section": "coder",
+      "file": "fr/02_coder.md",
+      "anchor": "coder-detail"
+    },
+    "revoir-ia": {
+      "section": "revoir",
+      "file": "fr/03_revoir.md",
+      "anchor": "revoir-prompt"
+    },
+    "revoir-decisions": {
+      "section": "revoir",
+      "file": "fr/03_revoir.md",
+      "anchor": "revoir-arbitrer"
+    },
+    "analyser": {
+      "section": "analyser",
+      "file": "fr/04_analyser.md",
+      "anchor": "analyser-themes"
+    },
+    "rediger": {
+      "section": "rediger",
+      "file": "fr/05_rediger.md",
+      "anchor": "rediger-theme"
+    },
+    "codebook": {
+      "section": "coder",
+      "file": "fr/02_coder.md",
+      "anchor": "coder-codebook"
+    },
+    "reglages": {
+      "section": "preparer",
+      "file": "fr/01_preparer.md",
+      "anchor": "preparer-reglages"
+    },
+    "surlignages": {
+      "section": "coder",
+      "file": "fr/02_coder.md",
+      "anchor": "coder-surlignages"
+    },
+    "guide": {
+      "section": "sommaire",
+      "file": "fr/00_sommaire.md",
+      "anchor": "sommaire-lire"
+    }
+  }
+}
