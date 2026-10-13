@@ -308,4 +308,38 @@ call("POST", f"/api/interviews/{IV2}/units/{IV2}-U024/corrections", {
     "text": t24.replace("peu de personnel", "très peu de personnel disponible"), "role": "respondent", "reason": "Relecture de l'audio"})
 rv = call("GET", "/api/transcript/review")
 print(f"transcript review: {rv['open']} passage(s) to review")
+# ---- Register of the people interviewed: groups, persons and organisations, links to interviews,
+# two person attributes. One record is anonymised (its name is replaced by its pseudonym in what a model
+# sees), one is not. "Médiathèque des Rives" is written in INT-02, so its pseudonym shows in that interview.
+_cfg = call("GET", "/api/project-config")
+_cfg["attributes"] += [
+    {"id": "anciennete", "label": "Ancienneté (années)", "kind": "number", "choices": [], "shared_with_model": False, "scope": "person"},
+    {"id": "taille", "label": "Taille de l'organisation", "kind": "choice", "choices": ["Petite", "Moyenne", "Grande"], "shared_with_model": False, "scope": "person"},
+]
+call("PUT", "/api/project-config", _cfg)
+
+g_det = call("POST", "/api/person-groups", {"name": "Détaillants", "description": "Commerces de détail interrogés."})["group_id"]
+g_rom = call("POST", "/api/person-groups", {"name": "Suisse romande", "parent_id": g_det})["group_id"]
+g_med = call("POST", "/api/person-groups", {"name": "Médiathèques"})["group_id"]
+
+sophie = call("POST", "/api/persons", {
+    "name": "Sophie Aubry", "organisation": "Librairie du Lac", "function": "Gérante", "email": "s.aubry@example.org",
+    "aliases": ["Sophie", "Mme Aubry"], "anonymise": True, "group_ids": [g_rom],
+    "consent_status": "given", "consent_date": "2026-03-02", "consent_document": "consentements/aubry.pdf",
+    "attributes": {"anciennete": "12", "taille": "Petite"}, "notes": "Entretien sur place, en présence de l'équipe.",
+})
+rives = call("POST", "/api/persons", {
+    "kind": "organisation", "name": "Médiathèque des Rives", "aliases": ["les Rives"], "anonymise": True, "group_ids": [g_med],
+    "function": "Médiathèque municipale", "attributes": {"taille": "Moyenne"},
+})
+marc = call("POST", "/api/persons", {
+    "name": "Marc Bovet", "organisation": "Médiathèque des Rives", "function": "Directeur", "anonymise": False,
+    "group_ids": [g_med], "consent_status": "pending", "attributes": {"anciennete": "7"},
+})
+lea = call("POST", "/api/persons", {"name": "Léa Morand", "function": "Doctorante, intervieweuse", "anonymise": False})
+call("POST", f"/api/persons/{sophie['person_id']}/interviews", {"interview_id": IV, "role": "respondent"})
+call("POST", f"/api/persons/{lea['person_id']}/interviews", {"interview_id": IV, "role": "interviewer"})
+call("POST", f"/api/persons/{marc['person_id']}/interviews", {"interview_id": "INT-02", "role": "respondent"})
+call("POST", f"/api/persons/{rives['person_id']}/interviews", {"interview_id": "INT-02", "role": "mentioned"})
+print(f"register seeded: 4 records ({sophie['person_id']} anonymised, {marc['person_id']} not), 3 groups")
 print("seed done")

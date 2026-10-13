@@ -36,6 +36,13 @@ AXE = HERE.parent / "node_modules" / "axe-core" / "axe.min.js"
 ENGLISH = json.loads((HERE / "english-words.json").read_text())
 
 INTERVIEW = "INT-01"
+LANG = "fr"  # --lang en: the same screens in English (cs-lang), by the catalogue keys
+CATALOGUES = {c: json.loads((HERE.parent / "src" / "i18n" / f"{c}.json").read_text()) for c in ("fr", "en")}
+
+
+def T(key: str, **vars) -> str:
+    """The text of a catalogue key in the language of this run (for the screens that are walked by their labels)."""
+    return CATALOGUES[LANG][key].format(**vars) if vars else CATALOGUES[LANG][key]
 VIEWPORTS = {"1440x900": (1440, 900), "1024x700": (1024, 700)}
 SYSTEMS = ["light", "dark"]
 CHOICES = ["system", "light", "dark"]
@@ -310,6 +317,81 @@ def _undo_dialog(page: Page):
     page.wait_for_timeout(300)
 
 
+# ---- Personnes (register of people and organisations)
+
+def _persons_group(page: Page):
+    page.get_by_role("table", name=T("persons.group_tree")).get_by_text("Médiathèques", exact=True).click()
+    page.wait_for_timeout(400)
+
+
+def _persons_group_edit(page: Page):
+    _persons_group(page)
+    page.get_by_role("button", name=T("persons.edit_group_button"), exact=True).click()
+    page.get_by_role("dialog").wait_for()
+    page.wait_for_timeout(300)
+
+
+def _persons_group_delete(page: Page):
+    page.get_by_role("table", name=T("persons.group_tree")).get_by_text("Détaillants", exact=True).click()
+    page.get_by_role("button", name=T("common.supprimer"), exact=True).first.click()
+    page.get_by_role("dialog").wait_for()
+    page.wait_for_timeout(300)
+
+
+def _persons_new(page: Page):
+    page.get_by_role("button", name=T("persons.add_person")).click()
+    page.get_by_role("dialog").wait_for()
+    page.wait_for_timeout(300)
+
+
+def _persons_import_problems(page: Page):
+    page.get_by_role("button", name=T("persons.import_csv")).click()
+    dialog = page.get_by_role("dialog")
+    dialog.get_by_label(T("persons.csv_text")).fill("name,kind,groups,anonymise\nPaul Dumas,animal,Détaillants/Vaud,peut-être\nSophie Aubry,person,,\n")
+    dialog.get_by_role("button", name=T("persons.check_file")).click()
+    dialog.get_by_role("table", name=T("persons.report_problems")).wait_for()
+    page.wait_for_timeout(300)
+
+
+def _persons_import_ok(page: Page):
+    page.get_by_role("button", name=T("persons.import_csv")).click()
+    dialog = page.get_by_role("dialog")
+    dialog.get_by_label(T("persons.csv_text")).fill("name,kind,groups,interviews,anonymise\nPaul Dumas,person,Détaillants/Vaud,INT-01:mentioned,non\nSophie Aubry,person,,,\n")
+    dialog.get_by_role("button", name=T("persons.check_file")).click()
+    dialog.get_by_role("table", name=T("persons.report_rows")).wait_for()
+    page.wait_for_timeout(300)
+
+
+def _persons_filtered(page: Page):
+    page.get_by_label(T("persons.filter_anonymise")).select_option("yes")
+    page.wait_for_timeout(500)
+
+
+def _library_persons(page: Page):
+    _first_row(page)
+    page.get_by_role("group", name=T("persons.of_interview", id=INTERVIEW)).scroll_into_view_if_needed()
+    page.wait_for_timeout(300)
+
+
+def _library_export_menu(page: Page):
+    page.get_by_role("button", name=T("persons.export_menu")).click()
+    page.get_by_role("menuitem", name=T("persons.verification_action")).wait_for()
+    page.wait_for_timeout(250)
+
+
+def _verification_open(page: Page):
+    page.get_by_role("button", name=T("persons.verification_action")).click()
+    page.get_by_role("dialog").wait_for()
+    page.get_by_role("dialog").get_by_role("checkbox", name="INT-02").check()
+    page.wait_for_timeout(300)
+
+
+def _verification_result(page: Page):
+    _verification_open(page)
+    page.get_by_role("button", name=T("persons.verification_run")).click()
+    page.get_by_test_id("verification-result").wait_for(timeout=8000)
+    page.wait_for_timeout(300)
+
 
 
 ROUTES: list[dict] = [
@@ -371,6 +453,20 @@ ROUTES: list[dict] = [
     {"name": "codebook-annuler", "hash": "/codebook", "act": _undo_dialog},
     {"name": "settings-origines", "hash": "/settings", "act": _origins_roles},
     {"name": "help-drawer", "hash": f"/interviews/{INTERVIEW}/coding?phase=2", "act": _open_help},
+    {"name": "personnes", "hash": "/personnes", "new": True},
+    {"name": "personnes-fiche", "hash": "/personnes/P-0001", "new": True},
+    {"name": "personnes-fiche-organisation", "hash": "/personnes/P-0002", "new": True},
+    {"name": "personnes-groupe", "hash": "/personnes", "act": _persons_group, "new": True},
+    {"name": "personnes-filtre", "hash": "/personnes", "act": _persons_filtered, "new": True},
+    {"name": "personnes-groupe-modifier", "hash": "/personnes", "act": _persons_group_edit, "new": True},
+    {"name": "personnes-groupe-supprimer", "hash": "/personnes", "act": _persons_group_delete, "new": True},
+    {"name": "personnes-nouvelle", "hash": "/personnes", "act": _persons_new, "new": True},
+    {"name": "personnes-import-problemes", "hash": "/personnes", "act": _persons_import_problems, "new": True},
+    {"name": "personnes-import-simulation", "hash": "/personnes", "act": _persons_import_ok, "new": True},
+    {"name": "bibliotheque-personnes", "hash": "/interviews", "act": _library_persons, "new": True},
+    {"name": "bibliotheque-exporter", "hash": "/interviews", "act": _library_export_menu, "new": True},
+    {"name": "verification-dialogue", "hash": "/settings", "act": _verification_open, "new": True},
+    {"name": "verification-resultat", "hash": "/settings", "act": _verification_result, "new": True},
 ]
 
 
@@ -544,6 +640,8 @@ def capture(browser, base: str, out: Path, viewport: str, system: str, choice: s
     w, h = VIEWPORTS[viewport]
     ctx = browser.new_context(viewport={"width": w, "height": h}, color_scheme=system, locale="fr-CH", reduced_motion="reduce")
     init = "window.__CS_VIBRANCY__ = true;"
+    if LANG != "fr":
+        init += f"try {{ localStorage.setItem('cs-lang', '{LANG}') }} catch (e) {{}};"
     if choice != "system":
         init += f"try {{ localStorage.setItem('cs-theme', '{choice}') }} catch (e) {{}};"
     ctx.add_init_script(init)
@@ -585,7 +683,7 @@ def capture(browser, base: str, out: Path, viewport: str, system: str, choice: s
                 entry["problems"].append({"check": f"contrast:{f['kind']}", "detail": f"{f['sel']} \"{f['text']}\" text {f['fg']} on {f['bg']}"})
             for f in page.evaluate(LAYOUT_JS):
                 entry["problems"].append({"check": f"layout:{f['kind']}", "detail": f["detail"]})
-            for word, where in page.evaluate(ENGLISH_JS, {"words": ENGLISH["words"], "skip": ENGLISH["skip"]}):
+            for word, where in ([] if LANG != "fr" else page.evaluate(ENGLISH_JS, {"words": ENGLISH["words"], "skip": ENGLISH["skip"]})):
                 entry["problems"].append({"check": "i18n:english", "detail": f"\"{word}\" in: {where}"})
             for e in errors:
                 if "404" in e and "Failed to load resource" in e:
@@ -670,6 +768,7 @@ def main() -> int:
     ap.add_argument("--only", default="", help="comma-separated route names (default: all)")
     ap.add_argument("--viewports", default=",".join(VIEWPORTS))
     ap.add_argument("--combos", default="", help="system/choice pairs, e.g. light/light,dark/system (default: the 6)")
+    ap.add_argument("--lang", default="fr", choices=["fr", "en"], help="interface language (en: only the screens marked new, walked by catalogue keys)")
     ap.add_argument("--list", action="store_true", help="list the routes and exit")
     a = ap.parse_args()
     if a.list:
@@ -678,9 +777,13 @@ def main() -> int:
     if not AXE.exists():
         print("axe-core missing: run `pnpm install` in web/", file=sys.stderr)
         return 2
+    global LANG
+    LANG = a.lang
     out = Path(a.out)
     (out / "shots").mkdir(parents=True, exist_ok=True)
     routes = [r for r in ROUTES if not a.only or r["name"] in a.only.split(",")]
+    if LANG != "fr" and not a.only:
+        routes = [r for r in routes if r.get("new")]
     viewports = a.viewports.split(",")
     combos = [(s, c) for s in SYSTEMS for c in CHOICES]
     if a.combos:

@@ -8,7 +8,9 @@ draws the final audit, judges a claim and exports the Markdown. Then the
 lexical workbench (create a code from keywords, near passages, keyword in
 context) and the review of INT-02 by copy and paste (generate the prompt, import
 a handcrafted answer with a candidate concept, decide a disagreement with the
-keys, decide the candidate, harmonise, library state, pseudonymisation list).
+keys, decide the candidate, harmonise, library state, pseudonymisation list), then Personnes
+(group, person, link to an interview, anonymise and the derived entry of the list, CSV import, move and delete
+a group, the persons of an interview fiche, the derived entries in Paramètres de l'étude) and the verification package.
 
   python3 e2e/seed.py http://127.0.0.1:7979     # once, on an empty database
   PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers python3 e2e/flow.py --base http://127.0.0.1:7979 --out /tmp/flow
@@ -54,7 +56,7 @@ def main() -> int:
     with sync_playwright() as pw:
         browser = pw.chromium.launch()
         page = browser.new_page(viewport={"width": 1440, "height": 900})
-        page.on("console", lambda m: errors.append(m.text) if m.type == "error" else None)
+        page.on("console", lambda m: errors.append(f"{m.text} {m.location.get('url', '')}") if m.type == "error" else None)
         page.on("response", lambda r: errors.append(f"{r.status} {r.url}") if r.status >= 500 else None)
 
         def step(name: str, fn):
@@ -404,25 +406,230 @@ def main() -> int:
             page.goto(f"{base}/#/settings", wait_until="load")
             region = page.get_by_role("region", name="Pseudonymisation avant envoi")
             region.scroll_into_view_if_needed()
+            before = api(base, "GET", "/api/pseudonymisation")
+            assert before["n_person_entries"] >= 5, before["n_person_entries"]  # the seeded register is in force
             region.get_by_role("button", name="Ajouter un nom").click()
             region.get_by_label("Nom réel 3").fill("Mme Rochat")
             region.get_by_label("Pseudonyme 3").fill("Personne B")
             region.get_by_role("button", name="Enregistrer la liste").click()
             page.wait_for_timeout(700)
             p = api(base, "GET", "/api/pseudonymisation")
-            assert p["n_list_entries"] == 3 and p["entries"][-1]["original"] == "Mme Rochat", p
-            expect(region.get_by_text(re.compile("Liste de 3 noms"))).to_be_visible()
+            assert p["n_list_entries"] == before["n_list_entries"] + 1 and p["entries"][-1]["original"] == "Mme Rochat", p
+            expect(region.get_by_text(re.compile(rf"Liste de {p['n_list_entries']} noms"))).to_be_visible()
             side = page.get_by_role("navigation", name="Barre latérale")
             expect(side.get_by_text("Pseudonymisation active")).to_be_visible()
+            # The manual switch alone: the anonymised records keep the list in force whatever it says.
             region.get_by_role("switch").click()
-            expect(side.get_by_text("Pseudonymisation inactive")).to_be_visible()
-            assert api(base, "GET", "/api/pseudonymisation")["enabled"] is False
-            region.get_by_role("switch").click()
+            expect(region.get_by_text(re.compile("la liste reste active"))).to_be_visible()
+            p = api(base, "GET", "/api/pseudonymisation")
+            assert p["enabled_manual"] is False and p["enabled"] is True, p
             expect(side.get_by_text("Pseudonymisation active")).to_be_visible()
-            assert api(base, "GET", "/api/pseudonymisation")["enabled"] is True
+            region.get_by_role("switch").click()
+            page.wait_for_timeout(500)
+            p = api(base, "GET", "/api/pseudonymisation")
+            assert p["enabled_manual"] is True and p["enabled"] is True, p
             shot(page, "19_parametres_pseudonymisation")
 
         step("paramètres: éditer la liste de pseudonymisation et l'interrupteur", settings_pseudonymisation)
+
+        # ---- Personnes: the register of the people interviewed.
+        def personnes_create_group_person_link():
+            page.goto(f"{base}/#/personnes", wait_until="load")
+            tree = page.get_by_role("table", name="Arbre des groupes")
+            people = page.get_by_role("table", name="Liste des personnes")
+            expect(tree.get_by_text("Suisse romande")).to_be_visible()
+            expect(people.get_by_text("Sophie Aubry")).to_be_visible()
+            expect(page.get_by_role("navigation", name="Barre latérale").get_by_role("link", name=re.compile("^Personnes"))).to_be_visible()
+            shot(page, "30_personnes")
+            # A group, then a person created in it.
+            page.get_by_role("button", name="+ Groupe").click()
+            dialog = page.get_by_role("dialog")
+            dialog.get_by_label("Nom du groupe").fill("Bibliothèques scolaires")
+            dialog.get_by_role("button", name="Créer le groupe").click()
+            expect(dialog).to_have_count(0)
+            group = next(g for g in api(base, "GET", "/api/person-groups")["groups"] if g["name"] == "Bibliothèques scolaires")
+            expect(tree.get_by_text("Bibliothèques scolaires")).to_be_visible()
+            page.get_by_role("button", name="+ Personne").click()
+            dialog = page.get_by_role("dialog")
+            dialog.get_by_label("Nom", exact=True).fill("Isabelle Garnier")
+            dialog.get_by_role("button", name="Créer la fiche").click()
+            expect(dialog).to_have_count(0)
+            side = page.get_by_role("complementary", name="Fiche de la personne")
+            expect(side.get_by_label("Nom", exact=True)).to_have_value("Isabelle Garnier")
+            made = next(p for p in api(base, "GET", "/api/persons")["persons"] if p["name"] == "Isabelle Garnier")
+            assert made["group_ids"] == [group["group_id"]] and made["anonymise"] is True and made["pseudonym"], made
+            # Link it to an interview with a role, from the fiche.
+            side.get_by_label("Entretien à lier").select_option("INT-02")
+            side.get_by_label("Rôle à donner").select_option("co_respondent")
+            side.get_by_role("button", name="Lier", exact=True).click()
+            page.wait_for_function("() => document.body.innerText.includes('Retirer')")
+            detail = api(base, "GET", f"/api/persons/{made['person_id']}")
+            assert [(i["interview_id"], i["role"]) for i in detail["interviews"]] == [("INT-02", "co_respondent")], detail["interviews"]
+            # A name that another record already carries is refused, in plain words.
+            side.get_by_placeholder("Nouvel alias").fill("Sophie")
+            side.get_by_role("button", name="Ajouter", exact=True).click()
+            expect(page.get_by_role("alert").first).to_contain_text("déjà pris")
+            assert api(base, "GET", f"/api/persons/{made['person_id']}")["aliases"] == []
+            shot(page, "31_personnes_nouvelle_fiche")
+
+        step("personnes: créer un groupe, une personne, la lier à un entretien, nom en conflit", personnes_create_group_person_link)
+
+        def personnes_toggle_anonymise():
+            page.goto(f"{base}/#/personnes", wait_until="load")
+            people = page.get_by_role("table", name="Liste des personnes")
+            page.get_by_role("table", name="Arbre des groupes").get_by_text("Toutes les personnes").click()
+            people.get_by_text("Médiathèque des Rives").first.click()
+            side = page.get_by_role("complementary", name="Fiche de la personne")
+            switch = side.get_by_role("switch", name="Anonymiser")
+            expect(switch).to_have_attribute("aria-checked", "true")
+
+            def derived(path):
+                return [e for e in api(base, "GET", path)["entries"] if e["original"] == "Médiathèque des Rives"]
+
+            assert derived("/api/interviews/INT-02/pseudonymisation"), "le nom de la fiche anonymisée manque à la liste de INT-02"
+            assert any(e.get("source") == "person" and e["original"] == "Médiathèque des Rives" for e in api(base, "GET", "/api/pseudonymisation")["entries"])
+            switch.click()
+            expect(switch).to_have_attribute("aria-checked", "false")
+            assert not derived("/api/interviews/INT-02/pseudonymisation"), "le nom reste dans la liste alors que la fiche n'est plus anonymisée"
+            switch.click()
+            expect(switch).to_have_attribute("aria-checked", "true")
+            assert derived("/api/interviews/INT-02/pseudonymisation")
+            # A pseudonym typed in the fiche is kept, and it is the one the list uses.
+            side.locator("#p-pseudonym").fill("Médiathèque A")
+            side.locator("#p-pseudonym").press("Enter")
+            page.wait_for_timeout(600)
+            assert next(e for e in derived("/api/pseudonymisation")) ["pseudonym"] == "Médiathèque A"
+            shot(page, "32_personnes_anonymiser")
+
+        step("personnes: anonymiser et désanonymiser, l'entrée dérivée suit la liste", personnes_toggle_anonymise)
+
+        def personnes_import_csv():
+            page.goto(f"{base}/#/personnes", wait_until="load")
+            page.get_by_role("button", name="Importer un CSV").click()
+            dialog = page.get_by_role("dialog")
+            with page.expect_download() as dl:
+                dialog.get_by_role("button", name="Télécharger le modèle").click()
+            header = Path(dl.value.path()).read_text().splitlines()[0]
+            assert header.startswith("person_id,name,kind,") and "attr:anciennete" in header and "attr:taille" in header, header
+            n0 = api(base, "GET", "/api/persons")["n"]
+            apply_btn = dialog.get_by_role("button", name="Appliquer", exact=True)
+            dialog.get_by_label("Contenu du fichier CSV").fill("name,kind,groups\nPaul Dumas,animal,Détaillants/Vaud\n")
+            dialog.get_by_role("button", name="Vérifier le fichier").click()
+            expect(dialog.get_by_role("table", name="Problèmes du fichier")).to_contain_text("Le type doit être")
+            expect(apply_btn).to_be_disabled()
+            shot(page, "33_personnes_import_problemes")
+            dialog.get_by_label("Contenu du fichier CSV").fill("name,kind,groups,interviews,anonymise\nPaul Dumas,person,Détaillants/Vaud,INT-01:mentioned,non\n")
+            expect(apply_btn).to_be_disabled()  # changed since the check
+            dialog.get_by_role("button", name="Vérifier le fichier").click()
+            expect(dialog.get_by_text("Vérification réussie")).to_be_visible()
+            expect(dialog).to_contain_text("Groupes qui seront créés : Détaillants/Vaud")
+            assert api(base, "GET", "/api/persons")["n"] == n0, "la simulation a écrit"
+            shot(page, "34_personnes_import_simulation")
+            apply_btn.click()
+            expect(dialog.get_by_text("Import appliqué.")).to_be_visible()
+            assert api(base, "GET", "/api/persons")["n"] == n0 + 1
+            paul = next(p for p in api(base, "GET", "/api/persons")["persons"] if p["name"] == "Paul Dumas")
+            assert paul["anonymise"] is False and paul["n_interviews"] == 1, paul
+            dialog.get_by_role("button", name="Vérifier le fichier").click()
+            expect(dialog.get_by_text(re.compile("1 inchangée"))).to_be_visible()  # the same file changes nothing
+            dialog.get_by_role("button", name="Fermer").last.click()
+            expect(dialog).to_have_count(0)
+
+        step("personnes: importer un CSV (modèle, simulation, problèmes, application)", personnes_import_csv)
+
+        def personnes_move_group():
+            page.goto(f"{base}/#/personnes", wait_until="load")
+            tree = page.get_by_role("table", name="Arbre des groupes")
+            tree.get_by_text("Bibliothèques scolaires").click()
+            page.get_by_role("button", name="Modifier", exact=True).click()
+            dialog = page.get_by_role("dialog")
+            dialog.get_by_label("Groupe parent").select_option(label="Médiathèques")
+            dialog.get_by_role("button", name="Enregistrer").click()
+            expect(dialog).to_have_count(0)
+            tr = api(base, "GET", "/api/person-groups")["groups"]
+            med = next(g for g in tr if g["name"] == "Médiathèques")
+            assert [c["name"] for c in med["children"]] == ["Bibliothèques scolaires"], med["children"]
+            assert med["n_persons_total"] == 3, med["n_persons_total"]  # Marc, the organisation and the new person, rolled up
+            # Delete with reassignment: the members and sub-groups go to the chosen group.
+            tree.get_by_text("Médiathèques", exact=True).first.click()
+            page.get_by_role("button", name="Supprimer", exact=True).first.click()
+            dialog = page.get_by_role("dialog")
+            confirm = dialog.get_by_role("button", name="Supprimer le groupe")
+            expect(confirm).to_be_disabled()
+            dialog.get_by_label("Rattacher les sous-groupes et les membres à").select_option(label="Détaillants")
+            confirm.click()
+            expect(dialog).to_have_count(0)
+            tr = api(base, "GET", "/api/person-groups")["groups"]
+            det = next(g for g in tr if g["name"] == "Détaillants")
+            assert "Bibliothèques scolaires" in [c["name"] for c in det["children"]], det["children"]
+            assert not any(g["name"] == "Médiathèques" for g in tr)
+            assert all(p["group_ids"] for p in api(base, "GET", "/api/persons?q=Garnier")["persons"])
+            shot(page, "35_personnes_groupes")
+
+        step("personnes: déplacer un groupe, supprimer avec réaffectation", personnes_move_group)
+
+        def bibliotheque_personnes():
+            page.goto(f"{base}/#/interviews", wait_until="load")
+            page.get_by_role("row").filter(has_text="INT-01").first.click()
+            box = page.get_by_role("complementary", name="Fiche INT-01").get_by_role("group", name="Personnes de l'entretien INT-01")
+            expect(box).to_contain_text("Sophie Aubry")
+            expect(box).to_contain_text("pour le modèle : « Répondant 01 »")
+            expect(box).to_contain_text("Léa Morand")
+            box.get_by_label("Personne à lier").select_option(label="Marc Bovet")
+            box.get_by_label("Rôle à donner").select_option("mentioned")
+            box.get_by_role("button", name="Lier", exact=True).click()
+            box.get_by_role("button", name="Retirer Marc Bovet de cet entretien").wait_for()
+            links = {p["person_id"]: p["role"] for p in api(base, "GET", "/api/interviews/INT-01/persons")["persons"]}
+            assert links.get("P-0003") == "mentioned", links
+            shot(page, "36_bibliotheque_personnes")
+            box.get_by_role("button", name="Retirer Marc Bovet de cet entretien").click()
+            page.wait_for_function("() => !document.querySelector('[aria-label=\"Retirer Marc Bovet de cet entretien\"]')")
+            assert "P-0003" not in {p["person_id"] for p in api(base, "GET", "/api/interviews/INT-01/persons")["persons"]}
+
+        step("bibliothèque: personnes de la fiche d'un entretien, lier et retirer", bibliotheque_personnes)
+
+        def settings_derived_entries():
+            page.goto(f"{base}/#/settings", wait_until="load")
+            region = page.get_by_role("region", name="Pseudonymisation avant envoi")
+            region.scroll_into_view_if_needed()
+            derived = region.get_by_role("table", name="Noms issus des fiches de Personnes")
+            expect(derived).to_contain_text("Sophie Aubry")
+            expect(derived).to_contain_text("Médiathèque A")
+            assert derived.locator("input, select").count() == 0, "une entrée dérivée est modifiable"
+            expect(region.get_by_label("Nom réel 1")).to_have_value("Claire Vuilleumier")  # the manual part comes after
+            shot(page, "37_parametres_entrees_derivees")
+            derived.get_by_role("link", name=re.compile("Ouvrir la fiche P-0001")).first.click()
+            expect(page.get_by_role("complementary", name="Fiche de la personne").get_by_label("Nom", exact=True)).to_have_value("Sophie Aubry")
+            assert page.url.endswith("#/personnes/P-0001"), page.url
+
+        step("paramètres: entrées dérivées des fiches à part, lien vers la fiche", settings_derived_entries)
+
+        def verification_package():
+            page.goto(f"{base}/#/settings", wait_until="load")
+            page.get_by_role("button", name="Paquet de vérification").click()
+            dialog = page.get_by_role("dialog")
+            expect(dialog.get_by_role("button", name="Générer le paquet")).to_be_disabled()
+            dialog.get_by_role("checkbox", name="INT-02").check()
+            dialog.get_by_role("button", name="Générer le paquet").click()
+            expect(dialog.get_by_test_id("verification-result")).to_be_visible()
+            folder = Path(dialog.get_by_test_id("verification-dir").inner_text())
+            expect(dialog.get_by_test_id("verification-result")).to_contain_text("personnes")
+            shot(page, "38_paquet_verification")
+            assert (folder / "manifest.json").is_file() and (folder / "persons.csv").is_file(), list(folder.iterdir())
+            coded = (folder / "interviews" / "INT-02" / "transcript_coded.md").read_text()
+            assert "Lectis" not in coded and "Claire Vuilleumier" not in coded and "Rives" not in coded, "un nom de la liste reste dans la transcription"
+            public = (folder / "persons.csv").read_text()
+            assert "Médiathèque A" in public and "Répondant 04" in public, public
+            assert "Médiathèque des Rives" not in public and "Garnier" not in public and "@" not in public, public
+            # The same dialog from the toolbar of the library, with the selected interview ticked.
+            page.goto(f"{base}/#/interviews", wait_until="load")
+            page.get_by_role("button", name="Exporter").click()
+            page.get_by_role("menuitem", name="Paquet de vérification").click()
+            dialog = page.get_by_role("dialog")
+            expect(dialog.get_by_role("checkbox", name="INT-01")).to_be_checked()
+            dialog.get_by_role("button", name="Fermer").last.click()
+
+        step("exports: paquet de vérification (paramètres et bibliothèque), noms masqués", verification_package)
 
         # ---- V2: split a code, decide on the keyboard, undo from the journal.
         def v2_split_and_undo():
