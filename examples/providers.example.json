@@ -1,0 +1,28 @@
+{
+  "providers": [
+    {
+      "type": "cli",
+      "id": "local-cli-example",
+      "command": "/path/to/your-local-model-cli",
+      "args": ["--print"],
+      "prompt_via": "stdin",
+      "disable_flags": ["--no-tools"],
+      "declared_execution": { "kind": "local" },
+      "model_label": "example-open-weights-model"
+    },
+    {
+      "type": "open_ai_compatible",
+      "id": "openai-example",
+      "preset": "openai",
+      "api_key_env": "OPENAI_API_KEY",
+      "model": "example-model-name"
+    },
+    {
+      "type": "oauth_chat_gpt",
+      "id": "chatgpt-example",
+      "profile_id": null,
+      "model": "example-model-name",
+      "token_dir": "/path/to/a/private/token/folder"
+    }
+  ]
+}

@@ -1,0 +1,117 @@
+# Continuous integration. Action versions are pinned to commit SHAs; update
+# them deliberately, with the tag they came from in the comment.
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  rust:
+    name: Rust (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+
+      # GitHub runners ship rustup; the stable toolchain is installed explicitly
+      # so that the version is not pinned by a third-party action.
+      - name: Rust stable with rustfmt and clippy
+        run: |
+          rustup toolchain install stable --profile minimal --component rustfmt --component clippy
+          rustup default stable
+          rustc --version
+
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+
+      - name: Format
+        run: cargo fmt --all -- --check
+
+      # cs-desktop needs GTK (Linux) and the Tauri toolchain; it is built and
+      # tested locally with `make desktop-check`.
+      - name: Clippy (Linux and macOS)
+        if: runner.os != 'Windows'
+        run: cargo clippy --workspace --exclude cs-desktop --all-targets -- -D warnings
+
+      # Windows, reduced. tests/providers.rs (cs-ai) and tests/providers_api.rs
+      # (cs-app) import std::os::unix and run /bin/sh scripts, so they do not
+      # compile on Windows. They are left out of the Windows job until they are
+      # gated with #![cfg(unix)] (see the item in docs/PUBLISHING.md).
+      - name: Clippy (Windows, without the unix-only provider tests)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          cargo clippy --workspace --exclude cs-desktop --exclude cs-ai --exclude cs-app --all-targets -- -D warnings
+          cargo clippy -p cs-ai --lib --test oauth --test prompt_template -- -D warnings
+          cargo clippy -p cs-app --lib --bins --test api --test config_api --test e2e -- -D warnings
+
+      - name: Tests (Linux and macOS)
+        if: runner.os != 'Windows'
+        run: cargo test --workspace --exclude cs-desktop
+
+      - name: Tests (Windows, without the unix-only provider tests)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          cargo test --workspace --exclude cs-desktop --exclude cs-ai --exclude cs-app
+          cargo test -p cs-ai --lib --test oauth --test prompt_template
+          cargo test -p cs-app --lib --bins --test api --test config_api --test e2e
+
+  web:
+    name: Web interface
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        with:
+          version: 10
+
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+
+      - name: Install (lockfile is authoritative)
+        run: pnpm install --frozen-lockfile
+
+      # web/package.json has no typecheck script; `tsc -b` is the same check
+      # that `pnpm build` runs first.
+      - name: Type check
+        run: pnpm -s exec tsc -b
+
+      - name: Lint
+        run: pnpm -s lint
+
+      - name: Tests
+        run: pnpm -s exec vitest run
+
+      - name: Build
+        run: pnpm -s build
+
+      # The build embedded in the binary (crates/cs-app/web-dist) must be the
+      # build of the current sources, so a stale UI cannot be released.
+      - name: Embedded build matches web/dist
+        run: |
+          if ! diff -r dist ../crates/cs-app/web-dist; then
+            echo "::error::crates/cs-app/web-dist is stale. Run 'make web' and commit the result."
+            exit 1
+          fi

@@ -2,3 +2,5 @@
 .DS_Store
 *.db
 *.db-journal
+.claude/
+.simple-workflow/

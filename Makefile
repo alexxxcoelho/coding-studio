@@ -8,8 +8,14 @@ THESIS ?= $(abspath ../..)
 # crates/cs-app/web-dist and committed: `cargo build` needs no Node.
 WEB_BUILD ?= $(HOME)/.cache/coding-studio/web
 
-.PHONY: check test lint fmt build run desktop desktop-dev web web-dev web-test
-check: fmt lint test
+.PHONY: check desktop-check test lint fmt build run desktop desktop-dev web web-dev web-test
+# Everything that runs without GTK: the same subset as tools/check.sh.
+check:
+	cargo fmt --all -- --check
+	cargo clippy --workspace --exclude cs-desktop --all-targets -- -D warnings
+	cargo test --workspace --exclude cs-desktop
+# Full workspace, including cs-desktop (needs GTK on Linux).
+desktop-check: fmt lint test
 fmt:
 	cargo fmt --all -- --check
 lint:
