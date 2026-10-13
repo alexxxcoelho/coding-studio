@@ -272,6 +272,12 @@ pub struct ProjectConfig {
     /// Custom matrix dimensions (for example "who imposes", "who pays").
     #[serde(default)]
     pub matrix_dimensions: Vec<ListItem>,
+    /// How a passage came to be said (F-09). The earlier fixed list is the default.
+    #[serde(default = "default_passage_origins")]
+    pub passage_origins: Vec<ListItem>,
+    /// Role of a passage in a decision (F-09). The earlier fixed list is the default.
+    #[serde(default = "default_passage_roles")]
+    pub passage_roles: Vec<ListItem>,
     /// None by default. Used only in Analyse and Write.
     #[serde(default)]
     pub interpretive_framework: Option<Framework>,
@@ -339,6 +345,20 @@ pub fn default_evidence_natures() -> Vec<ListItem> {
     ]
 }
 
+pub fn default_passage_origins() -> Vec<ListItem> {
+    crate::analysis::PASSAGE_ORIGINS
+        .iter()
+        .map(|id| item(id, crate::analysis::passage_origin_label(id)))
+        .collect()
+}
+
+pub fn default_passage_roles() -> Vec<ListItem> {
+    crate::analysis::PASSAGE_ROLES
+        .iter()
+        .map(|id| item(id, crate::analysis::passage_role_label(id)))
+        .collect()
+}
+
 pub fn default_link_types() -> Vec<ListItem> {
     vec![
         item("supports", "soutient"),
@@ -360,6 +380,8 @@ impl Default for ProjectConfig {
             evidence_natures: default_evidence_natures(),
             link_types: default_link_types(),
             matrix_dimensions: Vec::new(),
+            passage_origins: default_passage_origins(),
+            passage_roles: default_passage_roles(),
             interpretive_framework: None,
             memo_history: Vec::new(),
         }
@@ -536,6 +558,8 @@ impl ProjectConfig {
             &self.matrix_dimensions,
             true,
         ));
+        push(check_list("passage origins", &self.passage_origins, true));
+        push(check_list("passage roles", &self.passage_roles, true));
         if let Some(f) = &self.interpretive_framework {
             if f.preset != "custom" && !FRAMEWORK_PRESETS.contains(&f.preset.as_str()) {
                 push(invalid(format!(
