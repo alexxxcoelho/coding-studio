@@ -95,7 +95,7 @@ fn a_definition_word_matches_after_names_and_aliases() {
 #[test]
 fn every_word_of_the_query_must_match() {
     let (s, _d, eco, ..) = fixture();
-    assert_eq!(ids(&search(&s, "circ econ")), [eco.clone()]);
+    assert_eq!(ids(&search(&s, "circ econ")), std::slice::from_ref(&eco));
     assert_eq!(ids(&search(&s, "econ reutil")), [eco]);
     assert!(search(&s, "econ zzz").items.is_empty());
 }
@@ -114,7 +114,7 @@ fn inactive_and_merged_codes_are_left_out_unless_asked() {
             },
         )
         .unwrap();
-    assert_eq!(ids(&r), [cost.clone()]);
+    assert_eq!(ids(&r), std::slice::from_ref(&cost));
     assert!(!r.items[0].active);
     // The merged name finds the target.
     s.set_code_active(&cost, true, ACTOR).unwrap();

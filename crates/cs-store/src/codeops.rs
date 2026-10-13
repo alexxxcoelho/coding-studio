@@ -529,6 +529,7 @@ impl Store {
         })
     }
 
+    #[allow(clippy::type_complexity)]
     fn split_op(&self, op_id: i64) -> Result<(String, Vec<String>, String, Vec<(i64, String)>)> {
         let (kind, code_id, others, rationale, payload) = self.op_row(op_id)?;
         if kind != "split" {

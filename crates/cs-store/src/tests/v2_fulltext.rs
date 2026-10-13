@@ -194,8 +194,8 @@ fn coded_and_not_coded_look_at_the_passages_that_cover_the_match() {
     let r = s.search_text(&q).unwrap();
     assert_eq!(units(&r), [U1, "RET-22-U002"]);
     assert!(r.items[0].coded);
-    assert_eq!(r.items[0].code_ids, [a.clone()]);
-    assert_eq!(r.items[1].passage_ids, [p.clone()]);
+    assert_eq!(r.items[0].code_ids, std::slice::from_ref(&a));
+    assert_eq!(r.items[1].passage_ids, std::slice::from_ref(&p));
     // Only one of the two matches of RET-22-U002 is covered; the unit counts as
     // coded, and also as not entirely coded.
     assert_eq!(r.items[1].matches.len(), 2);

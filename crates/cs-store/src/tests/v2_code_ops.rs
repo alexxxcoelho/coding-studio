@@ -65,7 +65,7 @@ fn a_split_creates_the_new_codes_and_a_worklist_of_every_passage() {
     assert_eq!(out.worklist.total, 3);
     assert_eq!(out.worklist.pending, 3);
     // Nothing moved yet.
-    assert_eq!(codes_of(&s, &ps[0]), [big.clone()]);
+    assert_eq!(codes_of(&s, &ps[0]), std::slice::from_ref(&big));
     let wl = s.split_worklist(out.op_id, None).unwrap();
     assert_eq!(wl.items.len(), 3);
     assert!(wl.items.iter().all(|i| i.status == "pending"));
@@ -95,10 +95,7 @@ fn a_split_needs_two_distinct_parts_and_a_rationale() {
         .split_code("LATER", &split_req(&["A1", "A2"]), ACTOR)
         .is_err());
     // Nothing was created by the refusals.
-    assert_eq!(
-        s.code_nodes().unwrap().iter().filter(|n| !n.system).count() >= 1,
-        true
-    );
+    assert!(s.code_nodes().unwrap().iter().any(|n| !n.system));
     assert!(s.code_nodes().unwrap().iter().all(|n| n.name != "A1"));
 }
 
@@ -127,9 +124,9 @@ fn decisions_assign_one_or_several_new_codes_or_leave_the_passage() {
     assert_eq!((wl.assigned, wl.left), (2, 1));
     let mut want = [l.clone(), r.clone()];
     want.sort();
-    assert_eq!(codes_of(&s, &ps[0]), [l.clone()]);
+    assert_eq!(codes_of(&s, &ps[0]), std::slice::from_ref(&l));
     assert_eq!(codes_of(&s, &ps[1]), want);
-    assert_eq!(codes_of(&s, &ps[2]), [big.clone()]);
+    assert_eq!(codes_of(&s, &ps[2]), std::slice::from_ref(&big));
     // Counts follow.
     let nodes = s.code_nodes().unwrap();
     let n = |id: &str| {
@@ -145,10 +142,10 @@ fn decisions_assign_one_or_several_new_codes_or_leave_the_passage() {
     // A decision can be revised; the earlier one stays on record.
     s.split_decide(out.op_id, &[dec(&ps[0], "assign", &[&r])], ACTOR)
         .unwrap();
-    assert_eq!(codes_of(&s, &ps[0]), [r.clone()]);
+    assert_eq!(codes_of(&s, &ps[0]), std::slice::from_ref(&r));
     s.split_decide(out.op_id, &[dec(&ps[0], "leave", &[])], ACTOR)
         .unwrap();
-    assert_eq!(codes_of(&s, &ps[0]), [big.clone()]);
+    assert_eq!(codes_of(&s, &ps[0]), std::slice::from_ref(&big));
     let rows: i64 = s
         .connection()
         .query_row("SELECT COUNT(*) FROM split_decisions", [], |x| x.get(0))
@@ -177,7 +174,11 @@ fn bad_decisions_are_refused_as_a_whole() {
         vec![dec("P-NOPE", "leave", &[])],
     ] {
         assert!(s.split_decide(out.op_id, &bad, ACTOR).is_err());
-        assert_eq!(codes_of(&s, &ps[0]), [big.clone()], "nothing applied");
+        assert_eq!(
+            codes_of(&s, &ps[0]),
+            std::slice::from_ref(&big),
+            "nothing applied"
+        );
     }
     assert_eq!(s.split_worklist(out.op_id, None).unwrap().pending, 3);
 }
@@ -205,9 +206,9 @@ fn undo_of_a_split_restores_the_original_coding_and_retires_the_new_codes() {
     let late = pcode(&s, ID, U1, Some((0, 5)), &[&r]);
     let rep = s.undo_code_op(out.op_id, "wrong cut", ACTOR).unwrap();
     assert_eq!(rep.kind, "split");
-    assert_eq!(codes_of(&s, &ps[0]), [big.clone()]);
-    assert_eq!(codes_of(&s, &ps[1]), [big.clone()]);
-    assert_eq!(codes_of(&s, &late), [big.clone()]);
+    assert_eq!(codes_of(&s, &ps[0]), std::slice::from_ref(&big));
+    assert_eq!(codes_of(&s, &ps[1]), std::slice::from_ref(&big));
+    assert_eq!(codes_of(&s, &late), std::slice::from_ref(&big));
     let nodes = s.code_nodes().unwrap();
     for id in [&l, &r] {
         let n = nodes.iter().find(|x| &x.code_id == id).unwrap();
@@ -252,8 +253,8 @@ fn undo_of_a_merge_gives_back_codings_aliases_children_and_the_code() {
     let p2 = pcode(&s, ID, U2, None, &[&a, &b]);
     let p3 = pcode(&s, ID, U3, None, &[&b]);
     s.merge_code(&a, &b, "same idea", ACTOR).unwrap();
-    assert_eq!(codes_of(&s, &p1), [b.clone()]);
-    assert_eq!(codes_of(&s, &p2), [b.clone()]);
+    assert_eq!(codes_of(&s, &p1), std::slice::from_ref(&b));
+    assert_eq!(codes_of(&s, &p2), std::slice::from_ref(&b));
     assert_eq!(s.resolve_code("Alfa").unwrap().code_id, b);
     assert_eq!(
         s.code_node(&child).unwrap().parent_id.as_deref(),
@@ -267,9 +268,9 @@ fn undo_of_a_merge_gives_back_codings_aliases_children_and_the_code() {
     assert_eq!(rep.kind, "merge");
     let mut ab = [a.clone(), b.clone()];
     ab.sort();
-    assert_eq!(codes_of(&s, &p1), [a.clone()]);
+    assert_eq!(codes_of(&s, &p1), std::slice::from_ref(&a));
     assert_eq!(codes_of(&s, &p2), ab);
-    assert_eq!(codes_of(&s, &p3), [b.clone()]);
+    assert_eq!(codes_of(&s, &p3), std::slice::from_ref(&b));
     let node = s.code_node(&a).unwrap();
     assert!(node.active);
     assert!(node.merged_into.is_none());

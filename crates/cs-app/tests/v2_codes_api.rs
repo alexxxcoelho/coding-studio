@@ -307,7 +307,7 @@ async fn f39_split_worklist_decisions_journal_and_undo() {
     let ctx = setup().await;
     let adv = code_id(&ctx.app, "TECH-ADV").await;
     let p1 = passage(&ctx, "INT-01", 1, &adv).await;
-    let p2 = passage(&ctx, "INT-01", 2, &adv).await;
+    let p2 = passage(&ctx, "INT-01", 3, &adv).await;
     let split = ok(
         &ctx.app,
         "POST",

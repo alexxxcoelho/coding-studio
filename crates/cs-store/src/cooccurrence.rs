@@ -380,8 +380,11 @@ impl Store {
         let mut out_groups = Vec::new();
         for (key, label, ps) in groups {
             // Diagonal.
-            let mut diag: BTreeMap<&str, (BTreeSet<&str>, BTreeSet<(&str, &str)>, BTreeSet<&str>)> =
-                BTreeMap::new();
+            #[allow(clippy::type_complexity)]
+            let mut diag: BTreeMap<
+                &str,
+                (BTreeSet<&str>, BTreeSet<(&str, &str)>, BTreeSet<&str>),
+            > = BTreeMap::new();
             for p in &ps {
                 for c in p.codes.iter().filter(|c| keep.contains(c.as_str())) {
                     let e = diag.entry(c.as_str()).or_default();
@@ -399,6 +402,7 @@ impl Store {
                     .push(p);
             }
             type Key<'a> = (&'a str, &'a str);
+            #[allow(clippy::type_complexity)]
             let mut cells: BTreeMap<
                 Key,
                 (
