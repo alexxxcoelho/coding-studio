@@ -11,9 +11,10 @@ import { Toolbar } from "@/components/toolbar"
 import { ToolbarSlotsContext } from "@/components/toolbar-context"
 import { useAppearance } from "@/lib/appearance"
 import { screenForRoute } from "@/lib/guide"
+import { holdMenuAction, onDesktopMenu } from "@/lib/desktop"
 import { isSettingsShortcut } from "@/lib/nav"
 import { openInterviews, useOpenInterviews } from "@/lib/open-interviews"
-import type { Route } from "@/lib/router"
+import { interviewHref, navigate, type Route } from "@/lib/router"
 
 const SIDEBAR_KEY = "cs-sidebar-hidden"
 
@@ -60,6 +61,26 @@ export function AppShell({ route, children, pollMs }: { route: Route; children: 
       return !h
     })
   }, [])
+
+  // Native menu of the desktop app (crates/cs-desktop/src/menu.rs).
+  const page = route.page
+  const openId = route.page === "interview" ? route.id : null
+  useEffect(
+    () =>
+      onDesktopMenu((action) => {
+        if (action === "settings") setSettingsOpen(true)
+        else if (action === "toggle-sidebar") toggleSidebar()
+        else if (action === "guide") navigate("#/guide")
+        else if (action === "import") {
+          // The library page opens the dialog, now or as soon as it mounts.
+          if (page !== "library") {
+            holdMenuAction("import")
+            navigate("#/")
+          }
+        } else if (action === "export") navigate(openId ? interviewHref(openId, "audit") : "#/audit")
+      }),
+    [page, openId, setSettingsOpen, toggleSidebar],
+  )
 
   return (
     <div className="app-win bg-background flex min-h-svh gap-2 p-2" data-collapsed={hidden}>

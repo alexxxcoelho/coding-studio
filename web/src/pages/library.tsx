@@ -2,7 +2,7 @@
 // steps, filters En cours / Prêts / Tous, rescan, search, and the Fiche of the
 // selected interview in the inspector.
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 
@@ -14,6 +14,7 @@ import { Capsule, CapsuleItem, ToolbarActions, ToolbarSearch } from "@/component
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { api } from "@/lib/api"
+import { onDesktopMenu, takeMenuAction } from "@/lib/desktop"
 import { keys } from "@/lib/hooks"
 import { reportError } from "@/lib/notify"
 import { codingProgress, matchesInterview, nextAction, pipelineSteps, stageOf, type CodingProgress, type Stage } from "@/lib/pipeline"
@@ -53,6 +54,13 @@ export function LibraryPage() {
   const [search, setSearch] = useState("")
   const [picked, setPicked] = useState<string | null>(null)
   const [importOpen, setImportOpen] = useState(false)
+  // Fichier > Importer des transcriptions... of the desktop menu.
+  useEffect(() => {
+    if (takeMenuAction("import")) setImportOpen(true)
+    return onDesktopMenu((action) => {
+      if (action === "import") setImportOpen(true)
+    })
+  }, [])
 
   const rows = useMemo(() => list.data ?? [], [list.data])
   const progress = useProgress(rows)

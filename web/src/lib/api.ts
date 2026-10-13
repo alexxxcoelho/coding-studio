@@ -122,10 +122,33 @@ export function toApiError(status: number, body: unknown): ApiError {
   return new ApiError(status, kindFromStatus(status), text)
 }
 
+declare global {
+  interface Window {
+    /** Origin of the API, injected by the desktop shell (Tauri) before the page loads. */
+    __CS_API_BASE__?: string
+  }
+}
+
+/**
+ * Origin of the API, without a trailing slash. The desktop shell serves the UI
+ * from its own origin (tauri://localhost, or the Vite dev server) and runs the
+ * server on a loopback port that it announces in `window.__CS_API_BASE__`. Served
+ * by the `coding-studio` binary or proxied by Vite, the base is empty: same origin.
+ */
+export function apiBase(w: { __CS_API_BASE__?: unknown } = window): string {
+  const base = w.__CS_API_BASE__
+  return typeof base === "string" ? base.trim().replace(/\/+$/, "") : ""
+}
+
+/** The URL of an API path such as `/api/state`. Every request goes through it. */
+export function apiUrl(path: string, base: string = apiBase()): string {
+  return `${base}${path}`
+}
+
 export async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
   let res: Response
   try {
-    res = await fetch(path, {
+    res = await fetch(apiUrl(path), {
       method,
       headers: body === undefined ? undefined : { "Content-Type": "application/json" },
       body: body === undefined ? undefined : JSON.stringify(body),
