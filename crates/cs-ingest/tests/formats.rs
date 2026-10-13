@@ -159,8 +159,11 @@ fn docx_without_document_xml_is_an_error() {
 
 #[test]
 fn pdf_text_layer_gives_speaker_turns() {
-    let (turns, warnings) =
-        parse_document(&fixture("interview_text_layer.pdf"), &default_interviewer_names()).unwrap();
+    let (turns, warnings) = parse_document(
+        &fixture("interview_text_layer.pdf"),
+        &default_interviewer_names(),
+    )
+    .unwrap();
 
     assert_eq!(
         rows(&turns),

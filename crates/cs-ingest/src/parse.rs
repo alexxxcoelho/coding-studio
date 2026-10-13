@@ -22,7 +22,7 @@ const TS: &str = r"\d{1,2}:\d{2}(?::\d{2})?";
 
 /// Appends a turn, or extends the previous one when `merge` is set and the
 /// speaker is the same.
-fn push_turn(turns: &mut Vec<Turn>, turn: Turn, merge: bool) {
+pub(crate) fn push_turn(turns: &mut Vec<Turn>, turn: Turn, merge: bool) {
     if turn.text.is_empty() {
         return;
     }
@@ -43,6 +43,25 @@ fn is_interviewer(name: &str, interviewer_names: &[String]) -> bool {
     interviewer_names
         .iter()
         .any(|i| i.trim().to_lowercase() == n)
+}
+
+/// Sets the role of every turn. A speaker matching `interviewer_names` is the
+/// interviewer; with exactly two speakers, the other one is the respondent.
+pub(crate) fn assign_roles(turns: &mut [Turn], interviewer_names: &[String]) {
+    let speakers: BTreeSet<String> = turns.iter().map(|t| t.speaker_raw.clone()).collect();
+    let two_speakers = speakers.len() == 2;
+    let interviewer_present = speakers
+        .iter()
+        .any(|s| is_interviewer(s, interviewer_names));
+    for turn in turns.iter_mut() {
+        turn.role = if is_interviewer(&turn.speaker_raw, interviewer_names) {
+            SpeakerRole::Interviewer
+        } else if two_speakers && interviewer_present {
+            SpeakerRole::Respondent
+        } else {
+            SpeakerRole::Unknown
+        };
+    }
 }
 
 /// Role of a label written by the cleaning pass (`INT`, `RESP`, `REP`).
@@ -102,32 +121,20 @@ pub fn parse_vtt(content: &str, interviewer_names: &[String]) -> Parsed {
         i += 1;
     }
 
-    let speakers: BTreeSet<&str> = raw.iter().map(|(s, _, _)| s.as_str()).collect();
-    let two_speakers = speakers.len() == 2;
     let mut turns = Vec::new();
     for (speaker, ts, text) in &raw {
-        let role = if is_interviewer(speaker, interviewer_names) {
-            SpeakerRole::Interviewer
-        } else if two_speakers
-            && speakers
-                .iter()
-                .any(|s| is_interviewer(s, interviewer_names))
-        {
-            SpeakerRole::Respondent
-        } else {
-            SpeakerRole::Unknown
-        };
         push_turn(
             &mut turns,
             Turn {
                 speaker_raw: speaker.clone(),
-                role,
+                role: SpeakerRole::Unknown,
                 timestamp: ts.clone(),
                 text: text.clone(),
             },
             true,
         );
     }
+    assign_roles(&mut turns, interviewer_names);
     (turns, warnings)
 }
 
@@ -414,7 +421,7 @@ pub fn parse_written_response(content: &str) -> Parsed {
     (turns, warnings)
 }
 
-fn truncate(s: &str, max: usize) -> String {
+pub(crate) fn truncate(s: &str, max: usize) -> String {
     if s.chars().count() <= max {
         s.to_string()
     } else {

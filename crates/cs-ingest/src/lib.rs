@@ -17,6 +17,7 @@ use cs_model::{
     sha256_hex, CsError, InterviewEntry, Segmentation, SourceKind, Turn, Unit, SEGMENTATION_RULE,
 };
 
+mod formats;
 mod parse;
 mod scan;
 mod segment;
@@ -78,6 +79,9 @@ pub fn parse_source(
     let bytes = std::fs::read(path).with_context(|| format!("cannot read {}", path.display()))?;
     let (content, mut warnings) = decode(&bytes);
     let (turns, more) = match kind {
+        SourceKind::Vtt if has_extension(path, "srt") => {
+            formats::parse_srt(&content, interviewer_names)
+        }
         SourceKind::Vtt => parse::parse_vtt(&content, interviewer_names),
         SourceKind::TimestampedText => parse::parse_timestamped_text(&content),
         SourceKind::CleanedMarkdown => parse::parse_cleaned_markdown(&content),
@@ -87,6 +91,49 @@ pub fn parse_source(
     };
     warnings.extend(more);
     Ok((turns, warnings))
+}
+
+/// Reads the speaker turns of a DOCX, text-layer PDF, SRT or VTT file, with
+/// the same turn shape as `parse_source`. Other extensions are refused. A
+/// PDF without a text layer returns no turns and a warning; an unreadable
+/// file returns an error.
+pub fn parse_document(
+    path: &Path,
+    interviewer_names: &[String],
+) -> Result<(Vec<Turn>, Vec<String>)> {
+    let ext = path
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("")
+        .to_lowercase();
+    if !matches!(ext.as_str(), "docx" | "pdf" | "srt" | "vtt") {
+        return Err(CsError::Validation(format!(
+            "unsupported transcript format for {}: expected DOCX, PDF, SRT or VTT",
+            path.display()
+        ))
+        .into());
+    }
+    let bytes = std::fs::read(path).with_context(|| format!("cannot read {}", path.display()))?;
+    match ext.as_str() {
+        "docx" => formats::parse_docx(&bytes, interviewer_names),
+        "pdf" => formats::parse_pdf(&bytes, interviewer_names),
+        _ => {
+            let (content, mut warnings) = decode(&bytes);
+            let (turns, more) = if ext == "srt" {
+                formats::parse_srt(&content, interviewer_names)
+            } else {
+                parse::parse_vtt(&content, interviewer_names)
+            };
+            warnings.extend(more);
+            Ok((turns, warnings))
+        }
+    }
+}
+
+fn has_extension(path: &Path, wanted: &str) -> bool {
+    path.extension()
+        .and_then(|e| e.to_str())
+        .is_some_and(|e| e.eq_ignore_ascii_case(wanted))
 }
 
 /// UTF-8 decoding with BOM removal; invalid bytes are replaced and reported.
