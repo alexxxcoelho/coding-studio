@@ -216,7 +216,7 @@ impl Pseudonymiser {
             .collect();
         // Stable: several names may share a pseudonym (a person and their
         // aliases); the one listed first is the name given back.
-        reverse.sort_by(|a, b| b.0.len().cmp(&a.0.len()));
+        reverse.sort_by_key(|b| std::cmp::Reverse(b.0.len()));
         Pseudonymiser { rules, reverse }
     }
 
