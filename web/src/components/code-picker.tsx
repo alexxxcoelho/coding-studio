@@ -13,6 +13,7 @@ import {
   CommandList,
 } from "@/components/ui/command"
 import { CodeChip } from "@/components/bits"
+import { t } from "@/i18n"
 import { familyName, groupByFamily, groupByToe, hotkeyFor, matchesQuery, NA, toggleCode } from "@/lib/codes"
 import { cn } from "@/lib/utils"
 import type { Code } from "@/lib/types"
@@ -50,7 +51,7 @@ export function CodePicker({
   const groups = toeMode
     ? groupByToe(allowed, phase1Contexts ?? []).map((g) => ({
         id: g.key,
-        heading: g.highlighted ? `${g.title}, préclassé` : g.title,
+        heading: g.highlighted ? t("code_picker.title_preclasse", { title: g.title }) : g.title,
         highlighted: g.highlighted,
         codes: g.codes,
       }))
@@ -71,23 +72,23 @@ export function CodePicker({
         return code && matchesQuery(code, search) ? 1 : 0
       }}
     >
-      <CommandInput placeholder="Filtrer les codes, Entrée pour poser ou retirer" autoFocus={autoFocus} disabled={disabled} />
+      <CommandInput placeholder={t("code_picker.filtrer_les_codes_entree_pour")} autoFocus={autoFocus} disabled={disabled} />
       <CommandList className="max-h-[22rem]">
-        <CommandEmpty>Aucun code autorisé ne correspond.</CommandEmpty>
+        <CommandEmpty>{t("code_picker.aucun_code_autorise_ne_correspond")}</CommandEmpty>
         {groups.map(({ id, heading, highlighted, codes }) => (
           <CommandGroup key={id} heading={heading} className={cn(highlighted && "bg-accent/40 [&_[cmdk-group-heading]]:text-foreground")}>
             {codes.map((c) => {
               const on = value.includes(c.code)
               const rqs = c.research_questions ?? []
-              const tip = [c.definition, rqs.length ? `Questions de recherche : ${rqs.join(", ")}` : ""].filter(Boolean).join("\n")
+              const tip = [c.definition, rqs.length ? t("code_picker.questions_de_recherche_join", { join: rqs.join(", ") }) : ""].filter(Boolean).join("\n")
               return (
                 <CommandItem key={c.code} value={c.code} onSelect={() => toggle(c.code)} disabled={disabled} aria-selected={on} title={tip}>
                   <Check className={cn("size-3.5", on ? "opacity-100" : "opacity-0")} aria-hidden />
                   <CodeChip code={c.code} family={c.family} />
                   <span className="text-muted-foreground truncate text-xs">{c.label}</span>
                   {toeMode && c.origin === "field" && (
-                    <span className="text-inductive ml-auto shrink-0 rounded border border-current/30 px-1 text-[0.65rem]" title="Code créé sur le terrain">
-                      terrain
+                    <span className="text-inductive ml-auto shrink-0 rounded border border-current/30 px-1 text-[0.65rem]" title={t("code_picker.code_cree_sur_le_terrain")}>
+                      {t("code_picker.terrain")}
                     </span>
                   )}
                   {key(c.code)}
@@ -96,11 +97,11 @@ export function CodePicker({
             })}
           </CommandGroup>
         ))}
-        <CommandGroup heading="Aucun code ne s'applique">
+        <CommandGroup heading={t("code_picker.aucun_code_ne_s_applique")}>
           <CommandItem value={NA} onSelect={() => toggle(NA)} disabled={disabled}>
             <Check className={cn("size-3.5", value.includes(NA) ? "opacity-100" : "opacity-0")} aria-hidden />
             <CodeChip code={NA} family="NA" />
-            <span className="text-muted-foreground text-xs">Non applicable, retire les autres codes</span>
+            <span className="text-muted-foreground text-xs">{t("code_picker.non_applicable_retire_les_autres")}</span>
             {key(NA)}
           </CommandItem>
         </CommandGroup>

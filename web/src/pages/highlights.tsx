@@ -9,6 +9,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { LexiconInspector } from "@/components/lexicon/inspector"
 import { NewCodeDialog, type NewCodeTarget } from "@/components/coder/new-code-dialog"
 import { shortId } from "@/components/coder/turn"
+import { t } from "@/i18n"
 import { StepsCapsule } from "@/pages/coder"
 import { EmptyState, PageTitle } from "@/components/bits"
 import { SearchIcon } from "@/components/icons"
@@ -50,40 +51,40 @@ export function HighlightsPage({ id }: { id: string }) {
   const code = useMutation({
     mutationFn: (v: { p: Passage; code: string }) => api.addCoding(v.p.passage_id, v.code),
     onSuccess: () => invalidatePassages(qc, id),
-    onError: (e) => reportError(e, "Code non posé"),
+    onError: (e) => reportError(e, t("common.code_non_pose")),
   })
   const remove = useMutation({
     mutationFn: (p: Passage) => api.deletePassage(p.passage_id),
     onSuccess: () => invalidatePassages(qc, id),
-    onError: (e) => reportError(e, "Surlignage non supprimé"),
+    onError: (e) => reportError(e, t("highlights.surlignage_non_supprime")),
   })
 
   if (passagesQ.isLoading || unitsQ.isLoading) return <Skeleton className="h-64 w-full" />
   return (
     <>
-      <PageTitle title={id} sub={`Codage · surlignage · ${highlights.length} surlignage${highlights.length > 1 ? "s" : ""} sans code`} />
+      <PageTitle title={id} sub={t("highlights.codage_surlignage_n_surlignages_sans", { n: highlights.length })} />
       <ToolbarActions>
         <StepsCapsule id={id} current="surlignages" highlights={highlights.length} />
         <label className="search">
           <SearchIcon />
-          <input type="search" value={search} placeholder="Rechercher dans les surlignages" aria-label="Rechercher dans les surlignages" onChange={(e) => setSearch(e.target.value)} />
+          <input type="search" value={search} placeholder={t("highlights.rechercher_dans_les_surlignages")} aria-label={t("highlights.rechercher_dans_les_surlignages")} onChange={(e) => setSearch(e.target.value)} />
         </label>
       </ToolbarActions>
       <div className="content">
-        <section className="tx" aria-label="Surlignages">
+        <section className="tx" aria-label={t("common.surlignages")}>
           <p className="small l2" style={{ margin: "0 12px 8px" }}>
-            Un surlignage n'est pas un code : il reste visible et sert de citation candidate. Codez-le avec un code existant, ou faites-en un nouveau code dont il devient l'origine et le premier exemple.
+            {t("highlights.un_surlignage_n_est_pas")}
           </p>
           {shown.length === 0 ? (
             <EmptyState
-              title={highlights.length === 0 ? "Aucun surlignage sans code" : "Aucun surlignage ne correspond"}
+              title={highlights.length === 0 ? t("highlights.aucun_surlignage_sans_code") : t("highlights.aucun_surlignage_ne_correspond")}
               action={
                 <Button asChild variant="outline">
-                  <a href={interviewHref(id, "coding")}>Retourner à Coder</a>
+                  <a href={interviewHref(id, "coding")}>{t("common.retourner_a_coder")}</a>
                 </Button>
               }
             >
-              Dans Coder, sélectionnez un passage à la souris puis appuyez sur H, ou cliquez sur Surligner.
+              {t("highlights.dans_coder_selectionnez_un_passage")}
             </EmptyState>
           ) : (
             shown.map((p) => {
@@ -110,12 +111,12 @@ export function HighlightsPage({ id }: { id: string }) {
                     </p>
                     <div className="applied">
                       <NativeSelect
-                        aria-label={`Coder ${shortId(p.unit_id)} avec un code existant`}
+                        aria-label={t("highlights.coder_shortid_avec_un_code", { shortId: shortId(p.unit_id) })}
                         style={{ width: 200 }}
                         value=""
                         onChange={(e) => e.target.value && code.mutate({ p, code: e.target.value })}
                       >
-                        <option value="">Coder avec…</option>
+                        <option value="">{t("common.coder_avec")}</option>
                         {usable.map((c) => (
                           <option key={c.code_id} value={c.code_id}>
                             {codeName(c)}
@@ -123,10 +124,10 @@ export function HighlightsPage({ id }: { id: string }) {
                         ))}
                       </NativeSelect>
                       <Button variant="outline" onClick={() => setTarget({ unitId: p.unit_id, passageId: p.passage_id, range: null, text: p.text })}>
-                        Nouveau code depuis le surlignage…
+                        {t("highlights.nouveau_code_depuis_le_surlignage")}
                       </Button>
                       <Button variant="ghost" onClick={() => remove.mutate(p)}>
-                        Supprimer
+                        {t("common.supprimer")}
                       </Button>
                     </div>
                   </div>
@@ -135,7 +136,7 @@ export function HighlightsPage({ id }: { id: string }) {
             })
           )}
         </section>
-        <aside className="insp insp-sticky" style={{ flexBasis: 340 }} aria-label="Lexique">
+        <aside className="insp insp-sticky" style={{ flexBasis: 340 }} aria-label={t("common.lexique")}>
           <LexiconInspector
             passageId={selected?.passage_id ?? null}
             unitLabel={selected ? shortId(selected.unit_id) : null}
@@ -143,9 +144,9 @@ export function HighlightsPage({ id }: { id: string }) {
           />
         </aside>
       </div>
-      <div className="keys" aria-label="Raccourcis" style={{ margin: "0 -1.25rem" }}>
+      <div className="keys" aria-label={t("common.raccourcis")} style={{ margin: "0 -1.25rem" }}>
         <span>
-          <span className="kbd">H</span> surligner sans coder (dans Coder)
+          <span className="kbd">H</span> {t("highlights.surligner_sans_coder_dans_coder")}
         </span>
       </div>
       <NewCodeDialog interviewId={id} target={target} codes={codes} onClose={() => setTarget(null)} />

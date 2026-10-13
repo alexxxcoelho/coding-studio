@@ -10,6 +10,7 @@ import { toast } from "sonner"
 import { Alerts } from "@/components/settings/fields"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { t } from "@/i18n"
 import { ApiError, api } from "@/lib/api"
 import { keys } from "@/lib/hooks"
 import { reportError } from "@/lib/notify"
@@ -38,7 +39,7 @@ export function ProjectTemplateButtons() {
     try {
       download("modele-de-projet.json", await api.projectTemplate())
     } catch (e) {
-      reportError(e, "Export refusé")
+      reportError(e, t("settings.project_template.export_refuse"))
     }
   }
   const pick = async (file: File | undefined) => {
@@ -49,7 +50,7 @@ export function ProjectTemplateButtons() {
       setPending({ template, report: await api.importTemplate(template, true) })
     } catch (e) {
       setPending(null)
-      setError(e instanceof SyntaxError ? "Ce fichier n'est pas un JSON valide." : msg(e))
+      setError(e instanceof SyntaxError ? t("settings.project_template.ce_fichier_n_est_pas") : msg(e))
     }
     if (input.current) input.current.value = ""
   }
@@ -59,7 +60,7 @@ export function ProjectTemplateButtons() {
     try {
       await api.importTemplate(pending.template, false)
       await Promise.all([qc.invalidateQueries({ queryKey: keys.projectConfig }), qc.invalidateQueries({ queryKey: ["questions"] }), qc.invalidateQueries({ queryKey: ["config"] })])
-      toast.success("Modèle de projet importé")
+      toast.success(t("settings.project_template.modele_de_projet_importe"))
       setPending(null)
     } catch (e) {
       setError(msg(e))
@@ -70,12 +71,12 @@ export function ProjectTemplateButtons() {
 
   return (
     <>
-      <input ref={input} type="file" accept="application/json,.json" hidden aria-label="Fichier de modèle de projet" onChange={(e) => pick(e.target.files?.[0])} />
+      <input ref={input} type="file" accept="application/json,.json" hidden aria-label={t("settings.project_template.fichier_de_modele_de_projet")} onChange={(e) => pick(e.target.files?.[0])} />
       <Button variant="outline" onClick={() => input.current?.click()}>
-        Importer un modèle de projet…
+        {t("settings.project_template.importer_un_modele_de_projet")}
       </Button>
       <Button variant="outline" onClick={exportIt}>
-        Exporter…
+        {t("settings.project_template.exporter")}
       </Button>
       {error && !pending && (
         <div style={{ flexBasis: "100%" }}>
@@ -85,11 +86,11 @@ export function ProjectTemplateButtons() {
       <Dialog open={pending !== null} onOpenChange={(o) => !o && setPending(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Importer ce modèle de projet ?</DialogTitle>
-            <DialogDescription>Voici ce que l'import changerait. Rien n'est modifié tant que vous ne confirmez pas.</DialogDescription>
+            <DialogTitle>{t("settings.project_template.importer_ce_modele_de_projet")}</DialogTitle>
+            <DialogDescription>{t("settings.project_template.voici_ce_que_l_import")}</DialogDescription>
           </DialogHeader>
           {pending && pending.report.problems.length > 0 && <Alerts messages={pending.report.problems} />}
-          {pending && pending.report.changes.length === 0 && pending.report.problems.length === 0 && <p className="small l2">Ce modèle ne change rien.</p>}
+          {pending && pending.report.changes.length === 0 && pending.report.problems.length === 0 && <p className="small l2">{t("settings.project_template.ce_modele_ne_change_rien")}</p>}
           <ul className="small" style={{ margin: 0, paddingLeft: 18, maxHeight: 240, overflow: "auto" }}>
             {pending?.report.changes.map((c, i) => (
               <li key={i}>
@@ -101,10 +102,10 @@ export function ProjectTemplateButtons() {
           {error && <Alerts messages={[error]} />}
           <DialogFooter>
             <Button variant="outline" onClick={() => setPending(null)}>
-              Annuler
+              {t("common.annuler")}
             </Button>
             <Button disabled={busy || !pending || pending.report.problems.length > 0} onClick={apply}>
-              Importer
+              {t("common.importer")}
             </Button>
           </DialogFooter>
         </DialogContent>

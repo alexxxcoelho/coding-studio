@@ -13,31 +13,32 @@ import { ProjectTemplateButtons } from "@/components/settings/project-template"
 import { ResearchQuestionsEditor } from "@/components/settings/research-questions"
 import { StudyConfigSection } from "@/components/settings/study-config"
 import { ToolbarActions } from "@/components/toolbar"
+import { t } from "@/i18n"
 
 const EXPORTS = [
-  { href: "#/audit", label: "Journal d'audit", note: "Chaque action, en ajout seul, avec la chaîne SHA-256." },
-  { href: "#/saturation", label: "Table de saturation", note: "Premier usage et création des codes, entretien par entretien." },
-  { href: "#/cross-case", label: "Matrice transversale", note: "Les thèmes par entretien et par dimension." },
-  { href: "#/to-clarify", label: "À clarifier", note: "Étiquettes provisoires posées en phase 2." },
+  { href: "#/audit", get label() { return t("common.journal_d_audit") }, get note() { return t("settings.chaque_action_en_ajout_seul") } },
+  { href: "#/saturation", get label() { return t("settings.table_de_saturation") }, get note() { return t("settings.premier_usage_et_creation_des") } },
+  { href: "#/cross-case", get label() { return t("settings.matrice_transversale") }, get note() { return t("settings.les_themes_par_entretien_et") } },
+  { href: "#/to-clarify", get label() { return t("common.a_clarifier") }, get note() { return t("settings.etiquettes_provisoires_posees_en_pha") } },
 ]
 
 export function SettingsPage() {
   return (
     <div className="flex flex-col gap-5" style={{ maxWidth: 820 }}>
-      <PageTitle title="Paramètres de l'étude" sub="Enregistrés dans coding.db, avec l'étude" />
+      <PageTitle title={t("common.parametres_de_l_etude")} sub={t("settings.enregistres_dans_coding_db_avec")} />
       <ToolbarActions>
         <ProjectTemplateButtons />
       </ToolbarActions>
       <StudyConfigSection />
-      <Section title="Questions de recherche">
+      <Section title={t("common.questions_de_recherche")}>
         <ResearchQuestionsEditor />
       </Section>
-      <Section title="Modèles et listes de l'étude">
+      <Section title={t("common.modeles_et_listes_de_l")}>
         <ProjectListsSection />
       </Section>
       <PseudonymisationSection />
       <CodebookImportSection />
-      <Section title="Exports et vérification" aside="ces vues sont des sorties, pas des étapes">
+      <Section title={t("settings.exports_et_verification")} aside={t("settings.ces_vues_sont_des_sorties")}>
         <ul className="m-0 flex list-none flex-col gap-2 p-0">
           {EXPORTS.map((e) => (
             <li key={e.href} className="flex flex-wrap items-baseline gap-x-3">

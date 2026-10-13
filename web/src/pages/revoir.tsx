@@ -10,6 +10,7 @@ import { Harmonise } from "@/components/revoir/harmonise"
 import { RevueIa } from "@/components/revoir/revue-ia"
 import { ToolbarActions } from "@/components/toolbar"
 import { Skeleton } from "@/components/ui/skeleton"
+import { t } from "@/i18n"
 import { api } from "@/lib/api"
 import { reviewProgress } from "@/lib/review"
 import { keys } from "@/lib/hooks"
@@ -44,15 +45,15 @@ export function RevoirPage({ id, part }: { id: string; part: RevoirPart }) {
       <PageTitle title={id} sub={`Revue · ${status}`} />
       <ToolbarActions>
         <StepsCapsule id={id} current="revoir" />
-        <nav className="cap" aria-label="Volets de la revue">
+        <nav className="cap" aria-label={t("revoir.volets_de_la_revue")}>
           <a className={cn("ci", part === "harmonise" && "on")} href={interviewHref(id, "harmonise")} aria-current={part === "harmonise" ? "page" : undefined}>
-            Harmoniser{toHarmonise > 0 && <span className="n">{toHarmonise}</span>}
+            {t("revoir.harmoniser")}{toHarmonise > 0 && <span className="n">{toHarmonise}</span>}
           </a>
           <a className={cn("ci", part === "ai" && "on")} href={interviewHref(id, "ai")} aria-current={part === "ai" ? "page" : undefined}>
-            Revue IA
+            {t("common.revue_ia")}
           </a>
           <a className={cn("ci", part === "review" && "on")} href={interviewHref(id, "review")} aria-current={part === "review" ? "page" : undefined}>
-            Décisions{remaining > 0 && <span className="n">{remaining}</span>}
+            {t("revoir.decisions")}{remaining > 0 && <span className="n">{remaining}</span>}
           </a>
         </nav>
       </ToolbarActions>
@@ -61,7 +62,7 @@ export function RevoirPage({ id, part }: { id: string; part: RevoirPart }) {
       ) : loading ? (
         <Skeleton className="h-64 w-full" />
       ) : failed ? (
-        <Banner tone="danger" title="La revue n'a pas pu être chargée">
+        <Banner tone="danger" title={t("revoir.la_revue_n_a_pas")}>
           {failed.message}
         </Banner>
       ) : part === "ai" ? (

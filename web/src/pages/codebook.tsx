@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
+import { t } from "@/i18n"
 import { analysisApi } from "@/lib/analysis-api"
 import { ApiError, api } from "@/lib/api"
 import { codeColor, descendantIds, LATER_ID, possibleParents, wouldCycle } from "@/lib/code-tree"
@@ -46,10 +47,10 @@ function useInvalidateCodes() {
 
 /** "ECO-12" style origin text of a code: literature, field, system. */
 function originLabel(c: CodeNode): string {
-  if (c.system) return "système"
-  if (c.origin === "literature") return "littérature"
+  if (c.system) return t("codebook.systeme")
+  if (c.origin === "literature") return t("codebook.litterature")
   if (c.origin === "field") return "terrain"
-  if (c.origin === "phase1") return "catégorie"
+  if (c.origin === "phase1") return t("codebook.categorie")
   return c.origin
 }
 
@@ -76,7 +77,7 @@ export function CodebookPage() {
   const move = useMutation({
     mutationFn: (v: { id: string; parent: string | null }) => api.moveCode(v.id, v.parent, "Déplacé dans l'arbre"),
     onSuccess: () => refresh(),
-    onError: (e) => reportError(e, "Déplacement refusé"),
+    onError: (e) => reportError(e, t("codebook.deplacement_refuse")),
   })
 
   const drop = (target: CodeNode) => {
@@ -85,7 +86,7 @@ export function CodebookPage() {
     setDropId(null)
     if (!id || id === target.code_id) return
     if (wouldCycle(codes, id, target.code_id)) {
-      toast.error("Un code ne peut pas devenir sous-code de l'un de ses sous-codes.")
+      toast.error(t("codebook.un_code_ne_peut_pas"))
       return
     }
     move.mutate({ id, parent: target.code_id })
@@ -102,47 +103,47 @@ export function CodebookPage() {
   return (
     <>
       <PageTitle
-        title="Codebook"
-        sub={codesQ.data ? `Version ${codesQ.data.codebook_version} · ${nActive} codes actifs · ${nMerged} fusionné${nMerged > 1 ? "s" : ""}` : " "}
+        title={t("common.codebook")}
+        sub={codesQ.data ? t("codebook.version_codebook_version_nactive_cod", { n: nMerged, codebook_version: codesQ.data.codebook_version, nActive }) : " "}
       />
       <ToolbarActions>
         <Capsule>
-          <CapsuleItem onClick={() => setDialog("history")}>Historique</CapsuleItem>
+          <CapsuleItem onClick={() => setDialog("history")}>{t("codebook.historique")}</CapsuleItem>
           <span className="vs" />
-          <CapsuleItem onClick={() => setDialog("journal")}>Journal</CapsuleItem>
+          <CapsuleItem onClick={() => setDialog("journal")}>{t("codebook.journal")}</CapsuleItem>
           <span className="vs" />
-          <CapsuleItem onClick={() => setDialog("csv")}>Importer CSV…</CapsuleItem>
+          <CapsuleItem onClick={() => setDialog("csv")}>{t("codebook.importer_csv")}</CapsuleItem>
         </Capsule>
         <Capsule>
-          <CapsuleItem aria-label="Nouveau code" title="Nouveau code" onClick={() => setDialog("new")}>
+          <CapsuleItem aria-label={t("common.nouveau_code")} title={t("common.nouveau_code")} onClick={() => setDialog("new")}>
             +
           </CapsuleItem>
         </Capsule>
-        <ToolbarSearch value={search} onChange={setSearch} placeholder="Filtrer les codes" />
+        <ToolbarSearch value={search} onChange={setSearch} placeholder={t("common.filtrer_les_codes")} />
       </ToolbarActions>
 
       <div className="content">
-        <section className="tree" aria-label="Arbre des codes">
+        <section className="tree" aria-label={t("common.arbre_des_codes")}>
           {codesQ.isLoading ? (
             <Skeleton className="h-64 w-full" />
           ) : codes.length === 0 ? (
             <EmptyState
-              title="Le codebook est vide"
+              title={t("common.le_codebook_est_vide")}
               action={
-                <Button onClick={() => setDialog("new")}>Nouveau code</Button>
+                <Button onClick={() => setDialog("new")}>{t("common.nouveau_code")}</Button>
               }
             >
-              Créez un premier code, importez un fichier CSV, ou créez vos codes depuis les passages en codant.
+              {t("codebook.creez_un_premier_code_importez")}
             </EmptyState>
           ) : (
             <>
               <table className="tbl ol">
                 <thead>
                   <tr>
-                    <th>Code</th>
-                    <th>Origine</th>
-                    <th>Questions</th>
-                    <th>Passages</th>
+                    <th>{t("common.code")}</th>
+                    <th>{t("common.origine")}</th>
+                    <th>{t("codebook.questions")}</th>
+                    <th>{t("codebook.passages")}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -178,7 +179,7 @@ export function CodebookPage() {
                             <button
                               type="button"
                               className="tri"
-                              aria-label={hasChildren ? (open ? `Replier ${c.name}` : `Déplier ${c.name}`) : undefined}
+                              aria-label={hasChildren ? (open ? `Replier ${c.name}` : t("codebook.deplier_name", { name: c.name })) : undefined}
                               disabled={!hasChildren}
                               aria-hidden={!hasChildren || undefined}
                               tabIndex={hasChildren ? undefined : -1}
@@ -197,7 +198,7 @@ export function CodebookPage() {
                             <span style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
                               <span>
                                 {c.name}
-                                {!c.active && !c.system && <span className="small l2"> inactif</span>}
+                                {!c.active && !c.system && <span className="small l2"> {t("codebook.inactif")}</span>}
                               </span>
                               {matchedLine(found.matched.get(c.code_id)) && <span className="small l2">{matchedLine(found.matched.get(c.code_id))}</span>}
                             </span>
@@ -215,14 +216,14 @@ export function CodebookPage() {
                         </td>
                         <td>
                           {c.system ? (
-                            <span className="l2">{c.counts.passages_rollup} à revoir</span>
+                            <span className="l2">{t("codebook.passages_rollup_a_revoir", { passages_rollup: c.counts.passages_rollup })}</span>
                           ) : (
-                            <span className="uses" title={`${c.counts.interviews_rollup} entretien${c.counts.interviews_rollup > 1 ? "s" : ""}`}>
+                            <span className="uses" title={t("common.n_entretiens", { n: c.counts.interviews_rollup })}>
                               <i className="bar">
                                 <b style={{ width: `${(c.counts.passages_rollup / maxCount) * 100}%` }} />
                               </i>
                               {c.counts.passages_rollup}
-                              {c.counts.passages_rollup !== c.counts.passages && <span className="small l2"> ({c.counts.passages} directs)</span>}
+                              {c.counts.passages_rollup !== c.counts.passages && <span className="small l2"> {t("codebook.passages_directs", { passages: c.counts.passages })}</span>}
                             </span>
                           )}
                         </td>
@@ -231,9 +232,9 @@ export function CodebookPage() {
                   })}
                 </tbody>
               </table>
-              {rows.length === 0 && <p className="small l2">Aucun code ne correspond à « {search} ».</p>}
+              {rows.length === 0 && <p className="small l2">{t("codebook.aucun_code_ne_correspond_a", { search })}</p>}
               <p className="small l2" style={{ margin: "2px 10px" }}>
-                Glisser un code sur un autre en fait un sous-code. Un code posé sur un sous-code compte aussi pour son parent dans les exports.
+                {t("codebook.glisser_un_code_sur_un")}
               </p>
             </>
           )}
@@ -272,7 +273,7 @@ function Inspector({
   const [part, setPart] = useState<"sheet" | "stats" | "journal">("sheet")
   return (
     <div className="insp-in">
-      <div className="seg" role="tablist" aria-label="Fiche du code" style={{ alignSelf: "stretch", display: "flex" }}>
+      <div className="seg" role="tablist" aria-label={t("codebook.fiche_du_code")} style={{ alignSelf: "stretch", display: "flex" }}>
         {(
           [
             ["sheet", "Fiche"],
@@ -287,7 +288,7 @@ function Inspector({
       </div>
       {part === "sheet" && <CodeSheet code={code} codes={codes} questions={questions} onMerged={onMerged} onWorklist={onWorklist} />}
       {part === "stats" && <CodeStats codeId={code.code_id} />}
-      {part === "journal" && <CodeJournal code={code.code_id} onOpenWorklist={onWorklist} empty="Ce code n'a été ni fusionné ni scindé." />}
+      {part === "journal" && <CodeJournal code={code.code_id} onOpenWorklist={onWorklist} empty={t("codebook.ce_code_n_a_ete")} />}
     </div>
   )
 }
@@ -342,19 +343,19 @@ function CodeSheet({
     onSuccess: async () => {
       setError(null)
       await refresh()
-      toast.success("Code enregistré")
+      toast.success(t("codebook.code_enregistre"))
     },
     onError: (e) => setError(msg(e)),
   })
   const reparent = useMutation({
     mutationFn: (parent: string | null) => api.moveCode(code.code_id, parent, "Parent changé depuis la fiche du code"),
     onSuccess: () => refresh(),
-    onError: (e) => reportError(e, "Déplacement refusé"),
+    onError: (e) => reportError(e, t("codebook.deplacement_refuse")),
   })
   const active = useMutation({
     mutationFn: () => api.setCodeActive(code.code_id, !code.active),
     onSuccess: () => refresh(),
-    onError: (e) => reportError(e, "Changement refusé"),
+    onError: (e) => reportError(e, t("codebook.changement_refuse")),
   })
   const addAlias = useMutation({
     mutationFn: (a: string) => api.addAlias(code.code_id, a),
@@ -362,12 +363,12 @@ function CodeSheet({
       setAlias("")
       return refresh()
     },
-    onError: (e) => reportError(e, "Alias refusé"),
+    onError: (e) => reportError(e, t("codebook.alias_refuse")),
   })
   const removeAlias = useMutation({
     mutationFn: (a: string) => api.removeAlias(code.code_id, a),
     onSuccess: () => refresh(),
-    onError: (e) => reportError(e, "Alias non retiré"),
+    onError: (e) => reportError(e, t("codebook.alias_non_retire")),
   })
 
   const parents = possibleParents(codes, code.code_id)
@@ -382,35 +383,35 @@ function CodeSheet({
             {code.name}
           </span>
         </span>
-        <span className="small l2" title={`${code.counts.interviews_rollup} entretiens`}>
+        <span className="small l2" title={t("codebook.interviews_rollup_entretiens", { interviews_rollup: code.counts.interviews_rollup })}>
           {code.counts.passages_rollup} passage{code.counts.passages_rollup > 1 ? "s" : ""} · {code.counts.interviews_rollup} entretien
           {code.counts.interviews_rollup > 1 ? "s" : ""}
         </span>
       </div>
 
-      <Field label="Nom" error={nameClash ? "Un autre code porte déjà ce nom." : undefined}>
+      <Field label={t("common.nom")} error={nameClash ? t("codebook.un_autre_code_porte_deja") : undefined}>
         <Input value={name} disabled={locked} onChange={(e) => setName(e.target.value)} />
       </Field>
-      <Field label="Définition">
+      <Field label={t("common.definition")}>
         <textarea className={TEXTAREA} rows={3} value={definition} disabled={locked} onChange={(e) => setDefinition(e.target.value)} />
       </Field>
-      <Field label="Inclut">
+      <Field label={t("codebook.inclut")}>
         <textarea className={TEXTAREA} rows={3} value={includes} disabled={locked} onChange={(e) => setIncludes(e.target.value)} />
       </Field>
-      <Field label="Exclut">
+      <Field label={t("codebook.exclut")}>
         <textarea className={TEXTAREA} rows={3} value={excludes} disabled={locked} onChange={(e) => setExcludes(e.target.value)} />
       </Field>
 
       <div className="grp">
         <label className="row">
-          <span className="k">Parent</span>
+          <span className="k">{t("common.parent")}</span>
           <NativeSelect
             style={{ width: 150 }}
             value={code.parent_id ?? ""}
             disabled={locked || reparent.isPending}
             onChange={(e) => reparent.mutate(e.target.value || null)}
           >
-            <option value="">Aucun</option>
+            <option value="">{t("common.aucun_2")}</option>
             {parents.map((p) => (
               <option key={p.code_id} value={p.code_id}>
                 {p.name}
@@ -419,8 +420,8 @@ function CodeSheet({
           </NativeSelect>
         </label>
         <div className="row" style={{ flexWrap: "wrap" }}>
-          <span className="k">Questions</span>
-          {questions.length === 0 && <span className="l2 small">Aucune question de recherche</span>}
+          <span className="k">{t("codebook.questions")}</span>
+          {questions.length === 0 && <span className="l2 small">{t("common.aucune_question_de_recherche")}</span>}
           {questions.map((q) => (
             <label key={q.id} className="chk" title={q.text} style={{ display: "inline-flex", gap: 4, alignItems: "center" }}>
               <input
@@ -435,22 +436,22 @@ function CodeSheet({
         </div>
         <div className="row">
           <span className="k">
-            Origine
+            {t("common.origine")}
             <small>
               {originLabel(code)}
-              {code.created_at ? `, créé le ${code.created_at.slice(0, 10)}` : ""}
+              {code.created_at ? t("codebook.cree_le_slice", { slice: code.created_at.slice(0, 10) }) : ""}
             </small>
           </span>
         </div>
         <div className="row" style={{ flexWrap: "wrap" }}>
           <span className="k">
-            Alias
-            <small>Autres noms sous lesquels ce code est retrouvé, par exemple après une fusion.</small>
+            {t("common.alias")}
+            <small>{t("codebook.autres_noms_sous_lesquels_ce")}</small>
           </span>
           {code.aliases.map((a) => (
             <span key={a.alias} className="tok" title={a.reason}>
               {a.alias}
-              <button type="button" aria-label={`Retirer l'alias ${a.alias}`} onClick={() => removeAlias.mutate(a.alias)}>
+              <button type="button" aria-label={t("codebook.retirer_l_alias_alias", { alias: a.alias })} onClick={() => removeAlias.mutate(a.alias)}>
                 ×
               </button>
             </span>
@@ -463,37 +464,37 @@ function CodeSheet({
                 if (alias.trim()) addAlias.mutate(alias.trim())
               }}
             >
-              <Input value={alias} onChange={(e) => setAlias(e.target.value)} placeholder="Nouvel alias" aria-label="Nouvel alias" style={{ width: 130 }} />
+              <Input value={alias} onChange={(e) => setAlias(e.target.value)} placeholder={t("codebook.nouvel_alias")} aria-label={t("codebook.nouvel_alias")} style={{ width: 130 }} />
               <Button type="submit" variant="outline" disabled={!alias.trim() || addAlias.isPending}>
-                Ajouter
+                {t("common.ajouter")}
               </Button>
             </form>
           )}
         </div>
       </div>
 
-      <Field label="Mémo du code">
+      <Field label={t("codebook.memo_du_code")}>
         <textarea className={TEXTAREA} rows={3} value={memo} disabled={locked} onChange={(e) => setMemo(e.target.value)} />
       </Field>
       {error && <Alerts messages={[error]} />}
-      {code.merged_into && <p className="small l2">Fusionné dans {codes.find((c) => c.code_id === code.merged_into)?.name ?? code.merged_into}.</p>}
+      {code.merged_into && <p className="small l2">{t("codebook.fusionne_dans")} {codes.find((c) => c.code_id === code.merged_into)?.name ?? code.merged_into}.</p>}
       {!locked && (
         <div className="r8">
           <Button variant="outline" disabled={active.isPending} onClick={() => active.mutate()}>
-            {code.active ? "Désactiver" : "Réactiver"}
+            {code.active ? t("codebook.desactiver") : t("codebook.reactiver")}
           </Button>
           <Button variant="outline" onClick={() => setMergeOpen(true)}>
-            Fusionner dans…
+            {t("codebook.fusionner_dans")}
           </Button>
           <Button variant="outline" disabled={!code.active || !!code.merged_into} onClick={() => setSplitOpen(true)}>
-            Scinder…
+            {t("codebook.scinder")}
           </Button>
           <Button style={{ marginLeft: "auto" }} disabled={!dirty || !name.trim() || !definition.trim() || nameClash || save.isPending} onClick={() => save.mutate()}>
-            Enregistrer
+            {t("common.enregistrer")}
           </Button>
         </div>
       )}
-      <span className="small l2">Chaque action est datée et motivée. Fusionner recode les passages en gardant la trace.</span>
+      <span className="small l2">{t("codebook.chaque_action_est_datee_et")}</span>
       <MergeDialog open={mergeOpen} code={code} codes={codes} onClose={() => setMergeOpen(false)} onMerged={onMerged} />
       <SplitDialog open={splitOpen} code={code} codes={codes} onClose={() => setSplitOpen(false)} onSplit={onWorklist} />
     </>
@@ -525,7 +526,7 @@ function MergeDialog({
     mutationFn: () => api.mergeCodeV1(code.code_id, into, why.trim()),
     onSuccess: async (res) => {
       await refresh()
-      toast.success(`${res.outcome.moved_passage_codings} codage${res.outcome.moved_passage_codings > 1 ? "s" : ""} déplacé${res.outcome.moved_passage_codings > 1 ? "s" : ""}`)
+      toast.success(t("codebook.n_codages_deplaces", { n: res.outcome.moved_passage_codings }))
       onClose()
       onMerged()
     },
@@ -535,14 +536,14 @@ function MergeDialog({
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Fusionner « {code.name} »</DialogTitle>
+          <DialogTitle>{t("codebook.fusionner_name", { name: code.name })}</DialogTitle>
           <DialogDescription>
-            Les passages codés « {code.name} » prennent le code choisi. Le nom reste comme alias, la fusion est datée dans l'historique.
+            {t("codebook.les_passages_codes_name_prennent", { name: code.name })}
           </DialogDescription>
         </DialogHeader>
-        <Field label="Fusionner dans">
+        <Field label={t("codebook.fusionner_dans_2")}>
           <NativeSelect value={into} onChange={(e) => setInto(e.target.value)}>
-            <option value="">Choisir un code</option>
+            <option value="">{t("codebook.choisir_un_code")}</option>
             {targets.map((c) => (
               <option key={c.code_id} value={c.code_id}>
                 {c.name}
@@ -550,16 +551,16 @@ function MergeDialog({
             ))}
           </NativeSelect>
         </Field>
-        <Field label="Motif, obligatoire">
+        <Field label={t("common.motif_obligatoire")}>
           <Input value={why} onChange={(e) => setWhy(e.target.value)} />
         </Field>
         {error && <Alerts messages={[error]} />}
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>
-            Annuler
+            {t("common.annuler")}
           </Button>
           <Button disabled={!into || !why.trim() || merge.isPending} onClick={() => merge.mutate()}>
-            Fusionner
+            {t("common.fusionner")}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -593,7 +594,7 @@ function NewCodeDialog({
     onSuccess: async (id) => {
       qc.removeQueries({ queryKey: keys.codes })
       await refresh()
-      toast.success(`Code « ${name.trim()} » créé`)
+      toast.success(t("codebook.code_trim_cree", { trim: name.trim() }))
       if (id) onCreated(id)
       setName("")
       setDefinition("")
@@ -607,18 +608,18 @@ function NewCodeDialog({
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Nouveau code</DialogTitle>
-          <DialogDescription>Nommez un mécanisme avec des mots simples, et dites en une phrase ce qu'un passage doit exprimer pour le porter.</DialogDescription>
+          <DialogTitle>{t("common.nouveau_code")}</DialogTitle>
+          <DialogDescription>{t("codebook.nommez_un_mecanisme_avec_des")}</DialogDescription>
         </DialogHeader>
-        <Field label="Nom" error={clash ? "Un code porte déjà ce nom." : undefined}>
-          <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Obligation légale" />
+        <Field label={t("common.nom")} error={clash ? t("codebook.un_code_porte_deja_ce") : undefined}>
+          <Input value={name} onChange={(e) => setName(e.target.value)} placeholder={t("codebook.obligation_legale")} />
         </Field>
-        <Field label="Définition">
+        <Field label={t("common.definition")}>
           <textarea className={TEXTAREA} rows={3} value={definition} onChange={(e) => setDefinition(e.target.value)} />
         </Field>
-        <Field label="Parent, facultatif">
+        <Field label={t("codebook.parent_facultatif")}>
           <NativeSelect value={parent} onChange={(e) => setParent(e.target.value)}>
-            <option value="">Aucun</option>
+            <option value="">{t("common.aucun_2")}</option>
             {codes
               .filter((c) => c.active && !c.merged_into && !c.system)
               .map((c) => (
@@ -631,10 +632,10 @@ function NewCodeDialog({
         {error && <Alerts messages={[error]} />}
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>
-            Annuler
+            {t("common.annuler")}
           </Button>
           <Button disabled={!name.trim() || !definition.trim() || clash || create.isPending} onClick={() => create.mutate()}>
-            Créer le code
+            {t("codebook.creer_le_code")}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -651,13 +652,13 @@ function HistoryDialog({ open, onClose }: { open: boolean; onClose: () => void }
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Historique du codebook</DialogTitle>
+          <DialogTitle>{t("codebook.historique_du_codebook")}</DialogTitle>
           <DialogDescription>
-            {q.data ? `Version ${q.data.codebook_version}. Chaque changement est daté, attribué et motivé.` : "Chargement..."}
+            {q.data ? t("codebook.version_codebook_version_chaque_chan", { codebook_version: q.data.codebook_version }) : "Chargement..."}
           </DialogDescription>
         </DialogHeader>
         <div style={{ maxHeight: 360, overflow: "auto" }}>
-          {revisions.length === 0 && !q.isLoading && <p className="small l2">Aucun changement enregistré.</p>}
+          {revisions.length === 0 && !q.isLoading && <p className="small l2">{t("codebook.aucun_changement_enregistre")}</p>}
           <table className="tbl">
             <tbody>
               {revisions.map((r) => (
@@ -697,22 +698,22 @@ function CsvDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
     },
   })
   const choose = async () => {
-    const picked = await api.pick("file", "Choisir le fichier CSV")
+    const picked = await api.pick("file", t("codebook.choisir_le_fichier_csv"))
     if (picked.path) setPath(picked.path)
   }
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Importer un codebook CSV</DialogTitle>
-          <DialogDescription>Les codes sont ajoutés ou mis à jour, jamais supprimés. Les codes absents du fichier sont comptés et laissés tels quels.</DialogDescription>
+          <DialogTitle>{t("codebook.importer_un_codebook_csv")}</DialogTitle>
+          <DialogDescription>{t("codebook.les_codes_sont_ajoutes_ou")}</DialogDescription>
         </DialogHeader>
-        <Field label="Chemin du fichier">
+        <Field label={t("common.chemin_du_fichier")}>
           <div style={{ display: "flex", gap: 8 }}>
             <Input value={path} onChange={(e) => setPath(e.target.value)} placeholder="/chemin/vers/codebook.csv" className="font-mono text-xs" />
             {state.data?.native_dialogs && (
               <Button variant="outline" onClick={choose}>
-                Choisir…
+                {t("common.choisir")}
               </Button>
             )}
           </div>
@@ -725,10 +726,10 @@ function CsvDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
         {error && <Alerts messages={[error]} />}
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>
-            Fermer
+            {t("common.fermer")}
           </Button>
           <Button disabled={!path.trim() || run.isPending} onClick={() => run.mutate()}>
-            Importer
+            {t("common.importer")}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -17,6 +17,7 @@ import { Turn } from "@/components/coder/turn"
 import { EmptyState, PageTitle } from "@/components/bits"
 import { SearchIcon } from "@/components/icons"
 import { AudioCapsule } from "@/components/coder/audio-capsule"
+import { t } from "@/i18n"
 import { AudioProvider } from "@/lib/audio-player"
 import { ReviewDialog } from "@/components/coder/review-dialog"
 import { useReviewCounts } from "@/lib/transcript-review"
@@ -71,15 +72,15 @@ function markVisited(id: string) {
 
 export function StepsCapsule({ id, current, highlights }: { id: string; current: "coder" | "surlignages" | "revoir" | null; highlights?: number }) {
   return (
-    <nav className="cap" aria-label="Étapes de l'entretien">
+    <nav className="cap" aria-label={t("coder.etapes_de_l_entretien")}>
       <a className={cn("ci", current === "coder" && "on")} href={interviewHref(id, "coding")} aria-current={current === "coder" ? "page" : undefined}>
-        Coder
+        {t("common.coder")}
       </a>
       <a className={cn("ci", current === "surlignages" && "on")} href={`#/interviews/${encodeURIComponent(id)}/highlights`} aria-current={current === "surlignages" ? "page" : undefined}>
-        Surlignages{highlights !== undefined && highlights > 0 && <span className="n">{highlights}</span>}
+        {t("common.surlignages")}{highlights !== undefined && highlights > 0 && <span className="n">{highlights}</span>}
       </a>
       <a className={cn("ci", current === "revoir" && "on")} href={interviewHref(id, "review")} aria-current={current === "revoir" ? "page" : undefined}>
-        Revoir
+        {t("coder.revoir")}
       </a>
     </nav>
   )
@@ -97,7 +98,8 @@ export function CoderPage({ id, unit: askedUnit = null }: { id: string; unit?: s
   const actions = useCodingActions(id, undo)
 
   const [reviewOpen, setReviewOpen] = useState(false)
-  const nReview = useReviewCounts().get(id) ?? 0
+  // Number(): keeps React Compiler from tying the count to the Map it comes from once t() receives it.
+  const nReview = Number(useReviewCounts().get(id) ?? 0)
   const [filter, setFilter] = useState<CoderFilter>("all")
   const [search, setSearch] = useState("")
   const [picked, setSelected] = useState<string | null>(null)
@@ -197,7 +199,7 @@ export function CoderPage({ id, unit: askedUnit = null }: { id: string; unit?: s
   const requireCodable = useCallback(() => {
     if (!current) return false
     if (!isCodable(current)) {
-      toast.info("Les tours de l'intervieweur donnent le contexte, ils ne se codent pas.")
+      toast.info(t("coder.les_tours_de_l_intervieweur"))
       return false
     }
     return true
@@ -216,7 +218,7 @@ export function CoderPage({ id, unit: askedUnit = null }: { id: string; unit?: s
   const doHighlight = useCallback(async () => {
     if (!current || !requireCodable()) return undefined
     if (!range) {
-      toast.info("Sélectionnez d'abord un passage à la souris, puis appuyez sur H.")
+      toast.info(t("coder.selectionnez_d_abord_un_passage"))
       return undefined
     }
     const r = range
@@ -228,14 +230,14 @@ export function CoderPage({ id, unit: askedUnit = null }: { id: string; unit?: s
     try {
       const e = await undo.undo()
       if (!e) {
-        toast.info("Rien à annuler")
+        toast.info(t("coder.rien_a_annuler"))
         return
       }
-      toast.success(`Annulé : ${e.label}`)
+      toast.success(t("coder.annule_label", { label: e.label }))
       await invalidatePassages(qc, id)
       await qc.invalidateQueries({ queryKey: keys.units(id) })
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "L'annulation a échoué")
+      toast.error(err instanceof Error ? err.message : t("coder.l_annulation_a_echoue"))
     }
   }, [undo, qc, id])
 
@@ -252,7 +254,7 @@ export function CoderPage({ id, unit: askedUnit = null }: { id: string; unit?: s
           if (on) await api.markUnit(id, unitId)
           else await api.unmarkUnit(id, unitId)
         } catch (err) {
-          toast.error(err instanceof Error ? err.message : "La marque n'a pas été enregistrée")
+          toast.error(err instanceof Error ? err.message : t("coder.la_marque_n_a_pas"))
           throw err
         } finally {
           void qc.invalidateQueries({ queryKey: key })
@@ -261,7 +263,7 @@ export function CoderPage({ id, unit: askedUnit = null }: { id: string; unit?: s
       }
       try {
         await set(!was)
-        undo.push({ label: was ? "À revoir retiré" : "À revoir posé", run: () => set(was) })
+        undo.push({ label: was ? t("common.a_revoir_retire") : t("coder.a_revoir_pose"), run: () => set(was) })
       } catch {
         // The toast says it; the cache is refetched.
       }
@@ -342,26 +344,26 @@ export function CoderPage({ id, unit: askedUnit = null }: { id: string; unit?: s
   const saveNote = useMutation({
     mutationFn: (v: { p: Passage; note: string }) => api.addCoding(v.p.passage_id, LATER_ID, v.note),
     onSuccess: () => invalidatePassages(qc, id),
-    onError: () => toast.error("La note n'a pas été enregistrée"),
+    onError: () => toast.error(t("coder.la_note_n_a_pas")),
   })
 
   if (unitsQ.isLoading || passagesQ.isLoading || codesQ.isLoading) return <Skeleton className="h-64 w-full" />
   if (unitsQ.error || passagesQ.error) {
-    return <EmptyState title="L'entretien n'a pas pu être chargé">{(unitsQ.error ?? passagesQ.error)?.message}</EmptyState>
+    return <EmptyState title={t("common.l_entretien_n_a_pas")}>{(unitsQ.error ?? passagesQ.error)?.message}</EmptyState>
   }
   if (units.length === 0) {
     return (
       <>
-        <PageTitle title={id} sub="Codage" />
+        <PageTitle title={id} sub={t("common.codage")} />
         <EmptyState
-          title="Cet entretien n'est pas encore segmenté"
+          title={t("coder.cet_entretien_n_est_pas")}
           action={
             <Button asChild>
-              <a href={interviewHref(id, "sources")}>Aller aux sources pour segmenter</a>
+              <a href={interviewHref(id, "sources")}>{t("coder.aller_aux_sources_pour_segmenter")}</a>
             </Button>
           }
         >
-          Le découpage en tours de parole est déterministe ; il se lance depuis la Bibliothèque ou depuis les sources de l'entretien.
+          {t("coder.le_decoupage_en_tours_de")}
         </EmptyState>
       </>
     )
@@ -375,25 +377,25 @@ export function CoderPage({ id, unit: askedUnit = null }: { id: string; unit?: s
 
   return (
     <AudioProvider interviewId={id}>
-      <PageTitle title={id} sub={`Codage · ${counts.examined} sur ${total} unités examinées`} />
+      <PageTitle title={id} sub={t("coder.codage_examined_sur_total_unites", { examined: counts.examined, total })} />
       <ToolbarActions>
         <StepsCapsule id={id} current="coder" highlights={nHighlights} />
         <AudioCapsule />
-        <nav className="cap" aria-label="Texte de l'entretien">
-          <button type="button" className="ci" onClick={() => setReviewOpen(true)} title="Versions du texte et passages à revoir">
-            Versions{nReview > 0 && <span className="n" aria-label={`${nReview} passage${nReview > 1 ? "s" : ""} à revoir`}>{nReview}</span>}
+        <nav className="cap" aria-label={t("coder.texte_de_l_entretien")}>
+          <button type="button" className="ci" onClick={() => setReviewOpen(true)} title={t("common.versions_du_texte_et_passages")}>
+            {t("common.versions")}{nReview > 0 && <span className="n" aria-label={t("coder.n_passages_a_revoir", { n: nReview })}>{nReview}</span>}
           </button>
         </nav>
         <label className="search">
           <SearchIcon />
-          <input type="search" value={search} placeholder="Rechercher dans l'entretien" aria-label="Rechercher dans l'entretien" onChange={(e) => setSearch(e.target.value)} />
+          <input type="search" value={search} placeholder={t("coder.rechercher_dans_l_entretien")} aria-label={t("coder.rechercher_dans_l_entretien")} onChange={(e) => setSearch(e.target.value)} />
         </label>
       </ToolbarActions>
 
       <div className="content">
-        <section ref={sectionRef} className="tx" aria-label="Transcription" style={{ position: "relative" }}>
+        <section ref={sectionRef} className="tx" aria-label={t("coder.transcription")} style={{ position: "relative" }}>
           <div className="fbar">
-            <div className="seg" role="tablist" aria-label="Filtrer les unités">
+            <div className="seg" role="tablist" aria-label={t("coder.filtrer_les_unites")}>
               {FILTER_LABELS.map(({ key, label }) => (
                 <button key={key} type="button" role="tab" aria-selected={filter === key} className={cn("s", filter === key && "on")} onClick={() => setFilter(key)}>
                   {label}
@@ -403,12 +405,12 @@ export function CoderPage({ id, unit: askedUnit = null }: { id: string; unit?: s
             </div>
             <div
               className="prog"
-              title={`${counts.coded} codées, ${counts.non_pertinent} non pertinentes, ${counts.review} à revoir, ${counts.remaining} pas encore examinées`}
+              title={t("coder.coded_codees_non_pertinent_non", { coded: counts.coded, non_pertinent: counts.non_pertinent, review: counts.review, remaining: counts.remaining })}
             >
               <span>
                 {counts.examined} / {total}
               </span>
-              <i className="bar" role="progressbar" aria-valuemin={0} aria-valuemax={total} aria-valuenow={counts.examined} aria-label="Unités examinées">
+              <i className="bar" role="progressbar" aria-valuemin={0} aria-valuemax={total} aria-valuenow={counts.examined} aria-label={t("coder.unites_examinees")}>
                 <b style={{ width: `${pct}%` }} />
               </i>
             </div>
@@ -416,7 +418,7 @@ export function CoderPage({ id, unit: askedUnit = null }: { id: string; unit?: s
 
           {shown.length === 0 && (
             <p className="l2" style={{ padding: "12px 12px" }}>
-              Aucune unité dans ce filtre.
+              {t("coder.aucune_unite_dans_ce_filtre")}
             </p>
           )}
           {shown.map((u) => (
@@ -462,15 +464,15 @@ export function CoderPage({ id, unit: askedUnit = null }: { id: string; unit?: s
           {end && <EndPanel ref={endRef} interviewId={id} />}
         </section>
 
-        <aside className="insp insp-sticky" style={{ flexBasis: 300 }} aria-label="Inspecteur">
+        <aside className="insp insp-sticky" style={{ flexBasis: 300 }} aria-label={t("coder.inspecteur")}>
           <div className="insp-in" style={{ paddingBottom: tab === "codes" ? 0 : undefined }}>
-            <div className="seg" role="tablist" aria-label="Inspecteur" style={{ alignSelf: "stretch", display: "flex" }}>
+            <div className="seg" role="tablist" aria-label={t("coder.inspecteur")} style={{ alignSelf: "stretch", display: "flex" }}>
               {(
                 [
                   ["codes", "Codes"],
-                  ["detail", "Détail"],
+                  ["detail", t("coder.detail")],
                   ["lexique", "Lexique"],
-                  ["memo", "Mémo"],
+                  ["memo", t("coder.memo")],
                 ] as const
               ).map(([key, label]) => (
                 <button key={key} type="button" role="tab" aria-selected={tab === key} className={cn("s", tab === key && "on")} style={{ flex: 1 }} onClick={() => chooseTab(key)}>
@@ -505,15 +507,15 @@ export function CoderPage({ id, unit: askedUnit = null }: { id: string; unit?: s
               />
               <div className="insp-in" style={{ marginTop: "auto" }}>
                 <Button variant="outline" style={{ width: "100%" }} onClick={openNewCode} disabled={!current || !isCodable(current)}>
-                  {range ? "Nouveau code depuis la sélection…" : "Nouveau code depuis cette unité…"}
+                  {range ? t("common.nouveau_code_depuis_la_selection") : t("coder.nouveau_code_depuis_cette_unite")}
                 </Button>
                 <div className="grp">
                   <div className="row">
-                    <span className="k">Unités à revoir</span>
+                    <span className="k">{t("coder.unites_a_revoir")}</span>
                     <span className="v">{nLater}</span>
                   </div>
                   <a className="row" href={`#/interviews/${encodeURIComponent(id)}/highlights`} style={{ textDecoration: "none", color: "inherit" }}>
-                    <span className="k">Surlignages sans code</span>
+                    <span className="k">{t("coder.surlignages_sans_code")}</span>
                     <span className="v">{nHighlights}</span>
                   </a>
                 </div>
@@ -535,29 +537,29 @@ export function CoderPage({ id, unit: askedUnit = null }: { id: string; unit?: s
         </aside>
       </div>
 
-      <div className="keys" aria-label="Raccourcis" style={{ margin: "0 -1.25rem" }}>
+      <div className="keys" aria-label={t("common.raccourcis")} style={{ margin: "0 -1.25rem" }}>
         <span>
-          <span className="kbd">↑ ↓</span> unité
+          <span className="kbd">↑ ↓</span> {t("common.unite")}
         </span>
         <span>
-          <span className="kbd">1–9</span> coder
+          <span className="kbd">1–9</span> {t("coder.coder")}
         </span>
         <span>
-          <span className="kbd">N</span> non pertinent
+          <span className="kbd">N</span> {t("common.non_pertinent")}
         </span>
         <span>
-          <span className="kbd">R</span> à revoir
+          <span className="kbd">R</span> {t("common.a_revoir_2")}
         </span>
         <span>
-          <span className="kbd">H</span> surligner
+          <span className="kbd">H</span> {t("coder.surligner")}
         </span>
         <span>
-          <span className="kbd">D</span> détail et citation
+          <span className="kbd">D</span> {t("coder.detail_et_citation")}
         </span>
         <span>
-          <span className="kbd">{cmd}Z</span> annuler
+          <span className="kbd">{cmd}Z</span> {t("coder.annuler")}
         </span>
-        <span style={{ marginLeft: "auto" }}>Sans sélection, le code couvre le tour entier</span>
+        <span style={{ marginLeft: "auto" }}>{t("coder.sans_selection_le_code_couvre")}</span>
       </div>
 
       <ReviewDialog interviewId={id} open={reviewOpen} onClose={() => setReviewOpen(false)} />

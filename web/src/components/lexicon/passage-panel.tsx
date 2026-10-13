@@ -11,6 +11,7 @@ import { GuideLink, ToolIntro } from "@/components/lexicon/parts"
 import { NativeSelect } from "@/components/settings/fields"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
+import { t } from "@/i18n"
 import { api } from "@/lib/api"
 import { codeName, isApplicable } from "@/lib/code-tree"
 import { invalidatePassages, useCodes } from "@/lib/hooks"
@@ -40,15 +41,15 @@ export function PassageLexicon({ passageId, onUseLabel }: { passageId: string | 
   const d = q.data!
   return (
     <div className="flex flex-col gap-2" data-testid="passage-lexicon">
-      <div className="hs">Expressions-clés</div>
+      <div className="hs">{t("lexicon.passage_panel.expressions_cles")}</div>
       {d.keyphrases.length === 0 ? (
         <p className="small l2" style={{ margin: 0 }}>
-          Ce passage est trop court pour en extraire.
+          {t("lexicon.passage_panel.ce_passage_est_trop_court")}
         </p>
       ) : (
         <div className="r8">
           {d.keyphrases.slice(0, MAX_TAGS).map((k) => (
-            <span key={k.phrase} className="tag" data-no-i18n title={`Score YAKE ${k.score.toLocaleString("fr-CH", { maximumFractionDigits: 4 })} (plus bas = plus saillant)`}>
+            <span key={k.phrase} className="tag" data-no-i18n title={t("lexicon.passage_panel.score_yake_tolocalestring_plus_bas", { toLocaleString: k.score.toLocaleString("fr-CH", { maximumFractionDigits: 4 }) })}>
               {k.phrase}
             </span>
           ))}
@@ -56,16 +57,16 @@ export function PassageLexicon({ passageId, onUseLabel }: { passageId: string | 
       )}
       {d.stems.length > 0 && (
         <div className="small l2">
-          Racines : <span data-no-i18n>{d.stems.map((s) => s.stem).join(", ")}</span>
+          {t("lexicon.passage_panel.racines")} <span data-no-i18n>{d.stems.map((s) => s.stem).join(", ")}</span>
         </div>
       )}
       {onUseLabel && d.label && (
         <Button type="button" variant="outline" onClick={() => onUseLabel(d.label)}>
-          Utiliser « {d.label} » comme libellé provisoire
+          {t("lexicon.passage_panel.utiliser_label_comme_libelle_proviso", { label: d.label })}
         </Button>
       )}
       <p className="small l2" style={{ margin: 0 }}>
-        Extraction statistique, déterministe, sans IA générative. Le libellé est une proposition que vous pouvez ignorer.
+        {t("lexicon.passage_panel.extraction_statistique_deterministe")}
       </p>
     </div>
   )
@@ -91,7 +92,7 @@ export function SimilarPassages({ passageId }: { passageId: string | null }) {
           {items.map((it) => (
             <SimilarCard key={`${it.interview_id}:${it.unit_id}`} item={it} />
           ))}
-          <span className="small l2">{q.data!.note || "Proximité lexicale (TF-IDF sur les racines) : ne voit ni les synonymes ni les autres langues."}</span>
+          <span className="small l2">{q.data!.note || t("lexicon.passage_panel.proximite_lexicale_tf_idf_sur")}</span>
           <GuideLink />
         </>
       )}
@@ -106,28 +107,28 @@ function SimilarCard({ item }: { item: SimilarItem }) {
   const code = useMutation({
     mutationFn: (codeId: string) => api.createPassage(item.interview_id, { unit_id: item.unit_id, code: codeId }),
     onSuccess: async (_r, codeId) => {
-      toast.success(`${item.interview_id} ${shortUnit(item.unit_id)} codé avec ${usable.find((c) => c.code_id === codeId)?.name ?? codeId}`)
+      toast.success(t("lexicon.passage_panel.interview_id_shortunit_code_avec", { interview_id: item.interview_id, shortUnit: shortUnit(item.unit_id), v: usable.find((c) => c.code_id === codeId)?.name ?? codeId }))
       await invalidatePassages(qc, item.interview_id)
       await qc.invalidateQueries({ queryKey: ["lexicon", "similar"] })
     },
-    onError: (e) => reportError(e, "Code non posé"),
+    onError: (e) => reportError(e, t("common.code_non_pose")),
   })
   const shared = item.shared_terms.map((t) => t.form).join(", ")
   const text = item.text.length > QUOTE ? `${item.text.slice(0, QUOTE).trimEnd()}…` : item.text
   return (
     <article className="grp" style={{ padding: "8px 10px", display: "flex", flexDirection: "column", gap: 4, fontSize: 12.5, lineHeight: 1.4 }} aria-label={`${item.interview_id} ${shortUnit(item.unit_id)}`}>
       <span className="r8">
-        <a className="mono b" href={interviewHref(item.interview_id, "coding", 1, item.unit_id)} title="Ouvrir dans Coder">
+        <a className="mono b" href={interviewHref(item.interview_id, "coding", 1, item.unit_id)} title={t("common.ouvrir_dans_coder")}>
           {item.interview_id} {shortUnit(item.unit_id)}
         </a>
-        <span className="small l2" title="Similarité cosinus, de 0 à 1">
+        <span className="small l2" title={t("lexicon.passage_panel.similarite_cosinus_de_0_a")}>
           {scoreText(item.score)}
         </span>
       </span>
       <span data-no-i18n>« {text} »</span>
       {shared && (
         <span className="small l2">
-          Mots communs : <span data-no-i18n>{shared}</span>
+          {t("lexicon.passage_panel.mots_communs")} <span data-no-i18n>{shared}</span>
         </span>
       )}
       {item.coded_with.length > 0 && (
@@ -141,13 +142,13 @@ function SimilarCard({ item }: { item: SimilarItem }) {
       )}
       <span className="r8">
         <NativeSelect
-          aria-label={`Coder ${item.interview_id} ${shortUnit(item.unit_id)} avec un code`}
+          aria-label={t("lexicon.passage_panel.coder_interview_id_shortunit_avec", { interview_id: item.interview_id, shortUnit: shortUnit(item.unit_id) })}
           style={{ width: 170 }}
           value=""
           disabled={code.isPending}
           onChange={(e) => e.target.value && code.mutate(e.target.value)}
         >
-          <option value="">Coder avec…</option>
+          <option value="">{t("common.coder_avec")}</option>
           {usable.map((c) => (
             <option key={c.code_id} value={c.code_id}>
               {codeName(c)}
@@ -155,7 +156,7 @@ function SimilarCard({ item }: { item: SimilarItem }) {
           ))}
         </NativeSelect>
         <a className="small" href={interviewHref(item.interview_id, "coding", 1, item.unit_id)}>
-          Ouvrir dans Coder
+          {t("common.ouvrir_dans_coder")}
         </a>
       </span>
     </article>

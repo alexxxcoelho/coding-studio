@@ -60,19 +60,26 @@ export const ROUTES = [
 export function dump(root: HTMLElement): string {
   const lines: string[] = []
   const walk = (node: Node) => {
-    if (node.nodeType === Node.TEXT_NODE) {
-      const text = (node.textContent ?? "").replace(/\s+/g, " ").trim()
-      if (text) lines.push(text)
-      return
-    }
-    if (node.nodeType !== Node.ELEMENT_NODE) return
     const el = node as HTMLElement
     if (["SCRIPT", "STYLE"].includes(el.tagName)) return
+    let run = "" // adjacent text nodes read as one string
+    const flush = () => {
+      const text = run.replace(/\s+/g, " ").trim()
+      if (text) lines.push(text)
+      run = ""
+    }
     for (const a of ["aria-label", "title", "placeholder", "alt"]) {
-      const v = el.getAttribute(a)
+      const v = el.getAttribute?.(a)
       if (v) lines.push(`[${a}] ${v}`)
     }
-    for (const child of el.childNodes) walk(child)
+    for (const child of node.childNodes) {
+      if (child.nodeType === Node.TEXT_NODE) run += child.textContent ?? ""
+      else if (child.nodeType === Node.ELEMENT_NODE) {
+        flush()
+        walk(child)
+      }
+    }
+    flush()
   }
   walk(root)
   return lines.join("\n")

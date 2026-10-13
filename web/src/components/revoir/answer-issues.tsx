@@ -4,6 +4,7 @@
 import { useState } from "react"
 
 import { Button } from "@/components/ui/button"
+import { t } from "@/i18n"
 import { issueLines } from "@/lib/review-model"
 import type { RejectedAnswer, ValidationIssue } from "@/lib/types"
 
@@ -30,7 +31,7 @@ export function RejectedRaw({ rejected }: { rejected: RejectedAnswer }) {
   return (
     <div className="flex flex-col gap-1.5">
       <Button variant="ghost" className="self-start" onClick={() => setOpen((o) => !o)}>
-        {open ? `Masquer la réponse refusée de la partie ${rejected.part}` : `Afficher la réponse refusée de la partie ${rejected.part}`}
+        {open ? t("revoir.answer_issues.masquer_la_reponse_refusee_de", { part: rejected.part }) : t("revoir.answer_issues.afficher_la_reponse_refusee_de", { part: rejected.part })}
       </Button>
       {open && <pre className="rv-raw mono m-0">{rejected.raw}</pre>}
     </div>

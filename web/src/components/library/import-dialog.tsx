@@ -8,6 +8,7 @@ import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
+import { t } from "@/i18n"
 import { api } from "@/lib/api"
 import { reportError } from "@/lib/notify"
 
@@ -23,15 +24,15 @@ export function ImportDialog({ open, onOpenChange }: { open: boolean; onOpenChan
       qc.invalidateQueries({ queryKey: ["interviews"] })
       qc.invalidateQueries({ queryKey: ["state"] })
       qc.invalidateQueries({ queryKey: ["chain"] })
-      toast.success(`${res.interviews.length} entretien${res.interviews.length > 1 ? "s" : ""} trouvé${res.interviews.length > 1 ? "s" : ""}`)
+      toast.success(t("library.import_dialog.n_entretiens_trouves", { n: res.interviews.length }))
       onOpenChange(false)
     },
-    onError: (e) => reportError(e, "Le scan a échoué"),
+    onError: (e) => reportError(e, t("common.le_scan_a_echoue")),
   })
 
   const browse = async () => {
     try {
-      const res = await api.pick("folder", "Choisir le dossier des entretiens")
+      const res = await api.pick("folder", t("library.import_dialog.choisir_le_dossier_des_entretiens"))
       if (res.path) setTyped(res.path)
     } catch (e) {
       reportError(e)
@@ -42,9 +43,9 @@ export function ImportDialog({ open, onOpenChange }: { open: boolean; onOpenChan
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Importer des transcriptions</DialogTitle>
+          <DialogTitle>{t("library.import_dialog.importer_des_transcriptions")}</DialogTitle>
           <DialogDescription>
-            Un sous-dossier par entretien, nommé avec son identifiant (par exemple BIB-01). Les transcriptions sont lues, jamais modifiées.
+            {t("library.import_dialog.un_sous_dossier_par_entretien")}
           </DialogDescription>
         </DialogHeader>
         <form
@@ -55,22 +56,22 @@ export function ImportDialog({ open, onOpenChange }: { open: boolean; onOpenChan
           }}
         >
           <label className="flex flex-col gap-1.5 text-sm">
-            <span className="l2 small">Dossier des entretiens</span>
+            <span className="l2 small">{t("common.dossier_des_entretiens")}</span>
             <div className="flex gap-2">
               <Input value={root} onChange={(e) => setTyped(e.target.value)} placeholder="/chemin/vers/Interviews" />
               {state.data?.native_dialogs && (
                 <Button type="button" variant="outline" onClick={browse}>
-                  Parcourir…
+                  {t("library.import_dialog.parcourir")}
                 </Button>
               )}
             </div>
           </label>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              Annuler
+              {t("common.annuler")}
             </Button>
             <Button type="submit" disabled={scan.isPending}>
-              {scan.isPending ? "Scan en cours…" : "Importer"}
+              {scan.isPending ? t("library.import_dialog.scan_en_cours") : "Importer"}
             </Button>
           </DialogFooter>
         </form>

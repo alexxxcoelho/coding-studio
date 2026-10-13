@@ -13,6 +13,7 @@ import { Alerts, NativeSelect } from "@/components/settings/fields"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
+import { t } from "@/i18n"
 import { ApiError } from "@/lib/api"
 import { shortHash } from "@/lib/format"
 import { keys } from "@/lib/hooks"
@@ -25,12 +26,12 @@ interface Row {
   pseudonym: string
 }
 
-const KIND_LABEL: Record<PseudonymKind, string> = { person: "Personne", organisation: "Organisation" }
+const KIND_LABEL: Record<PseudonymKind, string> = { get person() { return t("settings.pseudonymisation.personne") }, get organisation() { return t("common.organisation") } }
 
 export function PseudonymisationSection() {
   const q = useQuery({ queryKey: keys.projectPseudonymisation, queryFn: reviewApi.projectPseudonymisation })
   return (
-    <Section title="Pseudonymisation avant envoi" aside="ce qui part vers un modèle">
+    <Section title={t("settings.pseudonymisation.pseudonymisation_avant_envoi")} aside={t("settings.pseudonymisation.ce_qui_part_vers_un")}>
       {q.isLoading ? <Skeleton className="h-32 w-full" /> : q.error ? <Alerts messages={[q.error.message]} /> : <Editor key={q.data!.digest} saved={q.data!} />}
     </Section>
   )
@@ -53,7 +54,7 @@ function Editor({ saved }: { saved: Pseudonymisation }) {
       void qc.invalidateQueries({ queryKey: ["chain"] })
       setServerError(null)
       setAttempted(false)
-      toast.success(body.enabled !== undefined ? (view.enabled ? "Pseudonymisation active" : "Pseudonymisation inactive") : "Liste enregistrée")
+      toast.success(body.enabled !== undefined ? (view.enabled ? t("common.pseudonymisation_active") : t("common.pseudonymisation_inactive")) : t("settings.pseudonymisation.liste_enregistree"))
     },
     onError: (e) => setServerError(e instanceof ApiError ? e.message : String(e)),
   })
@@ -72,27 +73,27 @@ function Editor({ saved }: { saved: Pseudonymisation }) {
           role="switch"
           className="switch"
           aria-checked={saved.enabled}
-          aria-label="Remplacer les noms avant tout envoi à un modèle"
+          aria-label={t("settings.pseudonymisation.remplacer_les_noms_avant_tout")}
           disabled={save.isPending}
           onClick={() => save.mutate({ enabled: !saved.enabled })}
         />
         <span className="text-sm">
-          <b>{saved.enabled ? "Pseudonymisation active" : "Pseudonymisation inactive"}</b>
+          <b>{saved.enabled ? t("common.pseudonymisation_active") : t("common.pseudonymisation_inactive")}</b>
           <span className="text-muted-foreground">
-            {saved.enabled ? " : les noms de la liste sont remplacés dans chaque prompt et chaque envoi." : " : les noms partent tels quels dans un prompt."}
+            {saved.enabled ? t("settings.pseudonymisation.les_noms_de_la_liste") : t("settings.pseudonymisation.les_noms_partent_tels_quels")}
           </span>
         </span>
       </div>
 
       {rows.length > 0 && (
-        <table className="tbl" aria-label="Liste des noms">
+        <table className="tbl" aria-label={t("settings.pseudonymisation.liste_des_noms")}>
           <thead>
             <tr>
-              <th style={{ width: 150 }}>Type</th>
-              <th>Nom réel</th>
-              <th>Pseudonyme</th>
+              <th style={{ width: 150 }}>{t("common.type")}</th>
+              <th>{t("settings.pseudonymisation.nom_reel")}</th>
+              <th>{t("settings.pseudonymisation.pseudonyme")}</th>
               <th style={{ width: 80 }}>
-                <span className="sr-only">Actions</span>
+                <span className="sr-only">{t("common.actions")}</span>
               </th>
             </tr>
           </thead>
@@ -100,20 +101,20 @@ function Editor({ saved }: { saved: Pseudonymisation }) {
             {rows.map((r, i) => (
               <tr key={i}>
                 <td>
-                  <NativeSelect aria-label={`Type du nom ${i + 1}`} value={r.kind} onChange={(e) => set(i, { kind: e.target.value as PseudonymKind })}>
+                  <NativeSelect aria-label={t("settings.pseudonymisation.type_du_nom_v", { v: i + 1 })} value={r.kind} onChange={(e) => set(i, { kind: e.target.value as PseudonymKind })}>
                     <option value="person">{KIND_LABEL.person}</option>
                     <option value="organisation">{KIND_LABEL.organisation}</option>
                   </NativeSelect>
                 </td>
                 <td>
-                  <Input aria-label={`Nom réel ${i + 1}`} value={r.original} onChange={(e) => set(i, { original: e.target.value })} />
+                  <Input aria-label={t("settings.pseudonymisation.nom_reel_v", { v: i + 1 })} value={r.original} onChange={(e) => set(i, { original: e.target.value })} />
                 </td>
                 <td>
                   <Input aria-label={`Pseudonyme ${i + 1}`} value={r.pseudonym} onChange={(e) => set(i, { pseudonym: e.target.value })} />
                 </td>
                 <td>
-                  <Button variant="ghost" aria-label={`Retirer le nom ${i + 1}`} onClick={() => setRows((x) => x.filter((_, j) => j !== i))}>
-                    Retirer
+                  <Button variant="ghost" aria-label={t("settings.pseudonymisation.retirer_le_nom_v", { v: i + 1 })} onClick={() => setRows((x) => x.filter((_, j) => j !== i))}>
+                    {t("common.retirer")}
                   </Button>
                 </td>
               </tr>
@@ -121,31 +122,31 @@ function Editor({ saved }: { saved: Pseudonymisation }) {
           </tbody>
         </table>
       )}
-      {rows.length === 0 && <p className="text-muted-foreground text-sm">La liste est vide. Ajoutez les noms de personnes et d'organisations qui figurent dans vos transcriptions.</p>}
+      {rows.length === 0 && <p className="text-muted-foreground text-sm">{t("settings.pseudonymisation.la_liste_est_vide_ajoutez")}</p>}
 
       {attempted && problem && <Alerts messages={[problem]} />}
       {serverError && <Alerts messages={[serverError]} />}
 
       <div className="flex flex-wrap items-center gap-2">
         <Button variant="outline" onClick={() => setRows((r) => [...r, { kind: "person", original: "", pseudonym: "" }])}>
-          Ajouter un nom
+          {t("settings.pseudonymisation.ajouter_un_nom")}
         </Button>
         <Button variant="default" disabled={!dirty || save.isPending} onClick={submit}>
-          Enregistrer la liste
+          {t("settings.pseudonymisation.enregistrer_la_liste")}
         </Button>
         {dirty && (
           <Button variant="ghost" onClick={() => setRows(stored)}>
-            Annuler les changements
+            {t("common.annuler_les_changements")}
           </Button>
         )}
       </div>
 
       <p className="text-muted-foreground text-xs" data-testid="pseudo-digest">
-        Liste de {saved.n_list_entries} nom{saved.n_list_entries > 1 ? "s" : ""}
-        {saved.categories.length > 0 ? ` (${saved.categories.map((c) => (c === "person" ? "personnes" : c === "organisation" ? "organisations" : c)).join(", ")})` : ""}, empreinte SHA-256 <span className="mono">{shortHash(saved.digest, 16)}</span>, enregistrée avec chaque prompt. Le journal garde l'empreinte et les nombres, jamais les noms.
+        {t("settings.pseudonymisation.liste_de_n_noms", { n: saved.n_list_entries })}
+        {saved.categories.length > 0 ? ` (${saved.categories.map((c) => (c === "person" ? "personnes" : c === "organisation" ? "organisations" : c)).join(", ")})` : ""}{t("settings.pseudonymisation.empreinte_sha_256")} <span className="mono">{shortHash(saved.digest, 16)}</span>{t("settings.pseudonymisation.enregistree_avec_chaque_prompt_le")}
       </p>
       <p className="text-muted-foreground text-xs">
-        <b>Le texte libre n'est pas couvert.</b> {saved.note}
+        <b>{t("settings.pseudonymisation.le_texte_libre_n_est")}</b> {saved.note}
       </p>
     </div>
   )

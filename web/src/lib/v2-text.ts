@@ -4,15 +4,16 @@
 
 import { ApiError } from "./api"
 import type { AudioUnit, CodeMatchField, CoCell, CoGroup } from "./v2-api"
+import { t } from "@/i18n"
 
 // ------------------------------------------------------------ code search
 
 const FIELD_LABEL: Record<CodeMatchField, string> = {
   name: "Nom",
-  alias: "Alias",
-  token: "Identifiant d'origine",
-  label: "Libellé",
-  definition: "Définition",
+  get alias() { return t("common.alias") },
+  get token() { return t("v2_text.identifiant_d_origine") },
+  get label() { return t("common.libelle") },
+  get definition() { return t("common.definition") },
 }
 
 export function matchedFieldLabel(field: CodeMatchField): string {
@@ -33,23 +34,23 @@ export function explainCodeOpError(e: unknown): string {
   if (!(e instanceof ApiError)) return e instanceof Error ? e.message : String(e)
   const m = e.message
   if (e.status === 409) {
-    if (/already undone/.test(m)) return "Cette opération a déjà été annulée. Rien n'est à refaire."
+    if (/already undone/.test(m)) return t("v2_text.cette_operation_a_deja_ete")
     const later = /operation (\d+) came after/.exec(m)
-    if (later) return `L'opération n° ${later[1]}, plus récente, touche les mêmes codes. Annulez-la d'abord, puis revenez à celle-ci.`
-    if (/no longer merged/.test(m)) return "Le code n'est plus fusionné dans cette cible : il a changé depuis. Rien n'a été annulé."
-    if (/split \d+ was undone/.test(m)) return "Cette scission a été annulée : sa liste ne reçoit plus de décision."
-    return `Refusé par la règle de protection : ${m}`
+    if (later) return t("v2_text.l_operation_n_v_plus", { v: later[1] })
+    if (/no longer merged/.test(m)) return t("v2_text.le_code_n_est_plus")
+    if (/split \d+ was undone/.test(m)) return t("v2_text.cette_scission_a_ete_annulee")
+    return t("v2_text.refuse_par_la_regle_de", { m })
   }
   if (e.status === 404) {
-    if (/code operation/.test(m)) return "Cette opération est introuvable. Une fusion faite avant l'existence du journal ne peut pas être annulée."
-    return "Introuvable. La page est peut-être en retard sur le serveur : rechargez-la."
+    if (/code operation/.test(m)) return t("v2_text.cette_operation_est_introuvable_une")
+    return t("v2_text.introuvable_la_page_est_peut")
   }
-  if (/needs a rationale/.test(m)) return "Le motif est obligatoire."
-  if (/two or more new codes/.test(m)) return "Une scission donne au moins deux nouveaux codes."
+  if (/needs a rationale/.test(m)) return t("v2_text.le_motif_est_obligatoire")
+  if (/two or more new codes/.test(m)) return t("common.une_scission_donne_au_moins")
   const twice = /the name (.+) is given twice/.exec(m)
-  if (twice) return `Le nom « ${twice[1]} » est donné deux fois.`
-  if (/reserved code/.test(m)) return "Le code réservé « Plus tard » ne peut pas être scindé."
-  if (/inactive or merged/.test(m)) return "Un code inactif ou fusionné ne peut pas être scindé."
+  if (twice) return t("v2_text.le_nom_v_est_donne", { v: twice[1] })
+  if (/reserved code/.test(m)) return t("v2_text.le_code_reserve_plus_tard")
+  if (/inactive or merged/.test(m)) return t("v2_text.un_code_inactif_ou_fusionne")
   return m
 }
 
@@ -57,11 +58,11 @@ export function explainCodeOpError(e: unknown): string {
 export function explainReviewError(e: unknown): string {
   if (!(e instanceof ApiError)) return e instanceof Error ? e.message : String(e)
   const m = e.message
-  if (e.status === 409) return "Ce passage a déjà été décidé. La liste va se mettre à jour."
-  if (/proposed span/.test(m)) return "Rien ne propose de nouvel emplacement : choisissez « Ajuster » ou « Détacher »."
-  if (/another passage|already covers|overlap/.test(m)) return "Un autre passage couvre déjà cet extrait."
-  if (/interviewer/.test(m)) return "Le tour est devenu un tour de l'intervieweur : un passage ne s'y code pas."
-  if (/empty|reversed|outside/.test(m)) return "Sélectionnez un extrait non vide dans le texte actuel du tour."
+  if (e.status === 409) return t("v2_text.ce_passage_a_deja_ete")
+  if (/proposed span/.test(m)) return t("v2_text.rien_ne_propose_de_nouvel")
+  if (/another passage|already covers|overlap/.test(m)) return t("v2_text.un_autre_passage_couvre_deja")
+  if (/interviewer/.test(m)) return t("v2_text.le_tour_est_devenu_un")
+  if (/empty|reversed|outside/.test(m)) return t("v2_text.selectionnez_un_extrait_non_vide")
   return m
 }
 

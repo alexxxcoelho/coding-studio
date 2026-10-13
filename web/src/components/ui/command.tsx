@@ -14,6 +14,7 @@ import {
   InputGroupAddon,
 } from "@/components/ui/input-group"
 import { SearchIcon, CheckIcon } from "lucide-react"
+import { t } from "@/i18n"
 
 function Command({
   className,
@@ -32,8 +33,8 @@ function Command({
 }
 
 function CommandDialog({
-  title = "Palette de commandes",
-  description = "Chercher une commande à lancer.",
+  title = t("ui.command.palette_de_commandes"),
+  description = t("ui.command.chercher_une_commande_a_lancer"),
   children,
   className,
   showCloseButton = false,

@@ -3,6 +3,7 @@
 
 import { useId, type DragEvent, type ReactNode } from "react"
 
+import { t } from "@/i18n"
 import type { PassageBrief, VerificationBadge } from "@/lib/analysis-api"
 import { passageRef } from "@/lib/analysis-text"
 import { SAVE_STATUS_LABEL, useAutosavedText, type SaveStatus } from "@/lib/autosave"
@@ -13,9 +14,9 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 
 const VERIF_LABEL: Record<VerificationBadge, string> = {
-  verified: "Vérifié à l'audio",
-  unverified: "Non vérifié à l'audio",
-  unusable: "Inutilisable",
+  get verified() { return t("analysis.shared.verifie_a_l_audio") },
+  get unverified() { return t("analysis.shared.non_verifie_a_l_audio") },
+  get unusable() { return t("common.inutilisable") },
 }
 
 export function VerificationLabel({ state }: { state: VerificationBadge | null }) {
@@ -146,7 +147,7 @@ export function PassageCard({
       data-passage={passage.passage_id}
     >
       <div className="flex flex-wrap items-center gap-2">
-        <a href={unitHref(passage.unit_id)} className="mono font-semibold hover:underline" title="Ouvrir dans le Coder">
+        <a href={unitHref(passage.unit_id)} className="mono font-semibold hover:underline" title={t("common.ouvrir_dans_le_coder")}>
           {passageRef(passage)}
         </a>
         {top}

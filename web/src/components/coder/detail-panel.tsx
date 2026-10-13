@@ -10,6 +10,7 @@ import { toast } from "sonner"
 import { shortId } from "@/components/coder/turn"
 import { NativeSelect, TEXTAREA } from "@/components/settings/fields"
 import { Button } from "@/components/ui/button"
+import { t } from "@/i18n"
 import { analysisApi } from "@/lib/analysis-api"
 import { codeColor, LATER_ID } from "@/lib/code-tree"
 import { dateTime } from "@/lib/format"
@@ -34,14 +35,14 @@ function LaterNote({ passage, onSave }: { passage: Passage; onSave: (note: strin
   return (
     <>
       <label className="hs" htmlFor="later-note">
-        Note pour Plus tard
+        {t("coder.detail_panel.note_pour_plus_tard")}
       </label>
       <textarea
         id="later-note"
         className={TEXTAREA}
         rows={2}
         value={draft}
-        placeholder="Pourquoi ce passage est à revoir"
+        placeholder={t("coder.detail_panel.pourquoi_ce_passage_est_a")}
         onChange={(e) => setDraft(e.target.value)}
         onBlur={() => draft !== coding.note && onSave(draft)}
       />
@@ -62,16 +63,16 @@ function Qualification({ passage }: { passage: Passage }) {
   const save = useMutation({
     mutationFn: (q: { origin?: string | null; role?: string | null }) => analysisApi.qualifyPassage(passage.passage_id, q),
     onSuccess: () => invalidatePassages(qc, passage.interview_id),
-    onError: (e) => reportError(e, "Qualification non enregistrée"),
+    onError: (e) => reportError(e, t("coder.detail_panel.qualification_non_enregistree")),
   })
   if (passage.passage_id.startsWith("tmp-")) return null
   return (
     <>
-      <div className="hs">Qualification</div>
+      <div className="hs">{t("coder.detail_panel.qualification")}</div>
       <label className="flex flex-col gap-1 text-xs">
-        <span className="l2">Origine du propos</span>
-        <NativeSelect aria-label="Origine du propos" value={passage.origin ?? ""} disabled={save.isPending} onChange={(e) => save.mutate({ origin: e.target.value || null })}>
-          <option value="">Non renseignée</option>
+        <span className="l2">{t("coder.detail_panel.origine_du_propos")}</span>
+        <NativeSelect aria-label={t("coder.detail_panel.origine_du_propos")} value={passage.origin ?? ""} disabled={save.isPending} onChange={(e) => save.mutate({ origin: e.target.value || null })}>
+          <option value="">{t("coder.detail_panel.non_renseignee")}</option>
           {withCurrent(cfg.data?.passage_origins, passage.origin ?? null).map((o) => (
             <option key={o.id} value={o.id}>
               {o.label}
@@ -80,9 +81,9 @@ function Qualification({ passage }: { passage: Passage }) {
         </NativeSelect>
       </label>
       <label className="flex flex-col gap-1 text-xs">
-        <span className="l2">Rôle dans la décision</span>
-        <NativeSelect aria-label="Rôle dans la décision" value={passage.role ?? ""} disabled={save.isPending} onChange={(e) => save.mutate({ role: e.target.value || null })}>
-          <option value="">Non renseigné</option>
+        <span className="l2">{t("coder.detail_panel.role_dans_la_decision")}</span>
+        <NativeSelect aria-label={t("coder.detail_panel.role_dans_la_decision")} value={passage.role ?? ""} disabled={save.isPending} onChange={(e) => save.mutate({ role: e.target.value || null })}>
+          <option value="">{t("common.non_renseigne")}</option>
           {withCurrent(cfg.data?.passage_roles, passage.role ?? null).map((r) => (
             <option key={r.id} value={r.id}>
               {r.label}
@@ -112,11 +113,11 @@ export function DetailPanel({
   if (!passage) {
     return (
       <div className="insp-in">
-        <div className="hs">Passage sélectionné</div>
+        <div className="hs">{t("common.passage_selectionne")}</div>
         <p className="small l2" style={{ margin: 0 }}>
           {unitLabel
-            ? `Cliquez sur un passage codé ou surligné de ${unitLabel} pour voir son détail.`
-            : "Sélectionnez un tour, puis un passage."}
+            ? t("coder.detail_panel.cliquez_sur_un_passage_code", { unitLabel })
+            : t("coder.detail_panel.selectionnez_un_tour_puis_un")}
         </p>
         {unitPassages.length > 0 && (
           <div className="grp">
@@ -135,14 +136,14 @@ export function DetailPanel({
   }
   return (
     <div className="insp-in">
-      <div className="hs">Passage sélectionné</div>
+      <div className="hs">{t("common.passage_selectionne")}</div>
       <div className="small l2">
         <span className="mono">{shortId(passage.unit_id)}</span>
-        {passage.whole_unit ? ", tour entier" : `, caractères ${passage.start} à ${passage.end}`}
+        {passage.whole_unit ? ", tour entier" : t("coder.detail_panel.caracteres_start_a_end", { start: passage.start, end: passage.end })}
       </div>
       {passage.stale && (
         <p className="note-warn" role="note">
-          Le texte du tour a changé depuis la sélection ({passage.stale_reason ?? "ancrage obsolète"}). Le passage est signalé, il n'est pas déplacé.
+          {t("coder.detail_panel.le_texte_du_tour_a")}{passage.stale_reason ?? t("coder.detail_panel.ancrage_obsolete")}{t("coder.detail_panel.le_passage_est_signale_il")}
         </p>
       )}
       <blockquote data-no-i18n className="verbatim" style={{ margin: 0, borderLeft: "3px solid var(--accent-c)", paddingLeft: 10 }}>
@@ -151,9 +152,9 @@ export function DetailPanel({
         {passage.after && <span className="l3">{passage.after}</span>}
       </blockquote>
 
-      <div className="hs">Codes</div>
+      <div className="hs">{t("common.codes")}</div>
       <div className="r8" style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-        {passage.codings.length === 0 && <span className="small l2">Surlignage sans code</span>}
+        {passage.codings.length === 0 && <span className="small l2">{t("coder.detail_panel.surlignage_sans_code")}</span>}
         {passage.codings.map((c) => (
           <span key={c.coding_id} className="tag k" style={{ "--k": codeColor(c.code_id) } as CSSProperties}>
             <span className="sw" />
@@ -161,7 +162,7 @@ export function DetailPanel({
             <button
               type="button"
               aria-label={`Retirer ${c.code_name}`}
-              title="Retirer ce code"
+              title={t("coder.detail_panel.retirer_ce_code")}
               style={{ border: 0, background: "transparent", padding: 0, cursor: "pointer", color: "var(--label2)", display: "inline-flex" }}
               onClick={() => actions.removeCode(passage, c.code_id, c.code_name)}
             >
@@ -175,27 +176,27 @@ export function DetailPanel({
 
       <Qualification passage={passage} />
 
-      <div className="hs">Citation</div>
+      <div className="hs">{t("coder.detail_panel.citation")}</div>
       <div className="r8" style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
         <Button
           variant="outline"
           onClick={async () => {
             try {
               await navigator.clipboard.writeText(quotation(passage))
-              toast.success("Citation copiée")
+              toast.success(t("coder.detail_panel.citation_copiee"))
             } catch {
-              toast.error("La citation n'a pas pu être copiée")
+              toast.error(t("coder.detail_panel.la_citation_n_a_pas"))
             }
           }}
         >
-          Copier la citation
+          {t("coder.detail_panel.copier_la_citation")}
         </Button>
         <Button variant="outline" onClick={() => actions.deletePassage(passage)}>
-          Supprimer le passage
+          {t("coder.detail_panel.supprimer_le_passage")}
         </Button>
       </div>
       <p className="small l2" style={{ margin: 0 }}>
-        Créé par {passage.created_by || "…"} le {dateTime(passage.created_at) || "…"}. Un surlignage reste visible après le codage et sert de citation candidate.
+        {t("coder.detail_panel.cree_par")} {passage.created_by || "…"} {t("coder.detail_panel.le")} {dateTime(passage.created_at) || "…"}{t("coder.detail_panel.un_surlignage_reste_visible_apres")}
       </p>
     </div>
   )

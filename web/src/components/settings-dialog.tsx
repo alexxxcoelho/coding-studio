@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button"
 import { FIELD } from "@/components/ui/field-styles"
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
+import { t } from "@/i18n"
 import { appearance, useAppearance } from "@/lib/appearance"
 import { api } from "@/lib/api"
 import { ACCENTS, ACCENT_IDS, TEXT_SIZES, type AccentId, type TextSize, type ThemeChoice } from "@/lib/theme"
@@ -20,9 +21,9 @@ import { cn } from "@/lib/utils"
 import type { SettingsTab } from "@/components/use-settings-dialog"
 
 const TABS: { id: SettingsTab; label: string; Icon: typeof GearIcon }[] = [
-  { id: "general", label: "Général", Icon: GearIcon },
-  { id: "providers", label: "Fournisseurs IA", Icon: ProviderIcon },
-  { id: "advanced", label: "Avancé", Icon: SlidersIcon },
+  { id: "general", get label() { return t("settings_dialog.general") }, Icon: GearIcon },
+  { id: "providers", get label() { return t("settings_dialog.fournisseurs_ia") }, Icon: ProviderIcon },
+  { id: "advanced", get label() { return t("settings_dialog.avance") }, Icon: SlidersIcon },
 ]
 
 export function SettingsDialog({
@@ -47,9 +48,9 @@ export function SettingsDialog({
       >
         <TabsPrimitive.Root value={tab} onValueChange={(v) => onTabChange(v as SettingsTab)} className="flex min-h-0 flex-1 flex-col">
           <div className="border-sep bg-under relative flex flex-col items-center gap-1.5 border-b-[.5px] px-3.5 pt-3 pb-2">
-            <DialogTitle className="text-sm font-semibold leading-none">{`Réglages, ${current.label}`}</DialogTitle>
-            <DialogDescription className="sr-only">Réglages de l'application : apparence, fournisseurs IA et options avancées.</DialogDescription>
-            <TabsPrimitive.List className="flex gap-1" aria-label="Sections des réglages">
+            <DialogTitle className="text-sm font-semibold leading-none">{t("settings_dialog.reglages_label", { label: current.label })}</DialogTitle>
+            <DialogDescription className="sr-only">{t("settings_dialog.reglages_de_l_application_apparence")}</DialogDescription>
+            <TabsPrimitive.List className="flex gap-1" aria-label={t("settings_dialog.sections_des_reglages")}>
               {TABS.map(({ id, label, Icon }) => (
                 <TabsPrimitive.Trigger
                   key={id}
@@ -79,7 +80,7 @@ export function SettingsDialog({
             </TabsPrimitive.Content>
           </div>
         </TabsPrimitive.Root>
-        <DialogPrimitive.Close className="sr-only">Fermer</DialogPrimitive.Close>
+        <DialogPrimitive.Close className="sr-only">{t("common.fermer")}</DialogPrimitive.Close>
       </DialogContent>
     </Dialog>
   )
@@ -88,9 +89,9 @@ export function SettingsDialog({
 // --------------------------------------------------------------- Général
 
 const THEMES: { id: ThemeChoice; label: string }[] = [
-  { id: "system", label: "Automatique" },
-  { id: "light", label: "Clair" },
-  { id: "dark", label: "Sombre" },
+  { id: "system", get label() { return t("settings_dialog.automatique") } },
+  { id: "light", get label() { return t("settings_dialog.clair") } },
+  { id: "dark", get label() { return t("settings_dialog.sombre") } },
 ]
 
 function ThemeThumb({ id }: { id: ThemeChoice }) {
@@ -130,7 +131,7 @@ const SWATCH_BG: Record<AccentId, string> = {
 }
 
 function accentLabel(id: AccentId): string {
-  return id === "system" ? "Système" : ACCENTS[id].label
+  return id === "system" ? t("settings_dialog.systeme") : ACCENTS[id].label
 }
 
 function Switch({ checked, onChange, label }: { checked: boolean; onChange: (v: boolean) => void; label: string }) {
@@ -151,10 +152,10 @@ function GeneralTab() {
   const a = useAppearance()
   return (
     <>
-      <div className="gh">Apparence</div>
+      <div className="gh">{t("settings_dialog.apparence")}</div>
       <div className="grp">
         <div className="row" style={{ flexDirection: "column", alignItems: "flex-start", gap: 8 }}>
-          <div className="themes" role="radiogroup" aria-label="Apparence">
+          <div className="themes" role="radiogroup" aria-label={t("settings_dialog.apparence")}>
             {THEMES.map((t) => (
               <button key={t.id} type="button" role="radio" aria-checked={a.theme === t.id} className="th" onClick={() => appearance.setTheme(t.id)}>
                 <ThemeThumb id={t.id} />
@@ -165,9 +166,9 @@ function GeneralTab() {
         </div>
         <div className="row">
           <span className="k">
-            Couleur d'accent<small>Système suit la couleur choisie dans macOS.</small>
+            {t("settings_dialog.couleur_d_accent")}<small>{t("settings_dialog.systeme_suit_la_couleur_choisie")}</small>
           </span>
-          <div className="sws" role="radiogroup" aria-label="Couleur d'accent">
+          <div className="sws" role="radiogroup" aria-label={t("settings_dialog.couleur_d_accent")}>
             {ACCENT_IDS.map((id) => (
               <button
                 key={id}
@@ -184,16 +185,16 @@ function GeneralTab() {
           </div>
         </div>
       </div>
-      <p className="gf">Automatique suit le mode clair ou sombre du système, y compris le passage automatique en soirée.</p>
+      <p className="gf">{t("settings_dialog.automatique_suit_le_mode_clair")}</p>
 
-      <Group title="Lecture">
+      <Group title={t("settings_dialog.lecture")}>
         <div className="row">
-          <span className="k">Taille du texte des transcriptions</span>
+          <span className="k">{t("settings_dialog.taille_du_texte_des_transcriptions")}</span>
           <ToggleGroup
             type="single"
             value={a.textSize}
             onValueChange={(v) => v && appearance.setTextSize(v as TextSize)}
-            aria-label="Taille du texte des transcriptions"
+            aria-label={t("settings_dialog.taille_du_texte_des_transcriptions")}
           >
             {(Object.keys(TEXT_SIZES) as TextSize[]).map((s) => (
               <ToggleGroupItem key={s} value={s}>
@@ -203,16 +204,16 @@ function GeneralTab() {
           </ToggleGroup>
         </div>
         <div className="row">
-          <span className="k">Afficher les raccourcis sous la transcription</span>
-          <Switch checked={a.showShortcuts} onChange={(v) => appearance.setShowShortcuts(v)} label="Afficher les raccourcis" />
+          <span className="k">{t("settings_dialog.afficher_les_raccourcis_sous_la")}</span>
+          <Switch checked={a.showShortcuts} onChange={(v) => appearance.setShowShortcuts(v)} label={t("settings_dialog.afficher_les_raccourcis")} />
         </div>
       </Group>
 
-      <Group title="Langue" footer="Le français est la seule langue de l'interface pour l'instant.">
+      <Group title={t("settings_dialog.langue")} footer={t("settings_dialog.le_francais_est_la_seule")}>
         <label className="row">
-          <span className="k">Langue de l'interface</span>
-          <select className={FIELD} style={{ width: 140 }} defaultValue="fr" aria-label="Langue de l'interface">
-            <option value="fr">Français</option>
+          <span className="k">{t("settings_dialog.langue_de_l_interface")}</span>
+          <select className={FIELD} style={{ width: 140 }} defaultValue="fr" aria-label={t("settings_dialog.langue_de_l_interface")}>
+            <option value="fr">{t("settings_dialog.francais")}</option>
           </select>
         </label>
       </Group>
@@ -228,48 +229,48 @@ function AdvancedTab({ onNavigate }: { onNavigate: () => void }) {
   const s = state.data
   return (
     <>
-      <Group title="Base de données" footer="Chemins en lecture seule : ils se règlent au lancement de l'application.">
+      <Group title={t("settings_dialog.base_de_donnees")} footer={t("settings_dialog.chemins_en_lecture_seule_ils")}>
         <div className="row">
-          <span className="k">Base de l'étude</span>
+          <span className="k">{t("settings_dialog.base_de_l_etude")}</span>
           <span className="v mono break-all">{s?.db_path ?? "..."}</span>
         </div>
         <div className="row">
-          <span className="k">Base de codage d'origine</span>
+          <span className="k">{t("settings_dialog.base_de_codage_d_origine")}</span>
           <span className="v mono break-all">{s?.coding_db ?? "aucune"}</span>
         </div>
         <div className="row">
-          <span className="k">Dossier des entretiens</span>
-          <span className="v mono break-all">{s?.library_root ?? "non choisi"}</span>
+          <span className="k">{t("common.dossier_des_entretiens")}</span>
+          <span className="v mono break-all">{s?.library_root ?? t("common.non_choisi")}</span>
         </div>
         <div className="row">
-          <span className="k">Version</span>
+          <span className="k">{t("settings_dialog.version")}</span>
           <span className="v">{s?.version ?? "..."}</span>
         </div>
       </Group>
 
-      <Group title="Vérification">
+      <Group title={t("common.verification")}>
         <div className="row">
           <span className="k">
-            Chaîne du journal d'audit
+            {t("settings_dialog.chaine_du_journal_d_audit")}
             <small>
               {verify.data
                 ? verify.data.ok
-                  ? `Intacte, ${verify.data.n_events} événements.`
-                  : `Rompue à l'événement ${verify.data.first_bad_seq}.`
+                  ? t("settings_dialog.intacte_n_events_evenements", { n_events: verify.data.n_events })
+                  : t("settings_dialog.rompue_a_l_evenement_first", { first_bad_seq: verify.data.first_bad_seq })
                 : verify.isError
-                  ? "Serveur injoignable."
-                  : "Vérification en cours."}
+                  ? t("settings_dialog.serveur_injoignable")
+                  : t("settings_dialog.verification_en_cours")}
             </small>
           </span>
           <Button variant="outline" size="sm" onClick={() => verify.refetch()} disabled={verify.isFetching}>
-            Vérifier
+            {t("settings_dialog.verifier")}
           </Button>
         </div>
         <div className="row">
-          <span className="k">Journal d'audit</span>
+          <span className="k">{t("common.journal_d_audit")}</span>
           <Button variant="ghost" size="sm" className="text-accent-text" asChild>
             <a href="#/audit" onClick={onNavigate}>
-              Ouvrir
+              {t("common.ouvrir")}
             </a>
           </Button>
         </div>

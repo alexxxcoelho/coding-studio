@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
+import { t } from "@/i18n"
 import { api, ApiError } from "@/lib/api"
 import {
   configFromEntries,
@@ -28,10 +29,10 @@ import {
 import type { IsolationReport, OAuthStatus, ProviderEntry, ProvidersConfig } from "@/lib/types"
 
 const KIND_LABEL: Record<ProviderEntry["kind"], string> = {
-  copy_paste: "Manuel",
-  cli: "Ligne de commande",
+  get copy_paste() { return t("settings.model_providers.manuel") },
+  get cli() { return t("settings.model_providers.ligne_de_commande") },
   open_ai_compatible: "API",
-  oauth_chat_gpt: "Compte ChatGPT",
+  get oauth_chat_gpt() { return t("settings.model_providers.compte_chatgpt") },
 }
 
 const TYPES: [ProviderType, string][] = [
@@ -46,7 +47,7 @@ const EMPTY_FORM = (type: ProviderType) => emptyProviderForm(type)
 export function ProvidersSection({ pollMs = 1500 }: { pollMs?: number }) {
   const registry = useQuery({ queryKey: ["providers"], queryFn: api.providers })
   return (
-    <Section title="Fournisseurs de modèles" aside="le copier-coller reste toujours disponible et fait référence">
+    <Section title={t("settings.model_providers.fournisseurs_de_modeles")} aside={t("settings.model_providers.le_copier_coller_reste_toujours")}>
       {registry.isLoading ? (
         <Skeleton className="h-32 w-full" />
       ) : registry.error ? (
@@ -106,11 +107,11 @@ function ProviderRegistry({ entries, pollMs }: { entries: ProviderEntry[]; pollM
                   <span className="font-medium">{entry.id}</span>
                   <Badge variant="outline">{KIND_LABEL[entry.kind]}</Badge>
                   {entry.kind === "copy_paste" ? (
-                    <span className="text-muted-foreground text-xs">rien ne quitte la machine</span>
+                    <span className="text-muted-foreground text-xs">{t("settings.model_providers.rien_ne_quitte_la_machine")}</span>
                   ) : (
                     <>
                       <span className="text-muted-foreground text-xs">{journalLine(entry.description)}</span>
-                      <span className="text-xs">{entry.configured ? "configuré" : "non configuré"}</span>
+                      <span className="text-xs">{entry.configured ? t("settings.model_providers.configure") : t("settings.model_providers.non_configure")}</span>
                     </>
                   )}
                 </div>
@@ -118,7 +119,7 @@ function ProviderRegistry({ entries, pollMs }: { entries: ProviderEntry[]; pollM
                   <div className="flex flex-wrap gap-1.5">
                     {entry.kind === "cli" && (
                       <Button size="sm" variant="outline" disabled={probe.isPending} onClick={() => probe.mutate(entry.id)} aria-label={`Tester ${entry.id}`}>
-                        Tester l'isolation
+                        {t("settings.model_providers.tester_l_isolation")}
                       </Button>
                     )}
                     {entry.kind === "oauth_chat_gpt" && <ConnectButton id={entry.id} pollMs={pollMs} />}
@@ -131,7 +132,7 @@ function ProviderRegistry({ entries, pollMs }: { entries: ProviderEntry[]; pollM
                         setEditing({ replaceId: entry.id, form: entry.config ? formFromProvider(entry.config) : EMPTY_FORM("cli") })
                       }}
                     >
-                      Modifier
+                      {t("common.modifier")}
                     </Button>
                     <Button
                       size="sm"
@@ -140,7 +141,7 @@ function ProviderRegistry({ entries, pollMs }: { entries: ProviderEntry[]; pollM
                       disabled={write.isPending}
                       onClick={() => write.mutate(removeProvider(stored, entry.id))}
                     >
-                      Retirer
+                      {t("common.retirer")}
                     </Button>
                   </div>
                 )}
@@ -154,9 +155,9 @@ function ProviderRegistry({ entries, pollMs }: { entries: ProviderEntry[]; pollM
 
         {editing ? (
           <div className="flex flex-col gap-3 rounded-md border p-4">
-            <h3 className="text-sm font-medium">{editing.replaceId ? `Modifier ${editing.replaceId}` : "Ajouter un fournisseur"}</h3>
+            <h3 className="text-sm font-medium">{editing.replaceId ? `Modifier ${editing.replaceId}` : t("settings.model_providers.ajouter_un_fournisseur")}</h3>
             <div className="grid gap-3 sm:grid-cols-2">
-              <Field label="Type de fournisseur">
+              <Field label={t("settings.model_providers.type_de_fournisseur")}>
                 <NativeSelect
                   value={editing.form.type}
                   disabled={editing.replaceId !== null}
@@ -169,17 +170,17 @@ function ProviderRegistry({ entries, pollMs }: { entries: ProviderEntry[]; pollM
                   ))}
                 </NativeSelect>
               </Field>
-              <Field label="Identifiant du fournisseur" error={errors.id}>
+              <Field label={t("settings.model_providers.identifiant_du_fournisseur")} error={errors.id}>
                 <Input value={editing.form.id} onChange={(e) => setField("id", e.target.value)} className="font-mono text-xs" />
               </Field>
             </div>
             <ProviderFields form={editing.form} errors={errors} setField={setField} />
             <div className="flex gap-2">
               <Button onClick={save} disabled={write.isPending}>
-                {write.isPending ? "Enregistrement…" : "Enregistrer le fournisseur"}
+                {write.isPending ? "Enregistrement…" : t("settings.model_providers.enregistrer_le_fournisseur")}
               </Button>
               <Button variant="outline" onClick={() => setEditing(null)}>
-                Annuler
+                {t("common.annuler")}
               </Button>
             </div>
           </div>
@@ -192,7 +193,7 @@ function ProviderRegistry({ entries, pollMs }: { entries: ProviderEntry[]; pollM
                 setEditing({ replaceId: null, form: EMPTY_FORM("cli") })
               }}
             >
-              Ajouter un fournisseur
+              {t("settings.model_providers.ajouter_un_fournisseur")}
             </Button>
           </div>
         )}
@@ -213,36 +214,36 @@ function ProviderFields({
   if (form.type === "cli") {
     return (
       <div className="grid gap-3 sm:grid-cols-2">
-        <Field label="Commande" error={errors.command}>
+        <Field label={t("settings.model_providers.commande")} error={errors.command}>
           <Input value={form.command} onChange={(e) => setField("command", e.target.value)} className="font-mono text-xs" />
         </Field>
-        <Field label="Envoi du prompt par">
+        <Field label={t("settings.model_providers.envoi_du_prompt_par")}>
           <NativeSelect value={form.prompt_via} onChange={(e) => setField("prompt_via", e.target.value as ProviderForm["prompt_via"])}>
-            <option value="stdin">Entrée standard</option>
-            <option value="arg">Dernier argument</option>
+            <option value="stdin">{t("settings.model_providers.entree_standard")}</option>
+            <option value="arg">{t("settings.model_providers.dernier_argument")}</option>
           </NativeSelect>
         </Field>
-        <Field label="Arguments (un par ligne)">
+        <Field label={t("settings.model_providers.arguments_un_par_ligne")}>
           <textarea rows={3} value={form.args} onChange={(e) => setField("args", e.target.value)} className={TEXTAREA} />
         </Field>
-        <Field label="Options de désactivation (une par ligne)">
+        <Field label={t("settings.model_providers.options_de_desactivation_une_par")}>
           <textarea rows={3} value={form.disable_flags} onChange={(e) => setField("disable_flags", e.target.value)} className={TEXTAREA} />
         </Field>
-        <Field label="Libellé du modèle">
+        <Field label={t("settings.model_providers.libelle_du_modele")}>
           <Input value={form.model_label} onChange={(e) => setField("model_label", e.target.value)} />
         </Field>
-        <Field label="Exécution déclarée">
+        <Field label={t("settings.model_providers.execution_declaree")}>
           <NativeSelect value={form.execution} onChange={(e) => setField("execution", e.target.value as ProviderForm["execution"])}>
-            <option value="local">Local</option>
-            <option value="hosted">Modèle hébergé</option>
+            <option value="local">{t("settings.model_providers.local")}</option>
+            <option value="hosted">{t("settings.model_providers.modele_heberge")}</option>
           </NativeSelect>
         </Field>
         {form.execution === "hosted" && (
           <>
-            <Field label="Éditeur" error={errors.vendor}>
+            <Field label={t("settings.model_providers.editeur")} error={errors.vendor}>
               <Input value={form.vendor} onChange={(e) => setField("vendor", e.target.value)} />
             </Field>
-            <Field label="Endpoint" error={errors.endpoint}>
+            <Field label={t("settings.model_providers.endpoint")} error={errors.endpoint}>
               <Input value={form.endpoint} onChange={(e) => setField("endpoint", e.target.value)} />
             </Field>
           </>
@@ -253,20 +254,20 @@ function ProviderFields({
   if (form.type === "open_ai_compatible") {
     return (
       <div className="grid gap-3 sm:grid-cols-2">
-        <Field label="Préréglage">
+        <Field label={t("settings.model_providers.prereglage")}>
           <NativeSelect value={form.preset} onChange={(e) => setField("preset", e.target.value as ProviderForm["preset"])}>
-            <option value="openai">OpenAI</option>
+            <option value="openai">{t("settings.model_providers.openai")}</option>
             <option value="zai">Z.ai</option>
-            <option value="custom">Personnalisé</option>
+            <option value="custom">{t("common.personnalise")}</option>
           </NativeSelect>
         </Field>
-        <Field label="URL de base" error={errors.base_url}>
-          <Input value={form.base_url} onChange={(e) => setField("base_url", e.target.value)} placeholder="seulement pour un préréglage personnalisé" />
+        <Field label={t("settings.model_providers.url_de_base")} error={errors.base_url}>
+          <Input value={form.base_url} onChange={(e) => setField("base_url", e.target.value)} placeholder={t("settings.model_providers.seulement_pour_un_prereglage_personn")} />
         </Field>
-        <Field label="Nom de la variable de la clé d'API" error={errors.api_key_env}>
-          <Input value={form.api_key_env} onChange={(e) => setField("api_key_env", e.target.value)} placeholder="par exemple OPENAI_API_KEY" className="font-mono text-xs" />
+        <Field label={t("settings.model_providers.nom_de_la_variable_de")} error={errors.api_key_env}>
+          <Input value={form.api_key_env} onChange={(e) => setField("api_key_env", e.target.value)} placeholder={t("settings.model_providers.par_exemple_openai_api_key")} className="font-mono text-xs" />
         </Field>
-        <Field label="Modèle" error={errors.model}>
+        <Field label={t("common.modele")} error={errors.model}>
           <Input value={form.model} onChange={(e) => setField("model", e.target.value)} />
         </Field>
       </div>
@@ -274,13 +275,13 @@ function ProviderFields({
   }
   return (
     <div className="grid gap-3 sm:grid-cols-2">
-      <Field label="Profil">
-        <Input value={form.profile_id} onChange={(e) => setField("profile_id", e.target.value)} placeholder="vide : le premier profil connecté" />
+      <Field label={t("settings.model_providers.profil")}>
+        <Input value={form.profile_id} onChange={(e) => setField("profile_id", e.target.value)} placeholder={t("settings.model_providers.vide_le_premier_profil_connecte")} />
       </Field>
-      <Field label="Modèle">
+      <Field label={t("common.modele")}>
         <Input value={form.model} onChange={(e) => setField("model", e.target.value)} />
       </Field>
-      <Field label="Dossier des jetons">
+      <Field label={t("settings.model_providers.dossier_des_jetons")}>
         <Input value={form.token_dir} onChange={(e) => setField("token_dir", e.target.value)} className="font-mono text-xs" />
       </Field>
     </div>
@@ -290,14 +291,14 @@ function ProviderFields({
 function ProbeResult({ id, result }: { id: string; result: IsolationReport | string }) {
   if (typeof result === "string") return <Alerts messages={[result]} />
   const rows: [string, boolean][] = [
-    ["Dossier de travail vide", result.cwd_empty],
-    ["Environnement nettoyé", result.env_scrubbed],
-    ["Aucun fichier d'instructions", result.instruction_files_absent],
+    [t("settings.model_providers.dossier_de_travail_vide"), result.cwd_empty],
+    [t("settings.model_providers.environnement_nettoye"), result.env_scrubbed],
+    [t("settings.model_providers.aucun_fichier_d_instructions"), result.instruction_files_absent],
   ]
   return (
     <div className="flex flex-col gap-2 text-sm">
-      <p className="font-medium">{result.ok ? "Contrôle d'isolation réussi" : "Contrôle d'isolation échoué"}</p>
-      <ul aria-label={`Rapport d'isolation de ${id}`} className="flex flex-col gap-0.5 text-xs">
+      <p className="font-medium">{result.ok ? t("settings.model_providers.controle_d_isolation_reussi") : t("settings.model_providers.controle_d_isolation_echoue")}</p>
+      <ul aria-label={t("settings.model_providers.rapport_d_isolation_de_id", { id })} className="flex flex-col gap-0.5 text-xs">
         {rows.map(([label, value]) => (
           <li key={label} className="flex justify-between gap-4">
             <span>{label}</span>
@@ -305,7 +306,7 @@ function ProbeResult({ id, result }: { id: string; result: IsolationReport | str
           </li>
         ))}
       </ul>
-      {!result.ok && <p className="text-muted-foreground text-xs">Réponse du modèle :</p>}
+      {!result.ok && <p className="text-muted-foreground text-xs">{t("settings.model_providers.reponse_du_modele")}</p>}
       <pre className="bg-muted overflow-x-auto rounded-md p-2 font-mono text-xs whitespace-pre-wrap">{result.probe_answer}</pre>
     </div>
   )
@@ -334,7 +335,7 @@ function ConnectButton({ id, pollMs }: { id: string; pollMs: number }) {
   return (
     <div className="flex flex-col items-end gap-1.5">
       <Button size="sm" variant="outline" aria-label={`Connecter ${id}`} disabled={begin.isPending || (started !== null && !done)} onClick={() => begin.mutate()}>
-        Connecter
+        {t("settings.model_providers.connecter")}
       </Button>
       {started && (
         <a href={started.url} target="_blank" rel="noreferrer" className="text-primary max-w-xs truncate text-xs underline">
@@ -349,7 +350,7 @@ function ConnectButton({ id, pollMs }: { id: string; pollMs: number }) {
 
 function SignInState({ status }: { status: OAuthStatus }) {
   if (status.error) return <Alerts messages={[status.error]} />
-  if (status.connected && status.profile) return <p className="text-xs">Connecté en tant que {status.profile.email}</p>
-  if (status.pending) return <p className="text-muted-foreground text-xs">En attente de la connexion dans le navigateur…</p>
+  if (status.connected && status.profile) return <p className="text-xs">{t("settings.model_providers.connecte_en_tant_que_email", { email: status.profile.email })}</p>
+  if (status.pending) return <p className="text-muted-foreground text-xs">{t("settings.model_providers.en_attente_de_la_connexion")}</p>
   return null
 }

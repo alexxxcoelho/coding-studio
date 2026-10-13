@@ -3,6 +3,7 @@
 // value. No React here; the components render what these functions return.
 
 import type { KeywordRow, TermFrequencyAnswer, TermFrequencyValue } from "./lexicon-api"
+import { t } from "@/i18n"
 
 export type SortKey = "term" | "passages" | "share" | "keyness" | "interviews"
 export type SortDir = "asc" | "desc"
@@ -116,7 +117,7 @@ export function scoreText(n: number): string {
 }
 
 export function valueLabel(v: string | null): string {
-  return v === null || v === "" ? "Non renseigné" : v
+  return v === null || v === "" ? t("common.non_renseigne") : v
 }
 
 export interface FrequencyRow {

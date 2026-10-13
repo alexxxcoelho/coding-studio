@@ -14,7 +14,9 @@ import en from "./en.json"
 import fr from "./fr.json"
 
 export type Lang = "fr" | "en"
-export type Key = keyof typeof fr
+type CatalogueKey = keyof typeof fr
+/** Plural variants (`key_one`, `key_other`) are asked for by their base key. */
+export type Key = CatalogueKey extends infer K ? (K extends `${infer B}_one` | `${infer B}_other` ? B : K) : never
 export type Vars = Record<string, string | number | null | undefined>
 
 export const LANG_KEY = "cs-lang"
@@ -99,7 +101,7 @@ export function t(key: Key, vars?: Vars): string {
   const n = vars && typeof vars.n === "number" ? vars.n : null
   const raw = lookup(current, key, n) ?? lookup("fr", key, n) ?? key
   if (!vars) return raw
-  return raw.replace(/\{(\w+)\}/g, (whole, name: string) => (Object.hasOwn(vars, name) ? String(vars[name] ?? "") : whole))
+  return raw.replace(/\{(\w+)\}/g, (whole, name: string) => (Object.hasOwn(vars, name) ? String(vars[name]) : whole))
 }
 
 /** Dates and numbers in the current language (fr-CH or en-GB). */

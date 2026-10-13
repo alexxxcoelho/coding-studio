@@ -1,6 +1,7 @@
 // Cross-case matrix: research questions as row groups, cases as columns.
 
 import type { Case, CaseFieldKey, CrossCaseAnswer, CrossCaseCell } from "./types"
+import { t } from "@/i18n"
 
 export function cellFor(cells: CrossCaseCell[], rq: string, caseId: string): CrossCaseCell | null {
   return cells.find((c) => c.rq === rq && c.case_id === caseId) ?? null
@@ -48,11 +49,11 @@ export function fieldFilled(c: Case, key: CaseFieldKey): boolean {
 }
 
 export const FIELD_LABELS: Record<CaseFieldKey, { title: string; hint: string }> = {
-  trigger: { title: "Déclencheur", hint: "Ce qui a mis le projet en mouvement" },
-  alternatives: { title: "Alternatives", hint: "Les options envisagées, y compris ne rien faire" },
-  constraints: { title: "Contraintes", hint: "Ce qui a limité le choix : loi, partenaires, budget, compétences" },
-  choice: { title: "Choix", hint: "Ce qui a été décidé, et par qui" },
-  result: { title: "Résultat", hint: "Ce qui s'est passé, dans les termes du répondant" },
+  trigger: { get title() { return t("common.declencheur") }, get hint() { return t("crosscase.ce_qui_a_mis_le") } },
+  alternatives: { get title() { return t("crosscase.alternatives") }, get hint() { return t("crosscase.les_options_envisagees_y_compris") } },
+  constraints: { get title() { return t("crosscase.contraintes") }, get hint() { return t("crosscase.ce_qui_a_limite_le") } },
+  choice: { get title() { return t("crosscase.choix") }, get hint() { return t("crosscase.ce_qui_a_ete_decide") } },
+  result: { get title() { return t("common.resultat") }, get hint() { return t("crosscase.ce_qui_s_est_passe") } },
 }
 
 /** Options offered by the case form. Other values are free text. */

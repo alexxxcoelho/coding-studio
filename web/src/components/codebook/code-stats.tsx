@@ -8,12 +8,11 @@ import { useQuery } from "@tanstack/react-query"
 
 import { NativeSelect } from "@/components/settings/fields"
 import { Skeleton } from "@/components/ui/skeleton"
+import { t } from "@/i18n"
 import { cn } from "@/lib/utils"
 import { v2, type StatBlock } from "@/lib/v2-api"
 
 type Scope = "own" | "rollup"
-
-const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n < 2 ? one : many}`
 
 export function CodeStats({ codeId }: { codeId: string }) {
   const [scope, setScope] = useState<Scope>("own")
@@ -26,7 +25,7 @@ export function CodeStats({ codeId }: { codeId: string }) {
   const stats = filter ? q.data : all.data
 
   if (all.isLoading) return <Skeleton className="h-40 w-full" />
-  if (all.error || !all.data) return <p className="small l2">Les chiffres ne sont pas disponibles : {all.error?.message}</p>
+  if (all.error || !all.data) return <p className="small l2">{t("codebook.code_stats.les_chiffres_ne_sont_pas", { message: all.error?.message })}</p>
 
   const attrs = all.data.own.attributes
   const options = attribute
@@ -36,11 +35,11 @@ export function CodeStats({ codeId }: { codeId: string }) {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-      <div className="grp" role="table" aria-label="Chiffres du code">
+      <div className="grp" role="table" aria-label={t("codebook.code_stats.chiffres_du_code")}>
         <div className="row" role="row" style={{ minHeight: 30 }}>
           <span className="k" role="columnheader" />
-          <span className="v b" role="columnheader" style={{ width: 60, textAlign: "right" }}>Direct</span>
-          <span className="v b" role="columnheader" style={{ width: 118, textAlign: "right" }}>Avec sous-codes</span>
+          <span className="v b" role="columnheader" style={{ width: 60, textAlign: "right" }}>{t("codebook.code_stats.direct")}</span>
+          <span className="v b" role="columnheader" style={{ width: 118, textAlign: "right" }}>{t("codebook.code_stats.avec_sous_codes")}</span>
         </div>
         {(
           [
@@ -58,13 +57,13 @@ export function CodeStats({ codeId }: { codeId: string }) {
       </div>
 
       <div className="r8" style={{ justifyContent: "space-between" }}>
-        <span className="hs">Détail par attribut</span>
-        <div className="seg" role="tablist" aria-label="Portée des chiffres">
+        <span className="hs">{t("codebook.code_stats.detail_par_attribut")}</span>
+        <div className="seg" role="tablist" aria-label={t("codebook.code_stats.portee_des_chiffres")}>
           <button type="button" role="tab" aria-selected={scope === "own"} className={cn("s", scope === "own" && "on")} onClick={() => setScope("own")}>
-            Direct
+            {t("codebook.code_stats.direct")}
           </button>
           <button type="button" role="tab" aria-selected={scope === "rollup"} className={cn("s", scope === "rollup" && "on")} onClick={() => setScope("rollup")}>
-            Avec sous-codes
+            {t("codebook.code_stats.avec_sous_codes")}
           </button>
         </div>
       </div>
@@ -72,7 +71,7 @@ export function CodeStats({ codeId }: { codeId: string }) {
       {attrs.length > 0 && (
         <div className="r8">
           <NativeSelect
-            aria-label="Filtrer sur un attribut"
+            aria-label={t("common.filtrer_sur_un_attribut")}
             style={{ width: 150 }}
             value={attribute}
             onChange={(e) => {
@@ -80,7 +79,7 @@ export function CodeStats({ codeId }: { codeId: string }) {
               setValue("")
             }}
           >
-            <option value="">Tous les entretiens</option>
+            <option value="">{t("common.tous_les_entretiens")}</option>
             {attrs.map((a) => (
               <option key={a.attribute_id} value={a.attribute_id}>
                 {a.label}
@@ -88,8 +87,8 @@ export function CodeStats({ codeId }: { codeId: string }) {
             ))}
           </NativeSelect>
           {attribute && (
-            <NativeSelect aria-label="Valeur de l'attribut" style={{ width: 130 }} value={value} onChange={(e) => setValue(e.target.value)}>
-              <option value="">Valeur…</option>
+            <NativeSelect aria-label={t("codebook.code_stats.valeur_de_l_attribut")} style={{ width: 130 }} value={value} onChange={(e) => setValue(e.target.value)}>
+              <option value="">{t("common.valeur_2")}</option>
               {options.map((v) => (
                 <option key={v} value={v}>
                   {v}
@@ -101,32 +100,32 @@ export function CodeStats({ codeId }: { codeId: string }) {
       )}
       {filter && block && (
         <p className="small l2" style={{ margin: 0 }} role="status">
-          Filtre : {attrs.find((a) => a.attribute_id === attribute)?.label} = {value}. {plural(block.passages, "passage")}, {plural(block.interviews, "entretien")}, {plural(block.cases, "cas", "cas")}.
+          {t("codebook.code_stats.filtre_label_value_items_items2", { label: attrs.find((a) => a.attribute_id === attribute)?.label, value, items: t("common.n_passages", { n: block.passages }), items2: t("common.n_entretiens", { n: block.interviews }), items3: t("codebook.code_stats.n_cas", { n: block.cases }) })}
         </p>
       )}
 
-      {block && block.attributes.length === 0 && <p className="small l2" style={{ margin: 0 }}>Aucun attribut d'entretien n'est défini pour l'étude.</p>}
+      {block && block.attributes.length === 0 && <p className="small l2" style={{ margin: 0 }}>{t("codebook.code_stats.aucun_attribut_d_entretien_n")}</p>}
       {block && block.attributes.length > 0 && (
-        <div className="grp" aria-label="Valeurs des attributs">
+        <div className="grp" aria-label={t("codebook.code_stats.valeurs_des_attributs")}>
           {block.attributes.map((a) => (
             <div key={a.attribute_id} className="row" style={{ alignItems: "flex-start", flexDirection: "column", gap: 3 }}>
               <span className="b">
-                {a.label} <span className="l2" style={{ fontWeight: 400 }}>{plural(a.distinct_values, "valeur")}</span>
+                {a.label} <span className="l2" style={{ fontWeight: 400 }}>{t("codebook.code_stats.n_valeurs", { n: a.distinct_values })}</span>
               </span>
-              {a.values.length === 0 && <span className="small l2">Aucune valeur sur les entretiens de ce code.</span>}
+              {a.values.length === 0 && <span className="small l2">{t("codebook.code_stats.aucune_valeur_sur_les_entretiens")}</span>}
               {a.values.map((v) => (
                 <span key={v.value} className="small" style={{ display: "flex", justifyContent: "space-between", width: "100%" }}>
                   <span>{v.value}</span>
-                  <span className="l2">{plural(v.interviews, "entretien")}</span>
+                  <span className="l2">{t("common.n_entretiens", { n: v.interviews })}</span>
                 </span>
               ))}
-              {a.interviews_without_value > 0 && <span className="small l2">{plural(a.interviews_without_value, "entretien")} sans valeur, comptés nulle part.</span>}
+              {a.interviews_without_value > 0 && <span className="small l2">{t("codebook.code_stats.items_sans_valeur_comptes_nulle", { items: t("common.n_entretiens", { n: a.interviews_without_value }) })}</span>}
             </div>
           ))}
         </div>
       )}
       <p className="small l2" style={{ margin: 0 }}>
-        Passages, entretiens et cas sont comptés à part, jamais additionnés. Ces chiffres disent la couverture du corpus codé, pas la fréquence des idées.
+        {t("codebook.code_stats.passages_entretiens_et_cas_sont")}
       </p>
     </div>
   )

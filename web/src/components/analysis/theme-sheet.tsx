@@ -16,10 +16,10 @@ import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Textarea } from "@/components/ui/textarea"
+import { t } from "@/i18n"
 import { analysisApi, THEME_STATUSES, type ThemeSheet, type ThemeSheetEdit, type ThemeStatus } from "@/lib/analysis-api"
 import { carries, planCodeAdd, readDrag } from "@/lib/analysis-dnd"
 import { akeys, invalidateThemes, useTheme } from "@/lib/analysis-hooks"
-import { plural } from "@/lib/analysis-text"
 import { reportError } from "@/lib/notify"
 import { checksProgress, planStatusChange, STATUS_LABEL } from "@/lib/theme-status"
 import { cn } from "@/lib/utils"
@@ -38,13 +38,13 @@ function CaseList({ label, ids, cases, onChange }: { label: string; ids: string[
     <div className="flex flex-col gap-1.5">
       <span className="hs">{label}</span>
       <div className="flex flex-wrap items-center gap-1.5">
-        {ids.length === 0 && <span className="text-muted-foreground text-sm">aucun</span>}
+        {ids.length === 0 && <span className="text-muted-foreground text-sm">{t("common.aucun")}</span>}
         {ids.map((id) => (
           <Chip key={id} value={caseLabel(cases, id)} removeLabel={`Retirer ${caseLabel(cases, id)}`} onRemove={() => onChange(ids.filter((x) => x !== id))} />
         ))}
         {left.length > 0 && (
-          <NativeSelect aria-label={`Ajouter un cas : ${label}`} value="" onChange={(e) => e.target.value && onChange([...ids, e.target.value])} style={{ width: 150 }}>
-            <option value="">Ajouter un cas…</option>
+          <NativeSelect aria-label={t("analysis.theme_sheet.ajouter_un_cas_label", { label })} value="" onChange={(e) => e.target.value && onChange([...ids, e.target.value])} style={{ width: 150 }}>
+            <option value="">{t("analysis.theme_sheet.ajouter_un_cas")}</option>
             {left.map((c) => (
               <option key={c.case_id} value={c.case_id}>
                 {caseLabel(cases, c.case_id)}
@@ -95,14 +95,14 @@ export function ThemeSheetView({
     try {
       apply(await analysisApi.updateTheme(themeId, edit))
     } catch (e) {
-      reportError(e, "Fiche non enregistrée")
+      reportError(e, t("analysis.theme_sheet.fiche_non_enregistree"))
       throw e
     }
   }
   const saveText = (key: TextKey) => (v: string) => save({ [key]: v })()
 
   if (q.isLoading) return <Skeleton className="h-96 w-full" />
-  if (q.error || !q.data) return <p className="text-destructive text-sm">{q.error?.message ?? "Thème introuvable."}</p>
+  if (q.error || !q.data) return <p className="text-destructive text-sm">{q.error?.message ?? t("analysis.theme_sheet.theme_introuvable")}</p>
   const sheet = q.data
 
   const checks = project.theme_checks.map((c) => ({ check_id: c.id, label: c.label, done: sheet.checks.find((s) => s.check_id === c.id)?.done ?? false }))
@@ -116,7 +116,7 @@ export function ThemeSheetView({
       setChecksOpen(true)
       return
     }
-    const ok = await run(() => analysisApi.setThemeStatus(themeId, { status: to, ...(plan.needsOverride ? { override_reason: override!.trim() } : {}) }), "Statut refusé")
+    const ok = await run(() => analysisApi.setThemeStatus(themeId, { status: to, ...(plan.needsOverride ? { override_reason: override!.trim() } : {}) }), t("analysis.theme_sheet.statut_refuse"))
     if (ok) {
       setOverriding(false)
       setOverrideReason("")
@@ -129,31 +129,31 @@ export function ThemeSheetView({
     const p = readDrag(e.dataTransfer, "code")
     if (!p) return
     if (planCodeAdd(sheet.codes.map((c) => c.code_id), p.id) === "present") {
-      toast.info("Ce code est déjà dans le thème.")
+      toast.info(t("analysis.theme_sheet.ce_code_est_deja_dans"))
       return
     }
-    await run(() => analysisApi.addThemeCode(themeId, p.id), "Code non ajouté")
+    await run(() => analysisApi.addThemeCode(themeId, p.id), t("common.code_non_ajoute"))
   }
 
   const rqs = [...questions].sort((a, b) => a.ord - b.ord)
   const nInterviews = sheet.interviews_count
 
   return (
-    <div className="flex min-w-0 flex-col gap-4" aria-label="Fiche du thème" role="region">
+    <div className="flex min-w-0 flex-col gap-4" aria-label={t("analysis.theme_sheet.fiche_du_theme")} role="region">
       <AutoInput
-        label="Titre du thème"
+        label={t("analysis.theme_sheet.titre_du_theme")}
         value={sheet.title}
         onSave={(v) => save({ title: v })()}
         className="[&_input]:h-8 [&_input]:text-[15px] [&_input]:font-semibold"
       />
-      <p className="text-muted-foreground -mt-2 text-[11.5px]">Le titre est une proposition, pas un sujet. Il reste modifiable : l'ancien titre est conservé dans l'historique.</p>
+      <p className="text-muted-foreground -mt-2 text-[11.5px]">{t("analysis.theme_sheet.le_titre_est_une_proposition")}</p>
 
-      <AutoTextarea label="Proposition" value={sheet.proposition} onSave={saveText("proposition")} rows={4} hint="Deux à quatre phrases. Remplissez d'abord la proposition et les cas divergents." />
+      <AutoTextarea label={t("analysis.theme_sheet.proposition")} value={sheet.proposition} onSave={saveText("proposition")} rows={4} hint={t("analysis.theme_sheet.deux_a_quatre_phrases_remplissez")} />
 
       <fieldset className="flex flex-col gap-1.5">
-        <legend className="hs mb-1">Questions de recherche</legend>
+        <legend className="hs mb-1">{t("common.questions_de_recherche")}</legend>
         {rqs.length === 0 ? (
-          <p className="text-muted-foreground text-sm">Aucune question de recherche : définissez-les dans les Réglages.</p>
+          <p className="text-muted-foreground text-sm">{t("analysis.theme_sheet.aucune_question_de_recherche_definis")}</p>
         ) : (
           <div className="flex flex-wrap gap-x-4 gap-y-1.5">
             {rqs.map((rq) => (
@@ -167,7 +167,7 @@ export function ThemeSheetView({
                         analysisApi.updateTheme(themeId, {
                           research_questions: v === true ? [...sheet.research_questions, rq.id] : sheet.research_questions.filter((x) => x !== rq.id),
                         }),
-                      "Questions non enregistrées",
+                      t("analysis.theme_sheet.questions_non_enregistrees"),
                     )
                   }
                 />
@@ -179,7 +179,7 @@ export function ThemeSheetView({
       </fieldset>
 
       <section
-        aria-label="Codes supports"
+        aria-label={t("analysis.theme_sheet.codes_supports")}
         className={cn("flex flex-col gap-1.5 rounded-lg p-2.5 transition-colors", dropping ? "bg-accent-fill/15 outline-2 outline-dashed outline-[var(--accent-c)]" : "grp")}
         onDragOver={(e) => {
           if (carries(e.dataTransfer, "code")) {
@@ -191,26 +191,26 @@ export function ThemeSheetView({
         onDrop={onDropCode}
       >
         <div className="flex items-baseline justify-between gap-2">
-          <h3 className="hs">Codes supports</h3>
+          <h3 className="hs">{t("analysis.theme_sheet.codes_supports")}</h3>
           <span className="text-muted-foreground text-[11.5px]">
-            {plural(sheet.codes.length, "code")}, {plural(nInterviews, "entretien")}
+            {t("common.n_codes", { n: sheet.codes.length })}, {t("common.n_entretiens", { n: nInterviews })}
           </span>
         </div>
         {sheet.codes.length === 0 ? (
-          <p className="text-muted-foreground text-sm">Glissez ici des codes de l'arbre.</p>
+          <p className="text-muted-foreground text-sm">{t("analysis.theme_sheet.glissez_ici_des_codes_de")}</p>
         ) : (
           <ul className="flex flex-col gap-1">
             {sheet.codes.map((c) => (
               <li key={c.code_id} className="flex items-center gap-2 text-sm">
                 <span className="min-w-0 flex-1 truncate">{c.name || codeNames?.get(c.code_id) || c.code_id}</span>
                 <span className="text-muted-foreground text-[11.5px]">
-                  {plural(c.passages, "passage")}, {plural(c.interviews, "entretien")}
+                  {t("common.n_passages", { n: c.passages })}, {t("common.n_entretiens", { n: c.interviews })}
                 </span>
                 <Button
                   variant="ghost"
                   size="icon-xs"
-                  aria-label={`Retirer ${c.name} du thème`}
-                  onClick={() => void run(() => analysisApi.removeThemeCode(themeId, c.code_id), "Code non retiré")}
+                  aria-label={t("analysis.theme_sheet.retirer_name_du_theme", { name: c.name })}
+                  onClick={() => void run(() => analysisApi.removeThemeCode(themeId, c.code_id), t("analysis.theme_sheet.code_non_retire"))}
                 >
                   ×
                 </Button>
@@ -220,19 +220,19 @@ export function ThemeSheetView({
         )}
       </section>
 
-      <CaseList label="Cas qui étayent" ids={sheet.supporting_cases} cases={cases} onChange={(ids) => void run(() => analysisApi.updateTheme(themeId, { supporting_cases: ids }), "Cas non enregistrés")} />
-      <CaseList label="Cas divergents" ids={sheet.divergent_cases} cases={cases} onChange={(ids) => void run(() => analysisApi.updateTheme(themeId, { divergent_cases: ids }), "Cas non enregistrés")} />
+      <CaseList label={t("analysis.theme_sheet.cas_qui_etayent")} ids={sheet.supporting_cases} cases={cases} onChange={(ids) => void run(() => analysisApi.updateTheme(themeId, { supporting_cases: ids }), t("analysis.theme_sheet.cas_non_enregistres"))} />
+      <CaseList label={t("analysis.theme_sheet.cas_divergents")} ids={sheet.divergent_cases} cases={cases} onChange={(ids) => void run(() => analysisApi.updateTheme(themeId, { divergent_cases: ids }), t("analysis.theme_sheet.cas_non_enregistres"))} />
 
-      <AutoTextarea label="Conditions" value={sheet.conditions} onSave={saveText("conditions")} rows={2} hint="Par exemple un petit volume de prêts." />
-      <AutoTextarea label="Interprétation alternative" value={sheet.alternative_interpretation} onSave={saveText("alternative_interpretation")} rows={2} />
-      <AutoTextarea label="Limites" value={sheet.limits} onSave={saveText("limits")} rows={2} />
+      <AutoTextarea label={t("analysis.theme_sheet.conditions")} value={sheet.conditions} onSave={saveText("conditions")} rows={2} hint={t("analysis.theme_sheet.par_exemple_un_petit_volume")} />
+      <AutoTextarea label={t("analysis.theme_sheet.interpretation_alternative")} value={sheet.alternative_interpretation} onSave={saveText("alternative_interpretation")} rows={2} />
+      <AutoTextarea label={t("common.limites")} value={sheet.limits} onSave={saveText("limits")} rows={2} />
 
       {project.interpretive_framework && <FrameworkChecks themeId={themeId} framework={project.interpretive_framework} />}
 
-      <section className="flex flex-col gap-2" aria-label="Statut et contrôles">
+      <section className="flex flex-col gap-2" aria-label={t("analysis.theme_sheet.statut_et_controles")}>
         <div className="flex flex-wrap items-center gap-2">
           <label className="hs" htmlFor="theme-status">
-            Statut
+            {t("analysis.theme_sheet.statut")}
           </label>
           <NativeSelect id="theme-status" value={sheet.status} onChange={(e) => void changeStatus(e.target.value as ThemeStatus)} style={{ width: 130 }}>
             {THEME_STATUSES.map((s) => (
@@ -242,16 +242,16 @@ export function ThemeSheetView({
             ))}
           </NativeSelect>
           <Button variant="outline" size="sm" aria-expanded={checksOpen} onClick={() => setChecksOpen((o) => !o)}>
-            Contrôles avant « retenu »
+            {t("analysis.theme_sheet.controles_avant_retenu")}
           </Button>
           <span className="text-muted-foreground text-[11.5px]">
-            {progress.done} sur {progress.total} faits
+            {t("analysis.theme_sheet.done_sur_total_faits", { done: progress.done, total: progress.total })}
           </span>
         </div>
-        <p className="text-muted-foreground text-[11.5px]">Les contrôles aident à décider, ils ne verrouillent rien : l'outil ne passe jamais un thème à « retenu » à votre place.</p>
+        <p className="text-muted-foreground text-[11.5px]">{t("analysis.theme_sheet.les_controles_aident_a_decider")}</p>
         {checksOpen && (
-          <ul className="grp flex flex-col gap-1.5 p-2.5" aria-label="Contrôles avant « retenu »">
-            {checks.length === 0 && <li className="text-muted-foreground text-sm">Aucun contrôle défini dans les Réglages.</li>}
+          <ul className="grp flex flex-col gap-1.5 p-2.5" aria-label={t("analysis.theme_sheet.controles_avant_retenu")}>
+            {checks.length === 0 && <li className="text-muted-foreground text-sm">{t("analysis.theme_sheet.aucun_controle_defini_dans_les")}</li>}
             {checks.map((c) => (
               <li key={c.check_id}>
                 <label className="flex items-start gap-2 text-sm">
@@ -259,7 +259,7 @@ export function ThemeSheetView({
                     className="mt-0.5"
                     checked={c.done}
                     aria-label={c.label}
-                    onCheckedChange={(v) => void run(() => analysisApi.setThemeCheck(themeId, c.check_id, v === true), "Contrôle non enregistré")}
+                    onCheckedChange={(v) => void run(() => analysisApi.setThemeCheck(themeId, c.check_id, v === true), t("analysis.theme_sheet.controle_non_enregistre"))}
                   />
                   <span>{c.label}</span>
                 </label>
@@ -268,27 +268,27 @@ export function ThemeSheetView({
           </ul>
         )}
         {overriding && (
-          <div role="group" aria-label="Retenir malgré les contrôles restants" className="note-warn flex-col items-stretch">
+          <div role="group" aria-label={t("analysis.theme_sheet.retenir_malgre_les_controles_restant")} className="note-warn flex-col items-stretch">
             <p className="text-sm">
-              {progress.total - progress.done > 1 ? `${progress.total - progress.done} contrôles ne sont pas faits.` : "Un contrôle n'est pas fait."} Pour retenir quand même ce thème, écrivez pourquoi : la raison est conservée dans l'historique.
+              {progress.total - progress.done > 1 ? t("analysis.theme_sheet.v_controles_ne_sont_pas", { v: progress.total - progress.done }) : t("analysis.theme_sheet.un_controle_n_est_pas")} {t("analysis.theme_sheet.pour_retenir_quand_meme_ce")}
             </p>
-            <Textarea aria-label="Raison pour retenir malgré les contrôles restants" rows={2} value={overrideReason} onChange={(e) => setOverrideReason(e.target.value)} />
+            <Textarea aria-label={t("analysis.theme_sheet.raison_pour_retenir_malgre_les")} rows={2} value={overrideReason} onChange={(e) => setOverrideReason(e.target.value)} />
             <div className="flex justify-end gap-2">
               <Button variant="ghost" size="sm" onClick={() => setOverriding(false)}>
-                Annuler
+                {t("common.annuler")}
               </Button>
               <Button size="sm" disabled={!overrideReason.trim()} onClick={() => void changeStatus("retained", overrideReason)}>
-                Retenir malgré tout
+                {t("analysis.theme_sheet.retenir_malgre_tout")}
               </Button>
             </div>
           </div>
         )}
       </section>
 
-      <AutoTextarea label="Mémo de décision" value={sheet.decision_memo} onSave={saveText("decision_memo")} rows={3} hint="Explique en quelques lignes pourquoi le thème est conservé." />
+      <AutoTextarea label={t("analysis.theme_sheet.memo_de_decision")} value={sheet.decision_memo} onSave={saveText("decision_memo")} rows={3} hint={t("analysis.theme_sheet.explique_en_quelques_lignes_pourquoi")} />
 
       <details className="grp p-2.5">
-        <summary className="hs cursor-pointer">Passages du thème</summary>
+        <summary className="hs cursor-pointer">{t("common.passages_du_theme")}</summary>
         <div className="mt-2">
           <ThemePassageList themeId={themeId} />
         </div>

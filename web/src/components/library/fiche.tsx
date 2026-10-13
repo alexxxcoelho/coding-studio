@@ -9,6 +9,7 @@ import { Check } from "lucide-react"
 import { NativeSelect } from "@/components/settings/fields"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { t } from "@/i18n"
 import { api } from "@/lib/api"
 import { checkAttribute } from "@/lib/attributes"
 import { keys, useAttributes, useMemoView, useProjectConfig } from "@/lib/hooks"
@@ -19,17 +20,17 @@ import type { AttributeDef, InterviewSummary, SourceKind } from "@/lib/types"
 import type { CodingProgress } from "@/lib/pipeline"
 
 const KIND_LABEL: Record<SourceKind, string> = {
-  vtt: "Transcription de plateforme (VTT)",
-  timestamped_text: "Texte brut horodaté",
-  cleaned_markdown: "Transcription épurée",
-  budgie_markdown: "Export Budgie Echo",
-  written_response: "Réponse écrite",
-  docx: "Transcription Word (DOCX)",
-  pdf: "Transcription PDF",
-  summary: "Synthèse",
-  record_sheet: "Fiche d'enregistrement",
-  toe_coding: "Codage antérieur",
-  other: "Autre fichier",
+  get vtt() { return t("common.transcription_de_plateforme_vtt") },
+  get timestamped_text() { return t("library.fiche.texte_brut_horodate") },
+  get cleaned_markdown() { return t("common.transcription_epuree") },
+  get budgie_markdown() { return t("common.export_budgie_echo") },
+  get written_response() { return t("common.reponse_ecrite") },
+  get docx() { return t("common.transcription_word_docx") },
+  get pdf() { return t("common.transcription_pdf") },
+  get summary() { return t("common.synthese") },
+  get record_sheet() { return t("common.fiche_d_enregistrement") },
+  get toe_coding() { return t("common.codage_anterieur") },
+  get other() { return t("library.fiche.autre_fichier") },
 }
 
 /** One attribute, edited in place. The value is checked before the call; a wrong one shows its reason and is not sent. */
@@ -47,7 +48,7 @@ export function AttributeRow({ def, saved, onSave }: { def: AttributeDef; saved:
   const commit = (raw: string) => {
     const c = checkAttribute(def, raw)
     if (!c.ok) {
-      setError(c.error ?? "Valeur refusée")
+      setError(c.error ?? t("library.fiche.valeur_refusee"))
       return
     }
     setError(null)
@@ -70,7 +71,7 @@ export function AttributeRow({ def, saved, onSave }: { def: AttributeDef; saved:
             commit(e.target.value)
           }}
         >
-          <option value="">Choisir…</option>
+          <option value="">{t("common.choisir")}</option>
           {def.choices.map((c) => (
             <option key={c} value={c}>
               {c}
@@ -83,7 +84,7 @@ export function AttributeRow({ def, saved, onSave }: { def: AttributeDef; saved:
           style={{ width: 128 }}
           type="text"
           inputMode={def.kind === "number" ? "decimal" : undefined}
-          placeholder={def.kind === "text" ? "Texte libre" : def.kind === "date" ? "AAAA-MM-JJ" : "Nombre"}
+          placeholder={def.kind === "text" ? t("common.texte_libre") : def.kind === "date" ? "AAAA-MM-JJ" : "Nombre"}
           value={draft}
           aria-invalid={!!error}
           onChange={(e) => setDraft(e.target.value)}
@@ -117,7 +118,7 @@ export function Fiche({ summary, progress }: { summary: InterviewSummary; progre
       qc.setQueryData(keys.attributes(id), view)
       qc.invalidateQueries({ queryKey: ["chain"] })
     },
-    onError: (e) => reportError(e, "Attribut non enregistré"),
+    onError: (e) => reportError(e, t("library.fiche.attribut_non_enregistre")),
   })
   const chooseTemplate = useMutation({
     mutationFn: (template_id: string) => api.setMemoTemplate(id, template_id),
@@ -125,7 +126,7 @@ export function Fiche({ summary, progress }: { summary: InterviewSummary; progre
       qc.setQueryData(keys.memo(id), view)
       qc.invalidateQueries({ queryKey: ["chain"] })
     },
-    onError: (e) => reportError(e, "Modèle non changé"),
+    onError: (e) => reportError(e, t("common.modele_non_change")),
   })
 
   const defs = attrs.data?.definitions ?? config.data?.attributes ?? []
@@ -144,18 +145,18 @@ export function Fiche({ summary, progress }: { summary: InterviewSummary; progre
           {id}
         </span>
         <Button asChild variant="ghost" className="text-accent-text!">
-          <a href={interviewHref(id, "coding")}>Coder</a>
+          <a href={interviewHref(id, "coding")}>{t("common.coder")}</a>
         </Button>
       </div>
 
-      <div className="hs">Attributs</div>
+      <div className="hs">{t("library.fiche.attributs")}</div>
       <div className="grp">
         {defs.length === 0 ? (
           <div className="row">
             <span className="k l2">
-              Aucun attribut défini
+              {t("common.aucun_attribut_defini")}
               <small>
-                Ajoutez-en dans <a href="#/settings">Paramètres de l'étude</a>.
+                {t("library.fiche.ajoutez_en_dans")} <a href="#/settings">{t("common.parametres_de_l_etude")}</a>.
               </small>
             </span>
           </div>
@@ -166,14 +167,14 @@ export function Fiche({ summary, progress }: { summary: InterviewSummary; progre
         )}
       </div>
 
-      <div className="hs">Mémo de familiarisation</div>
+      <div className="hs">{t("common.memo_de_familiarisation")}</div>
       <div className="grp">
         <div className="row">
           <span className="k">
-            <label htmlFor="memo-template">Modèle</label>
+            <label htmlFor="memo-template">{t("common.modele")}</label>
             <small>
-              {current ? `${current.name}, ${current.questions.length} question${current.questions.length > 1 ? "s" : ""}` : "…"}
-              {edits > 0 && `, ${edits} modification${edits > 1 ? "s" : ""} pour cet entretien`}
+              {current ? t("common.name_n_questions", { n: current.questions.length, name: current.name }) : "…"}
+              {edits > 0 && t("library.fiche.n_modifications_pour_cet_entretien", { n: edits })}
             </small>
           </span>
           <NativeSelect
@@ -191,20 +192,20 @@ export function Fiche({ summary, progress }: { summary: InterviewSummary; progre
           </NativeSelect>
         </div>
         <div className="row">
-          <span className="k">Réponses</span>
+          <span className="k">{t("library.fiche.reponses")}</span>
           <span className="v">{memo.data ? memoProgress(memo.data) : ""}</span>
         </div>
         <div className="row">
-          <span className="k">Mémo de fin d'entretien</span>
-          <span className="v">{checklist.data ? (checklist.data.note.trim() ? "rédigé" : "vide") : ""}</span>
+          <span className="k">{t("common.memo_de_fin_d_entretien")}</span>
+          <span className="v">{checklist.data ? (checklist.data.note.trim() ? t("library.fiche.redige") : "vide") : ""}</span>
         </div>
       </div>
 
-      <div className="hs">Source</div>
+      <div className="hs">{t("library.fiche.source")}</div>
       <div className="grp">
         {sources.length === 0 && (
           <div className="row">
-            <span className="k l2">Aucun fichier</span>
+            <span className="k l2">{t("library.fiche.aucun_fichier")}</span>
           </div>
         )}
         {sources.map((s) => (
@@ -215,22 +216,22 @@ export function Fiche({ summary, progress }: { summary: InterviewSummary; progre
                 {s.rel_path}
               </small>
             </span>
-            {s.rel_path === primary && <Check className="size-3.5" style={{ color: "var(--green-text)" }} role="img" aria-label="Transcription retenue" />}
+            {s.rel_path === primary && <Check className="size-3.5" style={{ color: "var(--green-text)" }} role="img" aria-label={t("library.fiche.transcription_retenue")} />}
           </div>
         ))}
         {summary.n_units > 0 && progress && (
           <div className="row">
             <span className="k">
-              {summary.n_units} tours dont {progress.respondent} du répondant
+              {t("library.fiche.n_units_tours_dont_respondent", { n_units: summary.n_units, respondent: progress.respondent })}
               <small>
-                {interviewerTurns} de l'intervieweur, grisés et jamais codés
+                {t("library.fiche.interviewerturns_de_l_intervieweur_g", { interviewerTurns })}
               </small>
             </span>
           </div>
         )}
       </div>
       <p className="small l2" style={{ margin: 0 }}>
-        Les attributs servent de filtres et de contrastes dans la matrice d'analyse.
+        {t("library.fiche.les_attributs_servent_de_filtres")}
       </p>
     </div>
   )

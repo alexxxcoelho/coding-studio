@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
+import { t } from "@/i18n"
 import { api, ApiError } from "@/lib/api"
 import {
   addChip,
@@ -29,7 +30,7 @@ export function StudyConfigSection() {
   const config = useQuery({ queryKey: ["config"], queryFn: api.config })
   // One region for every state: the section must not be replaced while loading.
   return (
-    <Section title="Étude">
+    <Section title={t("common.etude")}>
       {config.isLoading ? (
         <Skeleton className="h-48 w-full" />
       ) : config.error ? (
@@ -90,32 +91,32 @@ function StudyForms({ initial }: { initial: StudyConfig }) {
     <>
       <div className="flex flex-col gap-5">
         <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="Nom de l'étude">
+          <Field label={t("settings.study_config.nom_de_l_etude")}>
             <Input value={form.study_name} onChange={(e) => set("study_name", e.target.value)} />
           </Field>
-          <Field label="Longueur maximale d'une unité, en mots" error={errors.max_words}>
+          <Field label={t("settings.study_config.longueur_maximale_d_une_unite")} error={errors.max_words}>
             <Input type="number" min={20} step={1} value={form.max_words} onChange={(e) => set("max_words", e.target.value)} />
           </Field>
         </div>
 
-        <Field label="Description de l'étude" error={errors.description}>
+        <Field label={t("settings.study_config.description_de_l_etude")} error={errors.description}>
           <textarea rows={3} value={form.description} onChange={(e) => set("description", e.target.value)} className={TEXTAREA} />
         </Field>
-        <Field label="Règles de codage" error={errors.coding_rules}>
+        <Field label={t("settings.study_config.regles_de_codage")} error={errors.coding_rules}>
           <textarea rows={3} value={form.coding_rules} onChange={(e) => set("coding_rules", e.target.value)} className={TEXTAREA} />
         </Field>
 
         <div className="grid gap-5 md:grid-cols-2">
           <div className="flex flex-col gap-2">
-            <h3 className="text-sm font-medium">Préfixes d'identifiants des dossiers</h3>
+            <h3 className="text-sm font-medium">{t("settings.study_config.prefixes_d_identifiants_des_dossiers")}</h3>
             <div className="flex flex-wrap gap-1.5">
               {form.id_prefixes.map((p) => (
-                <Chip key={p} value={p} removeLabel={`Retirer le préfixe ${p}`} onRemove={() => set("id_prefixes", removeChip(form.id_prefixes, p))} />
+                <Chip key={p} value={p} removeLabel={t("settings.study_config.retirer_le_prefixe_p", { p })} onRemove={() => set("id_prefixes", removeChip(form.id_prefixes, p))} />
               ))}
             </div>
             <div className="flex gap-2">
               <Input
-                aria-label="Nouveau préfixe"
+                aria-label={t("settings.study_config.nouveau_prefixe")}
                 value={newPrefix}
                 onChange={(e) => setNewPrefix(e.target.value)}
                 onKeyDown={(e) => {
@@ -133,22 +134,22 @@ function StudyForms({ initial }: { initial: StudyConfig }) {
                   setNewPrefix("")
                 }}
               >
-                Ajouter un préfixe
+                {t("settings.study_config.ajouter_un_prefixe")}
               </Button>
             </div>
             <Alerts messages={errors.id_prefixes ? [errors.id_prefixes] : []} />
           </div>
 
           <div className="flex flex-col gap-2">
-            <h3 className="text-sm font-medium">Intervieweurs</h3>
+            <h3 className="text-sm font-medium">{t("settings.study_config.intervieweurs")}</h3>
             <div className="flex flex-wrap gap-1.5">
               {form.interviewers.map((n) => (
-                <Chip key={n} value={n} removeLabel={`Retirer l'intervieweur ${n}`} onRemove={() => set("interviewers", removeChip(form.interviewers, n))} />
+                <Chip key={n} value={n} removeLabel={t("settings.study_config.retirer_l_intervieweur_n", { n })} onRemove={() => set("interviewers", removeChip(form.interviewers, n))} />
               ))}
             </div>
             <div className="flex gap-2">
               <Input
-                aria-label="Nouvel intervieweur"
+                aria-label={t("settings.study_config.nouvel_intervieweur")}
                 value={newInterviewer}
                 onChange={(e) => setNewInterviewer(e.target.value)}
                 onKeyDown={(e) => {
@@ -166,22 +167,22 @@ function StudyForms({ initial }: { initial: StudyConfig }) {
                   setNewInterviewer("")
                 }}
               >
-                Ajouter un intervieweur
+                {t("settings.study_config.ajouter_un_intervieweur")}
               </Button>
             </div>
           </div>
         </div>
 
         <div className="flex flex-col gap-3">
-          <h3 className="text-sm font-medium">Instructions envoyées au modèle</h3>
+          <h3 className="text-sm font-medium">{t("settings.study_config.instructions_envoyees_au_modele")}</h3>
           <div className="grid gap-3 sm:grid-cols-2">
-            <Field label="Version des instructions" error={errors.prompt_version}>
+            <Field label={t("settings.study_config.version_des_instructions")} error={errors.prompt_version}>
               <Input value={form.template.version} onChange={(e) => setTemplate("version", e.target.value)} />
             </Field>
-            <Field label="Introduction du codebook">
+            <Field label={t("settings.study_config.introduction_du_codebook")}>
               <textarea rows={2} value={form.template.codebook_intro} onChange={(e) => setTemplate("codebook_intro", e.target.value)} className={TEXTAREA} />
             </Field>
-            <Field label="Introduction des unités">
+            <Field label={t("settings.study_config.introduction_des_unites")}>
               <textarea rows={2} value={form.template.units_intro} onChange={(e) => setTemplate("units_intro", e.target.value)} className={TEXTAREA} />
             </Field>
           </div>
@@ -190,11 +191,11 @@ function StudyForms({ initial }: { initial: StudyConfig }) {
         {serverError && <Alerts messages={[serverError]} />}
         <div className="flex items-center gap-3">
           <Button onClick={submit} disabled={save.isPending}>
-            {save.isPending ? "Enregistrement..." : "Enregistrer l'étude"}
+            {save.isPending ? "Enregistrement..." : t("settings.study_config.enregistrer_l_etude")}
           </Button>
           {saved && (
             <p role="status" className="text-sm">
-              Étude enregistrée
+              {t("settings.study_config.etude_enregistree")}
             </p>
           )}
         </div>
@@ -203,20 +204,20 @@ function StudyForms({ initial }: { initial: StudyConfig }) {
       <Dialog open={guard !== null} onOpenChange={(open) => !open && setGuard(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Enregistrer quand même ?</DialogTitle>
-            <DialogDescription>Le serveur a refusé ce changement pour protéger le codage déjà fait.</DialogDescription>
+            <DialogTitle>{t("settings.study_config.enregistrer_quand_meme")}</DialogTitle>
+            <DialogDescription>{t("settings.study_config.le_serveur_a_refuse_ce")}</DialogDescription>
           </DialogHeader>
           <p className="text-sm">{guard?.message}</p>
           <DialogFooter>
             <Button variant="outline" onClick={() => setGuard(null)}>
-              Annuler
+              {t("common.annuler")}
             </Button>
             <Button
               variant="destructive"
               disabled={save.isPending}
               onClick={() => guard && save.mutate({ cfg: guard.cfg, force: true })}
             >
-              Enregistrer quand même
+              {t("settings.study_config.enregistrer_quand_meme_2")}
             </Button>
           </DialogFooter>
         </DialogContent>

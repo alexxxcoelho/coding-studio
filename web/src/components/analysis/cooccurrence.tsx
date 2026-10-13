@@ -10,6 +10,7 @@ import { NativeSelect } from "@/components/settings/fields"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { EmptyState } from "@/components/bits"
+import { t } from "@/i18n"
 import { useProjectConfig } from "@/lib/hooks"
 import { unitHref } from "@/lib/router"
 import { v2, type CoParams, type CoRelation } from "@/lib/v2-api"
@@ -17,9 +18,9 @@ import { cellOf, heatAlpha, maxUnits } from "@/lib/v2-text"
 import { cn } from "@/lib/utils"
 
 const RELATIONS: { id: CoRelation; label: string; hint: string }[] = [
-  { id: "same_passage", label: "Même passage", hint: "Les deux codes sont posés sur le même passage." },
-  { id: "overlap", label: "Passages qui se recouvrent", hint: "Deux passages codés différemment se recouvrent en partie." },
-  { id: "same_unit", label: "Même tour de parole", hint: "Les deux codes sont dans le même tour, où que soient les passages." },
+  { id: "same_passage", get label() { return t("analysis.cooccurrence.meme_passage") }, get hint() { return t("analysis.cooccurrence.les_deux_codes_sont_poses") } },
+  { id: "overlap", get label() { return t("analysis.cooccurrence.passages_qui_se_recouvrent") }, get hint() { return t("analysis.cooccurrence.deux_passages_codes_differemment_se") } },
+  { id: "same_unit", get label() { return t("analysis.cooccurrence.meme_tour_de_parole") }, get hint() { return t("analysis.cooccurrence.les_deux_codes_sont_dans") } },
 ]
 
 interface Drill {
@@ -62,10 +63,10 @@ export function CooccurrenceTab() {
 
   return (
     <div className="flex flex-col gap-3" style={{ padding: "6px 2px" }}>
-      <div className="r8" role="group" aria-label="Réglages de la co-occurrence">
+      <div className="r8" role="group" aria-label={t("analysis.cooccurrence.reglages_de_la_co_occurrence")}>
         <label className="r8 small">
-          Relation
-          <NativeSelect aria-label="Relation" value={relation} style={{ width: 210 }} onChange={(e) => setRelation(e.target.value as CoRelation)}>
+          {t("analysis.cooccurrence.relation")}
+          <NativeSelect aria-label={t("analysis.cooccurrence.relation")} value={relation} style={{ width: 210 }} onChange={(e) => setRelation(e.target.value as CoRelation)}>
             {RELATIONS.map((r) => (
               <option key={r.id} value={r.id}>
                 {r.label}
@@ -74,9 +75,9 @@ export function CooccurrenceTab() {
           </NativeSelect>
         </label>
         <label className="r8 small">
-          Grouper par
+          {t("analysis.cooccurrence.grouper_par")}
           <NativeSelect
-            aria-label="Grouper par"
+            aria-label={t("analysis.cooccurrence.grouper_par")}
             value={groupBy}
             style={{ width: 150 }}
             onChange={(e) => {
@@ -84,14 +85,14 @@ export function CooccurrenceTab() {
               setGroupKey("")
             }}
           >
-            <option value="">Aucun (tout)</option>
-            <option value="interview">Entretien</option>
-            <option value="attribute">Attribut</option>
+            <option value="">{t("analysis.cooccurrence.aucun_tout")}</option>
+            <option value="interview">{t("common.entretien")}</option>
+            <option value="attribute">{t("common.attribut")}</option>
           </NativeSelect>
         </label>
         {groupBy === "attribute" && (
           <NativeSelect
-            aria-label="Attribut de regroupement"
+            aria-label={t("analysis.cooccurrence.attribut_de_regroupement")}
             value={attribute}
             style={{ width: 150 }}
             onChange={(e) => {
@@ -99,7 +100,7 @@ export function CooccurrenceTab() {
               setGroupKey("")
             }}
           >
-            <option value="">Attribut…</option>
+            <option value="">{t("common.attribut_2")}</option>
             {attributes.map((a) => (
               <option key={a.id} value={a.id}>
                 {a.label}
@@ -109,20 +110,20 @@ export function CooccurrenceTab() {
         )}
         <label className="r8 small">
           <input type="checkbox" checked={rollup} onChange={(e) => setRollup(e.target.checked)} style={{ accentColor: "var(--accent-fill)" }} />
-          Avec les sous-codes
+          {t("analysis.cooccurrence.avec_les_sous_codes")}
         </label>
         <label className="r8 small">
-          Seuil
+          {t("analysis.cooccurrence.seuil")}
           <input
             type="number"
             min={1}
-            aria-label="Nombre minimal de tours"
+            aria-label={t("analysis.cooccurrence.nombre_minimal_de_tours")}
             value={minUnits}
             onChange={(e) => setMinUnits(Math.max(1, Number(e.target.value) || 1))}
             className="field"
             style={{ width: 56, height: 26 }}
           />
-          tours au moins
+          {t("analysis.cooccurrence.tours_au_moins")}
         </label>
       </div>
       <p className="small l2" style={{ margin: 0 }}>
@@ -131,31 +132,31 @@ export function CooccurrenceTab() {
 
       {data && data.groups.length > 1 && (
         <label className="r8 small">
-          Groupe
-          <NativeSelect aria-label="Groupe affiché" value={group?.key ?? ""} style={{ width: 220 }} onChange={(e) => setGroupKey(e.target.value)}>
+          {t("analysis.cooccurrence.groupe")}
+          <NativeSelect aria-label={t("analysis.cooccurrence.groupe_affiche")} value={group?.key ?? ""} style={{ width: 220 }} onChange={(e) => setGroupKey(e.target.value)}>
             {data.groups.map((g) => (
               <option key={g.key} value={g.key}>
-                {g.label} ({g.interviews} entretien{g.interviews > 1 ? "s" : ""})
+                {t("analysis.cooccurrence.label_n_entretiens", { n: g.interviews, label: g.label })}
               </option>
             ))}
           </NativeSelect>
         </label>
       )}
 
-      {!ready && <EmptyState title="Choisissez un attribut">Les entretiens seront regroupés selon sa valeur.</EmptyState>}
+      {!ready && <EmptyState title={t("analysis.cooccurrence.choisissez_un_attribut")}>{t("analysis.cooccurrence.les_entretiens_seront_regroupes_selo")}</EmptyState>}
       {ready && q.isLoading && <Skeleton className="h-40 w-full" />}
       {q.isError && (
         <p role="alert" className="note-err">
           {q.error.message}
         </p>
       )}
-      {data && shown.length === 0 && <EmptyState title="Aucune co-occurrence">Aucun couple de codes n'atteint le seuil avec cette relation. Baissez le seuil ou changez de relation.</EmptyState>}
+      {data && shown.length === 0 && <EmptyState title={t("analysis.cooccurrence.aucune_co_occurrence")}>{t("analysis.cooccurrence.aucun_couple_de_codes_n")}</EmptyState>}
       {group && shown.length > 0 && (
         <div style={{ overflowX: "auto" }}>
-          <table className="tbl" aria-label="Co-occurrences : nombre de tours où deux codes se retrouvent" style={{ width: "auto" }}>
+          <table className="tbl" aria-label={t("analysis.cooccurrence.co_occurrences_nombre_de_tours")} style={{ width: "auto" }}>
             <thead>
               <tr>
-                <th scope="col">Code</th>
+                <th scope="col">{t("common.code")}</th>
                 {shown.map((c) => (
                   <th key={c.code_id} scope="col" style={{ textAlign: "center", maxWidth: 110, whiteSpace: "normal" }}>
                     {c.name}
@@ -173,7 +174,7 @@ export function CooccurrenceTab() {
                     if (r.code_id === c.code_id) {
                       const d = group.diagonal.find((x) => x.code_id === r.code_id)
                       return (
-                        <td key={c.code_id} style={{ textAlign: "center", color: "var(--label2)" }} title="Tours où ce code est posé">
+                        <td key={c.code_id} style={{ textAlign: "center", color: "var(--label2)" }} title={t("analysis.cooccurrence.tours_ou_ce_code_est")}>
                           {d?.units ?? 0}
                         </td>
                       )
@@ -215,21 +216,21 @@ export function CooccurrenceTab() {
       {data?.note && <p className="small l2" style={{ margin: 0 }}>{data.note}</p>}
 
       {drill && (
-        <section className="grp" style={{ padding: 12, display: "flex", flexDirection: "column", gap: 8 }} aria-label="Passages de la cellule">
+        <section className="grp" style={{ padding: 12, display: "flex", flexDirection: "column", gap: 8 }} aria-label={t("analysis.cooccurrence.passages_de_la_cellule")}>
           <div className="r8" style={{ justifyContent: "space-between" }}>
             <strong>
-              {drill.aName} et {drill.bName}
+              {t("analysis.cooccurrence.aname_et_bname", { aName: drill.aName, bName: drill.bName })}
             </strong>
             <Button variant="ghost" size="sm" onClick={() => setDrill(null)}>
-              Fermer
+              {t("common.fermer")}
             </Button>
           </div>
           {evidence.isLoading && <Skeleton className="h-16 w-full" />}
           {evidence.data && (
             <>
               <p className="small l2" style={{ margin: 0 }}>
-                {evidence.data.n_units} tour{evidence.data.n_units > 1 ? "s" : ""} au total
-                {groupBy ? ", tous les groupes confondus" : ""}.
+                {t("analysis.cooccurrence.n_tours_au_total", { n: evidence.data.n_units })}
+                {groupBy ? t("analysis.cooccurrence.tous_les_groupes_confondus") : ""}.
               </p>
               {evidence.data.items.map((it) => (
                 <div key={it.unit_id} style={{ display: "flex", flexDirection: "column", gap: 2 }}>

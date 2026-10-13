@@ -5,11 +5,12 @@
 // needs a note saying what to change.
 
 import type { AuditClaim, AuditVerdict } from "./analysis-api"
+import { t } from "@/i18n"
 
 export const VERDICT_LABEL: Record<AuditVerdict, string> = {
-  supported: "étayée",
-  to_nuance: "à nuancer",
-  to_withdraw: "à retirer",
+  get supported() { return t("audit_verdict.etayee") },
+  get to_nuance() { return t("audit_verdict.a_nuancer") },
+  get to_withdraw() { return t("audit_verdict.a_retirer") },
 }
 
 export interface VerdictCheck {
@@ -20,10 +21,10 @@ export interface VerdictCheck {
 export function verdictCheck(claim: Pick<AuditClaim, "gaps">, verdict: AuditVerdict, note: string): VerdictCheck {
   if (verdict === "supported") {
     return claim.gaps.length > 0
-      ? { ok: false, reason: "Un maillon manque dans le chemin : corrigez-le avant de conclure que l'affirmation est étayée." }
+      ? { ok: false, reason: t("audit_verdict.un_maillon_manque_dans_le") }
       : { ok: true }
   }
-  return note.trim() ? { ok: true } : { ok: false, reason: "Une note est nécessaire : dites ce qu'il faut nuancer ou retirer." }
+  return note.trim() ? { ok: true } : { ok: false, reason: t("audit_verdict.une_note_est_necessaire_dites") }
 }
 
 export interface AuditProgress {

@@ -2,6 +2,7 @@
 // computed here; it lives in the memos.
 
 import type { SaturationRow } from "./types"
+import { t } from "@/i18n"
 
 /** Rows in interview order. */
 export function inOrder(rows: SaturationRow[]): SaturationRow[] {
@@ -35,5 +36,5 @@ export function saturationTotals(rows: SaturationRow[]): SaturationTotals {
 
 /** The interview id as shown; an empty id means no interview could be attributed. */
 export function interviewLabel(id: string): string {
-  return id || "non attribué"
+  return id || t("saturation.non_attribue")
 }

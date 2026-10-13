@@ -5,6 +5,7 @@ import { useId, type ReactNode } from "react"
 import { AlertTriangle, CheckCircle2, Info, Lock, OctagonX } from "lucide-react"
 
 import { ToolbarActions, ToolbarTitle } from "@/components/toolbar"
+import { t } from "@/i18n"
 import { useCodeName } from "@/lib/code-names"
 import { familyKey, familyOf, FAMILY_ORDER, NA, type DiffMark } from "@/lib/codes"
 import { cn } from "@/lib/utils"
@@ -51,7 +52,7 @@ export function ChipList({ codes, book, empty = "aucun" }: { codes: string[]; bo
 /** A provisional label to clarify (dashed chip). */
 export function PendingChip({ label, note, className }: { label: string; note?: string | null; className?: string }) {
   return (
-    <span className={cn("chip-pending", className)} title={note ? `À clarifier : ${note}` : "À clarifier"}>
+    <span className={cn("chip-pending", className)} title={note ? t("bits.a_clarifier_note", { note }) : t("common.a_clarifier")}>
       ? {label}
     </span>
   )

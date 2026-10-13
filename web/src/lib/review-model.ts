@@ -2,11 +2,11 @@
 // the decision draft of one card, its keyboard, the queue, the states of the
 // runs and the candidate concepts. Pure functions; the screen only draws them.
 
-import { plural } from "./format"
 import { sameSet } from "./codes"
 import type { KeyLike } from "./coder-keys"
 import type { AiRun, ArbitrationChoice, PromptPart, ReviewItem, Unit, ValidationIssue } from "./types"
 import type { ReviewState } from "./review-api"
+import { t } from "@/i18n"
 
 // ---------------------------------------------------------------- decisions
 
@@ -83,8 +83,8 @@ export function draftProblem(item: ReviewItem, draft: DecisionDraft): DraftProbl
 }
 
 export const PROBLEM_TEXT: Record<Exclude<DraftProblem, null>, string> = {
-  no_codes: "Choisissez au moins un code pour cette unité.",
-  rationale: "Une justification est obligatoire quand votre lecture diffère de celle du modèle.",
+  get no_codes() { return t("review_model.choisissez_au_moins_un_code") },
+  get rationale() { return t("review_model.une_justification_est_obligatoire_qu") },
 }
 
 // --------------------------------------------------------------- comparison
@@ -100,9 +100,9 @@ export interface CompareRow {
 
 export const AGREEMENT_LABEL: Record<Agreement, string> = {
   both: "accord",
-  human_only: "vous seul",
-  ai_only: "modèle seul",
-  mixed: "selon le run",
+  get human_only() { return t("review_model.vous_seul") },
+  get ai_only() { return t("review_model.modele_seul") },
+  get mixed() { return t("review_model.selon_le_run") },
 }
 
 /** One row per code carried by the frozen human reading or by a run; the codes of the human reading come first. */
@@ -187,13 +187,13 @@ export function precedingQuestion(units: Unit[], unitId: string): Unit | null {
 export type RunStateKind = "waiting" | "partial" | "complete"
 
 function partsText(n: number, of: number | null): string {
-  return of ? `${n} ${n < 2 ? "partie" : "parties"} sur ${of}` : `${n} ${n < 2 ? "partie reçue" : "parties reçues"}`
+  return of ? t("review_model.n_parties_sur_of", { n, of }) : `${n} ${n < 2 ? t("review_model.partie_recue") : t("review_model.parties_recues")}`
 }
 
 export function runState(run: AiRun): { state: RunStateKind; label: string } {
   if (run.complete) return { state: "complete", label: "complet" }
   const n = run.parts_received.length
-  if (n === 0) return { state: "waiting", label: "en attente de réponses" }
+  if (n === 0) return { state: "waiting", label: t("review_model.en_attente_de_reponses") }
   return { state: "partial", label: `partiel, ${partsText(n, run.parts_expected)}` }
 }
 
@@ -212,27 +212,27 @@ export function shortStamp(iso: string): string {
 
 /** "R1, 13.10 09:40, modèle X, 2 parties sur 2, complet" (guide, action 5). */
 export function runLine(run: AiRun): string {
-  const model = run.meta.model_name.trim() || "non nommé"
-  return `${run.meta.run_label}, ${shortStamp(run.meta.executed_at)}, modèle ${model}, ${partsText(run.parts_received.length, run.parts_expected)}, ${runState(run).label}`
+  const model = run.meta.model_name.trim() || t("review_model.non_nomme")
+  return t("review_model.run_label_shortstamp_modele_model", { run_label: run.meta.run_label, shortStamp: shortStamp(run.meta.executed_at), model, partsText: partsText(run.parts_received.length, run.parts_expected), label: runState(run).label })
 }
 
 /** State of the review for the toolbar: "pas de revue", "revue IA en attente", "revue IA faite, 9 sur 12 décidées". */
 export function reviewStatusLabel(runs: AiRun[], decisions: { decided: number; total: number } | null): string {
-  if (runs.length === 0) return "pas de revue"
-  if (!runs.some((r) => r.complete) || !decisions) return "revue IA en attente"
-  if (decisions.total === 0) return "revue IA faite, aucun désaccord"
-  return `revue IA faite, ${decisions.decided} sur ${decisions.total} ${decisions.total < 2 ? "décidée" : "décidées"}`
+  if (runs.length === 0) return t("review_model.pas_de_revue")
+  if (!runs.some((r) => r.complete) || !decisions) return t("review_model.revue_ia_en_attente")
+  if (decisions.total === 0) return t("review_model.revue_ia_faite_aucun_desaccord")
+  return t("review_model.revue_ia_faite_decided_sur", { n: decisions.total, decided: decisions.decided })
 }
 
 /** The same sentence from the review state the server computes: "pas de revue", "revue IA en attente",
  * "revue IA en cours, 2 sur 3 décidées", "revue IA faite, 3 sur 3 décidées". The counts of concepts to sort
  * and of units to harmonise are in the badges of the toolbar, not in this line. */
 export function reviewStateLabel(s: ReviewState): string {
-  if (s.state === "not_done") return "pas de revue"
-  if (s.runs.length === 0 && s.n_covered === 0) return "revue IA en attente"
-  const head = s.state === "complete" ? "revue IA faite" : "revue IA en cours"
-  if (s.n_disagreements === 0) return `${head}, aucun désaccord`
-  return `${head}, ${s.n_decided} sur ${s.n_disagreements} ${s.n_disagreements < 2 ? "décidée" : "décidées"}`
+  if (s.state === "not_done") return t("review_model.pas_de_revue")
+  if (s.runs.length === 0 && s.n_covered === 0) return t("review_model.revue_ia_en_attente")
+  const head = s.state === "complete" ? "revue IA faite" : t("review_model.revue_ia_en_cours")
+  if (s.n_disagreements === 0) return t("review_model.head_aucun_desaccord", { head })
+  return t("review_model.head_n_decided_sur_n", { n: s.n_disagreements, head, n_decided: s.n_decided })
 }
 
 /** Parts of the latest prompt batch (each generation is a new batch). */
@@ -245,12 +245,12 @@ export function latestSet(parts: PromptPart[]): PromptPart[] {
 
 /** "Partie 1 sur 2". */
 export function partTitle(p: Pick<PromptPart, "part" | "of">): string {
-  return `${p.part} sur ${p.of}`
+  return t("review_model.part_sur_of", { part: p.part, of: p.of })
 }
 
 /** The refusal of an answer: a title and one line per problem, all reported together. */
 export function issueLines(issues: ValidationIssue[]): { title: string; items: ValidationIssue[] } {
-  return { title: `Réponse refusée : ${plural(issues.length, "problème")}. Rien n'a été importé.`, items: issues }
+  return { title: t("review_model.reponse_refusee_items_rien_n", { items: t("review_model.n_problemes", { n: issues.length }) }), items: issues }
 }
 
 // --------------------------------------------------------------- candidates
@@ -270,6 +270,6 @@ export function candidateProblem(action: CandidateAction, rationale: string): Ca
 
 export const CANDIDATE_PROBLEM_TEXT: Record<Exclude<CandidateProblem, null>, string> = {
   name: "Donnez un nom au nouveau code.",
-  code: "Choisissez le code auquel rattacher ce concept.",
-  rationale: "Une justification est obligatoire, elle est datée avec la décision.",
+  get code() { return t("review_model.choisissez_le_code_auquel_rattacher") },
+  get rationale() { return t("review_model.une_justification_est_obligatoire_el") },
 }

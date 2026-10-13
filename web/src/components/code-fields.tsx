@@ -2,6 +2,7 @@
 
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
+import { t } from "@/i18n"
 import type { ResearchQuestion, Toe } from "@/lib/types"
 
 export function ToePicker({ value, onChange }: { value: Toe | null; onChange: (v: Toe | null) => void }) {
@@ -12,7 +13,7 @@ export function ToePicker({ value, onChange }: { value: Toe | null; onChange: (v
     { v: null, label: "none" },
   ]
   return (
-    <div className="flex flex-wrap gap-1" role="radiogroup" aria-label="TOE attachment">
+    <div className="flex flex-wrap gap-1" role="radiogroup" aria-label={t("code_fields.toe_attachment")}>
       {opts.map((o) => (
         <Button key={String(o.v)} type="button" size="xs" variant={value === o.v ? "default" : "outline"} onClick={() => onChange(o.v)}>
           {o.label}
@@ -23,7 +24,7 @@ export function ToePicker({ value, onChange }: { value: Toe | null; onChange: (v
 }
 
 export function QuestionPicker({ questions, value, onChange }: { questions: ResearchQuestion[]; value: string[]; onChange: (v: string[]) => void }) {
-  if (!questions.length) return <span className="text-muted-foreground text-xs">Aucune question de recherche définie pour l'instant (voir les paramètres de l'étude).</span>
+  if (!questions.length) return <span className="text-muted-foreground text-xs">{t("code_fields.aucune_question_de_recherche_definie")}</span>
   return (
     <div className="flex flex-col gap-1">
       {questions.map((q) => (

@@ -13,6 +13,7 @@ import { RescanIcon } from "@/components/icons"
 import { Capsule, CapsuleItem, ToolbarActions, ToolbarSearch } from "@/components/toolbar"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
+import { t } from "@/i18n"
 import { api } from "@/lib/api"
 import { onMenuAction } from "@/lib/desktop"
 import { reviewApi, type ReviewState } from "@/lib/review-api"
@@ -83,9 +84,9 @@ export function LibraryPage() {
       qc.invalidateQueries({ queryKey: ["interviews"] })
       qc.invalidateQueries({ queryKey: ["state"] })
       qc.invalidateQueries({ queryKey: ["chain"] })
-      toast.success(`Dossier scanné : ${res.interviews.length} entretien${res.interviews.length > 1 ? "s" : ""}`)
+      toast.success(t("library.dossier_scanne_n_entretiens", { n: res.interviews.length }))
     },
-    onError: (e) => reportError(e, "Le scan a échoué"),
+    onError: (e) => reportError(e, t("common.le_scan_a_echoue")),
   })
   const segment = useMutation({
     mutationFn: (id: string) => api.segment(id),
@@ -94,42 +95,42 @@ export function LibraryPage() {
       qc.invalidateQueries({ queryKey: ["interview", id] })
       qc.invalidateQueries({ queryKey: keys.units(id) })
       qc.invalidateQueries({ queryKey: ["chain"] })
-      toast.success(`${id} segmenté : ${seg.units.length} unités`)
+      toast.success(t("library.id_segmente_length_unites", { id, length: seg.units.length }))
     },
-    onError: (e) => reportError(e, "Segmentation refusée"),
+    onError: (e) => reportError(e, t("common.segmentation_refusee")),
   })
 
   const sub = state.data
-    ? `${rows.length} entretien${rows.length > 1 ? "s" : ""}${state.data.db_path ? ` · ${basename(state.data.db_path)} enregistré` : ""}`
+    ? `${rows.length} entretien${rows.length > 1 ? "s" : ""}${state.data.db_path ? t("library.basename_enregistre", { basename: basename(state.data.db_path) }) : ""}`
     : " "
   const ready = counts.ready
 
   return (
     <>
-      <PageTitle title="Bibliothèque" sub={sub} />
+      <PageTitle title={t("common.bibliotheque")} sub={sub} />
       <ToolbarActions>
-        <Capsule label="Filtrer les entretiens" role="tablist">
+        <Capsule label={t("library.filtrer_les_entretiens")} role="tablist">
           <CapsuleItem role="tab" aria-selected={filter === "progress"} on={filter === "progress"} count={counts.progress} onClick={() => setFilter("progress")}>
-            En cours
+            {t("library.en_cours")}
           </CapsuleItem>
           <CapsuleItem role="tab" aria-selected={filter === "ready"} on={filter === "ready"} count={counts.ready} onClick={() => setFilter("ready")}>
-            Prêts
+            {t("library.prets")}
           </CapsuleItem>
           <CapsuleItem role="tab" aria-selected={filter === "all"} on={filter === "all"} count={counts.all} onClick={() => setFilter("all")}>
-            Tous
+            {t("common.tous")}
           </CapsuleItem>
         </Capsule>
         <Capsule>
-          <CapsuleItem aria-label="Rescanner le dossier" title="Rescanner le dossier" disabled={rescan.isPending} onClick={() => rescan.mutate()}>
+          <CapsuleItem aria-label={t("library.rescanner_le_dossier")} title={t("library.rescanner_le_dossier")} disabled={rescan.isPending} onClick={() => rescan.mutate()}>
             <RescanIcon />
           </CapsuleItem>
           <span className="vs" />
-          <CapsuleItem onClick={() => setImportOpen(true)}>Importer des transcriptions…</CapsuleItem>
+          <CapsuleItem onClick={() => setImportOpen(true)}>{t("library.importer_des_transcriptions")}</CapsuleItem>
         </Capsule>
         {ready > 0 && (
           <Button asChild size="lg">
             <a href="#/analyser" style={{ color: "var(--on-accent)" }}>
-              Analyser {ready} entretien{ready > 1 ? "s" : ""}
+              {t("library.analyser_n_entretiens", { n: ready })}
             </a>
           </Button>
         )}
@@ -137,19 +138,19 @@ export function LibraryPage() {
       </ToolbarActions>
 
       <div className="content">
-        <section style={{ flex: "999 1 560px", minWidth: 0, padding: "6px 18px 16px", overflowX: "auto" }} aria-label="Entretiens">
+        <section style={{ flex: "999 1 560px", minWidth: 0, padding: "6px 18px 16px", overflowX: "auto" }} aria-label={t("common.entretiens")}>
           {state.data && state.data.codebook_size === 0 && (
             <Banner
               tone="warn"
               className="mb-3"
-              title="Le codebook est vide"
+              title={t("common.le_codebook_est_vide")}
               action={
                 <Button size="sm" variant="outline" asChild>
-                  <a href="#/codebook">Ouvrir le codebook</a>
+                  <a href="#/codebook">{t("library.ouvrir_le_codebook")}</a>
                 </Button>
               }
             >
-              Importez une palette de départ ou créez vos codes depuis les passages.
+              {t("library.importez_une_palette_de_depart")}
             </Banner>
           )}
           {list.isLoading ? (
@@ -160,21 +161,21 @@ export function LibraryPage() {
             </div>
           ) : rows.length === 0 ? (
             <EmptyState
-              title="Aucun entretien pour l'instant"
-              action={<Button onClick={() => setImportOpen(true)}>Importer des transcriptions…</Button>}
+              title={t("library.aucun_entretien_pour_l_instant")}
+              action={<Button onClick={() => setImportOpen(true)}>{t("library.importer_des_transcriptions")}</Button>}
             >
-              Choisissez le dossier qui contient un sous-dossier par entretien, nommé avec son identifiant, puis lancez le scan.
+              {t("library.choisissez_le_dossier_qui_contient")}
             </EmptyState>
           ) : shown.length === 0 ? (
-            <EmptyState title="Aucun entretien dans ce filtre">Changez de filtre ou de recherche.</EmptyState>
+            <EmptyState title={t("library.aucun_entretien_dans_ce_filtre")}>{t("library.changez_de_filtre_ou_de")}</EmptyState>
           ) : (
             <table className="tbl">
               <thead>
                 <tr>
-                  <th>Entretien</th>
-                  <th>Unités</th>
-                  <th>Avancement</th>
-                  <th style={{ textAlign: "right" }}>Prochaine étape</th>
+                  <th>{t("common.entretien")}</th>
+                  <th>{t("library.unites")}</th>
+                  <th>{t("library.avancement")}</th>
+                  <th style={{ textAlign: "right" }}>{t("library.prochaine_etape")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -198,17 +199,17 @@ export function LibraryPage() {
                         </div>
                         <div className="small l2">
                           {s.folder_name}
-                          {s.n_warnings > 0 && `, ${s.n_warnings} avertissement${s.n_warnings > 1 ? "s" : ""}`}
+                          {s.n_warnings > 0 && t("library.n_avertissements", { n: s.n_warnings })}
                         </div>
                       </td>
                       <td>
                         {s.n_units > 0 ? (
                           <>
                             {s.n_units}
-                            {p && <div className="small l2">{p.respondent} répondant</div>}
+                            {p && <div className="small l2">{t("library.respondent_repondant", { respondent: p.respondent })}</div>}
                           </>
                         ) : (
-                          <span className="l2">Non segmenté</span>
+                          <span className="l2">{t("library.non_segmente")}</span>
                         )}
                       </td>
                       <td>
@@ -222,8 +223,8 @@ export function LibraryPage() {
                         </div>
                         {(reviewCounts.get(s.interview_id) ?? 0) > 0 && (
                           <div className="small" style={{ marginTop: 4 }}>
-                            <a href={interviewHref(s.interview_id, "coding")} onClick={(e) => e.stopPropagation()} className="badge" title="Passages dont l'emplacement est à vérifier après une correction du texte">
-                              {reviewCounts.get(s.interview_id)} passage{(reviewCounts.get(s.interview_id) ?? 0) > 1 ? "s" : ""} à revoir
+                            <a href={interviewHref(s.interview_id, "coding")} onClick={(e) => e.stopPropagation()} className="badge" title={t("library.passages_dont_l_emplacement_est")}>
+                              {t("library.get_passages_a_revoir", { n: (reviewCounts.get(s.interview_id) ?? 0), get: reviewCounts.get(s.interview_id) })}
                             </a>
                           </div>
                         )}
@@ -256,8 +257,8 @@ export function LibraryPage() {
           )}
           {state.data && (
             <p className="small l2" style={{ margin: "12px 10px 0" }}>
-              Dossier <span className="mono">{state.data.library_root ?? "non choisi"}</span>
-              {rows.length > shown.length && ` · ${rows.length - shown.length} autre${rows.length - shown.length > 1 ? "s" : ""} sous « Tous »`}
+              {t("library.dossier")} <span className="mono">{state.data.library_root ?? t("common.non_choisi")}</span>
+              {rows.length > shown.length && t("library.n_autres_sous_tous", { n: rows.length - shown.length })}
             </p>
           )}
         </section>

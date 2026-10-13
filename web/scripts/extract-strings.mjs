@@ -191,6 +191,10 @@ const stringOf = (e) => {
 function shadowRanges(sf) {
   const ranges = []
   const visit = (n) => {
+    if (ts.isImportSpecifier(n) && n.parent.parent.parent.moduleSpecifier.getText().includes("@/i18n")) {
+      ts.forEachChild(n, visit)
+      return
+    }
     if ((ts.isParameter(n) || ts.isVariableDeclaration(n) || ts.isBindingElement(n) || ts.isFunctionDeclaration(n) || ts.isImportSpecifier(n) || ts.isImportClause(n)) && n.name && ts.isIdentifier(n.name) && n.name.text === "t") {
       let scope = n.parent
       while (scope && !(ts.isFunctionLike(scope) || ts.isBlock(scope) || ts.isSourceFile(scope) || ts.isCatchClause(scope) || ts.isForStatement(scope) || ts.isForOfStatement(scope) || ts.isForInStatement(scope))) scope = scope.parent
@@ -216,6 +220,7 @@ function atModuleLevel(node) {
 /** A French message found in a file. forms: {one, other} or {text}. */
 function collect(sf) {
   const found = []
+  const skipped = []
   const shadows = shadowRanges(sf)
   const consumed = []
   const isConsumed = (n) => consumed.some(([a, b]) => n.getStart() >= a && n.getEnd() <= b)
@@ -234,7 +239,7 @@ function collect(sf) {
         else if (ts.isPropertyAccessExpression(e)) base = e.name.text
         else if (ts.isCallExpression(e)) {
           const c = unwrap(e.expression)
-          base = ts.isIdentifier(c) ? c.text : ts.isPropertyAccessExpression(c) ? c.name.text : "v"
+          base = ts.isIdentifier(c) ? (c.text === "plural" ? "items" : c.text) : ts.isPropertyAccessExpression(c) ? c.name.text : "v"
         } else base = "v"
       }
       base = base.replace(/[^A-Za-z0-9_]/g, "") || "v"
@@ -280,10 +285,6 @@ function collect(sf) {
       if (all.some((t) => t === null)) return
     }
     found.push(c)
-  }
-
-  function replacementCall(node, vars, kind) {
-    return { node, vars, kind }
   }
 
   // ---- JSX text runs
@@ -336,9 +337,26 @@ function collect(sf) {
       }
       const pure = pieces.filter((p) => p.lit === undefined || p.lit !== "")
       const built = build(pure)
-      if (!built) return
-      const nodes = [first.node, last.node]
-      addCandidate({ kind: "jsx", sf, start: nodes[0].getStart(), end: nodes[1].getEnd(), anchor: nodes[0], forms: built.forms, vars: built.vars, lead, trail })
+      if (!built) {
+        skipped.push({ node: first.node, why: "two different plural counters", text: litText })
+        return
+      }
+      // Whitespace around the message stays where it is in the source (it carries the layout);
+      // only an explicit {" "} child has to be written back.
+      // (JsxText.getStart() skips its own whitespace, so measure on the full text.)
+      let start = first.node.getStart()
+      let end = last.node.getEnd()
+      if (ts.isJsxText(first.node)) {
+        const full = sf.text.slice(first.node.pos, first.node.end)
+        start = first.node.pos + (full.length - full.trimStart().length)
+        lead = ""
+      }
+      if (ts.isJsxText(last.node)) {
+        const full = sf.text.slice(last.node.pos, last.node.end)
+        end = last.node.end - (full.length - full.trimEnd().length)
+        trail = ""
+      }
+      addCandidate({ kind: "jsx", sf, start, end, anchor: first.node, forms: built.forms, vars: built.vars, lead, trail })
     }
     for (const child of children) {
       if (ts.isJsxText(child)) {
@@ -462,7 +480,10 @@ function collect(sf) {
       else merged.push({ ...pc })
     }
     const built = build(merged)
-    if (!built) return
+    if (!built) {
+      skipped.push({ node: tpl, why: "two different plural counters", text: litText })
+      return
+    }
     if (!positionOk(tpl)) return
     consumed.push([tpl.getStart(), tpl.getEnd()])
     addCandidate({ kind: "tpl", sf, node: tpl, forms: built.forms, vars: built.vars, wrapped: ts.isJsxExpression(p) })
@@ -512,7 +533,7 @@ function collect(sf) {
     ts.forEachChild(n, visit2)
   }
   visit2(sf)
-  return { found, shadows, inShadow }
+  return { found, shadows, inShadow, skipped }
 }
 
 // ----------------------------------------------------------------- catalogue
@@ -606,6 +627,10 @@ const listing = []
 
 for (const r of results) {
   const { sf, found } = r
+  for (const k of r.skipped) {
+    const { line } = sf.getLineAndCharacterOfPosition(k.node.getStart())
+    manual.push({ file: rel(sf.fileName), line: line + 1, why: k.why, text: k.text })
+  }
   if (!found.length) continue
   const ns = nsOf(sf.fileName)
   const text = sf.getFullText()
@@ -629,33 +654,30 @@ for (const r of results) {
     const moduleLevel = atModuleLevel(anchor)
     let range
     let replacement
-    const key = APPLY ? keyFor(ns, c) : "…"
-    const call = `t(${JSON.stringify(key)}${varsObj})`
+    const makeCall = () => `t(${JSON.stringify(APPLY ? keyFor(ns, c) : "…")}${varsObj})`
     if (c.kind === "jsx") {
       range = [c.start, c.end]
       const lead = c.lead ? '{" "}' : ""
       const trail = c.trail ? '{" "}' : ""
-      replacement = `${lead}{${call}}${trail}`
       if (moduleLevel) {
         manual.push({ file: rel(sf.fileName), line: line + 1, why: "module level JSX", text: shown })
         continue
       }
+      replacement = `${lead}{${makeCall()}}${trail}`
     } else {
       const lit = c.node
       const p = lit.parent
       range = [lit.getStart(), lit.getEnd()]
-      if (ts.isJsxAttribute(p)) replacement = `{${call}}`
-      else if (ts.isJsxExpression(p) || !c.wrapped) replacement = call
-      else replacement = call
       if (moduleLevel) {
         if (c.prop && ts.isPropertyAssignment(p) && p.initializer === lit) {
           range = [p.getStart(), p.getEnd()]
-          replacement = `get ${p.name.getText()}() { return ${call} }`
+          replacement = `get ${p.name.getText()}() { return ${makeCall()} }`
         } else {
           manual.push({ file: rel(sf.fileName), line: line + 1, why: "evaluated at module load", text: shown })
           continue
         }
-      }
+      } else if (ts.isJsxAttribute(p)) replacement = `{${makeCall()}}`
+      else replacement = makeCall()
     }
     edits.push({ range, replacement })
     applied++
@@ -666,19 +688,33 @@ for (const r of results) {
     if (!/from "@\/i18n"/.test(out)) {
       const imports = [...sf.statements].filter(ts.isImportDeclaration)
       const last = imports[imports.length - 1]
-      const stmt = 'import { t } from "@/i18n"\n'
-      if (last) {
+      const stmt = 'import { t } from "@/i18n"'
+      const spec = (i) => i.moduleSpecifier.getText().slice(1, -1)
+      const before = imports.find((i) => spec(i).startsWith("@/") && spec(i) > "@/i18n")
+      if (before) {
+        out = out.slice(0, before.getStart()) + stmt + "\n" + out.slice(before.getStart())
+      } else if (last) {
         const pos = last.getEnd()
-        out = out.slice(0, pos) + "\n" + stmt.trimEnd() + out.slice(pos)
+        out = out.slice(0, pos) + "\n" + stmt + out.slice(pos)
       } else {
-        // After the header comment block, if any.
         const m = out.match(/^(\/\/.*\n)+\n?/)
         const at = m ? m[0].length : 0
-        out = out.slice(0, at) + stmt + (m ? "" : "\n") + out.slice(at)
+        out = out.slice(0, at) + stmt + "\n" + (m ? "" : "\n") + out.slice(at)
       }
     }
+    out = dropUnusedPlural(out)
     fs.writeFileSync(sf.fileName, out)
   }
+}
+
+/** `plural(n, "x")` calls are gone from a file: drop the helper from its import. */
+function dropUnusedPlural(code) {
+  const m = code.match(/^import \{([^}]*\bplural\b[^}]*)\} from "([^"]+)"\n/m)
+  if (!m || !/\bplural\b/.test(m[1])) return code
+  const rest = code.replace(m[0], "")
+  if (/\bplural\b/.test(rest)) return code
+  const names = m[1].split(",").map((x) => x.trim()).filter((x) => x && x !== "plural")
+  return code.replace(m[0], names.length ? `import { ${names.join(", ")} } from "${m[2]}"\n` : "")
 }
 
 if (APPLY) {

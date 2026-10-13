@@ -4,11 +4,12 @@
 // researcher can retain a theme with checks left if they write why.
 
 import type { ThemeStatus } from "./analysis-api"
+import { t } from "@/i18n"
 
 export const STATUS_LABEL: Record<ThemeStatus, string> = {
-  candidate: "Candidat",
-  revised: "Révisé",
-  retained: "Retenu",
+  get candidate() { return t("theme_status.candidat") },
+  get revised() { return t("theme_status.revise") },
+  get retained() { return t("theme_status.retenu") },
 }
 
 export interface CheckLike {

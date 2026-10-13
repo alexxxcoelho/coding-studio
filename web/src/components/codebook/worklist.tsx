@@ -11,6 +11,7 @@ import { Alerts } from "@/components/settings/fields"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Skeleton } from "@/components/ui/skeleton"
+import { t } from "@/i18n"
 import { codeColor } from "@/lib/code-tree"
 import { isMac } from "@/lib/nav"
 import { unitHref } from "@/lib/router"
@@ -21,9 +22,9 @@ import { explainCodeOpError, toggleTarget, type Draft } from "@/lib/v2-text"
 type Show = "pending" | "done" | "all"
 
 const SHOW: { id: Show; label: string }[] = [
-  { id: "pending", label: "À traiter" },
-  { id: "done", label: "Traités" },
-  { id: "all", label: "Tous" },
+  { id: "pending", get label() { return t("codebook.worklist.a_traiter") } },
+  { id: "done", get label() { return t("codebook.worklist.traites") } },
+  { id: "all", get label() { return t("common.tous") } },
 ]
 
 const shortUnit = (id: string) => id.replace(/^.*-(U\d+)$/, "$1")
@@ -85,8 +86,8 @@ function WorklistBody({ opId, onClose }: { opId: number; onClose: () => void }) 
       setDrafts({})
       setError(null)
       await refresh()
-      toast.success(`${pending.length} décision${pending.length > 1 ? "s" : ""} enregistrée${pending.length > 1 ? "s" : ""}`)
-      if (w.pending === 0) toast.info("La liste est vide : chaque passage est réaffecté ou laissé.")
+      toast.success(t("codebook.worklist.n_decisions_enregistrees", { n: pending.length }))
+      if (w.pending === 0) toast.info(t("codebook.worklist.la_liste_est_vide_chaque"))
     },
     onError: (e) => setError(explainCodeOpError(e)),
   })
@@ -107,8 +108,8 @@ function WorklistBody({ opId, onClose }: { opId: number; onClose: () => void }) 
     return (
       <>
         <DialogHeader>
-          <DialogTitle>Réaffectation des passages</DialogTitle>
-          <DialogDescription id="worklist-help">Chargement de la liste.</DialogDescription>
+          <DialogTitle>{t("codebook.worklist.reaffectation_des_passages")}</DialogTitle>
+          <DialogDescription id="worklist-help">{t("codebook.worklist.chargement_de_la_liste")}</DialogDescription>
         </DialogHeader>
         <Skeleton className="h-40 w-full" />
       </>
@@ -147,14 +148,14 @@ function WorklistBody({ opId, onClose }: { opId: number; onClose: () => void }) 
   return (
     <>
       <DialogHeader>
-        <DialogTitle>Réaffecter les passages de « {wl.original.name} »</DialogTitle>
+        <DialogTitle>{t("codebook.worklist.reaffecter_les_passages_de_name", { name: wl.original.name })}</DialogTitle>
         <DialogDescription id="worklist-help">
-          {wl.rationale ? `Motif : ${wl.rationale}. ` : ""}Pour chaque passage, posez un ou plusieurs des nouveaux codes, ou laissez-le avec « {wl.original.name} ». Rien ne bouge avant « Enregistrer ».
+          {wl.rationale ? `Motif : ${wl.rationale}. ` : ""}{t("codebook.worklist.pour_chaque_passage_posez_un", { name: wl.original.name })}
         </DialogDescription>
       </DialogHeader>
 
       <div className="r8" style={{ justifyContent: "space-between" }}>
-        <div className="seg" role="tablist" aria-label="Passages de la liste">
+        <div className="seg" role="tablist" aria-label={t("codebook.worklist.passages_de_la_liste")}>
           {SHOW.map((s) => (
             <button key={s.id} type="button" role="tab" aria-selected={show === s.id} className={cn("s", show === s.id && "on")} onClick={() => setShow(s.id)}>
               {s.label}
@@ -164,12 +165,12 @@ function WorklistBody({ opId, onClose }: { opId: number; onClose: () => void }) 
         </div>
         <span className="small l2" aria-live="polite">
           {wl.assigned} réaffecté{wl.assigned > 1 ? "s" : ""}, {wl.left} laissé{wl.left > 1 ? "s" : ""}, {wl.pending} à traiter sur {wl.total}
-          {wl.gone > 0 ? `, ${wl.gone} supprimé${wl.gone > 1 ? "s" : ""} depuis` : ""}
+          {wl.gone > 0 ? t("codebook.worklist.n_supprimes_depuis", { n: wl.gone }) : ""}
         </span>
       </div>
 
       <div className="r8">
-        <span className="hs">Touches des nouveaux codes</span>
+        <span className="hs">{t("codebook.worklist.touches_des_nouveaux_codes")}</span>
         {newCodes.map((c, i) => (
           <span key={c.code_id} className="tag k" style={{ "--k": codeColor(c.code_id) } as CSSProperties}>
             <span className="kbd">{i + 1}</span>
@@ -179,12 +180,12 @@ function WorklistBody({ opId, onClose }: { opId: number; onClose: () => void }) 
         ))}
       </div>
 
-      {locked && <p className="note-warn">Cette scission a été annulée : la liste ne reçoit plus de décision.</p>}
+      {locked && <p className="note-warn">{t("codebook.worklist.cette_scission_a_ete_annulee")}</p>}
 
-      <div role="list" aria-label="Passages à réaffecter" style={{ maxHeight: 360, overflow: "auto", display: "flex", flexDirection: "column", gap: 6 }}>
+      <div role="list" aria-label={t("codebook.worklist.passages_a_reaffecter")} style={{ maxHeight: 360, overflow: "auto", display: "flex", flexDirection: "column", gap: 6 }}>
         {visible.length === 0 && (
           <p className="small l2" style={{ margin: "8px 2px" }}>
-            {show === "pending" ? "Aucun passage à traiter." : "Aucun passage dans ce filtre."}
+            {show === "pending" ? t("codebook.worklist.aucun_passage_a_traiter") : t("codebook.worklist.aucun_passage_dans_ce_filtre")}
           </p>
         )}
         {visible.map((it, i) => {
@@ -200,7 +201,7 @@ function WorklistBody({ opId, onClose }: { opId: number; onClose: () => void }) 
               }}
               role="listitem"
               tabIndex={i === focus ? 0 : -1}
-              aria-label={`${it.passage.interview_id} ${shortUnit(it.passage.unit_id)}, ${status === "pending" ? "à traiter" : status === "left" ? "laissé" : "réaffecté"}`}
+              aria-label={`${it.passage.interview_id} ${shortUnit(it.passage.unit_id)}, ${status === "pending" ? t("common.a_traiter") : status === "left" ? t("codebook.worklist.laisse") : t("codebook.worklist.reaffecte")}`}
               className="grp"
               data-passage={id}
               style={{ padding: "8px 10px", display: "flex", flexDirection: "column", gap: 6, outlineOffset: -2 }}
@@ -208,11 +209,11 @@ function WorklistBody({ opId, onClose }: { opId: number; onClose: () => void }) 
               onKeyDown={(e) => onKey(e, it, i)}
             >
               <div className="r8">
-                <a className="mono b" href={unitHref(it.passage.unit_id)} title="Ouvrir dans Coder" onClick={onClose}>
+                <a className="mono b" href={unitHref(it.passage.unit_id)} title={t("common.ouvrir_dans_coder")} onClick={onClose}>
                   {it.passage.interview_id} {shortUnit(it.passage.unit_id)}
                 </a>
-                <span className="badge">{status === "pending" ? "à traiter" : status === "left" ? "laissé" : "réaffecté"}</span>
-                {dirty && <span className="badge">non enregistré</span>}
+                <span className="badge">{status === "pending" ? t("common.a_traiter") : status === "left" ? t("codebook.worklist.laisse") : t("codebook.worklist.reaffecte")}</span>
+                {dirty && <span className="badge">{t("codebook.worklist.non_enregistre")}</span>}
               </div>
               <p className="verbatim" style={{ margin: 0, fontSize: 14 }}>
                 {it.passage.text}
@@ -229,7 +230,7 @@ function WorklistBody({ opId, onClose }: { opId: number; onClose: () => void }) 
                 })}
                 <Button variant={d?.action === "leave" ? "default" : "outline"} size="sm" aria-pressed={d?.action === "leave"} disabled={locked} onClick={() => setDraft(id, d?.action === "leave" ? undefined : { action: "leave", targets: [] })}>
                   <span className="kbd" aria-hidden style={d?.action === "leave" ? { background: "rgba(255,255,255,.25)", color: "inherit" } : undefined}>L</span>
-                  Laisser
+                  {t("codebook.worklist.laisser")}
                 </Button>
               </div>
             </div>
@@ -240,8 +241,8 @@ function WorklistBody({ opId, onClose }: { opId: number; onClose: () => void }) 
       {error && <Alerts messages={[error]} />}
       <div className="r8" style={{ justifyContent: "space-between" }}>
         <span className="small l2">
-          <span className="kbd">↑ ↓</span> passage <span className="kbd">1 à {Math.max(1, newCodes.length)}</span> poser ou retirer un code <span className="kbd">L</span> laisser <span className="kbd">Suppr</span> effacer{" "}
-          <span className="kbd">{isMac() ? "⌘" : "Ctrl+"}Entrée</span> enregistrer
+          <span className="kbd">↑ ↓</span> {t("codebook.worklist.passage")} <span className="kbd">1 à {Math.max(1, newCodes.length)}</span> {t("codebook.worklist.poser_ou_retirer_un_code")} <span className="kbd">L</span> {t("codebook.worklist.laisser_2")} <span className="kbd">{t("codebook.worklist.suppr")}</span> {t("codebook.worklist.effacer")}{" "}
+          <span className="kbd">{isMac() ? "⌘" : "Ctrl+"}{t("codebook.worklist.entree")}</span> {t("codebook.worklist.enregistrer")}
         </span>
         <span className="r8">
           <Button
@@ -249,10 +250,10 @@ function WorklistBody({ opId, onClose }: { opId: number; onClose: () => void }) 
             disabled={locked || noLeft === 0}
             onClick={() => setDrafts((m) => ({ ...m, ...Object.fromEntries(items.filter((it) => !effective[it.passage.passage_id]).map((it) => [it.passage.passage_id, { action: "leave", targets: [] } as Draft])) }))}
           >
-            Laisser tous les restants
+            {t("codebook.worklist.laisser_tous_les_restants")}
           </Button>
           <Button disabled={locked || pending.length === 0 || save.isPending} onClick={() => save.mutate()}>
-            Enregistrer {pending.length > 0 ? `${pending.length} décision${pending.length > 1 ? "s" : ""}` : "les décisions"}
+            {t("common.enregistrer")} {pending.length > 0 ? t("codebook.worklist.n_decisions", { n: pending.length }) : t("codebook.worklist.les_decisions")}
           </Button>
         </span>
       </div>

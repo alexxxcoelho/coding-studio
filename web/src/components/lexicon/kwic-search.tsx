@@ -10,6 +10,7 @@ import { NativeSelect } from "@/components/settings/fields"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
+import { t } from "@/i18n"
 import { useProjectConfig } from "@/lib/hooks"
 import { EMPTY } from "@/lib/lexicon-copy"
 import { lexiconApi, type KwicHit } from "@/lib/lexicon-api"
@@ -29,7 +30,7 @@ interface Submitted {
 export function KwicRow({ hit, compact = false }: { hit: KwicHit; compact?: boolean }) {
   const short = hit.unit_id.replace(/^.*-(U\d+)$/, "$1")
   const where = (
-    <a className="mono" href={interviewHref(hit.interview_id, "coding", 1, hit.unit_id)} title="Ouvrir dans Coder">
+    <a className="mono" href={interviewHref(hit.interview_id, "coding", 1, hit.unit_id)} title={t("common.ouvrir_dans_coder")}>
       {hit.interview_id} {short}
     </a>
   )
@@ -102,22 +103,22 @@ export function KwicSearch({ compact = false }: { compact?: boolean }) {
 
   return (
     <div className="flex flex-col gap-3" data-testid="kwic-search">
-      <form onSubmit={submit} className="flex flex-col gap-2" role="search" aria-label="Recherche en contexte">
+      <form onSubmit={submit} className="flex flex-col gap-2" role="search" aria-label={t("common.recherche_en_contexte")}>
         <div className="r8">
-          <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Un mot ou une expression" aria-label="Mot ou expression à chercher" style={{ flex: 1, minWidth: 160 }} />
+          <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t("lexicon.kwic_search.un_mot_ou_une_expression")} aria-label={t("lexicon.kwic_search.mot_ou_expression_a_chercher")} style={{ flex: 1, minWidth: 160 }} />
           <Button type="submit" disabled={!q.trim()}>
-            Chercher
+            {t("common.chercher")}
           </Button>
         </div>
         <div className="r8">
           <label className="r8 small">
             <input type="checkbox" checked={stem} onChange={(e) => setStem(e.target.checked)} style={{ accentColor: "var(--accent-fill)" }} />
-            Chercher par racine
+            {t("lexicon.kwic_search.chercher_par_racine")}
           </label>
           {attributes.length > 0 && (
             <>
               <NativeSelect
-                aria-label="Filtrer sur un attribut"
+                aria-label={t("common.filtrer_sur_un_attribut")}
                 value={attribute}
                 onChange={(e) => {
                   setAttribute(e.target.value)
@@ -125,7 +126,7 @@ export function KwicSearch({ compact = false }: { compact?: boolean }) {
                 }}
                 style={{ width: 170 }}
               >
-                <option value="">Tous les entretiens</option>
+                <option value="">{t("common.tous_les_entretiens")}</option>
                 {attributes.map((a) => (
                   <option key={a.id} value={a.id}>
                     {a.label}
@@ -134,8 +135,8 @@ export function KwicSearch({ compact = false }: { compact?: boolean }) {
               </NativeSelect>
               {def &&
                 (def.kind === "choice" ? (
-                  <NativeSelect aria-label={`Valeur de ${def.label}`} value={value} onChange={(e) => setValue(e.target.value)} style={{ width: 150 }}>
-                    <option value="">Valeur…</option>
+                  <NativeSelect aria-label={t("common.valeur_de_label", { label: def.label })} value={value} onChange={(e) => setValue(e.target.value)} style={{ width: 150 }}>
+                    <option value="">{t("common.valeur_2")}</option>
                     {def.choices.map((c) => (
                       <option key={c} value={c}>
                         {c}
@@ -143,7 +144,7 @@ export function KwicSearch({ compact = false }: { compact?: boolean }) {
                     ))}
                   </NativeSelect>
                 ) : (
-                  <Input aria-label={`Valeur de ${def.label}`} value={value} onChange={(e) => setValue(e.target.value)} placeholder="Valeur" style={{ width: 150 }} />
+                  <Input aria-label={t("common.valeur_de_label", { label: def.label })} value={value} onChange={(e) => setValue(e.target.value)} placeholder={t("common.valeur")} style={{ width: 150 }} />
                 ))}
             </>
           )}
@@ -164,14 +165,14 @@ export function KwicSearch({ compact = false }: { compact?: boolean }) {
             {res.data.total} occurrence{res.data.total > 1 ? "s" : ""} dans {res.data.n_interviews} entretien{res.data.n_interviews > 1 ? "s" : ""}
             {res.data.stem ? ` · racines : ${res.data.query_tokens.join(", ")}` : ""}
           </p>
-          <ul className={cn("m-0 flex flex-col p-0", compact ? "gap-1.5" : "gap-0")} aria-label="Occurrences">
+          <ul className={cn("m-0 flex flex-col p-0", compact ? "gap-1.5" : "gap-0")} aria-label={t("lexicon.kwic_search.occurrences")}>
             {res.data.hits.map((h) => (
               <KwicRow key={`${h.unit_id}:${h.start}`} hit={h} compact={compact} />
             ))}
           </ul>
           {res.data.hits.length < res.data.total && (
             <Button type="button" variant="outline" onClick={() => setLimit(limit + PAGE)}>
-              Afficher plus ({res.data.hits.length} sur {res.data.total})
+              {t("lexicon.kwic_search.afficher_plus_length_sur_total", { length: res.data.hits.length, total: res.data.total })}
             </Button>
           )}
         </>

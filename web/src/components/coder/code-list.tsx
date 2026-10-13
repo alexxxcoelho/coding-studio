@@ -6,6 +6,7 @@ import type { CSSProperties, RefObject } from "react"
 import { Check } from "lucide-react"
 
 import { Input } from "@/components/ui/input"
+import { t } from "@/i18n"
 import { codeColor, codeName, isApplicable, type TreeRow } from "@/lib/code-tree"
 import type { CodeNode } from "@/lib/types"
 import type { CodeSearchItem } from "@/lib/v2-api"
@@ -54,8 +55,8 @@ export function CodeList({
         <Input
           ref={searchRef}
           type="text"
-          placeholder="Chercher un code"
-          aria-label="Chercher un code"
+          placeholder={t("common.chercher_un_code")}
+          aria-label={t("common.chercher_un_code")}
           value={query}
           onChange={(e) => onQuery(e.target.value)}
           onKeyDown={(e) => {
@@ -66,8 +67,8 @@ export function CodeList({
           }}
         />
       </div>
-      <ul className="cl" aria-label="Codes">
-        {rows.length === 0 && <li className="l2" style={{ display: "block", cursor: "default" }}>Aucun code ne correspond.</li>}
+      <ul className="cl" aria-label={t("common.codes")}>
+        {rows.length === 0 && <li className="l2" style={{ display: "block", cursor: "default" }}>{t("common.aucun_code_ne_correspond")}</li>}
         {rows.map(({ node, depth }) => {
           const on = applied.has(node.code_id)
           const usable = isApplicable(node)
@@ -100,12 +101,12 @@ export function CodeList({
               <div>
                 <div className="nm">
                   {codeName(node)}
-                  {path.length > 0 && <span className="l3 small" style={{ fontWeight: 400 }}> dans {path.join(" › ")}</span>}
+                  {path.length > 0 && <span className="l3 small" style={{ fontWeight: 400 }}> {t("common.dans_join", { join: path.join(" › ") })}</span>}
                 </div>
                 {why ? <div className="df">{why}</div> : node.definition && <div className="df">{shortDefinition(node.definition)}</div>}
               </div>
               {(system ? laterApplied : on) ? (
-                <Check className="size-3.5" style={{ color: "var(--accent-text)", marginTop: 2 }} role="img" aria-label="Appliqué" strokeWidth={2.2} />
+                <Check className="size-3.5" style={{ color: "var(--accent-text)", marginTop: 2 }} role="img" aria-label={t("coder.code_list.applique")} strokeWidth={2.2} />
               ) : (
                 <span />
               )}

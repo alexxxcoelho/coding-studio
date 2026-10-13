@@ -3,6 +3,7 @@
 
 import { useRef, type CSSProperties } from "react"
 
+import { t } from "@/i18n"
 import { useAudio } from "@/lib/audio-player"
 import { codeColor } from "@/lib/code-tree"
 import { hasLater, hasRealCode, pieces, stripeCodes, unitState, type CoderUnit } from "@/lib/coder-model"
@@ -102,8 +103,8 @@ export function Turn({ unit, passages, selected, codeName, marked = false, pendi
           <button
             type="button"
             className="ts"
-            title="Écouter à partir d'ici"
-            aria-label={`Écouter ${shortId(unit.unit_id)} à ${unit.timestamp}`}
+            title={t("coder.turn.ecouter_a_partir_d_ici")}
+            aria-label={t("coder.turn.ecouter_shortid_a_timestamp", { shortId: shortId(unit.unit_id), timestamp: unit.timestamp })}
             onClick={(e) => {
               e.stopPropagation()
               audio.seek(unit.unit_id)
@@ -160,16 +161,16 @@ export function Turn({ unit, passages, selected, codeName, marked = false, pendi
                 {codeName(c.code_id, c.name)}
               </span>
             ))}
-            {(later || marked) && <span className="badge">à revoir</span>}
-            {state === "non_pertinent" && <span className="badge">non pertinent</span>}
-            {state === "remaining" && <span className="badge">non codée</span>}
+            {(later || marked) && <span className="badge">{t("common.a_revoir_2")}</span>}
+            {state === "non_pertinent" && <span className="badge">{t("common.non_pertinent")}</span>}
+            {state === "remaining" && <span className="badge">{t("coder.turn.non_codee")}</span>}
             {selected && (
               <span className="hint">
                 <span>
-                  <span className="kbd">N</span> non pertinent
+                  <span className="kbd">N</span> {t("common.non_pertinent")}
                 </span>
                 <span>
-                  <span className="kbd">R</span> à revoir
+                  <span className="kbd">R</span> {t("common.a_revoir_2")}
                 </span>
               </span>
             )}

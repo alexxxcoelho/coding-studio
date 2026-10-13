@@ -9,6 +9,7 @@ import { toast } from "sonner"
 import { AutoInput, AutoTextarea } from "@/components/analysis/shared"
 import { NativeSelect } from "@/components/settings/fields"
 import { Button } from "@/components/ui/button"
+import { t } from "@/i18n"
 import type { LinkTarget, PartState, PassageLink, ThemePartKey } from "@/lib/analysis-api"
 import { carries, planLink, readDrag } from "@/lib/analysis-dnd"
 import { linkChipLabel, passageRef } from "@/lib/analysis-text"
@@ -33,7 +34,7 @@ function LinkRow({
         {label}
       </span>
       <NativeSelect
-        aria-label={`Type du lien ${passageRef(link.passage)}`}
+        aria-label={t("writing.part_editor.type_du_lien_passageref", { passageRef: passageRef(link.passage) })}
         value={link.link_type}
         onChange={(e) => void onChange({ link_type: e.target.value }).catch(() => {})}
         style={{ width: 120 }}
@@ -46,14 +47,14 @@ function LinkRow({
         ))}
       </NativeSelect>
       <AutoInput
-        label={`Note du lien ${passageRef(link.passage)}`}
+        label={t("writing.part_editor.note_du_lien_passageref", { passageRef: passageRef(link.passage) })}
         hideLabel
         className="min-w-48 flex-1"
-        placeholder="Ce que ce passage apporte, en une ligne"
+        placeholder={t("writing.part_editor.ce_que_ce_passage_apporte")}
         value={link.note}
         onSave={(note) => onChange({ note })}
       />
-      <Button variant="ghost" size="icon-xs" aria-label={`Retirer le lien ${label}`} onClick={onRemove}>
+      <Button variant="ghost" size="icon-xs" aria-label={t("writing.part_editor.retirer_le_lien_label", { label })} onClick={onRemove}>
         ×
       </Button>
     </li>
@@ -99,7 +100,7 @@ export function PartEditor({
     if (!p) return
     const plan = planLink({ passageId: p.id, target, links: allLinks, linkTypes })
     if (plan.action === "refused") toast.error(plan.reason)
-    else if (plan.action === "duplicate") toast.info("Ce passage est déjà lié à cette partie.")
+    else if (plan.action === "duplicate") toast.info(t("common.ce_passage_est_deja_lie"))
     else void onCreateLink({ passage_id: plan.body.passage_id, link_type: plan.body.link_type, note: plan.body.note })
   }
 
@@ -125,9 +126,9 @@ export function PartEditor({
         serif
         extra={
           <label className="flex items-center gap-1.5 text-xs">
-            <span className="text-muted-foreground">Nature de la preuve</span>
-            <NativeSelect aria-label={`Nature de la preuve : ${title}`} value={state.nature ?? ""} onChange={(e) => void onNature(e.target.value || null)} style={{ width: 170 }}>
-              <option value="">Non précisée</option>
+            <span className="text-muted-foreground">{t("writing.part_editor.nature_de_la_preuve")}</span>
+            <NativeSelect aria-label={t("writing.part_editor.nature_de_la_preuve_title", { title })} value={state.nature ?? ""} onChange={(e) => void onNature(e.target.value || null)} style={{ width: 170 }}>
+              <option value="">{t("writing.part_editor.non_precisee")}</option>
               {natures.map((n) => (
                 <option key={n.id} value={n.id}>
                   {n.label}
@@ -138,7 +139,7 @@ export function PartEditor({
         }
       />
       {state.links.length > 0 && (
-        <ul className="flex flex-col gap-1.5" aria-label={`Passages liés : ${title}`}>
+        <ul className="flex flex-col gap-1.5" aria-label={t("writing.part_editor.passages_lies_title", { title })}>
           {state.links.map((l) => (
             <LinkRow key={l.link_id} link={l} types={linkTypes} onChange={(edit) => onUpdateLink(l.link_id, edit)} onRemove={() => onRemoveLink(l.link_id)} />
           ))}

@@ -1,4 +1,5 @@
 import { syncNativeTheme } from "./desktop"
+import { t } from "@/i18n"
 // Appearance: light / dark / automatic, and the accent colour. "system" follows
 // prefers-color-scheme (appearance) or the CSS keyword AccentColor (accent).
 // Choices are kept in localStorage; index.html applies them before first paint
@@ -63,14 +64,14 @@ interface AccentValues {
 
 /** The eight accents of the design files, with their light and dark values. */
 export const ACCENTS: Record<Exclude<AccentId, "system">, AccentValues> = {
-  graphite: { label: "Graphite", light: "#8C8C8C", lightFill: "#636366", dark: "#98989D", darkFill: "#636366" },
-  bleu: { label: "Bleu", light: "#007AFF", lightFill: "#0062CC", dark: "#0A84FF", darkFill: "#0070E0" },
-  violet: { label: "Violet", light: "#AF52DE", lightFill: "#8E3BBF", dark: "#BF5AF2", darkFill: "#9A44C9" },
-  rose: { label: "Rose", light: "#FF2D55", lightFill: "#D1123F", dark: "#FF375F", darkFill: "#D1123F" },
-  rouge: { label: "Rouge", light: "#FF3B30", lightFill: "#D12A20", dark: "#FF453A", darkFill: "#D12A20" },
-  orange: { label: "Orange", light: "#FF9500", lightFill: "#A85A00", dark: "#FF9F0A", darkFill: "#A85A00" },
-  jaune: { label: "Jaune", light: "#FFCC00", lightFill: "#8A6D00", dark: "#FFD60A", darkFill: "#8A6D00" },
-  vert: { label: "Vert", light: "#28CD41", lightFill: "#1A7F2B", dark: "#32D74B", darkFill: "#1A7F2B" },
+  graphite: { get label() { return t("theme.graphite") }, light: "#8C8C8C", lightFill: "#636366", dark: "#98989D", darkFill: "#636366" },
+  bleu: { get label() { return t("theme.bleu") }, light: "#007AFF", lightFill: "#0062CC", dark: "#0A84FF", darkFill: "#0070E0" },
+  violet: { get label() { return t("theme.violet") }, light: "#AF52DE", lightFill: "#8E3BBF", dark: "#BF5AF2", darkFill: "#9A44C9" },
+  rose: { get label() { return t("theme.rose") }, light: "#FF2D55", lightFill: "#D1123F", dark: "#FF375F", darkFill: "#D1123F" },
+  rouge: { get label() { return t("theme.rouge") }, light: "#FF3B30", lightFill: "#D12A20", dark: "#FF453A", darkFill: "#D12A20" },
+  orange: { get label() { return t("theme.orange") }, light: "#FF9500", lightFill: "#A85A00", dark: "#FF9F0A", darkFill: "#A85A00" },
+  jaune: { get label() { return t("theme.jaune") }, light: "#FFCC00", lightFill: "#8A6D00", dark: "#FFD60A", darkFill: "#8A6D00" },
+  vert: { get label() { return t("theme.vert") }, light: "#28CD41", lightFill: "#1A7F2B", dark: "#32D74B", darkFill: "#1A7F2B" },
 }
 
 export const ACCENT_IDS: AccentId[] = ["system", "graphite", "bleu", "violet", "rose", "rouge", "orange", "jaune", "vert"]
@@ -119,9 +120,9 @@ export const SHORTCUTS_KEY = "cs-shortcuts"
 
 /** Transcript text size as a CSS length, exposed as --transcript-size. */
 export const TEXT_SIZES: Record<TextSize, { label: string; css: string }> = {
-  small: { label: "Petit", css: "13.5px" },
-  medium: { label: "Moyen", css: "15px" },
-  large: { label: "Grand", css: "17px" },
+  small: { get label() { return t("theme.petit") }, css: "13.5px" },
+  medium: { get label() { return t("theme.moyen") }, css: "15px" },
+  large: { get label() { return t("theme.grand") }, css: "17px" },
 }
 
 export function readTextSize(storage: Pick<Storage, "getItem"> | null): TextSize {

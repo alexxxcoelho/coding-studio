@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { TEXTAREA } from "@/components/settings/fields"
+import { t } from "@/i18n"
 import { ApiError, api } from "@/lib/api"
 import { codeName, isApplicable } from "@/lib/code-tree"
 import { analysisApi } from "@/lib/analysis-api"
@@ -83,14 +84,14 @@ export function NewCodeDialog({
       }),
     onSuccess: async (res) => {
       // Undo removes the code, and the passage when this call made it (POST /api/codes/{id}/undo-create).
-      undo?.push({ label: `Code « ${res.code.name} » créé`, run: () => analysisApi.undoCreateCode(res.code.code_id) })
+      undo?.push({ label: t("coder.new_code_dialog.code_name_cree", { name: res.code.name }), run: () => analysisApi.undoCreateCode(res.code.code_id) })
       const also = (target?.alsoPassageIds ?? []).filter((pid) => pid !== res.passage.passage_id)
       const done = await Promise.allSettled(also.map((pid) => api.addCoding(pid, res.code.code_id)))
       const failed = done.filter((d) => d.status === "rejected").length
       await invalidatePassages(qc, interviewId)
       if (also.length > 0) await qc.invalidateQueries({ queryKey: ["passages"] })
-      if (failed > 0) toast.error(`Code « ${res.code.name} » créé, mais posé sur ${also.length - failed} surlignage${also.length - failed > 1 ? "s" : ""} de ${also.length}`)
-      else toast.success(also.length > 0 ? `Code « ${res.code.name} » créé et posé sur ${also.length + 1} surlignages` : `Code « ${res.code.name} » créé et posé`)
+      if (failed > 0) toast.error(t("coder.new_code_dialog.code_name_cree_mais_pose", { n: also.length - failed, name: res.code.name, length: also.length }))
+      else toast.success(also.length > 0 ? t("coder.new_code_dialog.code_name_cree_et_pose", { name: res.code.name, v: also.length + 1 }) : t("coder.new_code_dialog.code_name_cree_et_pose_2", { name: res.code.name }))
       onClose()
     },
     onError: (e) => setError(e instanceof ApiError ? e.message : String(e)),
@@ -101,9 +102,9 @@ export function NewCodeDialog({
     <Dialog open={target !== null} onOpenChange={(o) => !o && onClose()}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Nouveau code</DialogTitle>
+          <DialogTitle>{t("common.nouveau_code")}</DialogTitle>
           <DialogDescription>
-            Le code est créé et posé sur {target?.passageId ? "le surlignage" : target?.range ? "la sélection" : "le tour"}, qui devient son origine et son premier exemple.
+            {t("coder.new_code_dialog.le_code_est_cree_et")} {target?.passageId ? t("coder.new_code_dialog.le_surlignage") : target?.range ? t("coder.new_code_dialog.la_selection") : t("coder.new_code_dialog.le_tour")}{t("coder.new_code_dialog.qui_devient_son_origine_et")}
           </DialogDescription>
         </DialogHeader>
         {target?.text && (
@@ -119,17 +120,17 @@ export function NewCodeDialog({
           }}
         >
           <label className="flex flex-col gap-1 text-sm">
-            <span className="hs">Nom</span>
-            <Input autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder="Ce que dit le répondant, en mots courants" />
+            <span className="hs">{t("common.nom")}</span>
+            <Input autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder={t("coder.new_code_dialog.ce_que_dit_le_repondant")} />
           </label>
           <label className="flex flex-col gap-1 text-sm">
-            <span className="hs">Définition</span>
-            <textarea className={TEXTAREA} rows={3} value={definition} onChange={(e) => setDefinition(e.target.value)} placeholder="Une phrase qui dit ce que le code inclut et ce qu'il exclut" />
+            <span className="hs">{t("common.definition")}</span>
+            <textarea className={TEXTAREA} rows={3} value={definition} onChange={(e) => setDefinition(e.target.value)} placeholder={t("coder.new_code_dialog.une_phrase_qui_dit_ce")} />
           </label>
           <label className="flex flex-col gap-1 text-sm">
-            <span className="hs">Parent (facultatif)</span>
+            <span className="hs">{t("coder.new_code_dialog.parent_facultatif")}</span>
             <NativeSelect value={parent} onChange={(e) => setParent(e.target.value)}>
-              <option value="">Aucun</option>
+              <option value="">{t("common.aucun_2")}</option>
               {codes
                 .filter((c) => isApplicable(c))
                 .map((c) => (
@@ -146,10 +147,10 @@ export function NewCodeDialog({
           )}
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose}>
-              Annuler
+              {t("common.annuler")}
             </Button>
             <Button type="submit" disabled={!ready || create.isPending}>
-              {create.isPending ? "Création…" : "Créer et poser"}
+              {create.isPending ? t("coder.new_code_dialog.creation") : t("coder.new_code_dialog.creer_et_poser")}
             </Button>
           </DialogFooter>
         </form>

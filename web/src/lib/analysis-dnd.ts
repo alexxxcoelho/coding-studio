@@ -4,6 +4,7 @@
 // link; a theme dragged onto another one moves in the chapter order.
 
 import type { LinkCreate, LinkTarget, PassageLink } from "./analysis-api"
+import { t } from "@/i18n"
 
 export const MIME_CODE = "application/x-cs-code"
 export const MIME_PASSAGE = "application/x-cs-passage"
@@ -70,7 +71,7 @@ export type LinkPlan =
 export function planLink(opts: { passageId: string; target: LinkTarget; links: PassageLink[]; linkTypes: { id: string; label: string }[] }): LinkPlan {
   const { passageId, target, links, linkTypes } = opts
   const first = linkTypes[0]
-  if (!first) return { action: "refused", reason: "L'étude n'a aucun type de lien : ajoutez-en dans les Réglages." }
+  if (!first) return { action: "refused", reason: t("analysis_dnd.l_etude_n_a_aucun") }
   const there = links.find((l) => l.passage.passage_id === passageId && sameTarget(l.target, target))
   if (there) return { action: "duplicate", link: there }
   return { action: "create", body: { passage_id: passageId, target, link_type: first.id, note: "" } }

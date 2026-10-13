@@ -11,6 +11,7 @@ import { hasCode, findSpan, withCoding, withoutCoding, withoutPassage, withServe
 import { reportError } from "./notify"
 import type { UndoStack } from "./undo"
 import type { CodeNode, Passage, UnitRow } from "./types"
+import { t } from "@/i18n"
 
 export const keys = {
   codes: ["codes"] as const,
@@ -140,7 +141,7 @@ export function useCodingActions(interviewId: string, undo: UndoStack): CodingAc
           patch: (l) => withoutCoding(l, pid, code.code_id),
           call: () => api.removeCoding(pid, code.code_id),
         })
-        if (r) undo.push({ label: `${code.name} retiré`, run: () => api.addCoding(pid, code.code_id) })
+        if (r) undo.push({ label: t("hooks.name_retire", { name: code.name }), run: () => api.addCoding(pid, code.code_id) })
         return
       }
       const tmpPassage = (l: Passage[]) => withCoding(l, target, unit.text, interviewId, code)
@@ -163,8 +164,8 @@ export function useCodingActions(interviewId: string, undo: UndoStack): CodingAc
         const pid = r.passage.passage_id
         undo.push(
           r.created
-            ? { label: `${code.name} posé`, run: () => api.deletePassage(pid, "annulation") }
-            : { label: `${code.name} posé`, run: () => api.removeCoding(pid, code.code_id, "annulation") },
+            ? { label: t("hooks.name_pose", { name: code.name }), run: () => api.deletePassage(pid, "annulation") }
+            : { label: t("hooks.name_pose", { name: code.name }), run: () => api.removeCoding(pid, code.code_id, "annulation") },
         )
       }
     },
@@ -188,7 +189,7 @@ export function useCodingActions(interviewId: string, undo: UndoStack): CodingAc
       })
       if (r?.created) {
         const pid = r.passage.passage_id
-        undo.push({ label: "Surlignage posé", run: () => api.deletePassage(pid, "annulation") })
+        undo.push({ label: t("hooks.surlignage_pose"), run: () => api.deletePassage(pid, "annulation") })
       }
       return r?.passage
     },
@@ -211,7 +212,7 @@ export function useCodingActions(interviewId: string, undo: UndoStack): CodingAc
       })
       if (r) {
         undo.push({
-          label: relevant ? "Tour remis en jeu" : "Tour marqué non pertinent",
+          label: relevant ? t("hooks.tour_remis_en_jeu") : t("hooks.tour_marque_non_pertinent"),
           run: () => api.setRelevant(interviewId, unit.unit_id, !relevant),
         })
       }
@@ -233,7 +234,7 @@ export function useCodingActions(interviewId: string, undo: UndoStack): CodingAc
           patch: (l) => (only ? withoutPassage(l, pid) : withoutCoding(l, pid, LATER_ID)),
           call: () => (only ? api.deletePassage(pid, "annulation") : api.removeCoding(pid, LATER_ID)).then(() => true),
         })
-        if (r) undo.push({ label: "À revoir retiré", run: () => api.addCoding(pid, LATER_ID) })
+        if (r) undo.push({ label: t("common.a_revoir_retire"), run: () => api.addCoding(pid, LATER_ID) })
         return
       }
       let tmpId: string | undefined
@@ -256,8 +257,8 @@ export function useCodingActions(interviewId: string, undo: UndoStack): CodingAc
         const pid = r.passage.passage_id
         undo.push(
           r.created
-            ? { label: "Plus tard posé", run: () => api.deletePassage(pid, "annulation") }
-            : { label: "Plus tard posé", run: () => api.removeCoding(pid, LATER_ID, "annulation") },
+            ? { label: t("hooks.plus_tard_pose"), run: () => api.deletePassage(pid, "annulation") }
+            : { label: t("hooks.plus_tard_pose"), run: () => api.removeCoding(pid, LATER_ID, "annulation") },
         )
       }
     },
@@ -269,7 +270,7 @@ export function useCodingActions(interviewId: string, undo: UndoStack): CodingAc
       if (passage.passage_id.startsWith("tmp-")) return
       const pid = passage.passage_id
       const r = await run({ patch: (l) => withoutCoding(l, pid, codeId), call: () => api.removeCoding(pid, codeId) })
-      if (r) undo.push({ label: `${codeName} retiré`, run: () => api.addCoding(pid, codeId) })
+      if (r) undo.push({ label: t("hooks.codename_retire", { codeName }), run: () => api.addCoding(pid, codeId) })
     },
     [run, undo],
   )

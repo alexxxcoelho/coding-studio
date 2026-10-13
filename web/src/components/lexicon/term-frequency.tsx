@@ -10,6 +10,7 @@ import { NativeSelect } from "@/components/settings/fields"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
+import { t } from "@/i18n"
 import { useProjectConfig } from "@/lib/hooks"
 import { EMPTY } from "@/lib/lexicon-copy"
 import { frequencyTable, parseTerms, valueLabel } from "@/lib/lexicon"
@@ -46,27 +47,27 @@ export function TermFrequency() {
     <div className="flex flex-col gap-3" data-testid="term-frequency">
       <form
         className="r8"
-        aria-label="Fréquence par attribut"
+        aria-label={t("lexicon.term_frequency.frequence_par_attribut")}
         onSubmit={(e) => {
           e.preventDefault()
           if (attribute) setSent({ attribute, terms: parseTerms(raw), stem })
         }}
       >
-        <NativeSelect aria-label="Attribut" value={attribute} onChange={(e) => setAttribute(e.target.value)} style={{ width: 180 }}>
-          <option value="">Attribut…</option>
+        <NativeSelect aria-label={t("common.attribut")} value={attribute} onChange={(e) => setAttribute(e.target.value)} style={{ width: 180 }}>
+          <option value="">{t("common.attribut_2")}</option>
           {attributes.map((a) => (
             <option key={a.id} value={a.id}>
               {a.label}
             </option>
           ))}
         </NativeSelect>
-        <Input value={raw} onChange={(e) => setRaw(e.target.value)} placeholder="Mots séparés par des virgules (facultatif)" aria-label="Mots à compter" style={{ flex: 1, minWidth: 200 }} />
+        <Input value={raw} onChange={(e) => setRaw(e.target.value)} placeholder={t("lexicon.term_frequency.mots_separes_par_des_virgules")} aria-label={t("lexicon.term_frequency.mots_a_compter")} style={{ flex: 1, minWidth: 200 }} />
         <label className="r8 small">
           <input type="checkbox" checked={stem} onChange={(e) => setStem(e.target.checked)} style={{ accentColor: "var(--accent-fill)" }} />
-          Par racine
+          {t("lexicon.term_frequency.par_racine")}
         </label>
         <Button type="submit" disabled={!attribute}>
-          Compter
+          {t("lexicon.term_frequency.compter")}
         </Button>
       </form>
 
@@ -80,12 +81,12 @@ export function TermFrequency() {
 
       {table && res.data?.mode === "terms" && (
         <>
-          <table className="tbl" aria-label="Fréquence des mots par valeur">
+          <table className="tbl" aria-label={t("lexicon.term_frequency.frequence_des_mots_par_valeur")}>
             <thead>
               <tr>
                 <th>{attributes.find((a) => a.id === res.data!.attribute)?.label ?? res.data.attribute}</th>
-                <th style={{ textAlign: "right" }}>Entretiens</th>
-                <th style={{ textAlign: "right" }}>Mots</th>
+                <th style={{ textAlign: "right" }}>{t("common.entretiens")}</th>
+                <th style={{ textAlign: "right" }}>{t("lexicon.term_frequency.mots")}</th>
                 {table.terms.map((t) => (
                   <th key={t} style={{ textAlign: "right" }}>
                     {t}
@@ -100,10 +101,10 @@ export function TermFrequency() {
                   <td style={{ textAlign: "right" }}>{r.n_interviews}</td>
                   <td style={{ textAlign: "right" }}>{num(r.n_words)}</td>
                   {r.cells.map((c, i) => (
-                    <td key={table.terms[i]} style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }} title={c ? `${c.n_interviews_with_term} entretien(s) sur ${c.n_interviews}, ${c.n_units_with_term} tour(s)` : undefined}>
+                    <td key={table.terms[i]} style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }} title={c ? t("lexicon.term_frequency.n_interviews_with_term_entretien", { n_interviews_with_term: c.n_interviews_with_term, n_interviews: c.n_interviews, n_units_with_term: c.n_units_with_term }) : undefined}>
                       {c ? (
                         <>
-                          {c.n_occurrences} <span className="l2 small">({per1000(c.per_1000_words)} pour 1000)</span>
+                          {c.n_occurrences} <span className="l2 small">{t("lexicon.term_frequency.per1000_pour_1000", { per1000: per1000(c.per_1000_words) })}</span>
                         </>
                       ) : (
                         <span className="l3">0</span>
@@ -115,17 +116,17 @@ export function TermFrequency() {
             </tbody>
           </table>
           <p className="small l2" style={{ margin: 0 }}>
-            {res.data.note || "Occurrences et occurrences pour 1000 mots par valeur de l'attribut. Un comptage exploratoire, pas une prévalence."}
+            {res.data.note || t("lexicon.term_frequency.occurrences_et_occurrences_pour_1000")}
           </p>
         </>
       )}
 
       {res.data?.mode === "top_terms" && (
-        <table className="tbl" aria-label="Mots les plus fréquents par valeur">
+        <table className="tbl" aria-label={t("lexicon.term_frequency.mots_les_plus_frequents_par")}>
           <thead>
             <tr>
               <th>{attributes.find((a) => a.id === res.data!.attribute)?.label ?? res.data.attribute}</th>
-              <th>Mots les plus fréquents</th>
+              <th>{t("lexicon.term_frequency.mots_les_plus_frequents")}</th>
             </tr>
           </thead>
           <tbody>
@@ -134,7 +135,7 @@ export function TermFrequency() {
                 <td>{valueLabel(v.value)}</td>
                 <td>
                   {v.terms.length === 0 ? (
-                    <span className="l3">Aucun mot</span>
+                    <span className="l3">{t("lexicon.term_frequency.aucun_mot")}</span>
                   ) : (
                     v.terms.map((t, i) => (
                       <span key={t.stem} title={`${t.n_interviews} entretien(s)`}>

@@ -10,6 +10,7 @@ import { toast } from "sonner"
 import { CodeFinder } from "@/components/code-finder"
 import { Button } from "@/components/ui/button"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { t } from "@/i18n"
 import { api } from "@/lib/api"
 import { useCodeName } from "@/lib/code-names"
 import { invalidatePassages } from "@/lib/hooks"
@@ -41,10 +42,10 @@ export function ResultCard({ item, codes, onCoded }: { item: SearchItem; codes: 
     onSuccess: async (_, c) => {
       setOpen(false)
       await invalidatePassages(qc, item.interview_id)
-      toast.success(`« ${brief(chosenText, 50)} » codé « ${c.name} »`)
+      toast.success(t("search.result_card.brief_code_name", { brief: brief(chosenText, 50), name: c.name }))
       onCoded()
     },
-    onError: (e) => reportError(e, "Passage non codé"),
+    onError: (e) => reportError(e, t("search.result_card.passage_non_code")),
   })
 
   const onMouseUp = () => {
@@ -58,16 +59,16 @@ export function ResultCard({ item, codes, onCoded }: { item: SearchItem; codes: 
   return (
     <article className="grp" style={{ padding: "10px 12px", display: "flex", flexDirection: "column", gap: 6 }} aria-label={`${item.interview_id} ${shortUnit(item.unit_id)}`} data-unit={item.unit_id}>
       <div className="r8">
-        <a className="mono b" href={unitHref(item.unit_id)} title="Ouvrir dans Coder">
+        <a className="mono b" href={unitHref(item.unit_id)} title={t("common.ouvrir_dans_coder")}>
           {item.interview_id} {shortUnit(item.unit_id)}
         </a>
-        <span className="small l2">{interviewer ? "Intervieweur" : "Répondant"}</span>
+        <span className="small l2">{interviewer ? "Intervieweur" : t("search.result_card.repondant")}</span>
         <span className="badge">
-          {item.matches.length} occurrence{item.matches.length > 1 ? "s" : ""}
+          {t("search.result_card.n_occurrences", { n: item.matches.length })}
         </span>
         {item.coded ? (
-          <span className="r8" aria-label="Codé">
-            {item.code_ids.length === 0 && <span className="badge">codé</span>}
+          <span className="r8" aria-label={t("search.result_card.code")}>
+            {item.code_ids.length === 0 && <span className="badge">{t("search.result_card.code_2")}</span>}
             {item.code_ids.map((id) => (
               <span key={id} className="tag">
                 {nameOf(id)}
@@ -75,11 +76,11 @@ export function ResultCard({ item, codes, onCoded }: { item: SearchItem; codes: 
             ))}
           </span>
         ) : (
-          <span className="badge">non codé</span>
+          <span className="badge">{t("search.result_card.non_code")}</span>
         )}
         {item.coded && item.uncovered_matches > 0 && (
           <span className="small l2">
-            dont {item.uncovered_matches} occurrence{item.uncovered_matches > 1 ? "s" : ""} hors passage
+            {t("search.result_card.dont_n_occurrences_hors_passage", { n: item.uncovered_matches })}
           </span>
         )}
       </div>
@@ -97,7 +98,7 @@ export function ResultCard({ item, codes, onCoded }: { item: SearchItem; codes: 
               <mark
                 key={i}
                 className={cn("hl", chosen && ranges[p.hit] && chosen.start === ranges[p.hit].start && chosen.end === ranges[p.hit].end && "cur")}
-                title="Choisir cette occurrence"
+                title={t("search.result_card.choisir_cette_occurrence")}
                 onClick={() => setSel(ranges[p.hit])}
               >
                 {p.text}
@@ -113,26 +114,26 @@ export function ResultCard({ item, codes, onCoded }: { item: SearchItem; codes: 
       )}
       <div className="r8">
         <Button asChild variant="outline" size="sm">
-          <a href={unitHref(item.unit_id)}>Ouvrir dans Coder</a>
+          <a href={unitHref(item.unit_id)}>{t("common.ouvrir_dans_coder")}</a>
         </Button>
         {!interviewer && chosen && (
           <Popover open={open} onOpenChange={setOpen}>
             <PopoverTrigger asChild>
-              <Button variant="outline" size="sm" title={`Coder la sélection : « ${brief(chosenText, 60)} »`}>
-                Coder la sélection…
+              <Button variant="outline" size="sm" title={t("search.result_card.coder_la_selection_brief", { brief: brief(chosenText, 60) })}>
+                {t("common.coder_la_selection_2")}
               </Button>
             </PopoverTrigger>
-            <PopoverContent align="start" className="w-80" aria-label="Coder la sélection">
+            <PopoverContent align="start" className="w-80" aria-label={t("common.coder_la_selection")}>
               <span className="small l2">
-                Sélection : « {brief(chosenText, 80)} ». Cliquez une occurrence surlignée, ou sélectionnez des mots, pour changer l'extrait.
+                {t("search.result_card.selection_brief_cliquez_une_occurren", { brief: brief(chosenText, 80) })}
               </span>
-              <CodeFinder codes={codes} applicableOnly autoFocus onPick={(c) => code.mutate(c)} label="Code à poser sur la sélection" />
+              <CodeFinder codes={codes} applicableOnly autoFocus onPick={(c) => code.mutate(c)} label={t("search.result_card.code_a_poser_sur_la")} />
             </PopoverContent>
           </Popover>
         )}
         {sel && (
           <Button variant="ghost" size="sm" onClick={() => setSel(null)}>
-            Revenir à la première occurrence
+            {t("search.result_card.revenir_a_la_premiere_occurrence")}
           </Button>
         )}
       </div>

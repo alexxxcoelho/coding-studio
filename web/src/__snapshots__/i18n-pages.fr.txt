@@ -284,11 +284,7 @@ Organisation
 Retirer
 Ajouter un nom
 Enregistrer la liste
-Liste de
-1
-nom
-(personnes)
-, empreinte SHA-256
+Liste de 1 nom (personnes), empreinte SHA-256
 dddddddddddddddd
 , enregistrée avec chaque prompt. Le journal garde l'empreinte et les nombres, jamais les noms.
 Le texte libre n'est pas couvert.

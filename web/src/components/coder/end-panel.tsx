@@ -6,6 +6,7 @@ import { forwardRef, useState } from "react"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 
 import { TEXTAREA } from "@/components/settings/fields"
+import { t } from "@/i18n"
 import { api } from "@/lib/api"
 import { checklistMissing, END_MEMO_ITEM } from "@/lib/coder-model"
 import { keys, useChecklist } from "@/lib/hooks"
@@ -29,7 +30,7 @@ export const EndPanel = forwardRef<HTMLElement, { interviewId: string }>(functio
       qc.setQueryData(keys.checklist(interviewId), v)
       qc.invalidateQueries({ queryKey: ["chain"] })
     },
-    onError: (e) => reportError(e, "Liste non enregistrée"),
+    onError: (e) => reportError(e, t("coder.end_panel.liste_non_enregistree")),
   })
 
   const data = list.data
@@ -37,13 +38,13 @@ export const EndPanel = forwardRef<HTMLElement, { interviewId: string }>(functio
   return (
     <section ref={ref} aria-labelledby="end-title" className="grp" style={{ margin: "14px 0 4px", padding: "14px 16px" }}>
       <h2 id="end-title" style={{ fontSize: 14, fontWeight: 600, margin: 0 }}>
-        Fin d'entretien
+        {t("common.fin_d_entretien")}
       </h2>
       <p className="small l2" style={{ margin: "2px 0 10px" }}>
-        Tous les tours du répondant sont examinés. Passez la liste de contrôle de l'étude avant de considérer l'entretien codé.
+        {t("coder.end_panel.tous_les_tours_du_repondant")}
       </p>
       {!data ? (
-        <p className="small l2">Chargement…</p>
+        <p className="small l2">{t("coder.end_panel.chargement")}</p>
       ) : (
         <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 8 }}>
           {data.items.map((item) => (
@@ -60,14 +61,14 @@ export const EndPanel = forwardRef<HTMLElement, { interviewId: string }>(functio
               {item.id === END_MEMO_ITEM && (
                 <div style={{ marginLeft: 22, marginTop: 6 }}>
                   <label className="hs" htmlFor="end-note">
-                    Mémo de fin d'entretien
+                    {t("common.memo_de_fin_d_entretien")}
                   </label>
                   <textarea
                     id="end-note"
                     className={TEXTAREA}
                     rows={4}
                     value={note}
-                    placeholder="Position du répondant, mécanisme central, exceptions, questions pour les suivants"
+                    placeholder={t("coder.end_panel.position_du_repondant_mecanisme_cent")}
                     onChange={(e) => setNote(e.target.value)}
                     onBlur={() => note !== (data.note ?? "") && save.mutate({ note })}
                   />
@@ -79,10 +80,9 @@ export const EndPanel = forwardRef<HTMLElement, { interviewId: string }>(functio
       )}
       {data && (
         <p className="small l2" style={{ margin: "10px 0 0" }} role="status">
-          {done} sur {data.items.length} points cochés
-          {done < data.items.length && ` · à voir : ${checklistMissing(data.items).join(" ; ")}`}. La liste n'est jamais un verrou.
-          {" "}
-          <a href={interviewHref(interviewId, "review")}>Passer à Revoir</a>
+          {t("coder.end_panel.done_sur_length_points_coches", { done, length: data.items.length })}
+          {done < data.items.length && t("coder.end_panel.a_voir_join", { join: checklistMissing(data.items).join(" ; ") })}{t("coder.end_panel.la_liste_n_est_jamais")}{" "}
+          <a href={interviewHref(interviewId, "review")}>{t("coder.end_panel.passer_a_revoir")}</a>
         </p>
       )}
     </section>

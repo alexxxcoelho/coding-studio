@@ -8,6 +8,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Alerts } from "@/components/settings/fields"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { t } from "@/i18n"
 import { ApiError, api } from "@/lib/api"
 import type { ResearchQuestion } from "@/lib/types"
 
@@ -37,7 +38,7 @@ export function ResearchQuestionsEditor() {
   const list = q.data ?? []
   return (
     <div className="flex flex-col gap-2">
-      <h3 className="text-sm font-medium">Questions de recherche</h3>
+      <h3 className="text-sm font-medium">{t("common.questions_de_recherche")}</h3>
       {list.map((r) => (
         <div key={r.id} className="r8">
           <span className="badge">{r.id}</span>
@@ -52,8 +53,8 @@ export function ResearchQuestionsEditor() {
               if (t && t !== r.text) edit.mutate({ id: r.id, text: t })
             }}
           />
-          <Button variant="outline" aria-label={`Retirer la question ${r.id}`} onClick={() => remove.mutate(r.id)}>
-            Retirer
+          <Button variant="outline" aria-label={t("settings.research_questions.retirer_la_question_id", { id: r.id })} onClick={() => remove.mutate(r.id)}>
+            {t("common.retirer")}
           </Button>
         </div>
       ))}
@@ -64,12 +65,12 @@ export function ResearchQuestionsEditor() {
           if (text.trim()) add.mutate(text.trim())
         }}
       >
-        <Input aria-label="Nouvelle question de recherche" placeholder="Nouvelle question de recherche" style={{ flex: 1 }} value={text} onChange={(e) => setText(e.target.value)} />
+        <Input aria-label={t("settings.research_questions.nouvelle_question_de_recherche")} placeholder={t("settings.research_questions.nouvelle_question_de_recherche")} style={{ flex: 1 }} value={text} onChange={(e) => setText(e.target.value)} />
         <Button type="submit" variant="outline" disabled={!text.trim() || add.isPending}>
-          Ajouter une question
+          {t("common.ajouter_une_question")}
         </Button>
       </form>
-      <p className="small l2">Chaque question garde son identifiant ; les codes et la rédaction s'y rattachent.</p>
+      <p className="small l2">{t("settings.research_questions.chaque_question_garde_son_identifian")}</p>
       {error && <Alerts messages={[error]} />}
     </div>
   )

@@ -16,6 +16,7 @@ import { FrameworkTableTab } from "@/components/writing/framework-table"
 import { QuestionSynthesisTab } from "@/components/writing/question-synthesis"
 import { Capsule, CapsuleItem, ToolbarActions } from "@/components/toolbar"
 import { Skeleton } from "@/components/ui/skeleton"
+import { t } from "@/i18n"
 import { analysisApi } from "@/lib/analysis-api"
 import { retainedThemes, useThemes } from "@/lib/analysis-hooks"
 import { downloadText } from "@/lib/download"
@@ -34,33 +35,33 @@ export function RedigerPage() {
   const tab: Tab = picked === "framework" && !hasFramework ? "theme" : picked
 
   const tabs: { id: Tab; label: string }[] = [
-    { id: "theme", label: "Par thème" },
-    { id: "question", label: "Synthèse par question" },
-    ...(hasFramework ? [{ id: "framework" as const, label: "Lecture par le cadre" }] : []),
-    { id: "audit", label: "Audit final" },
-    { id: "decisions", label: "Décisions documentées" },
+    { id: "theme", label: t("rediger.par_theme") },
+    { id: "question", label: t("rediger.synthese_par_question") },
+    ...(hasFramework ? [{ id: "framework" as const, label: t("common.lecture_par_le_cadre") }] : []),
+    { id: "audit", label: t("rediger.audit_final") },
+    { id: "decisions", label: t("common.decisions_documentees") },
   ]
 
   const exportMd = useMutation({
     mutationFn: analysisApi.exportWriting,
     onSuccess: (r) => {
       const saved = r.markdown ? downloadText("resultats.md", r.markdown) : false
-      toast.success(r.dir ? `Export Markdown écrit dans ${r.dir}.` : saved ? "Export Markdown téléchargé." : "Export Markdown prêt.")
+      toast.success(r.dir ? t("rediger.export_markdown_ecrit_dans_dir", { dir: r.dir }) : saved ? t("rediger.export_markdown_telecharge") : t("rediger.export_markdown_pret"))
     },
-    onError: (e) => reportError(e, "Export impossible"),
+    onError: (e) => reportError(e, t("rediger.export_impossible")),
   })
 
   const themes = themesQ.data ?? []
   return (
     <>
-      <PageTitle title="Rédiger" sub="Les résultats, thème par thème" />
+      <PageTitle title={t("common.rediger")} sub={t("rediger.les_resultats_theme_par_theme")} />
       <ToolbarActions>
-        <TabBar tabs={tabs} value={tab} onChange={setPicked} label="Onglets de Rédiger" />
+        <TabBar tabs={tabs} value={tab} onChange={setPicked} label={t("rediger.onglets_de_rediger")} />
       </ToolbarActions>
       <div className="flex justify-end">
         <Capsule>
           <CapsuleItem onClick={() => exportMd.mutate()} disabled={exportMd.isPending}>
-            Exporter en Markdown
+            {t("rediger.exporter_en_markdown")}
           </CapsuleItem>
         </Capsule>
       </div>

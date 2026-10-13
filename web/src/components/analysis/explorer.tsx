@@ -10,7 +10,7 @@ import { PassageCard } from "@/components/analysis/shared"
 import { NativeSelect } from "@/components/settings/fields"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
-import { plural } from "@/lib/analysis-text"
+import { t } from "@/i18n"
 import { api } from "@/lib/api"
 import { buildRows, isApplicable } from "@/lib/code-tree"
 import { useCodes } from "@/lib/hooks"
@@ -35,10 +35,10 @@ function PassagesByCode() {
   const q = useQuery({ queryKey: ["code-passages", codeId], queryFn: () => api.codePassages(codeId, true), enabled: !!codeId })
   const interviews = new Set((q.data ?? []).map((c) => c.passage.interview_id)).size
   return (
-    <Tool title="Passages par code">
-      <p className="text-muted-foreground text-[11.5px]">Tous les passages d'un code, sous-codes compris, tous entretiens confondus.</p>
-      <NativeSelect aria-label="Code" value={codeId} onChange={(e) => setCodeId(e.target.value)}>
-        <option value="">Choisir un code…</option>
+    <Tool title={t("analysis.explorer.passages_par_code")}>
+      <p className="text-muted-foreground text-[11.5px]">{t("analysis.explorer.tous_les_passages_d_un")}</p>
+      <NativeSelect aria-label={t("common.code")} value={codeId} onChange={(e) => setCodeId(e.target.value)}>
+        <option value="">{t("common.choisir_un_code")}</option>
         {rows.map(({ node, depth }) => (
           <option key={node.code_id} value={node.code_id}>
             {`${"· ".repeat(depth)}${node.name}`}
@@ -49,7 +49,7 @@ function PassagesByCode() {
       {q.data && (
         <>
           <p className="text-muted-foreground text-[11.5px]">
-            {plural(q.data.length, "passage")} dans {plural(interviews, "entretien")}
+            {t("analysis.explorer.items_dans_items2", { items: t("common.n_passages", { n: q.data.length }), items2: t("common.n_entretiens", { n: interviews }) })}
           </p>
           <div className="flex max-h-96 flex-col gap-2 overflow-y-auto">
             {q.data.map((c) => (
@@ -73,13 +73,13 @@ function CodesByAttribute({ project }: { project: ProjectConfig | undefined }) {
   const rows = buildRows(codesQ.data?.codes ?? []).filter((r) => isApplicable(r.node))
   const loading = results.some((r) => r.isLoading)
   return (
-    <Tool title="Codes par attribut">
-      <p className="text-muted-foreground text-[11.5px]">Le nombre de passages et d'entretiens de chaque code, selon la valeur d'un attribut des entretiens.</p>
+    <Tool title={t("analysis.explorer.codes_par_attribut")}>
+      <p className="text-muted-foreground text-[11.5px]">{t("analysis.explorer.le_nombre_de_passages_et")}</p>
       {attributes.length === 0 ? (
-        <p className="text-muted-foreground text-sm">Aucun attribut à choix dans l'étude : ajoutez-en dans les Réglages.</p>
+        <p className="text-muted-foreground text-sm">{t("analysis.explorer.aucun_attribut_a_choix_dans")}</p>
       ) : (
-        <NativeSelect aria-label="Attribut" value={attr} onChange={(e) => setAttr(e.target.value)}>
-          <option value="">Choisir un attribut…</option>
+        <NativeSelect aria-label={t("common.attribut")} value={attr} onChange={(e) => setAttr(e.target.value)}>
+          <option value="">{t("analysis.explorer.choisir_un_attribut")}</option>
           {attributes.map((a) => (
             <option key={a.id} value={a.id}>
               {a.label}
@@ -90,10 +90,10 @@ function CodesByAttribute({ project }: { project: ProjectConfig | undefined }) {
       {def && loading && <Skeleton className="h-24 w-full" />}
       {def && !loading && (
         <div className="overflow-x-auto">
-          <table className="tbl" aria-label="Codes par attribut">
+          <table className="tbl" aria-label={t("analysis.explorer.codes_par_attribut")}>
             <thead>
               <tr>
-                <th>Code</th>
+                <th>{t("common.code")}</th>
                 {def.choices.map((v) => (
                   <th key={v}>{v}</th>
                 ))}
@@ -109,8 +109,8 @@ function CodesByAttribute({ project }: { project: ProjectConfig | undefined }) {
                       <td key={def.choices[i]} className="tabular-nums">
                         {c ? (
                           <>
-                            {plural(c.counts.passages, "passage")}
-                            <span className="text-muted-foreground text-[11.5px]">, {plural(c.counts.interviews, "entretien")}</span>
+                            {t("common.n_passages", { n: c.counts.passages })}
+                            <span className="text-muted-foreground text-[11.5px]">, {t("common.n_entretiens", { n: c.counts.interviews })}</span>
                           </>
                         ) : (
                           "0"
@@ -131,21 +131,21 @@ function CodesByAttribute({ project }: { project: ProjectConfig | undefined }) {
 export function ExplorerTab({ project }: { project: ProjectConfig | undefined }) {
   return (
     <div className="flex min-w-0 flex-col gap-3">
-      <p className="text-muted-foreground text-sm">Ces outils explorent, ils ne concluent pas. Un clic sur un résultat ouvre le passage dans son entretien.</p>
+      <p className="text-muted-foreground text-sm">{t("analysis.explorer.ces_outils_explorent_ils_ne")}</p>
       <div className="grid gap-3 md:grid-cols-2">
-        <Tool title="Mot en contexte (KWIC)">
-          <p className="text-muted-foreground text-[11.5px]">Cherchez un mot sur tous les entretiens, avec les mots voisins de chaque occurrence. L'outil est dans le Lexique.</p>
+        <Tool title={t("analysis.explorer.mot_en_contexte_kwic")}>
+          <p className="text-muted-foreground text-[11.5px]">{t("analysis.explorer.cherchez_un_mot_sur_tous")}</p>
           <div>
             <Button asChild variant="outline" size="sm">
-              <a href={LEXIQUE_HREF}>Ouvrir le Lexique</a>
+              <a href={LEXIQUE_HREF}>{t("analysis.explorer.ouvrir_le_lexique")}</a>
             </Button>
           </div>
         </Tool>
-        <Tool title="Passages proches par vocabulaire">
-          <p className="text-muted-foreground text-[11.5px]">Retrouvez les passages qui ressemblent à un passage donné, d'après leur vocabulaire. Aucune IA générative n'intervient.</p>
+        <Tool title={t("analysis.explorer.passages_proches_par_vocabulaire")}>
+          <p className="text-muted-foreground text-[11.5px]">{t("analysis.explorer.retrouvez_les_passages_qui_ressemble")}</p>
           <div>
             <Button asChild variant="outline" size="sm">
-              <a href={LEXIQUE_HREF}>Ouvrir le Lexique</a>
+              <a href={LEXIQUE_HREF}>{t("analysis.explorer.ouvrir_le_lexique")}</a>
             </Button>
           </div>
         </Tool>

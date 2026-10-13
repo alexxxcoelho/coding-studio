@@ -1,6 +1,7 @@
 import { Fragment, useState } from "react"
 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { t } from "@/i18n"
 import { dateTime, shortHash } from "@/lib/format"
 import type { AuditEvent } from "@/lib/types"
 
@@ -13,12 +14,12 @@ export function AuditTable({ events, showInterview }: { events: AuditEvent[]; sh
         <TableHeader>
           <TableRow>
             <TableHead className="w-14 pl-4 text-right">N°</TableHead>
-            <TableHead>Date</TableHead>
-            <TableHead>Auteur</TableHead>
-            <TableHead>Action</TableHead>
-            {showInterview && <TableHead>Entretien</TableHead>}
-            <TableHead>Cible</TableHead>
-            <TableHead className="pr-4">Empreinte</TableHead>
+            <TableHead>{t("audit_table.date")}</TableHead>
+            <TableHead>{t("audit_table.auteur")}</TableHead>
+            <TableHead>{t("common.action")}</TableHead>
+            {showInterview && <TableHead>{t("common.entretien")}</TableHead>}
+            <TableHead>{t("audit_table.cible")}</TableHead>
+            <TableHead className="pr-4">{t("audit_table.empreinte")}</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -40,9 +41,9 @@ export function AuditTable({ events, showInterview }: { events: AuditEvent[]; sh
                   <TableCell colSpan={showInterview ? 7 : 6} className="bg-muted/30 px-4">
                     <pre className="ident max-h-80 overflow-auto text-xs whitespace-pre-wrap">{JSON.stringify(e.detail, null, 2)}</pre>
                     <p className="text-muted-foreground mt-2 text-xs">
-                      Empreinte précédente <span className="ident">{e.prev_hash}</span>
+                      {t("audit_table.empreinte_precedente")} <span className="ident">{e.prev_hash}</span>
                       <br />
-                      Cette empreinte <span className="ident">{e.hash}</span>
+                      {t("audit_table.cette_empreinte")} <span className="ident">{e.hash}</span>
                     </p>
                   </TableCell>
                 </TableRow>

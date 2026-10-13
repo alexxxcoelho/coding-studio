@@ -3,12 +3,13 @@ import { toast } from "sonner"
 
 import { AuditTable } from "@/components/audit-table"
 import { Banner, Section } from "@/components/bits"
+import { t } from "@/i18n"
 import { reportError } from "@/lib/notify"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { api } from "@/lib/api"
-import { bytes, plural, shortHash } from "@/lib/format"
+import { bytes, shortHash } from "@/lib/format"
 import { invalidateInterview } from "@/lib/queries"
 
 export function AuditTab({ id }: { id: string }) {
@@ -18,32 +19,30 @@ export function AuditTab({ id }: { id: string }) {
   const exp = useMutation({
     mutationFn: () => api.exportPackage(id),
     onSuccess: (r) => {
-      toast.success(`Paquet écrit : ${plural(r.files.length, "fichier")}`)
+      toast.success(t("interview.audit_export.paquet_ecrit_items", { items: t("interview.audit_export.n_fichiers", { n: r.files.length }) }))
       invalidateInterview(qc, id)
     },
-    onError: (e) => reportError(e, "Export échoué"),
+    onError: (e) => reportError(e, t("interview.audit_export.export_echoue")),
   })
 
   return (
     <div className="flex flex-col gap-5">
-      <Section title="Exporter le paquet d'audit" aside="rien n'est jamais écrasé">
+      <Section title={t("interview.audit_export.exporter_le_paquet_d_audit")} aside={t("interview.audit_export.rien_n_est_jamais_ecrase")}>
         <div className="flex flex-wrap items-start justify-between gap-4">
           <p className="text-muted-foreground max-w-prose text-sm">
-            Écrit un nouveau dossier daté à côté de la base : les unités, la préclassification de phase 1, votre codage de phase 2 (les changements faits
-            après la réponse du modèle sont signalés), chaque prompt et chaque réponse brute du modèle, la revue et le codage final, les étiquettes à
-            clarifier, les cas, le codebook, les événements d'audit de cet entretien et un manifeste d'empreintes SHA-256.
+            {t("interview.audit_export.ecrit_un_nouveau_dossier_date")}
           </p>
           <Button onClick={() => exp.mutate()} disabled={exp.isPending}>
-            {exp.isPending ? "Écriture…" : "Exporter le paquet"}
+            {exp.isPending ? t("interview.audit_export.ecriture") : t("interview.audit_export.exporter_le_paquet")}
           </Button>
         </div>
         {exp.data && (
           <div className="mt-4 flex flex-col gap-3">
-            <Banner tone="ok" title="Paquet écrit">
+            <Banner tone="ok" title={t("interview.audit_export.paquet_ecrit")}>
               <span className="ident break-all">{exp.data.dir}</span>
               {exp.data.manifest_sha256 && (
                 <span className="block text-xs">
-                  Empreinte SHA-256 du manifeste <span className="ident">{exp.data.manifest_sha256}</span>
+                  {t("interview.audit_export.empreinte_sha_256_du_manifeste")} <span className="ident">{exp.data.manifest_sha256}</span>
                 </span>
               )}
             </Banner>
@@ -51,9 +50,9 @@ export function AuditTab({ id }: { id: string }) {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="pl-4">Fichier</TableHead>
+                    <TableHead className="pl-4">{t("common.fichier")}</TableHead>
                     <TableHead>SHA-256</TableHead>
-                    <TableHead className="pr-4 text-right">Taille</TableHead>
+                    <TableHead className="pr-4 text-right">{t("common.taille")}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -72,12 +71,12 @@ export function AuditTab({ id }: { id: string }) {
       </Section>
 
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-base font-semibold">Actions enregistrées pour cet entretien</h2>
+        <h2 className="text-base font-semibold">{t("interview.audit_export.actions_enregistrees_pour_cet_entret")}</h2>
         {chain.data && (
           <span className={chain.data.ok ? "text-ok text-sm" : "text-destructive text-sm"}>
             {chain.data.ok
-              ? `Chaîne intacte : ${chain.data.n_events} événements dans la base, chaque empreinte recalculée`
-              : `Chaîne rompue à l'événement ${chain.data.first_bad_seq}`}
+              ? t("interview.audit_export.chaine_intacte_n_events_evenements", { n_events: chain.data.n_events })
+              : t("common.chaine_rompue_a_l_evenement", { first_bad_seq: chain.data.first_bad_seq })}
           </span>
         )}
       </div>

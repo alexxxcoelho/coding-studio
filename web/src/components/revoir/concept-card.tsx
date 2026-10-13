@@ -10,8 +10,9 @@ import { NativeSelect } from "@/components/settings/fields"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
+import { t } from "@/i18n"
 import { codeName } from "@/lib/code-tree"
-import { dateTime, plural } from "@/lib/format"
+import { dateTime } from "@/lib/format"
 import { reportError } from "@/lib/notify"
 import { invalidateInterview } from "@/lib/queries"
 import { CANDIDATE_PROBLEM_TEXT, candidateProblem, type CandidateAction } from "@/lib/review-model"
@@ -35,7 +36,7 @@ function Marked({ text, quotes }: { text: string; quotes: string[] }) {
   )
 }
 
-const DECISION_LABEL = { create: "Code créé", map: "Rattaché à un code", reject: "Écarté" } as const
+const DECISION_LABEL = { get create() { return t("revoir.concept_card.code_cree") }, get map() { return t("revoir.concept_card.rattache_a_un_code") }, get reject() { return t("revoir.concept_card.ecarte") } } as const
 
 export function ConceptCard({
   id,
@@ -70,7 +71,7 @@ export function ConceptCard({
       return reviewApi.decideConcept(id, candidate.candidate_id, body)
     },
     onSuccess: () => {
-      toast.success(`Concept « ${candidate.label} » traité`)
+      toast.success(t("revoir.concept_card.concept_label_traite", { label: candidate.label }))
       setKind(null)
       setRationale("")
       setAttempted(false)
@@ -78,7 +79,7 @@ export function ConceptCard({
       qc.invalidateQueries({ queryKey: ["codes"] })
       qc.invalidateQueries({ queryKey: ["codebook"] })
     },
-    onError: (e) => reportError(e, "Décision refusée"),
+    onError: (e) => reportError(e, t("common.decision_refusee")),
   })
 
   const submit = () => {
@@ -94,15 +95,15 @@ export function ConceptCard({
   return (
     <article className="flex flex-col gap-3.5" aria-label={`Concept ${candidate.label}`}>
       <div>
-        <div className="hs">Concept proposé par la revue IA{candidate.run_label ? `, ${candidate.run_label}` : ""}</div>
+        <div className="hs">{t("revoir.concept_card.concept_propose_par_la_revue")}{candidate.run_label ? `, ${candidate.run_label}` : ""}</div>
         <p style={{ fontSize: 17, fontWeight: 600, margin: "2px 0" }}>« {candidate.label} »</p>
         {candidate.description && <p className="small l2" style={{ margin: 0 }}>{candidate.description}</p>}
-        <p className="small l2" style={{ margin: "4px 0 0" }}>Jamais appliqué sans décision motivée.</p>
+        <p className="small l2" style={{ margin: "4px 0 0" }}>{t("revoir.concept_card.jamais_applique_sans_decision_motive")}</p>
       </div>
 
       <div>
         <div className="hs" style={{ marginBottom: 4 }}>
-          {plural(candidate.unit_ids.length, "unité motive", "unités motivent")} cette proposition
+          {t("revoir.concept_card.items_cette_proposition", { items: t("revoir.concept_card.n_unites_motivent", { n: candidate.unit_ids.length }) })}
         </div>
         <div className="flex flex-col gap-2">
           {candidate.unit_ids.map((uid) => {
@@ -127,7 +128,7 @@ export function ConceptCard({
             )
           })}
         </div>
-        {candidate.evidence.length > 0 && <p className="small l2" style={{ margin: "6px 0 0" }}>Les citations du modèle sont marquées dans les tours. Chacune est reprise mot pour mot.</p>}
+        {candidate.evidence.length > 0 && <p className="small l2" style={{ margin: "6px 0 0" }}>{t("revoir.concept_card.les_citations_du_modele_sont")}</p>}
       </div>
 
       {d && !kind ? (
@@ -135,7 +136,7 @@ export function ConceptCard({
           {[...candidate.history].reverse().map((h, i) => (
             <div key={h.decided_at + i} className="row">
               <span className="k">
-                {i === 0 ? "" : "Décision précédente : "}
+                {i === 0 ? "" : t("revoir.concept_card.decision_precedente")}
                 {DECISION_LABEL[h.action]}
                 {h.code_id ? ` : ${nameOf(h.code_id)}` : ""}
                 <small>
@@ -145,7 +146,7 @@ export function ConceptCard({
               </span>
               {i === 0 && (
                 <Button variant="outline" onClick={() => setKind(h.action === "create" ? "map" : h.action)}>
-                  Décider de nouveau
+                  {t("revoir.concept_card.decider_de_nouveau")}
                 </Button>
               )}
             </div>
@@ -153,28 +154,28 @@ export function ConceptCard({
         </div>
       ) : (
         <>
-          <div className="r8" role="group" aria-label="Décision sur le concept">
+          <div className="r8" role="group" aria-label={t("revoir.concept_card.decision_sur_le_concept")}>
             <Button variant={kind === "create" ? "default" : "outline"} aria-pressed={kind === "create"} onClick={() => setKind("create")}>
-              Créer un code
+              {t("revoir.concept_card.creer_un_code")}
             </Button>
             <Button variant={kind === "map" ? "default" : "outline"} aria-pressed={kind === "map"} onClick={() => setKind("map")}>
-              Rattacher à un code existant
+              {t("common.rattacher_a_un_code_existant")}
             </Button>
             <Button variant={kind === "reject" ? "default" : "outline"} aria-pressed={kind === "reject"} onClick={() => setKind("reject")}>
-              Écarter
+              {t("revoir.concept_card.ecarter")}
             </Button>
           </div>
           {kind === "create" && (
             <label className="flex flex-col gap-1 text-xs">
-              <span className="hs">Nom du nouveau code</span>
+              <span className="hs">{t("revoir.concept_card.nom_du_nouveau_code")}</span>
               <Input value={name} onChange={(e) => setName(e.target.value)} />
             </label>
           )}
           {kind === "map" && (
             <label className="flex flex-col gap-1 text-xs">
-              <span className="hs">Code existant</span>
+              <span className="hs">{t("revoir.concept_card.code_existant")}</span>
               <NativeSelect value={target} onChange={(e) => setTarget(e.target.value)}>
-                <option value="">Choisir un code…</option>
+                <option value="">{t("common.choisir_un_code")}</option>
                 {codes.map((c) => (
                   <option key={c.code_id} value={c.code_id}>
                     {codeName(c)}
@@ -186,12 +187,12 @@ export function ConceptCard({
           {kind && (
             <>
               <label className="hs" htmlFor={`rv-cj-${candidate.candidate_id}`}>
-                Justification, obligatoire
+                {t("revoir.concept_card.justification_obligatoire")}
               </label>
               <Textarea
                 id={`rv-cj-${candidate.candidate_id}`}
                 rows={2}
-                placeholder="Pourquoi cette décision ? Elle est datée et conservée."
+                placeholder={t("revoir.concept_card.pourquoi_cette_decision_elle_est")}
                 value={rationale}
                 aria-invalid={attempted && problem === "rationale"}
                 onChange={(e) => setRationale(e.target.value)}
@@ -203,10 +204,10 @@ export function ConceptCard({
               )}
               <div className="r8">
                 <Button variant="default" size="lg" disabled={save.isPending} onClick={submit}>
-                  Enregistrer la décision
+                  {t("revoir.concept_card.enregistrer_la_decision")}
                 </Button>
                 <Button variant="ghost" onClick={() => setKind(null)}>
-                  Annuler
+                  {t("common.annuler")}
                 </Button>
               </div>
             </>

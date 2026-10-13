@@ -11,9 +11,10 @@ import { Banner, EmptyState } from "@/components/bits"
 import { ConceptCard } from "@/components/revoir/concept-card"
 import { DecisionCard } from "@/components/revoir/decision-card"
 import { Button } from "@/components/ui/button"
+import { t } from "@/i18n"
 import { api } from "@/lib/api"
 import { isApplicable } from "@/lib/code-tree"
-import { plural, shortHash } from "@/lib/format"
+import { shortHash } from "@/lib/format"
 import { useCodes, useUnits } from "@/lib/hooks"
 import { reviewProgress } from "@/lib/review"
 import { filterQueue, nextInQueue, precedingQuestion, type QueueFilter } from "@/lib/review-model"
@@ -29,9 +30,9 @@ const shortUnit = (unitId: string) => `U${unitId.split("-U").pop()}`
 type Selection = { kind: "unit" | "concept"; id: string }
 
 const FILTERS: { key: QueueFilter; label: string }[] = [
-  { key: "remaining", label: "À décider" },
-  { key: "decided", label: "Décidés" },
-  { key: "all", label: "Tous" },
+  { key: "remaining", get label() { return t("revoir.decisions.a_decider") } },
+  { key: "decided", get label() { return t("revoir.decisions.decides") } },
+  { key: "all", get label() { return t("common.tous") } },
 ]
 
 export function Decisions({ id, review, runList }: { id: string; review: ReviewAnswer; runList: AiRun[] }) {
@@ -65,7 +66,7 @@ export function Decisions({ id, review, runList }: { id: string; review: ReviewA
     const group = item.kind === "disagreement" ? disagreements : samples
     const ordered = filterQueue(group, "all")
     const n = ordered.findIndex((i) => i.unit_id === item.unit_id) + 1
-    return `${item.kind === "disagreement" ? "désaccord" : "accord tiré au sort"} ${n} sur ${ordered.length}`
+    return `${item.kind === "disagreement" ? t("common.desaccord") : t("revoir.decisions.accord_tire_au_sort")} ${n} sur ${ordered.length}`
   }
   const go = (dir: 1 | -1) => {
     const target = nextInQueue(queue, currentItem?.unit_id ?? null, dir)
@@ -78,19 +79,19 @@ export function Decisions({ id, review, runList }: { id: string; review: ReviewA
 
   return (
     <div className="content">
-      <aside className="rv-queue" aria-label="File d'arbitrage">
+      <aside className="rv-queue" aria-label={t("revoir.decisions.file_d_arbitrage")}>
         <div>
           <div className="hs" style={{ padding: "0 2px 4px" }}>
-            Revue IA
+            {t("common.revue_ia")}
           </div>
-          <Step ok title="Codage figé, prompt généré" sub={snaps.length ? `capture ${snaps[0].snapshot_id} · SHA-256 ${shortHash(snaps[0].sha256, 10)}` : undefined} />
+          <Step ok title={t("revoir.decisions.codage_fige_prompt_genere")} sub={snaps.length ? `capture ${snaps[0].snapshot_id} · SHA-256 ${shortHash(snaps[0].sha256, 10)}` : undefined} />
           {completeRuns.map((r) => (
-            <Step key={r.run_id} ok title={`Run ${r.meta.run_label} importé`} sub={`${r.meta.model_name || "modèle non nommé"} · complet`} />
+            <Step key={r.run_id} ok title={t("revoir.decisions.run_run_label_importe", { run_label: r.meta.run_label })} sub={`${r.meta.model_name || t("revoir.decisions.modele_non_nomme")} · complet`} />
           ))}
-          <Step ok={prog.complete && prog.disagreements > 0} n={3} title="Arbitrage" sub={`${plural(prog.disagreementsDecided, "décision")} sur ${prog.disagreements}`} />
+          <Step ok={prog.complete && prog.disagreements > 0} n={3} title={t("revoir.decisions.arbitrage")} sub={t("revoir.decisions.items_sur_disagreements", { items: t("revoir.decisions.n_decisions", { n: prog.disagreementsDecided }), disagreements: prog.disagreements })} />
         </div>
 
-        <div className="seg" role="group" aria-label="Filtre de la file" style={{ alignSelf: "flex-start" }}>
+        <div className="seg" role="group" aria-label={t("revoir.decisions.filtre_de_la_file")} style={{ alignSelf: "flex-start" }}>
           {FILTERS.map((f) => (
             <button key={f.key} type="button" className={`s${filter === f.key ? " on" : ""}`} aria-pressed={filter === f.key} onClick={() => setFilter(f.key)}>
               {f.label}
@@ -98,14 +99,14 @@ export function Decisions({ id, review, runList }: { id: string; review: ReviewA
           ))}
         </div>
 
-        <QueueGroup title="Désaccords" count={`${prog.disagreementsDecided} / ${prog.disagreements}`} empty={disagreements.length === 0 ? "Aucun désaccord." : filter === "remaining" ? "Tout est décidé." : "Rien à afficher."} items={show(disagreements)} current={card?.unit_id} onPick={(u) => setSel({ kind: "unit", id: u })} />
+        <QueueGroup title={t("revoir.decisions.desaccords")} count={`${prog.disagreementsDecided} / ${prog.disagreements}`} empty={disagreements.length === 0 ? t("revoir.decisions.aucun_desaccord") : filter === "remaining" ? t("revoir.decisions.tout_est_decide") : t("common.rien_a_afficher")} items={show(disagreements)} current={card?.unit_id} onPick={(u) => setSel({ kind: "unit", id: u })} />
         {samples.length > 0 && (
-          <QueueGroup title="Échantillon d'accords" count={`${prog.sampledReviewed} / ${prog.sampled}`} empty={filter === "remaining" ? "Tout est regardé." : "Rien à afficher."} items={show(samples)} current={card?.unit_id} onPick={(u) => setSel({ kind: "unit", id: u })} sample />
+          <QueueGroup title={t("revoir.decisions.echantillon_d_accords")} count={`${prog.sampledReviewed} / ${prog.sampled}`} empty={filter === "remaining" ? t("revoir.decisions.tout_est_regarde") : t("common.rien_a_afficher")} items={show(samples)} current={card?.unit_id} onPick={(u) => setSel({ kind: "unit", id: u })} sample />
         )}
         {conceptsQ.data && candidates.length > 0 && (
           <div>
             <div className="rv-qh">
-              <span className="hs">Concepts hors codebook</span>
+              <span className="hs">{t("revoir.decisions.concepts_hors_codebook")}</span>
               <span className="small l2">{candidates.length}</span>
             </div>
             <ul className="rv-ql">
@@ -113,7 +114,7 @@ export function Decisions({ id, review, runList }: { id: string; review: ReviewA
                 <li key={c.candidate_id}>
                   <button type="button" className="rv-qi" aria-current={current?.kind === "concept" && current.id === c.candidate_id} onClick={() => setSel({ kind: "concept", id: c.candidate_id })}>
                     {c.label}
-                    <span className="st">{c.decision ? "traité" : "à trier"}</span>
+                    <span className="st">{c.decision ? t("revoir.decisions.traite") : t("revoir.decisions.a_trier")}</span>
                   </button>
                 </li>
               ))}
@@ -122,13 +123,13 @@ export function Decisions({ id, review, runList }: { id: string; review: ReviewA
         )}
       </aside>
 
-      <section className="rv-dec" aria-label="Décision">
+      <section className="rv-dec" aria-label={t("common.decision")}>
         {prog.complete && prog.disagreements > 0 && (
-          <Banner tone="ok" title="Tous les désaccords sont décidés">
-            Le codage final reprend vos décisions là où vous en avez pris une, et vos codes actuels ailleurs. <a href={interviewHref(id, "coding")}>Retourner à Coder</a>
+          <Banner tone="ok" title={t("revoir.decisions.tous_les_desaccords_sont_decides")}>
+            {t("revoir.decisions.le_codage_final_reprend_vos")} <a href={interviewHref(id, "coding")}>{t("common.retourner_a_coder")}</a>
           </Banner>
         )}
-        {items.length === 0 && !currentConcept && <p className="l2">Votre codage et celui du modèle concordent sur chaque unité.</p>}
+        {items.length === 0 && !currentConcept && <p className="l2">{t("revoir.decisions.votre_codage_et_celui_du")}</p>}
         {currentConcept ? (
           <ConceptCard key={currentConcept.candidate_id} id={id} candidate={currentConcept} units={unitMap} codes={applicable} />
         ) : card ? (
@@ -200,7 +201,7 @@ function QueueGroup({
                 <span className="mono" style={{ fontSize: 12.5 }}>
                   {shortUnit(i.unit_id)}
                 </span>
-                <span className="st">{i.decision ? (sample ? "regardé" : "décidé") : sample ? "à confirmer" : "à décider"}</span>
+                <span className="st">{i.decision ? (sample ? t("revoir.decisions.regarde") : t("common.decide")) : sample ? t("revoir.decisions.a_confirmer") : t("revoir.decisions.a_decider_2")}</span>
               </button>
             </li>
           ))}
@@ -216,21 +217,21 @@ export function NoReview({ id, started }: { id: string; started: boolean }) {
     <div className="page">
       <div className="rv-col">
         <EmptyState
-          title={started ? "Aucun run complet pour l'instant" : "La revue IA est facultative"}
+          title={started ? t("revoir.decisions.aucun_run_complet_pour_l") : t("revoir.decisions.la_revue_ia_est_facultative")}
           action={
             <div className="r8">
               <Button variant="default" asChild>
-                <a href={interviewHref(id, "ai")}>{started ? "Terminer l'import des réponses" : "Préparer une revue IA"}</a>
+                <a href={interviewHref(id, "ai")}>{started ? t("revoir.decisions.terminer_l_import_des_reponses") : t("revoir.decisions.preparer_une_revue_ia")}</a>
               </Button>
               <Button variant="outline" asChild>
-                <a href={GUIDE}>Lire la section Revoir du guide</a>
+                <a href={GUIDE}>{t("common.lire_la_section_revoir_du")}</a>
               </Button>
             </div>
           }
         >
           {started
-            ? "Les désaccords apparaissent ici quand toutes les parties d'une réponse du modèle sont importées."
-            : "Vous pouvez passer à l'analyse sans elle. Quand vous la lancez, un modèle code les mêmes tours à l'aveugle, sans voir vos codes ; les unités où vous divergez arrivent ici, une par une, avec votre décision motivée."}
+            ? t("revoir.decisions.les_desaccords_apparaissent_ici_quan")
+            : t("revoir.decisions.vous_pouvez_passer_a_l")}
         </EmptyState>
       </div>
     </div>

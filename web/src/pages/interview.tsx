@@ -7,6 +7,7 @@ import { SourcesTab } from "@/components/interview/sources"
 import { VerificationTab } from "@/components/interview/verification"
 import { Skeleton } from "@/components/ui/skeleton"
 import { ToolbarActions } from "@/components/toolbar"
+import { t } from "@/i18n"
 import { CoderPage, StepsCapsule } from "@/pages/coder"
 import { HighlightsPage } from "@/pages/highlights"
 import { RevoirPage } from "@/pages/revoir"
@@ -16,11 +17,11 @@ import { cn } from "@/lib/utils"
 import type { Phase } from "@/lib/types"
 
 const TAB_LABELS: { tab: Tab; label: string }[] = [
-  { tab: "sources", label: "Sources" },
-  { tab: "coding", label: "Coder" },
+  { tab: "sources", get label() { return t("interview.sources") } },
+  { tab: "coding", get label() { return t("common.coder") } },
   { tab: "cases", label: "Cas" },
-  { tab: "verification", label: "Vérification" },
-  { tab: "audit", label: "Audit et export" },
+  { tab: "verification", get label() { return t("common.verification") } },
+  { tab: "audit", get label() { return t("interview.audit_et_export") } },
 ]
 
 export function InterviewPage({ id, tab, phase, unit = null }: { id: string; tab: Tab; phase: Phase; unit?: string | null }) {
@@ -41,8 +42,8 @@ function OtherTabs({ id, tab, phase }: { id: string; tab: Tab; phase: Phase }) {
     return (
       <>
         <PageTitle title={id} sub={label} />
-        <EmptyState title={nf ? `Aucun entretien ${id} dans la bibliothèque` : "L'entretien n'a pas pu être chargé"}>
-          {nf ? "Balayez de nouveau le dossier des entretiens depuis la Bibliothèque." : detail.error.message}
+        <EmptyState title={nf ? t("interview.aucun_entretien_id_dans_la", { id }) : t("common.l_entretien_n_a_pas")}>
+          {nf ? t("interview.balayez_de_nouveau_le_dossier") : detail.error.message}
         </EmptyState>
       </>
     )
@@ -56,7 +57,7 @@ function OtherTabs({ id, tab, phase }: { id: string; tab: Tab; phase: Phase }) {
         <StepsCapsule id={id} current={null} />
       </ToolbarActions>
 
-      <nav aria-label="Sections de l'entretien" className="seg self-start">
+      <nav aria-label={t("interview.sections_de_l_entretien")} className="seg self-start">
         {TAB_LABELS.map(({ tab: t, label: l }) => (
           <a key={t} href={interviewHref(id, t, t === "coding" ? phase : 1)} aria-current={t === tab ? "page" : undefined} className={cn("s", t === tab && "on")}>
             {l}
@@ -65,7 +66,7 @@ function OtherTabs({ id, tab, phase }: { id: string; tab: Tab; phase: Phase }) {
       </nav>
 
       {d.entry.warnings.length > 0 && tab === "sources" && (
-        <Banner tone="warn" title={`${d.entry.warnings.length} ${d.entry.warnings.length < 2 ? "avertissement" : "avertissements"} de balayage`}>
+        <Banner tone="warn" title={t("interview.n_avertissements_de_balayage", { n: d.entry.warnings.length })}>
           <ul className="list-inside list-disc text-xs">
             {d.entry.warnings.map((w) => (
               <li key={w}>{w}</li>

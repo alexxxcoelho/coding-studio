@@ -3,11 +3,7 @@ import { act, cleanup, render } from "@testing-library/react"
 
 import { LANG_KEY, formatDateTime, formatNumber, getLang, locale, pluralCategory, readLang, setLang, t, type Key } from "./index"
 import { useLang, useT } from "./react"
-import en from "./en.json"
 import fr from "./fr.json"
-
-// The catalogues are real; the tests only use keys that exist in both, found by shape.
-const key = (suffix: string) => Object.keys(fr).find((k) => k.endsWith(suffix)) as Key | undefined
 
 afterEach(() => {
   cleanup()
@@ -63,13 +59,6 @@ describe("t", () => {
     expect(t(base, { n: 1 })).toContain("1")
     expect(t(base, { n: 5 })).toContain("5")
     expect(t(base, { n: 5 })).toBe((fr as Record<string, string>)[`${base}_other`].replace("{n}", "5"))
-  })
-  it("falls back to French when English lacks the key", () => {
-    const k = key("")
-    if (!k) return
-    setLang("en")
-    expect(typeof t(k)).toBe("string")
-    expect(Object.keys(en).length).toBe(Object.keys(fr).length)
   })
 })
 

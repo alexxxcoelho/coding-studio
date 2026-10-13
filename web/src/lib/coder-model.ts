@@ -4,6 +4,7 @@
 
 import { LATER_ID } from "./code-tree"
 import type { Passage, UnitRow } from "./types"
+import { t } from "@/i18n"
 
 export type UnitState = "interviewer" | "non_pertinent" | "later" | "coded" | "remaining"
 
@@ -70,11 +71,11 @@ export function groupByUnit(passages: Passage[]): Map<string, Passage[]> {
 export type CoderFilter = "all" | "remaining" | "later" | "non_pertinent" | "coded"
 
 export const FILTER_LABELS: { key: CoderFilter; label: string }[] = [
-  { key: "all", label: "Toutes" },
-  { key: "remaining", label: "Restantes" },
-  { key: "later", label: "À revoir" },
-  { key: "non_pertinent", label: "Non pertinentes" },
-  { key: "coded", label: "Codées" },
+  { key: "all", get label() { return t("common.toutes") } },
+  { key: "remaining", get label() { return t("coder_model.restantes") } },
+  { key: "later", get label() { return t("common.a_revoir") } },
+  { key: "non_pertinent", get label() { return t("coder_model.non_pertinentes") } },
+  { key: "coded", get label() { return t("coder_model.codees") } },
 ]
 
 export interface Counts {

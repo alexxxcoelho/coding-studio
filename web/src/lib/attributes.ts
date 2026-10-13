@@ -3,6 +3,7 @@
 // call. The server stays the authority; one wrong value refuses the whole PUT.
 
 import type { AttributeDef } from "./types"
+import { t } from "@/i18n"
 
 export interface Checked {
   ok: boolean
@@ -26,17 +27,17 @@ export function checkAttribute(def: AttributeDef, raw: string): Checked {
   if (v === "") return { ok: true, value: null }
   switch (def.kind) {
     case "text":
-      return v.length > 2000 ? { ok: false, value: null, error: "2000 caractères au plus" } : { ok: true, value: v }
+      return v.length > 2000 ? { ok: false, value: null, error: t("attributes.2000_caracteres_au_plus") } : { ok: true, value: v }
     case "choice":
-      return def.choices.includes(v) ? { ok: true, value: v } : { ok: false, value: null, error: "Valeur absente de la liste" }
+      return def.choices.includes(v) ? { ok: true, value: v } : { ok: false, value: null, error: t("attributes.valeur_absente_de_la_liste") }
     case "number": {
       const n = Number(v.replace(",", "."))
       return /^[+-]?(\d+([.,]\d*)?|[.,]\d+)$/.test(v) && Number.isFinite(n)
         ? { ok: true, value: v.replace(",", ".") }
-        : { ok: false, value: null, error: "Nombre attendu" }
+        : { ok: false, value: null, error: t("attributes.nombre_attendu") }
     }
     case "date":
-      return validDate(v) ? { ok: true, value: v } : { ok: false, value: null, error: "Date attendue au format AAAA-MM-JJ" }
+      return validDate(v) ? { ok: true, value: v } : { ok: false, value: null, error: t("attributes.date_attendue_au_format_aaaa") }
   }
 }
 
@@ -102,22 +103,22 @@ export function attributeDefsProblem(defs: AttributeDef[]): string | null {
   const labels = new Set<string>()
   for (const d of defs) {
     const label = d.label.trim()
-    if (!label) return "Un attribut n'a pas de nom"
-    if (!ID_PATTERN.test(d.id)) return `Identifiant invalide pour « ${label} »`
-    if (ids.has(d.id)) return `Identifiant en double : ${d.id}`
-    if (labels.has(label.toLowerCase())) return `Nom en double : ${label}`
+    if (!label) return t("attributes.un_attribut_n_a_pas")
+    if (!ID_PATTERN.test(d.id)) return t("attributes.identifiant_invalide_pour_label", { label })
+    if (ids.has(d.id)) return t("attributes.identifiant_en_double_id", { id: d.id })
+    if (labels.has(label.toLowerCase())) return t("attributes.nom_en_double_label", { label })
     ids.add(d.id)
     labels.add(label.toLowerCase())
     if (d.kind === "choice") {
-      if (d.choices.filter((c) => c.trim()).length === 0) return `« ${label} » est une liste : indiquez au moins une valeur`
+      if (d.choices.filter((c) => c.trim()).length === 0) return t("attributes.label_est_une_liste_indiquez", { label })
       const seen = new Set<string>()
       for (const c of d.choices) {
         const tt = c.trim()
-        if (seen.has(tt)) return `« ${label} » : valeur en double (${tt})`
+        if (seen.has(tt)) return t("attributes.label_valeur_en_double_tt", { label, tt })
         seen.add(tt)
       }
     } else if (d.choices.length > 0) {
-      return `« ${label} » : seule une liste porte des valeurs`
+      return t("attributes.label_seule_une_liste_porte", { label })
     }
   }
   return null

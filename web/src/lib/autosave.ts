@@ -4,6 +4,7 @@
 // React in it; `useAutosavedText` binds it to a textarea.
 
 import { useEffect, useState } from "react"
+import { t } from "@/i18n"
 
 export type SaveStatus = "idle" | "pending" | "saving" | "saved" | "error"
 
@@ -138,8 +139,8 @@ export function useAutosavedText(serverValue: string, save: (value: string) => P
 
 export const SAVE_STATUS_LABEL: Record<SaveStatus, string> = {
   idle: "",
-  pending: "Modifié",
-  saving: "Enregistrement",
-  saved: "Enregistré",
-  error: "Échec de l'enregistrement",
+  get pending() { return t("common.modifie") },
+  get saving() { return t("autosave.enregistrement") },
+  get saved() { return t("common.enregistre") },
+  get error() { return t("autosave.echec_de_l_enregistrement") },
 }

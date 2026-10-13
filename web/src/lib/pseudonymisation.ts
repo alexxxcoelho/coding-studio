@@ -1,6 +1,7 @@
 // Checks of the pseudonymisation list before it is sent (the server checks them
 // again: docs/API.md, "V1 lots 3 and 4").
 
+import { t } from "@/i18n"
 interface Row {
   kind: string
   original: string
@@ -14,14 +15,14 @@ export function entriesProblem(rows: Row[]): string | null {
   const names = new Set<string>()
   for (let i = 0; i < rows.length; i++) {
     const r = rows[i]
-    if (norm(r.original) === "") return `Le nom réel de la ligne ${i + 1} est vide.`
-    if (norm(r.pseudonym) === "") return `Le pseudonyme de « ${r.original.trim()} » est vide.`
-    if (norm(r.original) === norm(r.pseudonym)) return `« ${r.original.trim()} » ne change pas : le pseudonyme doit être différent.`
-    if (names.has(norm(r.original))) return `« ${r.original.trim()} » figure deux fois dans la liste.`
+    if (norm(r.original) === "") return t("pseudonymisation.le_nom_reel_de_la", { v: i + 1 })
+    if (norm(r.pseudonym) === "") return t("pseudonymisation.le_pseudonyme_de_trim_est", { trim: r.original.trim() })
+    if (norm(r.original) === norm(r.pseudonym)) return t("pseudonymisation.trim_ne_change_pas_le", { trim: r.original.trim() })
+    if (names.has(norm(r.original))) return t("pseudonymisation.trim_figure_deux_fois_dans", { trim: r.original.trim() })
     names.add(norm(r.original))
   }
   for (const r of rows) {
-    if (names.has(norm(r.pseudonym))) return `Le pseudonyme « ${r.pseudonym.trim()} » est lui-même un nom de la liste.`
+    if (names.has(norm(r.pseudonym))) return t("pseudonymisation.le_pseudonyme_trim_est_lui", { trim: r.pseudonym.trim() })
   }
   return null
 }

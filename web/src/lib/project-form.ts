@@ -4,20 +4,21 @@
 
 import { slugId } from "./attributes"
 import type { Framework, FrameworkDimension, ListItem, MemoTemplate, ProjectConfig } from "./types"
+import { t } from "@/i18n"
 
 const ID_PATTERN = /^[a-z0-9][a-z0-9_-]*$/
 
 /** First problem of an editable list, or null. `min` is the fewest items allowed. */
 export function listProblem(name: string, items: ListItem[], min = 0): string | null {
-  if (items.length < min) return `${name} : au moins ${min} élément${min > 1 ? "s" : ""}`
+  if (items.length < min) return t("project_form.name_au_moins_n_elements", { n: min, name })
   const ids = new Set<string>()
   const labels = new Set<string>()
   for (const it of items) {
     const label = it.label.trim()
-    if (!label) return `${name} : un élément n'a pas de texte`
-    if (!ID_PATTERN.test(it.id)) return `${name} : identifiant invalide pour « ${label} »`
-    if (ids.has(it.id)) return `${name} : identifiant en double (${it.id})`
-    if (labels.has(label.toLowerCase())) return `${name} : texte en double (${label})`
+    if (!label) return t("project_form.name_un_element_n_a", { name })
+    if (!ID_PATTERN.test(it.id)) return t("project_form.name_identifiant_invalide_pour_label", { name, label })
+    if (ids.has(it.id)) return t("project_form.name_identifiant_en_double_id", { name, id: it.id })
+    if (labels.has(label.toLowerCase())) return t("project_form.name_texte_en_double_label", { name, label })
     ids.add(it.id)
     labels.add(label.toLowerCase())
   }
@@ -51,20 +52,20 @@ export function moveItem<T>(items: T[], from: number, to: number): T[] {
 // ------------------------------------------------------------ memo templates
 
 export function memoTemplatesProblem(templates: MemoTemplate[]): string | null {
-  if (templates.length === 0) return "Au moins un modèle de mémo est nécessaire"
-  if (templates.filter((tt) => tt.default).length !== 1) return "Un seul modèle doit être le modèle par défaut"
+  if (templates.length === 0) return t("project_form.au_moins_un_modele_de")
+  if (templates.filter((tt) => tt.default).length !== 1) return t("project_form.un_seul_modele_doit_etre")
   const ids = new Set<string>()
   const names = new Set<string>()
   for (const tt of templates) {
     const name = tt.name.trim()
-    if (!name) return "Un modèle de mémo n'a pas de nom"
-    if (!ID_PATTERN.test(tt.id)) return `Identifiant invalide pour le modèle « ${name} »`
-    if (ids.has(tt.id)) return `Identifiant de modèle en double (${tt.id})`
-    if (names.has(name.toLowerCase())) return `Nom de modèle en double (${name})`
+    if (!name) return t("project_form.un_modele_de_memo_n")
+    if (!ID_PATTERN.test(tt.id)) return t("project_form.identifiant_invalide_pour_le_modele", { name })
+    if (ids.has(tt.id)) return t("project_form.identifiant_de_modele_en_double", { id: tt.id })
+    if (names.has(name.toLowerCase())) return t("project_form.nom_de_modele_en_double", { name })
     ids.add(tt.id)
     names.add(name.toLowerCase())
-    if (tt.questions.length === 0) return `Le modèle « ${name} » n'a aucune question`
-    const q = listProblem(`Modèle « ${name} »`, tt.questions.map((x) => ({ id: x.id, label: x.text })))
+    if (tt.questions.length === 0) return t("project_form.le_modele_name_n_a", { name })
+    const q = listProblem(t("project_form.modele_name", { name }), tt.questions.map((x) => ({ id: x.id, label: x.text })))
     if (q) return q
   }
   return null
@@ -119,11 +120,11 @@ export function applyFrameworkChoice(
 
 export function frameworkProblem(f: Framework | null): string | null {
   if (!f) return null
-  if (f.preset === "custom" && f.dimensions.length === 0) return "Un cadre personnalisé a besoin d'au moins une dimension"
+  if (f.preset === "custom" && f.dimensions.length === 0) return t("project_form.un_cadre_personnalise_a_besoin")
   const ids = new Set<string>()
   for (const d of f.dimensions) {
-    if (!d.label.trim()) return "Une dimension du cadre n'a pas de nom"
-    if (!ID_PATTERN.test(d.id) || ids.has(d.id)) return `Identifiant de dimension invalide ou en double (${d.id})`
+    if (!d.label.trim()) return t("project_form.une_dimension_du_cadre_n")
+    if (!ID_PATTERN.test(d.id) || ids.has(d.id)) return t("project_form.identifiant_de_dimension_invalide_ou", { id: d.id })
     ids.add(d.id)
   }
   return null
@@ -141,13 +142,13 @@ export function addDimension(dims: FrameworkDimension[], label: string): Framewo
 export function projectConfigProblem(cfg: ProjectConfig): string | null {
   return (
     memoTemplatesProblem(cfg.memo_templates) ??
-    listProblem("Fin d'entretien", cfg.checklist) ??
-    listProblem("Contrôles d'un thème", cfg.theme_checks) ??
-    listProblem("Natures de preuve", cfg.evidence_natures) ??
-    listProblem("Types de liens", cfg.link_types, 1) ??
-    listProblem("Origines du propos", cfg.passage_origins, 1) ??
-    listProblem("Rôles dans la décision", cfg.passage_roles, 1) ??
-    listProblem("Dimensions de la matrice", cfg.matrix_dimensions) ??
+    listProblem(t("common.fin_d_entretien"), cfg.checklist) ??
+    listProblem(t("common.controles_d_un_theme"), cfg.theme_checks) ??
+    listProblem(t("common.natures_de_preuve"), cfg.evidence_natures) ??
+    listProblem(t("common.types_de_liens"), cfg.link_types, 1) ??
+    listProblem(t("common.origines_du_propos"), cfg.passage_origins, 1) ??
+    listProblem(t("common.roles_dans_la_decision"), cfg.passage_roles, 1) ??
+    listProblem(t("project_form.dimensions_de_la_matrice"), cfg.matrix_dimensions) ??
     frameworkProblem(cfg.interpretive_framework)
   )
 }

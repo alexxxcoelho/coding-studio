@@ -5,6 +5,7 @@
 import { useState } from "react"
 
 import { Button } from "@/components/ui/button"
+import { t } from "@/i18n"
 import type { ThemeSummary } from "@/lib/analysis-api"
 import { moveItem, readDrag, reorderByDrop, writeDrag } from "@/lib/analysis-dnd"
 import { cn } from "@/lib/utils"
@@ -13,9 +14,9 @@ export function ThemeOrderList({ themes, selectedId, onSelect, onReorder }: { th
   const [overId, setOverId] = useState<string | null>(null)
   const ids = themes.map((tt) => tt.theme_id)
   return (
-    <nav aria-label="Thèmes retenus" className="flex flex-col gap-1">
-      <h2 className="hs px-1.5">Thèmes retenus</h2>
-      <p className="text-muted-foreground px-1.5 text-[11.5px]">L'ordre de la liste devient l'ordre du chapitre des résultats. Glissez un thème pour le déplacer.</p>
+    <nav aria-label={t("writing.theme_order_list.themes_retenus")} className="flex flex-col gap-1">
+      <h2 className="hs px-1.5">{t("writing.theme_order_list.themes_retenus")}</h2>
+      <p className="text-muted-foreground px-1.5 text-[11.5px]">{t("writing.theme_order_list.l_ordre_de_la_liste")}</p>
       <ol className="flex flex-col gap-0.5">
         {themes.map((tt, i) => (
           <li
@@ -41,7 +42,7 @@ export function ThemeOrderList({ themes, selectedId, onSelect, onReorder }: { th
           >
             <button type="button" onClick={() => onSelect(tt.theme_id)} aria-current={tt.theme_id === selectedId ? "true" : undefined} className="flex min-w-0 flex-1 items-baseline gap-2 px-2 py-1.5 text-left text-sm">
               <span className="text-muted-foreground tabular-nums">{i + 1}</span>
-              <span className="font-medium">{tt.title || "Thème sans titre"}</span>
+              <span className="font-medium">{tt.title || t("common.theme_sans_titre")}</span>
             </button>
             <Button variant="ghost" size="icon-xs" aria-label={`Monter ${tt.title}`} disabled={i === 0} onClick={() => onReorder(moveItem(ids, i, i - 1))}>
               ↑

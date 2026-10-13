@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
+import { t } from "@/i18n"
 import { ApiError, api } from "@/lib/api"
 import { attributeDefsProblem, cleanDef, slugId } from "@/lib/attributes"
 import { keys } from "@/lib/hooks"
@@ -36,12 +37,12 @@ import type { AttributeDef, AttributeKind, ListItem, MemoTemplate, ProjectConfig
 type ListKey = "checklist" | "theme_checks" | "evidence_natures" | "link_types" | "passage_origins" | "passage_roles"
 
 const LISTS: { key: ListKey; label: string; min: number; note: string }[] = [
-  { key: "checklist", label: "Fin d'entretien", min: 0, note: "Les points à vérifier avant de passer à la suite" },
-  { key: "theme_checks", label: "Contrôles d'un thème", min: 0, note: "Ce qu'on vérifie avant de garder un thème" },
-  { key: "evidence_natures", label: "Natures de preuve", min: 0, note: "Comment un passage appuie une affirmation" },
-  { key: "link_types", label: "Types de liens", min: 1, note: "Les relations qu'on peut poser entre deux thèmes" },
-  { key: "passage_origins", label: "Origines du propos", min: 1, note: "D'où vient ce qui est dit : expérience vécue, opinion, document…" },
-  { key: "passage_roles", label: "Rôles dans la décision", min: 1, note: "Ce que le passage fait dans la décision : déclencheur, contrainte…" },
+  { key: "checklist", get label() { return t("common.fin_d_entretien") }, min: 0, get note() { return t("settings.project_lists.les_points_a_verifier_avant") } },
+  { key: "theme_checks", get label() { return t("common.controles_d_un_theme") }, min: 0, get note() { return t("settings.project_lists.ce_qu_on_verifie_avant") } },
+  { key: "evidence_natures", get label() { return t("common.natures_de_preuve") }, min: 0, get note() { return t("settings.project_lists.comment_un_passage_appuie_une") } },
+  { key: "link_types", get label() { return t("common.types_de_liens") }, min: 1, get note() { return t("settings.project_lists.les_relations_qu_on_peut") } },
+  { key: "passage_origins", get label() { return t("common.origines_du_propos") }, min: 1, get note() { return t("settings.project_lists.d_ou_vient_ce_qui") } },
+  { key: "passage_roles", get label() { return t("common.roles_dans_la_decision") }, min: 1, get note() { return t("settings.project_lists.ce_que_le_passage_fait") } },
 ]
 
 const KINDS: [AttributeKind, string][] = [
@@ -54,7 +55,7 @@ const KINDS: [AttributeKind, string][] = [
 const kindLabel = (k: AttributeKind) => KINDS.find(([v]) => v === k)?.[1] ?? k
 const msg = (e: unknown) => {
   if (e instanceof ApiError && e.status === 409 && /origin|role|passage/i.test(e.message)) {
-    return "Une origine ou un rôle retiré de la liste est encore utilisé par des passages. Remettez-le dans la liste, ou changez la qualification de ces passages avant de l'enlever."
+    return t("settings.project_lists.une_origine_ou_un_role")
   }
   return e instanceof ApiError ? e.message : String(e)
 }
@@ -86,7 +87,7 @@ export function ProjectListsSection() {
       setDraft(null)
       setError(null)
       await Promise.all([qc.invalidateQueries({ queryKey: ["attributes"] }), qc.invalidateQueries({ queryKey: ["memo"] })])
-      toast.success("Modèles et listes enregistrés")
+      toast.success(t("settings.project_lists.modeles_et_listes_enregistres"))
     },
     onError: (e) => setError(msg(e)),
   })
@@ -95,34 +96,34 @@ export function ProjectListsSection() {
 
   const choice = frameworkChoice(cfg.interpretive_framework)
   const defaultTemplate = cfg.memo_templates.find((tt) => tt.default)
-  const memoNote = cfg.memo_templates.map((tt) => `${tt.name}, ${tt.questions.length} question${tt.questions.length > 1 ? "s" : ""}`).join(" · ")
+  const memoNote = cfg.memo_templates.map((tt) => t("common.name_n_questions", { n: tt.questions.length, name: tt.name })).join(" · ")
   const attrNote = cfg.attributes.map((a) => `${a.label} (${kindLabel(a.kind)}${a.kind === "choice" && a.choices.length ? ` ${a.choices.join(", ")}` : ""})`).join(" · ")
 
   return (
     <>
-      <div className="grp" aria-label="Modèles et listes de l'étude">
-        <Row title="Modèles de mémo de familiarisation" note={memoNote || "Aucun modèle"} count={cfg.memo_templates.length} onEdit={() => setEditor("memo")} />
-        <Row title="Attributs d'entretien" note={attrNote || "Aucun attribut"} count={cfg.attributes.length} onEdit={() => setEditor("attributes")} />
+      <div className="grp" aria-label={t("common.modeles_et_listes_de_l")}>
+        <Row title={t("settings.project_lists.modeles_de_memo_de_familiarisation")} note={memoNote || t("settings.project_lists.aucun_modele")} count={cfg.memo_templates.length} onEdit={() => setEditor("memo")} />
+        <Row title={t("settings.project_lists.attributs_d_entretien")} note={attrNote || t("settings.project_lists.aucun_attribut")} count={cfg.attributes.length} onEdit={() => setEditor("attributes")} />
         <label className="row">
           <span className="k">
-            Cadre d'interprétation
-            <small>N'apparaît qu'aux étapes Analyser et Rédiger, jamais au codage</small>
+            {t("settings.project_lists.cadre_d_interpretation")}
+            <small>{t("settings.project_lists.n_apparait_qu_aux_etapes")}</small>
           </span>
           <NativeSelect
-            aria-label="Cadre d'interprétation"
+            aria-label={t("settings.project_lists.cadre_d_interpretation")}
             style={{ width: 160 }}
             value={choice}
             onChange={(e) => edit({ interpretive_framework: applyFrameworkChoice(e.target.value as FrameworkChoice, cfg.interpretive_framework, presetsQ.data?.frameworks) })}
           >
-            <option value="none">Aucun</option>
+            <option value="none">{t("common.aucun_2")}</option>
             <option value="toe">TOE</option>
-            <option value="tam_utaut">TAM/UTAUT</option>
-            <option value="custom">Personnalisé</option>
+            <option value="tam_utaut">{t("settings.project_lists.tam_utaut")}</option>
+            <option value="custom">{t("common.personnalise")}</option>
           </NativeSelect>
         </label>
         <Row
-          title="Dimensions personnalisées de la matrice"
-          note="Par exemple : qui décide, qui paie, qui utilise"
+          title={t("settings.project_lists.dimensions_personnalisees_de_la_matr")}
+          note={t("settings.project_lists.par_exemple_qui_decide_qui")}
           count={cfg.matrix_dimensions.length}
           countLabel={cfg.matrix_dimensions.length === 0 ? "aucune" : undefined}
           onEdit={() => setEditor("dimensions")}
@@ -132,20 +133,20 @@ export function ProjectListsSection() {
         ))}
       </div>
       <p className="small l2" style={{ margin: "4px 2px" }}>
-        Les valeurs de cellule de la matrice (présent, non évoqué, contredit, incertain) restent fixes : elles font partie de la méthode.
+        {t("settings.project_lists.les_valeurs_de_cellule_de")}
       </p>
       {choice === "custom" && <FrameworkDimensions cfg={cfg} onChange={(f) => edit({ interpretive_framework: f })} />}
       {(error || (dirty && problem)) && <Alerts messages={[error ?? problem!]} />}
       <div className="r8" style={{ marginTop: 8 }}>
         <Button disabled={!dirty || !!problem || save.isPending} onClick={() => save.mutate(cfg)}>
-          Enregistrer les modèles et listes
+          {t("settings.project_lists.enregistrer_les_modeles_et_listes")}
         </Button>
         {dirty && (
           <Button variant="outline" onClick={() => setDraft(null)}>
-            Annuler les changements
+            {t("common.annuler_les_changements")}
           </Button>
         )}
-        {defaultTemplate && !dirty && <span className="small l2">Modèle de mémo par défaut : {defaultTemplate.name}</span>}
+        {defaultTemplate && !dirty && <span className="small l2">{t("settings.project_lists.modele_de_memo_par_defaut", { name: defaultTemplate.name })}</span>}
       </div>
 
       <MemoDialog open={editor === "memo"} onClose={() => setEditor(null)} templates={cfg.memo_templates} onChange={(tt) => edit({ memo_templates: tt })} />
@@ -153,8 +154,8 @@ export function ProjectListsSection() {
       <ListDialog
         open={editor === "dimensions"}
         onClose={() => setEditor(null)}
-        title="Dimensions personnalisées de la matrice"
-        description="Chaque dimension devient une colonne de la matrice transversale."
+        title={t("settings.project_lists.dimensions_personnalisees_de_la_matr")}
+        description={t("settings.project_lists.chaque_dimension_devient_une_colonne")}
         items={cfg.matrix_dimensions}
         onChange={(items) => edit({ matrix_dimensions: items })}
       />
@@ -182,7 +183,7 @@ function Row({ title, note, count, countLabel, onEdit }: { title: string; note: 
       </span>
       <span className="v">{countLabel ?? count}</span>
       <Button variant="outline" aria-label={`Modifier : ${title}`} onClick={onEdit}>
-        Modifier…
+        {t("settings.project_lists.modifier")}
       </Button>
     </div>
   )
@@ -195,25 +196,25 @@ function FrameworkDimensions({ cfg, onChange }: { cfg: ProjectConfig; onChange: 
   const [label, setLabel] = useState("")
   return (
     <div className="grp" style={{ padding: 12, marginTop: 8 }}>
-      <span className="b">Dimensions du cadre personnalisé</span>
+      <span className="b">{t("settings.project_lists.dimensions_du_cadre_personnalise")}</span>
       {f.dimensions.map((d, i) => (
         <div key={d.id} className="r8" style={{ marginTop: 6, alignItems: "flex-start" }}>
           <Input
-            aria-label={`Nom de la dimension ${i + 1}`}
+            aria-label={t("settings.project_lists.nom_de_la_dimension_v", { v: i + 1 })}
             style={{ width: 160 }}
             value={d.label}
             onChange={(e) => onChange({ ...f, dimensions: f.dimensions.map((x) => (x.id === d.id ? { ...x, label: e.target.value } : x)) })}
           />
           <textarea
-            aria-label={`Définition de la dimension ${i + 1}`}
+            aria-label={t("settings.project_lists.definition_de_la_dimension_v", { v: i + 1 })}
             className={TEXTAREA}
             rows={2}
             style={{ flex: 1, minWidth: 180 }}
             value={d.definition}
             onChange={(e) => onChange({ ...f, dimensions: f.dimensions.map((x) => (x.id === d.id ? { ...x, definition: e.target.value } : x)) })}
           />
-          <Button variant="outline" aria-label={`Retirer la dimension ${d.label}`} onClick={() => onChange({ ...f, dimensions: f.dimensions.filter((x) => x.id !== d.id) })}>
-            Retirer
+          <Button variant="outline" aria-label={t("settings.project_lists.retirer_la_dimension_label", { label: d.label })} onClick={() => onChange({ ...f, dimensions: f.dimensions.filter((x) => x.id !== d.id) })}>
+            {t("common.retirer")}
           </Button>
         </div>
       ))}
@@ -227,9 +228,9 @@ function FrameworkDimensions({ cfg, onChange }: { cfg: ProjectConfig; onChange: 
           setLabel("")
         }}
       >
-        <Input aria-label="Nouvelle dimension" placeholder="Nouvelle dimension" style={{ width: 200 }} value={label} onChange={(e) => setLabel(e.target.value)} />
+        <Input aria-label={t("settings.project_lists.nouvelle_dimension")} placeholder={t("settings.project_lists.nouvelle_dimension")} style={{ width: 200 }} value={label} onChange={(e) => setLabel(e.target.value)} />
         <Button type="submit" variant="outline" disabled={!label.trim()}>
-          Ajouter une dimension
+          {t("settings.project_lists.ajouter_une_dimension")}
         </Button>
       </form>
     </div>
@@ -267,18 +268,18 @@ function ListDialog({
           <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
         <div style={{ maxHeight: 340, overflow: "auto", display: "flex", flexDirection: "column", gap: 6 }}>
-          {items.length === 0 && <p className="small l2">Liste vide.</p>}
+          {items.length === 0 && <p className="small l2">{t("settings.project_lists.liste_vide")}</p>}
           {items.map((it, i) => (
             <div key={it.id} className="r8">
               <Input aria-label={`${title} ${i + 1}`} value={it.label} onChange={(e) => onChange(renameItem(items, it.id, e.target.value))} style={{ flex: 1 }} />
               <Button variant="outline" aria-label={`Monter ${it.label}`} disabled={i === 0} onClick={() => onChange(moveItem(items, i, i - 1))}>
-                Monter
+                {t("settings.project_lists.monter")}
               </Button>
               <Button variant="outline" aria-label={`Descendre ${it.label}`} disabled={i === items.length - 1} onClick={() => onChange(moveItem(items, i, i + 1))}>
-                Descendre
+                {t("settings.project_lists.descendre")}
               </Button>
               <Button variant="outline" aria-label={`Retirer ${it.label}`} onClick={() => onChange(removeItem(items, it.id))}>
-                Retirer
+                {t("common.retirer")}
               </Button>
             </div>
           ))}
@@ -290,13 +291,13 @@ function ListDialog({
             add()
           }}
         >
-          <Input aria-label="Nouvel élément" placeholder="Nouvel élément" value={text} onChange={(e) => setText(e.target.value)} style={{ flex: 1 }} />
+          <Input aria-label={t("settings.project_lists.nouvel_element")} placeholder={t("settings.project_lists.nouvel_element")} value={text} onChange={(e) => setText(e.target.value)} style={{ flex: 1 }} />
           <Button type="submit" variant="outline" disabled={!text.trim()}>
-            Ajouter
+            {t("common.ajouter")}
           </Button>
         </form>
         <DialogFooter>
-          <Button onClick={onClose}>Terminé</Button>
+          <Button onClick={onClose}>{t("settings.project_lists.termine")}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -323,15 +324,15 @@ function AttributesDialog({
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Attributs d'entretien</DialogTitle>
-          <DialogDescription>Ce qu'on note sur chaque entretien : secteur, rôle, version du guide. Un attribut marqué « envoyé au modèle » est transmis avec les passages.</DialogDescription>
+          <DialogTitle>{t("settings.project_lists.attributs_d_entretien")}</DialogTitle>
+          <DialogDescription>{t("settings.project_lists.ce_qu_on_note_sur")}</DialogDescription>
         </DialogHeader>
         <div style={{ maxHeight: 360, overflow: "auto", display: "flex", flexDirection: "column", gap: 8 }}>
-          {attributes.length === 0 && <p className="small l2">Aucun attribut.</p>}
+          {attributes.length === 0 && <p className="small l2">{t("settings.project_lists.aucun_attribut_2")}</p>}
           {attributes.map((a, i) => (
             <div key={a.id} className="r8" style={{ alignItems: "flex-start" }}>
-              <Input aria-label={`Nom de l'attribut ${i + 1}`} style={{ width: 150 }} value={a.label} onChange={(e) => set(a.id, { label: e.target.value })} />
-              <NativeSelect aria-label={`Type de l'attribut ${i + 1}`} style={{ width: 90 }} value={a.kind} onChange={(e) => set(a.id, { kind: e.target.value as AttributeKind })}>
+              <Input aria-label={t("settings.project_lists.nom_de_l_attribut_v", { v: i + 1 })} style={{ width: 150 }} value={a.label} onChange={(e) => set(a.id, { label: e.target.value })} />
+              <NativeSelect aria-label={t("settings.project_lists.type_de_l_attribut_v", { v: i + 1 })} style={{ width: 90 }} value={a.kind} onChange={(e) => set(a.id, { kind: e.target.value as AttributeKind })}>
                 {KINDS.map(([v, l]) => (
                   <option key={v} value={v}>
                     {l}
@@ -340,8 +341,8 @@ function AttributesDialog({
               </NativeSelect>
               {a.kind === "choice" && (
                 <Input
-                  aria-label={`Valeurs de l'attribut ${i + 1}`}
-                  placeholder="Valeurs, séparées par des virgules"
+                  aria-label={t("settings.project_lists.valeurs_de_l_attribut_v", { v: i + 1 })}
+                  placeholder={t("settings.project_lists.valeurs_separees_par_des_virgules")}
                   style={{ width: 200 }}
                   value={a.choices.join(", ")}
                   onChange={(e) => set(a.id, { choices: e.target.value.split(",").map((s) => s.trimStart()) })}
@@ -349,10 +350,10 @@ function AttributesDialog({
               )}
               <label className="chk" style={{ display: "inline-flex", gap: 4, alignItems: "center", fontSize: 12 }}>
                 <input type="checkbox" checked={a.shared_with_model} onChange={(e) => set(a.id, { shared_with_model: e.target.checked })} />
-                Envoyé au modèle
+                {t("settings.project_lists.envoye_au_modele")}
               </label>
-              <Button variant="outline" aria-label={`Retirer l'attribut ${a.label}`} onClick={() => onChange(attributes.filter((x) => x.id !== a.id))}>
-                Retirer
+              <Button variant="outline" aria-label={t("settings.project_lists.retirer_l_attribut_label", { label: a.label })} onClick={() => onChange(attributes.filter((x) => x.id !== a.id))}>
+                {t("common.retirer")}
               </Button>
             </div>
           ))}
@@ -366,14 +367,14 @@ function AttributesDialog({
             setLabel("")
           }}
         >
-          <Input aria-label="Nouvel attribut" placeholder="Nouvel attribut" value={label} onChange={(e) => setLabel(e.target.value)} style={{ flex: 1 }} />
+          <Input aria-label={t("settings.project_lists.nouvel_attribut")} placeholder={t("settings.project_lists.nouvel_attribut")} value={label} onChange={(e) => setLabel(e.target.value)} style={{ flex: 1 }} />
           <Button type="submit" variant="outline" disabled={!label.trim()}>
-            Ajouter
+            {t("common.ajouter")}
           </Button>
         </form>
         {problem && <Alerts messages={[problem]} />}
         <DialogFooter>
-          <Button onClick={onClose}>Terminé</Button>
+          <Button onClick={onClose}>{t("settings.project_lists.termine")}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -401,24 +402,24 @@ function MemoDialog({
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Modèles de mémo de familiarisation</DialogTitle>
+          <DialogTitle>{t("settings.project_lists.modeles_de_memo_de_familiarisation")}</DialogTitle>
           <DialogDescription>
-            Les questions auxquelles on répond après lecture d'un entretien. Changer un modèle n'efface pas les réponses déjà données, et chaque entretien peut ajuster ses questions.
+            {t("settings.project_lists.les_questions_auxquelles_on_repond")}
           </DialogDescription>
         </DialogHeader>
         <div className="r8">
-          <NativeSelect aria-label="Modèle à modifier" style={{ width: 220 }} value={current?.id ?? ""} onChange={(e) => setPicked(e.target.value)}>
+          <NativeSelect aria-label={t("settings.project_lists.modele_a_modifier")} style={{ width: 220 }} value={current?.id ?? ""} onChange={(e) => setPicked(e.target.value)}>
             {templates.map((tt) => (
               <option key={tt.id} value={tt.id}>
                 {tt.name}
-                {tt.default ? " (par défaut)" : ""}
+                {tt.default ? t("settings.project_lists.par_defaut") : ""}
               </option>
             ))}
           </NativeSelect>
           {current && !current.default && (
             <>
               <Button variant="outline" onClick={() => onChange(setDefaultTemplate(templates, current.id))}>
-                Définir par défaut
+                {t("settings.project_lists.definir_par_defaut")}
               </Button>
               <Button
                 variant="outline"
@@ -427,14 +428,14 @@ function MemoDialog({
                   setPicked(null)
                 }}
               >
-                Supprimer le modèle
+                {t("settings.project_lists.supprimer_le_modele")}
               </Button>
             </>
           )}
         </div>
         {current && (
           <div style={{ maxHeight: 300, overflow: "auto", display: "flex", flexDirection: "column", gap: 8 }}>
-            <Field label="Nom du modèle">
+            <Field label={t("settings.project_lists.nom_du_modele")}>
               <Input value={current.name} onChange={(e) => patch({ ...current, name: e.target.value })} />
             </Field>
             {current.questions.map((q, i) => (
@@ -449,25 +450,25 @@ function MemoDialog({
                 />
                 <Button
                   variant="outline"
-                  aria-label={`Monter la question ${i + 1}`}
+                  aria-label={t("settings.project_lists.monter_la_question_v", { v: i + 1 })}
                   disabled={i === 0}
                   onClick={() => patch({ ...current, questions: moveItem(current.questions, i, i - 1) })}
                 >
-                  Monter
+                  {t("settings.project_lists.monter")}
                 </Button>
                 <Button
                   variant="outline"
-                  aria-label={`Retirer la question ${i + 1}`}
+                  aria-label={t("settings.project_lists.retirer_la_question_v", { v: i + 1 })}
                   disabled={current.questions.length <= 1}
                   onClick={() => patch({ ...current, questions: current.questions.filter((x) => x.id !== q.id) })}
                 >
-                  Retirer
+                  {t("common.retirer")}
                 </Button>
               </div>
             ))}
             <div>
               <Button variant="outline" onClick={() => patch(addTemplateQuestion(current))}>
-                Ajouter une question
+                {t("common.ajouter_une_question")}
               </Button>
             </div>
           </div>
@@ -483,13 +484,13 @@ function MemoDialog({
             setName("")
           }}
         >
-          <Input aria-label="Nom du nouveau modèle" placeholder="Nouveau modèle" value={name} onChange={(e) => setName(e.target.value)} style={{ flex: 1 }} />
+          <Input aria-label={t("settings.project_lists.nom_du_nouveau_modele")} placeholder={t("settings.project_lists.nouveau_modele")} value={name} onChange={(e) => setName(e.target.value)} style={{ flex: 1 }} />
           <Button type="submit" variant="outline" disabled={!name.trim()}>
-            Créer un modèle
+            {t("settings.project_lists.creer_un_modele")}
           </Button>
         </form>
         <DialogFooter>
-          <Button onClick={onClose}>Terminé</Button>
+          <Button onClick={onClose}>{t("settings.project_lists.termine")}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

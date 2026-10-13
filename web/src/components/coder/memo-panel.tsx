@@ -10,6 +10,7 @@ import { Pencil, Trash2 } from "lucide-react"
 import { NativeSelect, TEXTAREA } from "@/components/settings/fields"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { t } from "@/i18n"
 import { api } from "@/lib/api"
 import { dateTime } from "@/lib/format"
 import { keys, useMemoView, useProjectConfig } from "@/lib/hooks"
@@ -52,7 +53,7 @@ function Question({
               setEditing(false)
             }}
           >
-            <Input autoFocus value={text} onChange={(e) => setText(e.target.value)} aria-label="Reformuler la question" />
+            <Input autoFocus value={text} onChange={(e) => setText(e.target.value)} aria-label={t("coder.memo_panel.reformuler_la_question")} />
             <Button type="submit" size="sm">
               OK
             </Button>
@@ -60,22 +61,22 @@ function Question({
         ) : (
           <label htmlFor={id} style={{ flex: 1, fontWeight: 500, fontSize: 13 }}>
             {q.text}
-            {(q.reworded || q.source === "added") && <span className="badge" style={{ marginLeft: 6 }}>{q.source === "added" ? "ajoutée" : "reformulée"}</span>}
+            {(q.reworded || q.source === "added") && <span className="badge" style={{ marginLeft: 6 }}>{q.source === "added" ? t("coder.memo_panel.ajoutee") : t("coder.memo_panel.reformulee")}</span>}
           </label>
         )}
         {!editing && (
           <>
-            <button type="button" className="text-label2" style={{ border: 0, background: "transparent", cursor: "pointer", padding: 2 }} aria-label={`Reformuler : ${q.text}`} title="Reformuler pour cet entretien" onClick={() => setEditing(true)}>
+            <button type="button" className="text-label2" style={{ border: 0, background: "transparent", cursor: "pointer", padding: 2 }} aria-label={`Reformuler : ${q.text}`} title={t("coder.memo_panel.reformuler_pour_cet_entretien")} onClick={() => setEditing(true)}>
               <Pencil className="size-3.5" aria-hidden />
             </button>
-            <button type="button" className="text-label2" style={{ border: 0, background: "transparent", cursor: "pointer", padding: 2 }} aria-label={`Retirer : ${q.text}`} title="Retirer pour cet entretien" onClick={onRemove}>
+            <button type="button" className="text-label2" style={{ border: 0, background: "transparent", cursor: "pointer", padding: 2 }} aria-label={`Retirer : ${q.text}`} title={t("coder.memo_panel.retirer_pour_cet_entretien")} onClick={onRemove}>
               <Trash2 className="size-3.5" aria-hidden />
             </button>
           </>
         )}
       </div>
       <textarea id={id} className={TEXTAREA} rows={3} value={draft} onChange={(e) => onDraft(e.target.value)} onBlur={onBlur} />
-      {q.answer && <span className="small l3">Enregistré le {dateTime(q.answer.at)}</span>}
+      {q.answer && <span className="small l3">{t("common.enregistre_le_datetime", { dateTime: dateTime(q.answer.at) })}</span>}
     </div>
   )
 }
@@ -100,12 +101,12 @@ export function MemoPanel({ interviewId }: { interviewId: string }) {
       apply(v)
       setDrafts({})
     },
-    onError: (e) => reportError(e, "Réponse non enregistrée"),
+    onError: (e) => reportError(e, t("coder.memo_panel.reponse_non_enregistree")),
   })
   const saveOverrides = useMutation({
     mutationFn: (o: MemoOverrides) => api.setMemoOverrides(interviewId, o),
     onSuccess: apply,
-    onError: (e) => reportError(e, "Question non modifiée"),
+    onError: (e) => reportError(e, t("coder.memo_panel.question_non_modifiee")),
   })
   const chooseTemplate = useMutation({
     mutationFn: (id: string) => api.setMemoTemplate(interviewId, id),
@@ -113,7 +114,7 @@ export function MemoPanel({ interviewId }: { interviewId: string }) {
       apply(v)
       setSwitching(false)
     },
-    onError: (e) => reportError(e, "Modèle non changé"),
+    onError: (e) => reportError(e, t("common.modele_non_change")),
   })
 
   const data = view.data
@@ -129,7 +130,7 @@ export function MemoPanel({ interviewId }: { interviewId: string }) {
     [],
   )
 
-  if (view.isLoading || !data) return <div className="insp-in small l2">Chargement du mémo…</div>
+  if (view.isLoading || !data) return <div className="insp-in small l2">{t("coder.memo_panel.chargement_du_memo")}</div>
   const templates = config.data?.memo_templates ?? []
   const value = (q: MemoQuestionView) => drafts[q.id] ?? q.answer?.text ?? ""
   const onDraft = (id: string, text: string) => {
@@ -143,16 +144,16 @@ export function MemoPanel({ interviewId }: { interviewId: string }) {
   return (
     <div className="insp-in">
       <div>
-        <div className="hs">Mémo de familiarisation</div>
+        <div className="hs">{t("common.memo_de_familiarisation")}</div>
         <div className="small l2">
-          Modèle : {data.template_name}, version {data.template_version} · {memoProgress(data)} réponses
+          {t("coder.memo_panel.modele_template_name_version_templat", { template_name: data.template_name, template_version: data.template_version, memoProgress: memoProgress(data) })}
         </div>
       </div>
       {data.outdated && (
         <p className="note-warn" role="note" style={{ flexWrap: "wrap" }}>
-          <span style={{ flex: 1 }}>Le modèle a changé depuis le début de ce mémo (version {data.current_version}).</span>
+          <span style={{ flex: 1 }}>{t("coder.memo_panel.le_modele_a_change_depuis", { current_version: data.current_version })}</span>
           <Button size="sm" variant="outline" onClick={() => chooseTemplate.mutate(data.template_id)}>
-            Passer à la version {data.current_version}
+            {t("coder.memo_panel.passer_a_la_version_current", { current_version: data.current_version })}
           </Button>
         </p>
       )}
@@ -181,15 +182,15 @@ export function MemoPanel({ interviewId }: { interviewId: string }) {
             setAdding(false)
           }}
         >
-          <Input autoFocus value={newText} onChange={(e) => setNewText(e.target.value)} placeholder="Qui décide de quoi ?" aria-label="Nouvelle question pour cet entretien" />
+          <Input autoFocus value={newText} onChange={(e) => setNewText(e.target.value)} placeholder={t("coder.memo_panel.qui_decide_de_quoi")} aria-label={t("coder.memo_panel.nouvelle_question_pour_cet_entretien")} />
           <Button type="submit" size="sm">
-            Ajouter
+            {t("common.ajouter")}
           </Button>
         </form>
       ) : (
         <div>
           <Button variant="outline" onClick={() => setAdding(true)}>
-            + question pour cet entretien
+            {t("coder.memo_panel.question_pour_cet_entretien")}
           </Button>
         </div>
       )}
@@ -200,10 +201,10 @@ export function MemoPanel({ interviewId }: { interviewId: string }) {
             <div className="row" key={q.id}>
               <span className="k l2">
                 {q.text}
-                <small>Retirée pour cet entretien</small>
+                <small>{t("coder.memo_panel.retiree_pour_cet_entretien")}</small>
               </span>
               <Button size="sm" variant="outline" onClick={() => edit((o) => restoreQuestion(o, q.id))}>
-                Rétablir
+                {t("coder.memo_panel.retablir")}
               </Button>
             </div>
           ))}
@@ -214,8 +215,8 @@ export function MemoPanel({ interviewId }: { interviewId: string }) {
         <div className="grp">
           <div className="row" style={{ flexWrap: "wrap" }}>
             <label className="k" htmlFor="memo-switch">
-              Changer de modèle
-              <small>Les modifications propres à cet entretien sont remises à zéro. Les réponses sont gardées.</small>
+              {t("coder.memo_panel.changer_de_modele")}
+              <small>{t("coder.memo_panel.les_modifications_propres_a_cet")}</small>
             </label>
             <NativeSelect id="memo-switch" style={{ width: 140 }} value={data.template_id} onChange={(e) => chooseTemplate.mutate(e.target.value)}>
               {templates.map((t) => (
@@ -229,12 +230,12 @@ export function MemoPanel({ interviewId }: { interviewId: string }) {
       ) : (
         <div>
           <Button variant="ghost" className="text-accent-text!" onClick={() => setSwitching(true)}>
-            Changer de modèle
+            {t("coder.memo_panel.changer_de_modele")}
           </Button>
         </div>
       )}
       <p className="small l2" style={{ margin: 0 }}>
-        Le mémo ne bloque rien : vous pouvez coder sans l'avoir rempli. Le modèle lui-même se modifie dans Paramètres de l'étude.
+        {t("coder.memo_panel.le_memo_ne_bloque_rien")}
       </p>
     </div>
   )

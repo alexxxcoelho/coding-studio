@@ -11,9 +11,9 @@ import { EmptyState } from "@/components/bits"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Textarea } from "@/components/ui/textarea"
+import { t } from "@/i18n"
 import { analysisApi, type QuestionSynthesis } from "@/lib/analysis-api"
 import { akeys, useQuestions } from "@/lib/analysis-hooks"
-import { plural } from "@/lib/analysis-text"
 import { reportError } from "@/lib/notify"
 import { cn } from "@/lib/utils"
 
@@ -35,9 +35,9 @@ function SynthesisEditor({ synthesis }: { synthesis: QuestionSynthesis }) {
     try {
       const saved = await analysisApi.setQuestionSynthesis(synthesis.rq_id, { answer, limits })
       qc.setQueryData(akeys.synthesis(synthesis.rq_id), saved)
-      toast.success("Synthèse enregistrée.")
+      toast.success(t("writing.question_synthesis.synthese_enregistree"))
     } catch (e) {
-      reportError(e, "Synthèse non enregistrée")
+      reportError(e, t("writing.question_synthesis.synthese_non_enregistree"))
     } finally {
       setSaving(false)
     }
@@ -45,36 +45,36 @@ function SynthesisEditor({ synthesis }: { synthesis: QuestionSynthesis }) {
 
   return (
     <div className="flex flex-col gap-4">
-      <section aria-label="Thèmes qui répondent à la question" className="flex flex-col gap-2">
-        <h2 className="hs">Thèmes qui répondent à cette question</h2>
+      <section aria-label={t("writing.question_synthesis.themes_qui_repondent_a_la")} className="flex flex-col gap-2">
+        <h2 className="hs">{t("writing.question_synthesis.themes_qui_repondent_a_cette")}</h2>
         {synthesis.themes.length === 0 ? (
-          <p className="text-muted-foreground text-sm">Aucun thème retenu ne répond encore à cette question : rattachez-la à un thème dans la fiche, dans Analyser.</p>
+          <p className="text-muted-foreground text-sm">{t("writing.question_synthesis.aucun_theme_retenu_ne_repond")}</p>
         ) : (
           <ul className="flex flex-col gap-2">
             {synthesis.themes.map((tt) => (
               <li key={tt.theme_id} className="grp p-2.5">
                 <div className="text-sm font-semibold">{tt.title}</div>
-                <p className={cn("mt-1 text-sm leading-snug", !tt.mini_synthesis && "text-muted-foreground")}>{tt.mini_synthesis || "Mini-synthèse pas encore écrite."}</p>
+                <p className={cn("mt-1 text-sm leading-snug", !tt.mini_synthesis && "text-muted-foreground")}>{tt.mini_synthesis || t("writing.question_synthesis.mini_synthese_pas_encore_ecrite")}</p>
               </li>
             ))}
           </ul>
         )}
       </section>
       <label className="flex flex-col gap-1">
-        <span className="hs">Réponse à la question</span>
-        <Textarea rows={9} value={answer} onChange={(e) => setAnswer(e.target.value)} className="font-serif text-base leading-relaxed" placeholder="La réponse vient des thèmes, pas des fréquences." />
+        <span className="hs">{t("writing.question_synthesis.reponse_a_la_question")}</span>
+        <Textarea rows={9} value={answer} onChange={(e) => setAnswer(e.target.value)} className="font-serif text-base leading-relaxed" placeholder={t("writing.question_synthesis.la_reponse_vient_des_themes")} />
       </label>
       <label className="flex flex-col gap-1">
-        <span className="hs">Limites</span>
+        <span className="hs">{t("common.limites")}</span>
         <Textarea rows={4} value={limits} onChange={(e) => setLimits(e.target.value)} className="font-serif text-base leading-relaxed" />
       </label>
       <div className="flex items-center gap-3">
         <Button onClick={() => void save()} disabled={!dirty || saving}>
-          Enregistrer
+          {t("common.enregistrer")}
         </Button>
         <span className="text-muted-foreground text-[11.5px]">
-          {synthesis.updated_at ? `Dernière version du ${formatDate(synthesis.updated_at)}. ` : "Pas encore enregistrée. "}
-          {synthesis.n_versions > 1 ? `${plural(synthesis.n_versions, "version conservée", "versions conservées")}.` : ""}
+          {synthesis.updated_at ? t("writing.question_synthesis.derniere_version_du_formatdate", { formatDate: formatDate(synthesis.updated_at) }) : t("writing.question_synthesis.pas_encore_enregistree")}
+          {synthesis.n_versions > 1 ? `${t("writing.question_synthesis.n_versions_conservees", { n: synthesis.n_versions })}.` : ""}
         </span>
       </div>
     </div>
@@ -91,10 +91,10 @@ export function QuestionSynthesisTab() {
   if (questionsQ.isLoading) return <Skeleton className="h-64 w-full" />
   if (questions.length === 0) {
     return (
-      <EmptyState title="Aucune question de recherche">
-        Les questions viennent des Réglages. Définissez-les, puis rattachez-les à vos thèmes.
+      <EmptyState title={t("common.aucune_question_de_recherche")}>
+        {t("writing.question_synthesis.les_questions_viennent_des_reglages")}
         <a href="#/settings" className="text-accent-text ml-1 hover:underline">
-          Ouvrir les Réglages
+          {t("writing.question_synthesis.ouvrir_les_reglages")}
         </a>
       </EmptyState>
     )
@@ -102,8 +102,8 @@ export function QuestionSynthesisTab() {
   const current = questions.find((x) => x.id === rqId)!
   return (
     <div className="grid min-w-0 gap-6 lg:grid-cols-[220px_minmax(0,1fr)]">
-      <nav aria-label="Questions de recherche" className="flex flex-col gap-0.5">
-        <h2 className="hs px-1.5 pb-1">Questions de recherche</h2>
+      <nav aria-label={t("common.questions_de_recherche")} className="flex flex-col gap-0.5">
+        <h2 className="hs px-1.5 pb-1">{t("common.questions_de_recherche")}</h2>
         {questions.map((rq) => (
           <button
             key={rq.id}

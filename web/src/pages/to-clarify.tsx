@@ -13,11 +13,12 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Textarea } from "@/components/ui/textarea"
+import { t } from "@/i18n"
 import { api } from "@/lib/api"
 import { groupByLabel, type LabelGroup } from "@/lib/clarify"
 import { codeKeyFrom, phase2Codes } from "@/lib/codes"
 import { QuestionPicker, ToePicker } from "@/components/code-fields"
-import { dateTime, plural } from "@/lib/format"
+import { dateTime } from "@/lib/format"
 import { reportError } from "@/lib/notify"
 import { unitHref } from "@/lib/router"
 import { cn } from "@/lib/utils"
@@ -54,7 +55,7 @@ function ResolveForm({ group, codes, questions }: { group: LabelGroup; codes: Co
               merged_into: null,
               version: 1,
               example: example.trim() || null,
-              reason: `Issu de l'étiquette à clarifier « ${group.label} »`,
+              reason: t("to_clarify.issu_de_l_etiquette_a", { label: group.label }),
               created_at: null,
             }
           : undefined
@@ -70,60 +71,60 @@ function ResolveForm({ group, codes, questions }: { group: LabelGroup; codes: Co
       qc.setQueryData(["codebook"], res.codebook)
       qc.invalidateQueries({ queryKey: ["to-clarify"] })
       qc.invalidateQueries({ predicate: (q) => ["units", "interview", "interviews", "chain", "review", "final"].includes(String(q.queryKey[0])) })
-      toast.success(`« ${group.label} » résolue en ${target} sur ${plural(res.resolved.length, "unité")}`)
+      toast.success(t("to_clarify.label_resolue_en_target_sur", { label: group.label, target, items: t("common.n_unites", { n: res.resolved.length }) }))
     },
-    onError: (e) => reportError(e, "Étiquette non résolue"),
+    onError: (e) => reportError(e, t("to_clarify.etiquette_non_resolue")),
   })
   const valid = mode === "new" ? !!target && !!label.trim() && !!definition.trim() : mapped.length === 1
 
   return (
     <div className="flex flex-col gap-3 border-t pt-3">
-      <div className="flex gap-1.5" role="radiogroup" aria-label="Type de résolution">
+      <div className="flex gap-1.5" role="radiogroup" aria-label={t("to_clarify.type_de_resolution")}>
         <Button size="sm" variant={mode === "new" ? "default" : "outline"} onClick={() => setMode("new")}>
-          Créer un code de terrain
+          {t("to_clarify.creer_un_code_de_terrain")}
         </Button>
         <Button size="sm" variant={mode === "map" ? "default" : "outline"} onClick={() => setMode("map")}>
-          Rattacher à un code existant
+          {t("common.rattacher_a_un_code_existant")}
         </Button>
       </div>
       {mode === "new" ? (
         <div className="grid gap-3 md:grid-cols-2">
           <label className="flex flex-col gap-1 text-xs">
-            <span className="text-muted-foreground">Clé du code</span>
+            <span className="text-muted-foreground">{t("to_clarify.cle_du_code")}</span>
             <Input value={key} onChange={(e) => setKey(e.target.value)} className="ident uppercase" />
           </label>
           <label className="flex flex-col gap-1 text-xs">
-            <span className="text-muted-foreground">Libellé</span>
+            <span className="text-muted-foreground">{t("common.libelle")}</span>
             <Input value={label} onChange={(e) => setLabel(e.target.value)} />
           </label>
           <label className="flex flex-col gap-1 text-xs md:col-span-2">
-            <span className="text-muted-foreground">Définition, obligatoire : ce qu'une unité doit dire pour porter le code</span>
+            <span className="text-muted-foreground">{t("to_clarify.definition_obligatoire_ce_qu_une")}</span>
             <Textarea rows={2} value={definition} onChange={(e) => setDefinition(e.target.value)} />
           </label>
           <div className="flex flex-col gap-1 text-xs">
-            <span className="text-muted-foreground">Rattachement TOE</span>
+            <span className="text-muted-foreground">{t("to_clarify.rattachement_toe")}</span>
             <ToePicker value={toe} onChange={setToe} />
           </div>
           <label className="flex flex-col gap-1 text-xs">
-            <span className="text-muted-foreground">Exemple : identifiant d'unité ou courte citation</span>
+            <span className="text-muted-foreground">{t("to_clarify.exemple_identifiant_d_unite_ou")}</span>
             <Input value={example} onChange={(e) => setExample(e.target.value)} />
           </label>
           <div className="flex flex-col gap-1 text-xs md:col-span-2">
-            <span className="text-muted-foreground">Questions de recherche concernées</span>
+            <span className="text-muted-foreground">{t("to_clarify.questions_de_recherche_concernees")}</span>
             <QuestionPicker questions={questions} value={rqs} onChange={setRqs} />
           </div>
         </div>
       ) : (
         <CodePicker allowed={codes} value={mapped} onChange={(v) => setMapped(v.filter((c) => c !== "NA").slice(-1))} phase={2} phase1Contexts={[]} />
       )}
-      <Textarea rows={2} placeholder="Justification : pourquoi cette étiquette correspond à ce code" value={rationale} onChange={(e) => setRationale(e.target.value)} />
+      <Textarea rows={2} placeholder={t("to_clarify.justification_pourquoi_cette_etiquet")} value={rationale} onChange={(e) => setRationale(e.target.value)} />
       <div className="flex flex-wrap items-center gap-4">
         <label className="flex items-center gap-2 text-sm">
           <Checkbox checked={all} onCheckedChange={(v) => setAll(v === true)} />
-          Appliquer aux {plural(group.items.length, "unité")} portant cette étiquette
+          {t("to_clarify.appliquer_aux_items_portant_cette", { items: t("common.n_unites", { n: group.items.length }) })}
         </label>
         <Button size="sm" disabled={!valid || resolve.isPending} onClick={() => resolve.mutate()}>
-          Résoudre en {target || "un code"}
+          {t("to_clarify.resoudre_en")} {target || t("to_clarify.un_code")}
         </Button>
       </div>
     </div>
@@ -138,11 +139,11 @@ function GroupCard({ group, codes, questions }: { group: LabelGroup; codes: Code
         <div className="flex flex-wrap items-center gap-2">
           <PendingChip label={group.label} />
           <span className="text-muted-foreground text-xs">
-            {plural(group.items.length, "unité")} dans {group.interviews.join(", ")}
+            {t("to_clarify.items_dans_join", { items: t("common.n_unites", { n: group.items.length }), join: group.interviews.join(", ") })}
           </span>
         </div>
         <Button size="sm" variant={open ? "ghost" : "outline"} onClick={() => setOpen((o) => !o)}>
-          {open ? "Fermer" : "Résoudre"}
+          {open ? "Fermer" : t("to_clarify.resoudre")}
         </Button>
       </header>
       <ul className="flex flex-col border-t">
@@ -153,7 +154,7 @@ function GroupCard({ group, codes, questions }: { group: LabelGroup; codes: Code
             </a>
             <div className="min-w-0">
               {tt.unit_text && <p className="verbatim line-clamp-2 text-sm">{tt.unit_text}</p>}
-              {tt.note && <p className="text-muted-foreground text-xs">Note : {tt.note}</p>}
+              {tt.note && <p className="text-muted-foreground text-xs">{t("common.note_note", { note: tt.note })}</p>}
             </div>
           </li>
         ))}
@@ -179,14 +180,14 @@ export function ToClarifyPage() {
   return (
     <>
       <PageTitle
-        title="À clarifier"
-        sub="Étiquettes provisoires posées sur des unités en phase 2. Chacune devient un code de terrain ou rejoint un code existant."
+        title={t("common.a_clarifier")}
+        sub={t("to_clarify.etiquettes_provisoires_posees_sur_de")}
       />
       {items.isLoading ? (
         <Skeleton className="h-64 w-full" />
       ) : open.length === 0 ? (
-        <EmptyState title="Rien à clarifier">
-          En phase 2, utilisez ? sur une unité qu'aucun code ne couvre encore pour lui donner une étiquette provisoire et une courte note.
+        <EmptyState title={t("to_clarify.rien_a_clarifier")}>
+          {t("to_clarify.en_phase_2_utilisez_sur")}
         </EmptyState>
       ) : (
         <div className="flex flex-col gap-3">
@@ -197,15 +198,15 @@ export function ToClarifyPage() {
       )}
 
       {resolved.length > 0 && (
-        <Section title="Résolues" aside={plural(resolved.length, "étiquette")} className="mt-6">
+        <Section title={t("to_clarify.resolues")} aside={t("to_clarify.n_etiquettes", { n: resolved.length })} className="mt-6">
           <ul className="flex flex-col gap-2">
             {resolved.map((tt) => (
               <li key={tt.id} className="flex flex-wrap items-center gap-2 text-sm">
                 <PendingChip label={tt.label} className="opacity-60" />
-                <span className="text-muted-foreground">vers</span>
+                <span className="text-muted-foreground">{t("to_clarify.vers")}</span>
                 <CodeChip code={tt.resolved!.code} />
                 <Badge variant="outline" className={cn("text-xs")}>
-                  {tt.resolved!.kind === "new_code" ? "nouveau code de terrain" : "rattachée"}
+                  {tt.resolved!.kind === "new_code" ? t("to_clarify.nouveau_code_de_terrain") : t("to_clarify.rattachee")}
                 </Badge>
                 <a href={unitHref(tt.unit_id)} className="ident text-xs hover:underline">
                   {tt.unit_id}

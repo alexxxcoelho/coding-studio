@@ -9,6 +9,7 @@ import { createPortal } from "react-dom"
 
 import { SearchIcon, SidebarIcon } from "@/components/icons"
 import { ToolbarSlotsContext } from "@/components/toolbar-context"
+import { t } from "@/i18n"
 import { cn } from "@/lib/utils"
 
 /** The bar itself. `titleRef` and `actionsRef` hand the slot elements to the provider. */
@@ -28,13 +29,13 @@ export function Toolbar({
   return (
     <header className="tb" data-tauri-drag-region>
       {sidebarHidden && onToggleSidebar && (
-        <button type="button" className="sb-toggle" onClick={onToggleSidebar} aria-label="Afficher la barre latérale" title="Afficher la barre latérale">
+        <button type="button" className="sb-toggle" onClick={onToggleSidebar} aria-label={t("toolbar.afficher_la_barre_laterale")} title={t("toolbar.afficher_la_barre_laterale")}>
           <SidebarIcon />
         </button>
       )}
       <div className="ttl" ref={titleRef} />
       <div className="contents" ref={actionsRef} />
-      <button type="button" className="help" onClick={onHelp} aria-label="Aide pour cet écran" title="Aide pour cet écran">
+      <button type="button" className="help" onClick={onHelp} aria-label={t("toolbar.aide_pour_cet_ecran")} title={t("toolbar.aide_pour_cet_ecran")}>
         ?
       </button>
     </header>

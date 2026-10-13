@@ -10,6 +10,7 @@
 
 import { request } from "./api"
 import type { Case, CodeNode, Passage } from "./types"
+import { t } from "@/i18n"
 
 const enc = encodeURIComponent
 
@@ -22,11 +23,11 @@ export const CELL_VALUES = ["present", "not_mentioned", "contradicted", "uncerta
 export type CellValue = (typeof CELL_VALUES)[number]
 
 export const THEME_PARTS = [
-  { key: "analytical_statement", title: "Énoncé analytique" },
-  { key: "mechanism_evidence", title: "Mécanisme et preuves" },
-  { key: "variations_divergent", title: "Variations et cas divergents" },
-  { key: "competing_limits", title: "Explications concurrentes et limites" },
-  { key: "mini_synthesis", title: "Mini-synthèse" },
+  { key: "analytical_statement", get title() { return t("analysis_api.enonce_analytique") } },
+  { key: "mechanism_evidence", get title() { return t("analysis_api.mecanisme_et_preuves") } },
+  { key: "variations_divergent", get title() { return t("analysis_api.variations_et_cas_divergents") } },
+  { key: "competing_limits", get title() { return t("analysis_api.explications_concurrentes_et_limites") } },
+  { key: "mini_synthesis", get title() { return t("analysis_api.mini_synthese") } },
 ] as const
 export type ThemePartKey = (typeof THEME_PARTS)[number]["key"]
 
@@ -424,9 +425,9 @@ function fromNativeMatrix(m: NativeMatrix): MatrixResult {
 // -------------------------------------------------------- decisions, gaps
 
 export const DECISION_OUTCOMES = [
-  { value: "adopt", label: "Adopter" },
-  { value: "defer", label: "Différer" },
-  { value: "reject", label: "Refuser" },
+  { value: "adopt", get label() { return t("analysis_api.adopter") } },
+  { value: "defer", get label() { return t("common.differer") } },
+  { value: "reject", get label() { return t("analysis_api.refuser") } },
 ] as const
 export type DecisionOutcome = (typeof DECISION_OUTCOMES)[number]["value"]
 
@@ -443,18 +444,18 @@ export interface DecisionRecord extends Case {
 }
 
 export const PASSAGE_ORIGINS = [
-  { value: "lived_experience", label: "Expérience vécue" },
-  { value: "project", label: "Projet" },
-  { value: "opinion", label: "Opinion" },
-  { value: "document", label: "Document" },
+  { value: "lived_experience", get label() { return t("analysis_api.experience_vecue") } },
+  { value: "project", get label() { return t("analysis_api.projet") } },
+  { value: "opinion", get label() { return t("analysis_api.opinion") } },
+  { value: "document", get label() { return t("analysis_api.document") } },
 ] as const
 
 export const PASSAGE_ROLES = [
-  { value: "trigger", label: "Déclencheur" },
-  { value: "retrospective-justification", label: "Justification après coup" },
-  { value: "enabling-condition", label: "Condition facilitatrice" },
-  { value: "constraint", label: "Contrainte" },
-  { value: "undetermined", label: "Indéterminé" },
+  { value: "trigger", get label() { return t("common.declencheur") } },
+  { value: "retrospective-justification", get label() { return t("analysis_api.justification_apres_coup") } },
+  { value: "enabling-condition", get label() { return t("analysis_api.condition_facilitatrice") } },
+  { value: "constraint", get label() { return t("analysis_api.contrainte") } },
+  { value: "undetermined", get label() { return t("analysis_api.indetermine") } },
 ] as const
 
 /** Answer of `GET/PUT /api/codes/{id}/memo`: the memo and its append-only history. */

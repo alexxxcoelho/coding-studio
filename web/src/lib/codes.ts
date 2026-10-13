@@ -1,6 +1,7 @@
 // Code sets, families and the comparison helpers used across screens.
 
 import type { Code, Toe } from "./types"
+import { t } from "@/i18n"
 
 export const NA = "NA"
 
@@ -34,16 +35,16 @@ export const FAMILY_ORDER = [
 ]
 
 const FAMILY_NAMES: Record<string, string> = {
-  TECH: "Technologie",
-  ORG: "Organisation",
-  ENV: "Environnement",
-  OUTCOME: "Résultat",
-  "TURNING-POINT": "Point de bascule",
-  TRANSFER: "Transfert",
-  STAGE: "Étape",
-  CONTEXT: "Contexte",
-  INDUCTIVE: "Inductif",
-  OTHER: "Hors contexte TOE",
+  get TECH() { return t("codes.technologie") },
+  get ORG() { return t("common.organisation") },
+  get ENV() { return t("codes.environnement") },
+  get OUTCOME() { return t("common.resultat") },
+  get "TURNING-POINT"() { return t("codes.point_de_bascule") },
+  get TRANSFER() { return t("codes.transfert") },
+  get STAGE() { return t("common.etape") },
+  get CONTEXT() { return t("codes.contexte") },
+  get INDUCTIVE() { return t("codes.inductif") },
+  get OTHER() { return t("codes.hors_contexte_toe") },
 }
 
 export function familyName(family: string): string {
@@ -177,7 +178,7 @@ export function groupByToe(codes: Code[], phase1: string[] = []): ToeGroup[] {
   return order
     .map((key) => ({
       key,
-      title: key === "OTHER" ? "Hors contexte TOE" : `Contexte ${TOE_NAME[key]}`,
+      title: key === "OTHER" ? t("codes.hors_contexte_toe") : `Contexte ${TOE_NAME[key]}`,
       highlighted: key !== "OTHER" && mine.includes(key),
       codes: codes.filter((c) => (toeOf(c) ?? "OTHER") === key),
     }))

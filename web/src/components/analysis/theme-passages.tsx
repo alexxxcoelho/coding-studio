@@ -4,8 +4,9 @@
 
 import { PassageCard } from "@/components/analysis/shared"
 import { Skeleton } from "@/components/ui/skeleton"
+import { t } from "@/i18n"
 import type { PassageLink, ThemePassage } from "@/lib/analysis-api"
-import { passageRef, plural } from "@/lib/analysis-text"
+import { passageRef } from "@/lib/analysis-text"
 import { useThemePassages } from "@/lib/analysis-hooks"
 import { CELL_VALUE_LABEL } from "@/lib/matrix"
 import { THEME_PARTS } from "@/lib/analysis-api"
@@ -28,13 +29,13 @@ export function ThemePassageList({
   if (q.error) return <p className="text-destructive text-sm">{q.error.message}</p>
   const passages = q.data ?? []
   const interviews = new Set(passages.map((p) => p.interview_id)).size
-  if (passages.length === 0) return <p className="text-muted-foreground text-sm">Aucun passage : ajoutez des codes supports au thème.</p>
+  if (passages.length === 0) return <p className="text-muted-foreground text-sm">{t("analysis.theme_passages.aucun_passage_ajoutez_des_codes")}</p>
   const used = (id: string) => links.filter((l) => l.passage.passage_id === id).length
   return (
     <div className="flex flex-col gap-2">
       <p className="text-muted-foreground text-[11.5px]">
-        {plural(passages.length, "passage")} dans {plural(interviews, "entretien")}.
-        {draggable && " Glissez un passage dans une partie du texte pour le citer."}
+        {t("analysis.theme_passages.items_dans_items2", { items: t("common.n_passages", { n: passages.length }), items2: t("common.n_entretiens", { n: interviews }) })}
+        {draggable && t("analysis.theme_passages.glissez_un_passage_dans_une")}
       </p>
       {passages.map((p) => (
         <PassageCard
@@ -46,17 +47,17 @@ export function ThemePassageList({
           }
           foot={
             <>
-              {used(p.passage_id) > 0 && <span className="text-muted-foreground text-[11.5px]">Cité {used(p.passage_id)} fois</span>}
+              {used(p.passage_id) > 0 && <span className="text-muted-foreground text-[11.5px]">{t("analysis.theme_passages.cite_used_fois", { used: used(p.passage_id) })}</span>}
               {onLinkTo && (
                 <select
                   className="ctl-field ml-auto h-[22px] rounded-md px-1 text-xs"
-                  aria-label={`Lier ${passageRef(p)} à une partie`}
+                  aria-label={t("analysis.theme_passages.lier_passageref_a_une_partie", { passageRef: passageRef(p) })}
                   value=""
                   onChange={(e) => {
                     if (e.target.value) onLinkTo(p, e.target.value as (typeof THEME_PARTS)[number]["key"])
                   }}
                 >
-                  <option value="">Lier à…</option>
+                  <option value="">{t("analysis.theme_passages.lier_a")}</option>
                   {THEME_PARTS.map((part) => (
                     <option key={part.key} value={part.key}>
                       {part.title}

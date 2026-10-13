@@ -2,6 +2,7 @@
 
 import { useQueryClient } from "@tanstack/react-query"
 
+import { t } from "@/i18n"
 import { analysisApi, type FrameworkReading } from "@/lib/analysis-api"
 import { akeys, useFrameworkReading } from "@/lib/analysis-hooks"
 import { reportError } from "@/lib/notify"
@@ -30,7 +31,7 @@ export function useFrameworkEditor(themeId: string) {
       qc.setQueryData(akeys.framework(themeId), saved)
       void qc.invalidateQueries({ queryKey: akeys.frameworkTable })
     } catch (e) {
-      reportError(e, "Lecture par le cadre non enregistrée")
+      reportError(e, t("analysis.use_framework_editor.lecture_par_le_cadre_non"))
       throw e
     }
   }

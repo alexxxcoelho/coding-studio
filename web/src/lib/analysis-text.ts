@@ -2,6 +2,7 @@
 
 import type { PassageLink } from "./analysis-api"
 import type { Case, ListItem } from "./types"
+import { t } from "@/i18n"
 
 export function plural(n: number, one: string, many = `${one}s`): string {
   return `${n} ${n > 1 ? many : one}`
@@ -17,9 +18,9 @@ export function passageRef(p: { interview_id: string; unit_id: string }): string
 export function outcomeLabel(outcome: string | null): string {
   const d = (outcome ?? "").toLowerCase()
   if (d.startsWith("adopt")) return "Adopter"
-  if (d.startsWith("defer") || d.startsWith("différ")) return "Différer"
+  if (d.startsWith("defer") || d.startsWith("différ")) return t("common.differer")
   if (d.startsWith("reject") || d.startsWith("refus")) return "Refuser"
-  return outcome || "Issue non renseignée"
+  return outcome || t("analysis_text.issue_non_renseignee")
 }
 
 /** A decision is documented only by the units attributed to it. */

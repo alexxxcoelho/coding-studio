@@ -9,6 +9,7 @@ import { VerificationBadge } from "@/components/interview/qualifications"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { t } from "@/i18n"
 import { api } from "@/lib/api"
 import { coverageShare, REASON_HELP, REASON_LABEL, targetRows } from "@/lib/qualifications"
 import { percent, dateTime } from "@/lib/format"
@@ -21,42 +22,42 @@ export function VerificationTab({ id }: { id: string }) {
   const q = useQuery({ queryKey: ["verification", id], queryFn: () => api.verification(id) })
 
   if (q.isLoading) return <Skeleton className="h-64 w-full" />
-  if (q.error) return <Banner tone="danger" title="La vérification n'a pas pu être chargée">{q.error.message}</Banner>
+  if (q.error) return <Banner tone="danger" title={t("interview.verification.la_verification_n_a_pas")}>{q.error.message}</Banner>
   const d = q.data!
   const rows = targetRows(d.targets, d.status)
   const cov = d.coverage
   const share = coverageShare(cov)
 
   if (cov.n_units === 0 && rows.length === 0)
-    return <EmptyState title="Rien à vérifier pour l'instant">Codez d'abord les unités de cet entretien en phase 2 : les cibles sont tirées du corpus codé.</EmptyState>
+    return <EmptyState title={t("interview.verification.rien_a_verifier_pour_l")}>{t("interview.verification.codez_d_abord_les_unites")}</EmptyState>
 
   return (
     <div className="flex flex-col gap-4">
-      <Section title="Couverture" aside="les décomptes portent sur le corpus codé éligible ; la part des cibles vérifiées est donnée à part">
+      <Section title={t("interview.verification.couverture")} aside={t("interview.verification.les_decomptes_portent_sur_le")}>
         <div className="grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-3 lg:grid-cols-6">
-          <Stat label="Unités du corpus" value={cov.n_units} />
-          <Stat label="Vérifiées" value={cov.n_verified} tone={cov.n_verified ? "ok" : undefined} />
-          <Stat label="Inutilisables" value={cov.n_unusable} />
-          <Stat label="Périmées" value={cov.n_stale} tone={cov.n_stale ? "warn" : undefined} />
-          <Stat label="Cibles" value={cov.n_targets} />
-          <Stat label="Cibles vérifiées" value={share === null ? "aucune" : `${cov.n_targets_verified} sur ${cov.n_targets}, ${percent(share)}`} />
+          <Stat label={t("interview.verification.unites_du_corpus")} value={cov.n_units} />
+          <Stat label={t("interview.verification.verifiees")} value={cov.n_verified} tone={cov.n_verified ? "ok" : undefined} />
+          <Stat label={t("interview.verification.inutilisables")} value={cov.n_unusable} />
+          <Stat label={t("interview.verification.perimees")} value={cov.n_stale} tone={cov.n_stale ? "warn" : undefined} />
+          <Stat label={t("interview.verification.cibles")} value={cov.n_targets} />
+          <Stat label={t("interview.verification.cibles_verifiees")} value={share === null ? "aucune" : t("interview.verification.n_targets_verified_sur_n", { n_targets_verified: cov.n_targets_verified, n_targets: cov.n_targets, percent: percent(share) })} />
         </div>
       </Section>
 
-      <Section title="Unités à vérifier à l'audio" aside={`${rows.length} ${rows.length < 2 ? "unité" : "unités"}`}>
+      <Section title={t("interview.verification.unites_a_verifier_a_l")} aside={`${rows.length} ${rows.length < 2 ? t("common.unite") : t("interview.verification.unites")}`}>
         {rows.length === 0 ? (
-          <p className="text-muted-foreground text-sm">Aucune unité n'est encore une cible.</p>
+          <p className="text-muted-foreground text-sm">{t("interview.verification.aucune_unite_n_est_encore")}</p>
         ) : (
           <div className="-m-4">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="pl-4">Unité</TableHead>
-                  <TableHead>Pourquoi c'est une cible</TableHead>
-                  <TableHead>État</TableHead>
-                  <TableHead>Contrôlée</TableHead>
+                  <TableHead className="pl-4">{t("interview.verification.unite")}</TableHead>
+                  <TableHead>{t("interview.verification.pourquoi_c_est_une_cible")}</TableHead>
+                  <TableHead>{t("interview.verification.etat")}</TableHead>
+                  <TableHead>{t("interview.verification.controlee")}</TableHead>
                   <TableHead className="pr-4 text-right">
-                    <span className="sr-only">Action</span>
+                    <span className="sr-only">{t("common.action")}</span>
                   </TableHead>
                 </TableRow>
               </TableHeader>
@@ -86,12 +87,12 @@ export function VerificationTab({ id }: { id: string }) {
                           {r.note && <span className="block italic">{r.note}</span>}
                         </>
                       ) : (
-                        "pas encore"
+                        t("common.pas_encore")
                       )}
                     </TableCell>
                     <TableCell className="pr-4 text-right">
                       <Button size="xs" variant="ghost" asChild>
-                        <a href={unitHref(r.unit_id)}>Ouvrir dans le codage</a>
+                        <a href={unitHref(r.unit_id)}>{t("interview.verification.ouvrir_dans_le_codage")}</a>
                       </Button>
                     </TableCell>
                   </TableRow>
@@ -102,7 +103,7 @@ export function VerificationTab({ id }: { id: string }) {
         )}
       </Section>
 
-      <Section title="Légende" aside="une unité peut être une cible pour plusieurs raisons">
+      <Section title={t("interview.verification.legende")} aside={t("interview.verification.une_unite_peut_etre_une")}>
         <dl className="grid gap-2.5 md:grid-cols-2">
           {REASONS.map((r) => (
             <div key={r} className="flex gap-2.5 text-sm">
@@ -114,8 +115,7 @@ export function VerificationTab({ id }: { id: string }) {
           ))}
         </dl>
         <p className="text-muted-foreground mt-3 text-xs">
-          Une unité vérifiée garde son état tant que son texte ou son locuteur ne change pas ; elle apparaît alors comme périmée et doit être contrôlée de nouveau.
-          Non vérifiée signifie qu'aucun contrôle n'a eu lieu, pas qu'un défaut a été constaté.
+          {t("interview.verification.une_unite_verifiee_garde_son")}
         </p>
       </Section>
     </div>

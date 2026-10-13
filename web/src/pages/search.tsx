@@ -13,6 +13,7 @@ import { NativeSelect } from "@/components/settings/fields"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
+import { t } from "@/i18n"
 import { api } from "@/lib/api"
 import { codeColor } from "@/lib/code-tree"
 import { useCodes, useProjectConfig } from "@/lib/hooks"
@@ -95,26 +96,26 @@ export function SearchPage() {
 
   return (
     <>
-      <PageTitle title="Recherche" sub="Dans le texte des entretiens, mot par mot" />
+      <PageTitle title={t("common.recherche")} sub={t("search.dans_le_texte_des_entretiens")} />
       <div className="content">
-        <section className="tree" aria-label="Résultats de la recherche">
-          <form onSubmit={submit} role="search" aria-label="Rechercher dans les entretiens" className="r8">
+        <section className="tree" aria-label={t("search.resultats_de_la_recherche")}>
+          <form onSubmit={submit} role="search" aria-label={t("search.rechercher_dans_les_entretiens")} className="r8">
             <Input
               value={form.q}
               onChange={(e) => set("q", e.target.value)}
-              placeholder="Un mot, plusieurs mots ou une expression"
-              aria-label="Texte à chercher"
+              placeholder={t("search.un_mot_plusieurs_mots_ou")}
+              aria-label={t("search.texte_a_chercher")}
               style={{ flex: 1, minWidth: 220, height: 30 }}
               autoFocus
             />
             <Button type="submit" size="lg" disabled={!form.q.trim()}>
-              Chercher
+              {t("common.chercher")}
             </Button>
           </form>
 
           {sent === null && (
-            <EmptyState title="Cherchez un mot pour retrouver ses tours de parole">
-              La recherche ignore la casse et les accents. Avec « Tous les mots », les mots peuvent être dans n'importe quel ordre ; avec « Expression exacte », ils se suivent. Filtrez sur « Non codés » pour trouver ce qui n'est pas encore codé.
+            <EmptyState title={t("search.cherchez_un_mot_pour_retrouver")}>
+              {t("search.la_recherche_ignore_la_casse")}
             </EmptyState>
           )}
           {sent !== null && res.isLoading && <Skeleton className="h-40 w-full" />}
@@ -127,28 +128,28 @@ export function SearchPage() {
             <>
               <p className="small l2" style={{ margin: "0 2px" }} aria-live="polite" role="status">
                 {data.total_hits === 0
-                  ? "Aucune occurrence."
+                  ? t("search.aucune_occurrence")
                   : `${data.total_hits} occurrence${data.total_hits > 1 ? "s" : ""} dans ${data.total_units} tour${data.total_units > 1 ? "s" : ""}, ${data.interviews.filter((i) => i.mentioned).length} entretien${data.interviews.filter((i) => i.mentioned).length > 1 ? "s" : ""}.`}
-                {data.words.length > 0 && ` Mots cherchés : ${data.words.join(", ")}.`}
+                {data.words.length > 0 && t("search.mots_cherches_join", { join: data.words.join(", ") })}
               </p>
               {data.total_hits === 0 && (
-                <EmptyState title="Rien ne correspond">Essayez moins de mots, « Tous les mots » au lieu de l'expression exacte, ou retirez un filtre.</EmptyState>
+                <EmptyState title={t("search.rien_ne_correspond")}>{t("search.essayez_moins_de_mots_tous")}</EmptyState>
               )}
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }} aria-label="Tours trouvés">
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }} aria-label={t("search.tours_trouves")}>
                 {data.items.map((it) => (
                   <ResultCard key={it.unit_id + ":" + it.matches[0]?.start} item={it} codes={codes} onCoded={() => void res.refetch()} />
                 ))}
               </div>
               {total > PAGE && (
-                <nav className="r8" aria-label="Pages de résultats" style={{ justifyContent: "center" }}>
+                <nav className="r8" aria-label={t("search.pages_de_resultats")} style={{ justifyContent: "center" }}>
                   <Button variant="outline" disabled={page === 0} onClick={() => setPage(page - 1)}>
-                    Précédent
+                    {t("common.precedent")}
                   </Button>
                   <span className="small l2">
-                    Tours {page * PAGE + 1} à {Math.min(total, (page + 1) * PAGE)} sur {total}
+                    {t("search.tours_v_a_min_sur", { v: page * PAGE + 1, min: Math.min(total, (page + 1) * PAGE), total })}
                   </span>
                   <Button variant="outline" disabled={page >= pages - 1} onClick={() => setPage(page + 1)}>
-                    Suivant
+                    {t("common.suivant")}
                   </Button>
                 </nav>
               )}
@@ -156,14 +157,14 @@ export function SearchPage() {
           )}
         </section>
 
-        <aside className="insp insp-sticky" style={{ flexBasis: 300 }} aria-label="Options et filtres">
+        <aside className="insp insp-sticky" style={{ flexBasis: 300 }} aria-label={t("search.options_et_filtres")}>
           <div className="insp-in">
-            <div className="hs">Mode</div>
-            <div className="seg" role="radiogroup" aria-label="Mode de recherche" style={{ alignSelf: "stretch", display: "flex" }}>
+            <div className="hs">{t("search.mode")}</div>
+            <div className="seg" role="radiogroup" aria-label={t("search.mode_de_recherche")} style={{ alignSelf: "stretch", display: "flex" }}>
               {(
                 [
-                  ["all_words", "Tous les mots"],
-                  ["phrase", "Expression exacte"],
+                  ["all_words", t("search.tous_les_mots")],
+                  ["phrase", t("search.expression_exacte")],
                 ] as const
               ).map(([k, label]) => (
                 <button key={k} type="button" role="radio" aria-checked={form.mode === k} className={cn("s", form.mode === k && "on")} style={{ flex: 1 }} onClick={() => refine("mode", k)}>
@@ -173,20 +174,20 @@ export function SearchPage() {
             </div>
             <label className="r8 small">
               <input type="checkbox" checked={form.prefix} onChange={(e) => refine("prefix", e.target.checked)} style={{ accentColor: "var(--accent-fill)" }} />
-              Début de mot pour le dernier mot
+              {t("search.debut_de_mot_pour_le")}
             </label>
             <label className="r8 small">
               <input type="checkbox" checked={form.interviewer} onChange={(e) => refine("interviewer", e.target.checked)} style={{ accentColor: "var(--accent-fill)" }} />
-              Inclure les tours de l'intervieweur
+              {t("search.inclure_les_tours_de_l")}
             </label>
 
-            <div className="hs">Codage</div>
-            <div className="seg" role="radiogroup" aria-label="État de codage" style={{ alignSelf: "stretch", display: "flex" }}>
+            <div className="hs">{t("common.codage")}</div>
+            <div className="seg" role="radiogroup" aria-label={t("search.etat_de_codage")} style={{ alignSelf: "stretch", display: "flex" }}>
               {(
                 [
-                  ["", "Tous"],
-                  ["true", "Codés"],
-                  ["false", "Non codés"],
+                  ["", t("common.tous")],
+                  ["true", t("search.codes")],
+                  ["false", t("search.non_codes")],
                 ] as const
               ).map(([k, label]) => (
                 <button key={k} type="button" role="radio" aria-checked={form.coded === k} className={cn("s", form.coded === k && "on")} style={{ flex: 1 }} onClick={() => refine("coded", k)}>
@@ -195,38 +196,38 @@ export function SearchPage() {
               ))}
             </div>
 
-            <div className="hs">Code</div>
+            <div className="hs">{t("common.code")}</div>
             {form.code ? (
               <div className="r8">
                 <span className="tag">
                   <span className="sw" style={{ background: codeColor(form.code.code_id) }} />
                   {form.code.name}
-                  <button type="button" aria-label="Retirer le filtre sur le code" style={{ border: 0, background: "transparent", padding: 0, cursor: "pointer", color: "var(--label2)" }} onClick={() => refine("code", null)}>
+                  <button type="button" aria-label={t("search.retirer_le_filtre_sur_le")} style={{ border: 0, background: "transparent", padding: 0, cursor: "pointer", color: "var(--label2)" }} onClick={() => refine("code", null)}>
                     ×
                   </button>
                 </span>
                 <label className="r8 small">
                   <input type="checkbox" checked={form.descendants} onChange={(e) => refine("descendants", e.target.checked)} style={{ accentColor: "var(--accent-fill)" }} />
-                  avec les sous-codes
+                  {t("search.avec_les_sous_codes")}
                 </label>
               </div>
             ) : (
-              <CodeFinder codes={codes} onPick={(c) => refine("code", c)} label="Filtrer sur un code" placeholder="Filtrer sur un code" />
+              <CodeFinder codes={codes} onPick={(c) => refine("code", c)} label={t("search.filtrer_sur_un_code")} placeholder={t("search.filtrer_sur_un_code")} />
             )}
 
             {attributes.length > 0 && (
               <>
-                <div className="hs">Attribut de l'entretien</div>
+                <div className="hs">{t("search.attribut_de_l_entretien")}</div>
                 <div className="r8">
                   <NativeSelect
-                    aria-label="Filtrer sur un attribut"
+                    aria-label={t("common.filtrer_sur_un_attribut")}
                     style={{ width: 140 }}
                     value={form.attribute}
                     onChange={(e) => {
                       setForm((f) => ({ ...f, attribute: e.target.value, value: "" }))
                     }}
                   >
-                    <option value="">Tous les entretiens</option>
+                    <option value="">{t("common.tous_les_entretiens")}</option>
                     {attributes.map((a) => (
                       <option key={a.id} value={a.id}>
                         {a.label}
@@ -235,8 +236,8 @@ export function SearchPage() {
                   </NativeSelect>
                   {def &&
                     (def.kind === "choice" ? (
-                      <NativeSelect aria-label={`Valeur de ${def.label}`} style={{ width: 120 }} value={form.value} onChange={(e) => refine("value", e.target.value)}>
-                        <option value="">Valeur…</option>
+                      <NativeSelect aria-label={t("common.valeur_de_label", { label: def.label })} style={{ width: 120 }} value={form.value} onChange={(e) => refine("value", e.target.value)}>
+                        <option value="">{t("common.valeur_2")}</option>
                         {def.choices.map((c) => (
                           <option key={c} value={c}>
                             {c}
@@ -244,14 +245,14 @@ export function SearchPage() {
                         ))}
                       </NativeSelect>
                     ) : (
-                      <Input aria-label={`Valeur de ${def.label}`} style={{ width: 120 }} value={form.value} placeholder="Valeur" onChange={(e) => set("value", e.target.value)} onBlur={() => form.value.trim() && refine("value", form.value)} />
+                      <Input aria-label={t("common.valeur_de_label", { label: def.label })} style={{ width: 120 }} value={form.value} placeholder={t("common.valeur")} onChange={(e) => set("value", e.target.value)} onBlur={() => form.value.trim() && refine("value", form.value)} />
                     ))}
                 </div>
               </>
             )}
 
-            <div className="hs">Entretiens</div>
-            <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 4 }} aria-label="Entretiens">
+            <div className="hs">{t("common.entretiens")}</div>
+            <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 4 }} aria-label={t("common.entretiens")}>
               {(interviewsQ.data ?? []).map((s) => {
                 const stat = data?.interviews.find((i) => i.interview_id === s.interview_id)
                 const on = form.interviews.length === 0 || form.interviews.includes(s.interview_id)
@@ -262,7 +263,7 @@ export function SearchPage() {
                         <input
                           type="checkbox"
                           checked={on}
-                          aria-label={`Chercher dans ${s.interview_id}`}
+                          aria-label={t("search.chercher_dans_interview_id", { interview_id: s.interview_id })}
                           onChange={(e) => {
                             const all = (interviewsQ.data ?? []).map((x) => x.interview_id)
                             const current = form.interviews.length === 0 ? all : form.interviews
@@ -274,8 +275,8 @@ export function SearchPage() {
                         {s.interview_id}
                       </span>
                       {stat && (
-                        <span className="l2" title="Occurrences, tours">
-                          {stat.hits} occ., {stat.units} tour{stat.units > 1 ? "s" : ""}
+                        <span className="l2" title={t("search.occurrences_tours")}>
+                          {t("search.hits_occ_n_tours", { n: stat.units, hits: stat.hits })}
                         </span>
                       )}
                     </label>
@@ -292,7 +293,7 @@ export function SearchPage() {
                   setSent({ ...FORM0, q: form.q })
                 }}
               >
-                Retirer les filtres
+                {t("search.retirer_les_filtres")}
               </Button>
             )}
           </div>

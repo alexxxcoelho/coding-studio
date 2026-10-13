@@ -75,6 +75,7 @@ import type {
   VerificationState,
   WrittenFiles,
 } from "./types"
+import { t } from "@/i18n"
 
 export type ErrorKind = "validation" | "guard" | "not_found" | "internal" | "network"
 
@@ -155,7 +156,7 @@ export async function request<T>(method: string, path: string, body?: unknown): 
       body: body === undefined ? undefined : JSON.stringify(body),
     })
   } catch {
-    throw new ApiError(0, "network", "Le serveur de Coding Studio est injoignable. Est-il toujours lancé ?")
+    throw new ApiError(0, "network", t("api.le_serveur_de_coding_studio"))
   }
   const text = await res.text()
   let parsed: unknown = text

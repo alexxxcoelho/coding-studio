@@ -2,10 +2,11 @@
 
 import type { ReactNode } from "react"
 
+import { t } from "@/i18n"
 import { GUIDE_LEXIQUE } from "@/lib/lexicon-copy"
 import { cn } from "@/lib/utils"
 
-export function GuideLink({ children = "Lire le guide" }: { children?: ReactNode }) {
+export function GuideLink({ children = t("lexicon.parts.lire_le_guide") }: { children?: ReactNode }) {
   return (
     <a href={GUIDE_LEXIQUE} className="small">
       {children}

@@ -4,6 +4,7 @@ import { AuditTable } from "@/components/audit-table"
 import { Banner, PageTitle } from "@/components/bits"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
+import { t } from "@/i18n"
 import { api } from "@/lib/api"
 
 export function AuditPage() {
@@ -13,17 +14,17 @@ export function AuditPage() {
   return (
     <>
       <PageTitle
-        title="Journal d'audit"
-        sub="Chaque action est ajoutée, jamais modifiée. Chaque événement porte l'empreinte SHA-256 du précédent : toute modification ultérieure rompt la chaîne."
+        title={t("common.journal_d_audit")}
+        sub={t("audit.chaque_action_est_ajoutee_jamais")}
         actions={
           <Button variant="outline" onClick={() => qc.invalidateQueries({ queryKey: ["chain"] })} disabled={chain.isFetching}>
-            Vérifier la chaîne
+            {t("audit.verifier_la_chaine")}
           </Button>
         }
       />
       {chain.data && (
-        <Banner tone={chain.data.ok ? "ok" : "danger"} className="mb-4" title={chain.data.ok ? `Chaîne intacte : ${chain.data.n_events} événements, chaque empreinte recalculée et conforme` : `Chaîne rompue à l'événement ${chain.data.first_bad_seq}`}>
-          {chain.data.ok ? undefined : "Un événement a été modifié après son écriture. Les événements à partir de ce point ne sont plus fiables."}
+        <Banner tone={chain.data.ok ? "ok" : "danger"} className="mb-4" title={chain.data.ok ? t("audit.chaine_intacte_n_events_evenements", { n_events: chain.data.n_events }) : t("common.chaine_rompue_a_l_evenement", { first_bad_seq: chain.data.first_bad_seq })}>
+          {chain.data.ok ? undefined : t("audit.un_evenement_a_ete_modifie")}
         </Banner>
       )}
       {events.isLoading ? <Skeleton className="h-96 w-full" /> : <AuditTable events={events.data ?? []} showInterview />}

@@ -5,6 +5,7 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react"
 
 import { SearchIcon } from "@/components/icons"
+import { t } from "@/i18n"
 import { codeColor, codeName, isApplicable, topCodes } from "@/lib/code-tree"
 import { useCodeSearchRows } from "@/lib/code-search"
 import { matchedLine } from "@/lib/v2-text"
@@ -53,15 +54,15 @@ export function SelectionMenu({
   }, [onClose])
 
   return (
-    <div ref={ref} className="menu" role="menu" aria-label="Coder la sélection" style={{ position: "absolute", left: x, top: y, width: 270, zIndex: 20 }}>
+    <div ref={ref} className="menu" role="menu" aria-label={t("common.coder_la_selection")} style={{ position: "absolute", left: x, top: y, width: 270, zIndex: 20 }}>
       <label className="mi" style={{ color: "var(--label2)", cursor: "text" }}>
         <SearchIcon />
         <input
           ref={input}
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder="Coder la sélection…"
-          aria-label="Coder la sélection"
+          placeholder={t("common.coder_la_selection_2")}
+          aria-label={t("common.coder_la_selection")}
           onKeyDown={(e) => {
             if (e.key === "Enter" && list[0]) {
               e.preventDefault()
@@ -80,7 +81,7 @@ export function SelectionMenu({
       <div className="msep" />
       {list.length === 0 && (
         <div className="mi" style={{ color: "var(--label2)", cursor: "default" }}>
-          Aucun code ne correspond
+          {t("coder.selection_menu.aucun_code_ne_correspond")}
         </div>
       )}
       {list.map((c) => (
@@ -95,13 +96,13 @@ export function SelectionMenu({
       ))}
       <div className="msep" />
       <button type="button" role="menuitem" className="mi" onClick={onHighlight}>
-        Surligner<span className="r">H</span>
+        {t("coder.selection_menu.surligner")}<span className="r">H</span>
       </button>
       <button type="button" role="menuitem" className="mi" onClick={onQuote}>
-        Citer…<span className="r">D</span>
+        {t("coder.selection_menu.citer")}<span className="r">D</span>
       </button>
       <button type="button" role="menuitem" className="mi" onClick={onNewCode}>
-        Nouveau code depuis la sélection…<span className="r">{isMac() ? "⌘N" : "Ctrl+N"}</span>
+        {t("common.nouveau_code_depuis_la_selection")}<span className="r">{isMac() ? "⌘N" : "Ctrl+N"}</span>
       </button>
     </div>
   )

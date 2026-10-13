@@ -7,10 +7,11 @@
 
 import type { AxisSource, CellValue, MatrixCell, MatrixConfig } from "./analysis-api"
 import type { ProjectConfig } from "./types"
+import { t } from "@/i18n"
 
 export const CELL_VALUE_LABEL: Record<CellValue, string> = {
-  present: "présent",
-  not_mentioned: "non évoqué",
+  get present() { return t("matrix.present") },
+  get not_mentioned() { return t("matrix.non_evoque") },
   contradicted: "contredit",
   uncertain: "incertain",
 }
@@ -47,36 +48,36 @@ export interface AxisOption {
 /** The lists a side of the matrix can show, in the order of the selector. */
 export function axisOptions(cfg: ProjectConfig | undefined): AxisOption[] {
   const base: AxisOption[] = [
-    { token: "interviews", label: "Entretiens" },
+    { token: "interviews", label: t("common.entretiens") },
     { token: "cases", label: "Cas" },
-    { token: "themes", label: "Thèmes" },
-    { token: "codes", label: "Codes" },
-    { token: "focused_codes", label: "Codes focalisés" },
+    { token: "themes", label: t("common.themes") },
+    { token: "codes", label: t("common.codes") },
+    { token: "focused_codes", label: t("matrix.codes_focalises") },
   ]
   const attributes = (cfg?.attributes ?? []).map((a) => ({ token: `attribute:${a.id}`, label: a.label }))
-  const dimensions = (cfg?.matrix_dimensions ?? []).length > 0 ? [{ token: "dimensions", label: "Dimensions de l'étude" }] : []
+  const dimensions = (cfg?.matrix_dimensions ?? []).length > 0 ? [{ token: "dimensions", label: t("matrix.dimensions_de_l_etude") }] : []
   return [...base, ...attributes, ...dimensions]
 }
 
 /** A message when the setting cannot be computed, otherwise null. */
 export function validateMatrix(c: MatrixConfig, cfg: ProjectConfig | undefined): string | null {
-  if (axisToken(c.rows) === axisToken(c.cols)) return "Les lignes et les colonnes ne peuvent pas être les mêmes."
+  if (axisToken(c.rows) === axisToken(c.cols)) return t("matrix.les_lignes_et_les_colonnes")
   const known = (s: AxisSource): string | null => {
-    if (s.kind === "attribute" && !cfg?.attributes.some((a) => a.id === s.id)) return "Cet attribut n'existe pas dans l'étude."
-    if (s.kind === "dimensions" && !(cfg?.matrix_dimensions ?? []).length) return "L'étude ne définit aucune dimension."
+    if (s.kind === "attribute" && !cfg?.attributes.some((a) => a.id === s.id)) return t("matrix.cet_attribut_n_existe_pas")
+    if (s.kind === "dimensions" && !(cfg?.matrix_dimensions ?? []).length) return t("matrix.l_etude_ne_definit_aucune")
     return null
   }
   const own = known(c.rows) ?? known(c.cols)
   if (own) return own
-  if (c.filter && !cfg?.attributes.some((a) => a.id === c.filter!.attribute)) return "Le filtre porte sur un attribut qui n'existe pas dans l'étude."
+  if (c.filter && !cfg?.attributes.some((a) => a.id === c.filter!.attribute)) return t("matrix.le_filtre_porte_sur_un")
   return null
 }
 
 export function countText(passages: number, interviews: number): string {
-  if (passages === 0) return "aucun passage"
-  const p = `${passages} passage${passages > 1 ? "s" : ""}`
+  if (passages === 0) return t("matrix.aucun_passage")
+  const p = t("common.n_passages", { n: passages })
   // Passages and interviews are never mixed: seven passages in two interviews are not seven respondents.
-  return interviews > 1 ? `${p} dans ${interviews} entretiens` : p
+  return interviews > 1 ? t("matrix.p_dans_interviews_entretiens", { p, interviews }) : p
 }
 
 export function matrixMax(cells: MatrixCell[]): number {
@@ -100,7 +101,7 @@ export interface CellView {
 
 /** What a cell shows. A row that is not coded yet is never "non évoqué". */
 export function cellView(cell: MatrixCell | undefined, rowCoded: boolean, max = 0): CellView {
-  if (!rowCoded) return { state: "not_coded", label: "pas encore codé", countText: "", summary: "", heat: 0, contradiction: false }
+  if (!rowCoded) return { state: "not_coded", label: t("matrix.pas_encore_code"), countText: "", summary: "", heat: 0, contradiction: false }
   const n = cell?.n_passages ?? 0
   const text = countText(n, cell?.n_interviews ?? 0)
   const heat = heatLevel(n, max || n)
@@ -108,6 +109,6 @@ export function cellView(cell: MatrixCell | undefined, rowCoded: boolean, max = 
   if (cell?.value) {
     return { state: "qualified", label: CELL_VALUE_LABEL[cell.value], countText: text, summary, heat, contradiction: cell.value === "contradicted" }
   }
-  if (n === 0) return { state: "none", label: "aucun passage", countText: text, summary, heat: 0, contradiction: false }
-  return { state: "unqualified", label: "à qualifier", countText: text, summary, heat, contradiction: false }
+  if (n === 0) return { state: "none", label: t("matrix.aucun_passage"), countText: text, summary, heat: 0, contradiction: false }
+  return { state: "unqualified", label: t("matrix.a_qualifier"), countText: text, summary, heat, contradiction: false }
 }

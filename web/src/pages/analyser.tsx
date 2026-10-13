@@ -16,6 +16,7 @@ import { ThemeSheetView } from "@/components/analysis/theme-sheet"
 import { EmptyState, PageTitle } from "@/components/bits"
 import { ToolbarActions } from "@/components/toolbar"
 import { Skeleton } from "@/components/ui/skeleton"
+import { t } from "@/i18n"
 import { analysisApi } from "@/lib/analysis-api"
 import { akeys, invalidateThemes, useCasesAll, useQuestions, useTheme, useThemes } from "@/lib/analysis-hooks"
 import { useCodes, useProjectConfig } from "@/lib/hooks"
@@ -23,11 +24,11 @@ import { reportError } from "@/lib/notify"
 
 type Tab = "themes" | "matrix" | "explorer" | "cooccurrence" | "decisions"
 const TABS: { id: Tab; label: string }[] = [
-  { id: "themes", label: "Thèmes" },
-  { id: "matrix", label: "Matrice" },
-  { id: "explorer", label: "Explorer" },
+  { id: "themes", get label() { return t("common.themes") } },
+  { id: "matrix", get label() { return t("common.matrice") } },
+  { id: "explorer", get label() { return t("analyser.explorer") } },
   { id: "cooccurrence", label: "Co-occurrence" },
-  { id: "decisions", label: "Décisions documentées" },
+  { id: "decisions", get label() { return t("common.decisions_documentees") } },
 ]
 
 function ThemesTab() {
@@ -50,7 +51,7 @@ function ThemesTab() {
       void invalidateThemes(qc)
       setPickedId(sheet.theme_id)
     },
-    onError: (e) => reportError(e, "Thème non créé"),
+    onError: (e) => reportError(e, t("analyser.theme_non_cree")),
   })
   const addCode = useMutation({
     mutationFn: (codeId: string) => analysisApi.addThemeCode(selectedId!, codeId),
@@ -58,11 +59,11 @@ function ThemesTab() {
       qc.setQueryData(akeys.theme(sheet.theme_id), sheet)
       void invalidateThemes(qc, sheet.theme_id)
     },
-    onError: (e) => reportError(e, "Code non ajouté"),
+    onError: (e) => reportError(e, t("common.code_non_ajoute")),
   })
 
   if (themesQ.isLoading || projectQ.isLoading) return <Skeleton className="h-96 w-full" />
-  if (themesQ.error) return <EmptyState title="Thèmes indisponibles">{themesQ.error.message}</EmptyState>
+  if (themesQ.error) return <EmptyState title={t("analyser.themes_indisponibles")}>{themesQ.error.message}</EmptyState>
 
   const codes = codesQ.data?.codes ?? []
   const selected = themes.find((t) => t.theme_id === selectedId)
@@ -75,8 +76,8 @@ function ThemesTab() {
         {selected && projectQ.data ? (
           <ThemeSheetView key={selected.theme_id} themeId={selected.theme_id} project={projectQ.data} questions={questionsQ.data ?? []} cases={casesQ.data ?? []} />
         ) : (
-          <EmptyState title="Aucun thème sélectionné">
-            Un thème regroupe des codes et porte une interprétation. Créez-en un avec « Nouveau thème », puis glissez-y des codes depuis l'arbre.
+          <EmptyState title={t("analyser.aucun_theme_selectionne")}>
+            {t("analyser.un_theme_regroupe_des_codes")}
           </EmptyState>
         )}
       </div>
@@ -90,9 +91,9 @@ export function AnalyserPage() {
   const [tab, setTab] = useState<Tab>("themes")
   return (
     <>
-      <PageTitle title="Analyser" sub="Des codes aux thèmes, puis comparaison des entretiens" />
+      <PageTitle title={t("common.analyser")} sub={t("analyser.des_codes_aux_themes_puis")} />
       <ToolbarActions>
-        <TabBar tabs={TABS} value={tab} onChange={setTab} label="Onglets d'Analyser" />
+        <TabBar tabs={TABS} value={tab} onChange={setTab} label={t("analyser.onglets_d_analyser")} />
       </ToolbarActions>
       <div role="tabpanel" aria-label={TABS.find((t) => t.id === tab)?.label} className="pt-1">
         {tab === "themes" && <ThemesTab />}

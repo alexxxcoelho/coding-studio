@@ -17,6 +17,7 @@ import {
   SidebarIcon,
   StudyIcon,
 } from "@/components/icons"
+import { t } from "@/i18n"
 import { api } from "@/lib/api"
 import { keys } from "@/lib/hooks"
 import { reviewApi } from "@/lib/review-api"
@@ -49,17 +50,17 @@ function progress(s: InterviewSummary | undefined): string | null {
 
 function ChainNote() {
   const { data, isError } = useQuery({ queryKey: ["chain"], queryFn: api.verify, refetchInterval: 30_000 })
-  if (isError) return <div className="sb-note text-destructive">Serveur injoignable</div>
+  if (isError) return <div className="sb-note text-destructive">{t("sidebar.serveur_injoignable")}</div>
   if (!data) return null
   return (
     <a
       href="#/audit"
       className={cn("sb-note no-underline", data.ok ? "" : "text-destructive")}
-      title="Chaque événement du journal d'audit est recalculé contre la chaîne SHA-256"
+      title={t("sidebar.chaque_evenement_du_journal_d")}
       style={data.ok ? { color: "var(--label2)" } : undefined}
     >
       {data.ok ? <ShieldCheck className="size-3.5" aria-hidden /> : <ShieldAlert className="size-3.5" aria-hidden />}
-      {data.ok ? `Journal intact, ${data.n_events} événements` : `Journal rompu à l'événement ${data.first_bad_seq}`}
+      {data.ok ? t("sidebar.journal_intact_n_events_evenements", { n_events: data.n_events }) : t("sidebar.journal_rompu_a_l_evenement", { first_bad_seq: data.first_bad_seq })}
     </a>
   )
 }
@@ -75,12 +76,12 @@ function PseudoNote() {
       style={{ color: "var(--label2)" }}
       title={
         data.enabled
-          ? `${data.n_list_entries} nom${data.n_list_entries > 1 ? "s" : ""} remplacé${data.n_list_entries > 1 ? "s" : ""} avant tout envoi à un modèle. Le texte libre n'est pas couvert. Les textes ne quittent jamais la machine sans un geste explicite.`
-          : "Les noms partent tels quels dans un prompt. Les textes ne quittent jamais la machine sans un geste explicite. Activez la pseudonymisation dans les paramètres de l'étude."
+          ? t("sidebar.n_noms_remplaces_avant_tout", { n: data.n_list_entries })
+          : t("sidebar.les_noms_partent_tels_quels")
       }
     >
       <ShieldIcon size={14} />
-      {data.enabled ? "Pseudonymisation active" : "Pseudonymisation inactive"}
+      {data.enabled ? t("common.pseudonymisation_active") : t("common.pseudonymisation_inactive")}
     </a>
   )
 }
@@ -103,18 +104,18 @@ export function Sidebar({
   const current = route.page === "interview" ? route.id : null
 
   return (
-    <nav className="sb flex h-full w-[232px] shrink-0 flex-col gap-px px-2.5 pt-3 pb-2.5" aria-label="Barre latérale">
+    <nav className="sb flex h-full w-[232px] shrink-0 flex-col gap-px px-2.5 pt-3 pb-2.5" aria-label={t("sidebar.barre_laterale")}>
       <div className="sb-top flex items-center justify-end px-1.5" data-tauri-drag-region>
-        <button type="button" className="sb-toggle" onClick={onToggle} aria-label="Masquer la barre latérale" title="Masquer la barre latérale">
+        <button type="button" className="sb-toggle" onClick={onToggle} aria-label={t("sidebar.masquer_la_barre_laterale")} title={t("sidebar.masquer_la_barre_laterale")}>
           <SidebarIcon />
         </button>
       </div>
 
       <div className="sb-h" style={{ paddingTop: 2 }}>
-        Corpus
+        {t("sidebar.corpus")}
       </div>
       <NavItem href="#/interviews" on={active === "library" && current === null} icon={<LibraryIcon />} count={interviews.data ? interviews.data.length : undefined}>
-        Bibliothèque
+        {t("common.bibliotheque")}
       </NavItem>
       {openIds.map((id) => (
         <div key={id} className="group/open relative">
@@ -136,37 +137,37 @@ export function Sidebar({
         </div>
       ))}
 
-      <div className="sb-h">Analyse</div>
+      <div className="sb-h">{t("sidebar.analyse")}</div>
       <NavItem href="#/codebook" on={active === "codebook"} icon={<CodebookIcon />} count={state.data && state.data.codebook_size > 0 ? state.data.codebook_size : undefined}>
-        Codebook
+        {t("common.codebook")}
       </NavItem>
       <NavItem href="#/lexique" on={active === "lexique"} icon={<Search className="size-4" aria-hidden />}>
-        Lexique
+        {t("common.lexique")}
       </NavItem>
       <NavItem href="#/recherche" on={active === "search"} icon={<TextSearch className="size-4" aria-hidden />}>
-        Recherche
+        {t("common.recherche")}
       </NavItem>
       <NavItem href="#/analyser" on={active === "analyser"} icon={<AnalyserIcon />}>
-        Analyser
+        {t("common.analyser")}
       </NavItem>
       <NavItem href="#/rediger" on={active === "rediger"} icon={<RedigerIcon />}>
-        Rédiger
+        {t("common.rediger")}
       </NavItem>
 
-      <div className="sb-h">Étude</div>
+      <div className="sb-h">{t("common.etude")}</div>
       <NavItem href="#/settings" on={active === "settings"} icon={<StudyIcon />}>
-        Paramètres de l'étude
+        {t("common.parametres_de_l_etude")}
       </NavItem>
       <NavItem href="#/guide" on={active === "guide"} icon={<GuideIcon />}>
-        Guide
+        {t("common.guide")}
       </NavItem>
 
       <div className="mt-auto flex flex-col gap-px pt-2">
         <PseudoNote />
         <ChainNote />
-        <button type="button" className="it" onClick={onOpenSettings} aria-label="Réglages">
+        <button type="button" className="it" onClick={onOpenSettings} aria-label={t("sidebar.reglages")}>
           <GearIcon />
-          Réglages
+          {t("sidebar.reglages")}
           <span className="n" aria-hidden>
             {isMac() ? "⌘," : "Ctrl+,"}
           </span>

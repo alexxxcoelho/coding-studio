@@ -14,6 +14,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
+import { t } from "@/i18n"
 import { api } from "@/lib/api"
 import { roleLabel } from "@/lib/format"
 import {
@@ -72,10 +73,10 @@ function ChoiceSelect({
       <span className="text-muted-foreground">{label}</span>
       <Select value={value ?? NONE} onValueChange={(v) => onChange(v === NONE ? null : v)} disabled={disabled}>
         <SelectTrigger size="sm" className="w-full">
-          <SelectValue placeholder="Non renseigné" />
+          <SelectValue placeholder={t("common.non_renseigne")} />
         </SelectTrigger>
         <SelectContent>
-          {allowNone && <SelectItem value={NONE}>Non renseigné</SelectItem>}
+          {allowNone && <SelectItem value={NONE}>{t("common.non_renseigne")}</SelectItem>}
           {options.map((o) => (
             <SelectItem key={o} value={o}>
               {labelOf(o)}
@@ -129,10 +130,10 @@ function ClaimForm({
   const takeSelection = () => {
     const sel = window.getSelection()
     const el = textRef.current
-    if (!sel || sel.isCollapsed || !el) return toast.message("Sélectionnez d'abord des mots dans le texte de l'unité")
-    if (!el.contains(sel.anchorNode) || !el.contains(sel.focusNode)) return toast.message("Sélectionnez d'abord des mots dans le texte de l'unité")
+    if (!sel || sel.isCollapsed || !el) return toast.message(t("interview.qualifications.selectionnez_d_abord_des_mots"))
+    if (!el.contains(sel.anchorNode) || !el.contains(sel.focusNode)) return toast.message(t("interview.qualifications.selectionnez_d_abord_des_mots"))
     const text = sel.toString().trim()
-    if (!isSubstring(text, unitText)) return toast.error("La sélection ne se retrouve pas mot pour mot dans l'unité")
+    if (!isSubstring(text, unitText)) return toast.error(t("interview.qualifications.la_selection_ne_se_retrouve"))
     set("excerpt", text)
   }
 
@@ -146,9 +147,9 @@ function ClaimForm({
     >
       <div className="flex flex-col gap-1 text-xs">
         <div className="flex items-center justify-between gap-2">
-          <span className="text-muted-foreground">Extrait, mot pour mot de l'unité</span>
+          <span className="text-muted-foreground">{t("interview.qualifications.extrait_mot_pour_mot_de")}</span>
           <Button type="button" size="xs" variant="outline" onMouseDown={(e) => e.preventDefault()} onClick={takeSelection}>
-            Utiliser le texte sélectionné
+            {t("interview.qualifications.utiliser_le_texte_selectionne")}
           </Button>
         </div>
         <Input
@@ -156,7 +157,7 @@ function ClaimForm({
           value={d.excerpt}
           onChange={(e) => set("excerpt", e.target.value)}
           aria-invalid={issues.length > 0}
-          placeholder="Sélectionnez du texte ci-dessus, ou saisissez-le"
+          placeholder={t("interview.qualifications.selectionnez_du_texte_ci_dessus")}
         />
         {issues.map((m) => (
           <span key={m} className="text-destructive">
@@ -166,9 +167,9 @@ function ClaimForm({
       </div>
 
       <div className="flex flex-col gap-1 text-xs">
-        <span className="text-muted-foreground">Codes de cette affirmation, parmi ceux de l'unité</span>
+        <span className="text-muted-foreground">{t("interview.qualifications.codes_de_cette_affirmation_parmi")}</span>
         {unitCodes.length === 0 ? (
-          <span className="text-muted-foreground">L'unité n'a pas encore de code enregistré. Enregistrez ses codes pour les rattacher.</span>
+          <span className="text-muted-foreground">{t("interview.qualifications.l_unite_n_a_pas")}</span>
         ) : (
           <div className="flex flex-wrap gap-1.5">
             {unitCodes.map((c) => {
@@ -190,22 +191,22 @@ function ClaimForm({
       </div>
 
       <div className="grid grid-cols-2 gap-2.5">
-        <ChoiceSelect label="Niveau de preuve" value={d.ev_level} options={CLAIM_CHOICES.ev} onChange={(v) => set("ev_level", v)} />
-        <ChoiceSelect label="Origine" value={d.provenance} options={CLAIM_CHOICES.provenance} onChange={(v) => set("provenance", v)} />
+        <ChoiceSelect label={t("interview.qualifications.niveau_de_preuve")} value={d.ev_level} options={CLAIM_CHOICES.ev} onChange={(v) => set("ev_level", v)} />
+        <ChoiceSelect label={t("common.origine")} value={d.provenance} options={CLAIM_CHOICES.provenance} onChange={(v) => set("provenance", v)} />
         <div className="col-span-2">
-          <ChoiceSelect label="Rôle de l'énoncé" value={d.role} options={CLAIM_ROLES} onChange={(v) => set("role", v)} />
+          <ChoiceSelect label={t("interview.qualifications.role_de_l_enonce")} value={d.role} options={CLAIM_ROLES} onChange={(v) => set("role", v)} />
         </div>
       </div>
       <label className="flex flex-col gap-1 text-xs">
-        <span className="text-muted-foreground">Mémo sur l'affirmation</span>
+        <span className="text-muted-foreground">{t("interview.qualifications.memo_sur_l_affirmation")}</span>
         <Textarea rows={2} value={d.memo} onChange={(e) => set("memo", e.target.value)} />
       </label>
       <div className="flex justify-end gap-2">
         <Button type="button" size="sm" variant="ghost" onClick={onCancel}>
-          Annuler
+          {t("common.annuler")}
         </Button>
         <Button type="submit" size="sm" disabled={!ready || saving}>
-          {saving ? "Enregistrement…" : "Enregistrer l'affirmation"}
+          {saving ? "Enregistrement…" : t("interview.qualifications.enregistrer_l_affirmation")}
         </Button>
       </div>
     </form>
@@ -233,19 +234,19 @@ function ClaimsSection({
     mutationFn: (args: { claimId: number | null; input: ClaimInput }) =>
       args.claimId === null ? api.addClaim(interviewId, args.input) : api.editClaim(args.claimId, args.input),
     onSuccess: () => {
-      toast.success("Affirmation enregistrée")
+      toast.success(t("interview.qualifications.affirmation_enregistree"))
       setEditing(null)
       invalidateInterview(qc, interviewId)
     },
-    onError: (e) => reportError(e, "Affirmation non enregistrée"),
+    onError: (e) => reportError(e, t("interview.qualifications.affirmation_non_enregistree")),
   })
   const remove = useMutation({
     mutationFn: (claimId: number) => api.deleteClaim(claimId),
     onSuccess: () => {
-      toast.success("Affirmation supprimée ; le journal d'audit la conserve")
+      toast.success(t("interview.qualifications.affirmation_supprimee_le_journal_d"))
       invalidateInterview(qc, interviewId)
     },
-    onError: (e) => reportError(e, "Affirmation non supprimée"),
+    onError: (e) => reportError(e, t("interview.qualifications.affirmation_non_supprimee")),
   })
 
   const formFor = (claim: Claim | null) => (
@@ -263,10 +264,10 @@ function ClaimsSection({
   )
 
   return (
-    <Block title="Affirmations" aside={`${claims.length} sur cette unité`}>
+    <Block title={t("interview.qualifications.affirmations")} aside={t("interview.qualifications.length_sur_cette_unite", { length: claims.length })}>
       {claims.length === 0 && editing === null && (
         <p className="text-muted-foreground text-xs">
-          Une affirmation qualifie un énoncé de l'unité : son niveau de preuve, son origine et son rôle dans le récit.
+          {t("interview.qualifications.une_affirmation_qualifie_un_enonce")}
         </p>
       )}
       <ul className="flex flex-col gap-2">
@@ -277,22 +278,22 @@ function ClaimsSection({
             <li key={c.claim_id} className="rounded-md border p-2.5 text-xs">
               <blockquote className="verbatim border-primary/40 border-l-2 pl-2 text-sm">{c.excerpt}</blockquote>
               <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                {c.codes.length ? c.codes.map((code) => <CodeChip key={code} code={code} />) : <span className="text-muted-foreground">aucun code</span>}
+                {c.codes.length ? c.codes.map((code) => <CodeChip key={code} code={code} />) : <span className="text-muted-foreground">{t("common.aucun_code")}</span>}
                 {c.ev_level && <Badge variant="outline">{c.ev_level}</Badge>}
                 {c.provenance && <Badge variant="outline">{c.provenance}</Badge>}
                 {c.role && <Badge variant="outline">{c.role}</Badge>}
                 <span className="ml-auto flex gap-1">
                   <Button size="xs" variant="ghost" onClick={() => setEditing(c.claim_id)}>
-                    Modifier
+                    {t("common.modifier")}
                   </Button>
                   <Button size="xs" variant="ghost" onClick={() => remove.mutate(c.claim_id)} disabled={remove.isPending}>
-                    Supprimer
+                    {t("common.supprimer")}
                   </Button>
                 </span>
               </div>
               {c.memo && <p className="text-muted-foreground mt-1.5">{c.memo}</p>}
               {issues.length > 0 && (
-                <p className="text-warn mt-1.5">À revoir : {issues.join(" ")}</p>
+                <p className="text-warn mt-1.5">{t("interview.qualifications.a_revoir_join", { join: issues.join(" ") })}</p>
               )}
             </li>
           )
@@ -302,7 +303,7 @@ function ClaimsSection({
         formFor(null)
       ) : (
         <Button size="xs" variant="outline" className="self-start" onClick={() => setEditing("new")} disabled={editing !== null}>
-          Ajouter une affirmation
+          {t("interview.qualifications.ajouter_une_affirmation")}
         </Button>
       )}
     </Block>
@@ -338,10 +339,10 @@ function FlagsForm({
   const save = useMutation({
     mutationFn: () => api.setFlags(interviewId, unitId, normalized.flags, normalized.co_constructed_kind),
     onSuccess: () => {
-      toast.success("Drapeaux enregistrés")
+      toast.success(t("interview.qualifications.drapeaux_enregistres"))
       invalidateInterview(qc, interviewId)
     },
-    onError: (e) => reportError(e, "Drapeaux non enregistrés"),
+    onError: (e) => reportError(e, t("interview.qualifications.drapeaux_non_enregistres")),
   })
 
   return (
@@ -358,7 +359,7 @@ function FlagsForm({
       {flags.includes("CO-CONSTRUCTED") && (
         <div className="flex flex-col gap-1">
           <ChoiceSelect
-            label="Type de co-construction, obligatoire"
+            label={t("interview.qualifications.type_de_co_construction_obligatoire")}
             value={kind}
             options={CO_CONSTRUCTED_KINDS}
             onChange={(v) => setKind(v as CoConstructedKind | null)}
@@ -370,7 +371,7 @@ function FlagsForm({
       {problem && dirty && <span className="text-warn text-xs">{problem}</span>}
       <div className="flex justify-end">
         <Button size="xs" onClick={() => save.mutate()} disabled={!dirty || !!problem || save.isPending}>
-          {save.isPending ? "Enregistrement…" : "Enregistrer les drapeaux"}
+          {save.isPending ? "Enregistrement…" : t("interview.qualifications.enregistrer_les_drapeaux")}
         </Button>
       </div>
     </div>
@@ -392,19 +393,19 @@ function CorrectionForm({ interviewId, row, onDone }: { interviewId: string; row
   const correct = useMutation({
     mutationFn: () => api.correctUnit(interviewId, unitId, { text: text.trim(), role, reason: reason.trim() }),
     onSuccess: () => {
-      toast.success("Correction enregistrée ; la segmentation reste inchangée")
+      toast.success(t("interview.qualifications.correction_enregistree_la_segmentati"))
       onDone()
       invalidateInterview(qc, interviewId)
     },
-    onError: (e) => reportError(e, "Correction refusée"),
+    onError: (e) => reportError(e, t("interview.qualifications.correction_refusee")),
   })
   const ready = !!text.trim() && !!reason.trim()
   return (
     <>
       <DialogHeader>
-        <DialogTitle>Corriger {unitId}</DialogTitle>
+        <DialogTitle>{t("interview.qualifications.corriger_unitid", { unitId })}</DialogTitle>
         <DialogDescription>
-          Le texte ou le locuteur tel qu'il doit se lire. Le texte segmenté reste dans le journal d'audit ; cette correction s'ajoute, et l'unité apparaît comme corrigée.
+          {t("interview.qualifications.le_texte_ou_le_locuteur")}
         </DialogDescription>
       </DialogHeader>
       <form
@@ -415,11 +416,11 @@ function CorrectionForm({ interviewId, row, onDone }: { interviewId: string; row
         }}
       >
         <label className="flex flex-col gap-1 text-xs">
-          <span className="text-muted-foreground">Texte</span>
+          <span className="text-muted-foreground">{t("interview.qualifications.texte")}</span>
           <Textarea rows={6} className="verbatim text-sm" value={text} onChange={(e) => setText(e.target.value)} />
         </label>
         <ChoiceSelect
-          label="Locuteur"
+          label={t("interview.qualifications.locuteur")}
           value={role}
           options={SPEAKER_ROLES}
           onChange={(v) => {
@@ -429,22 +430,22 @@ function CorrectionForm({ interviewId, row, onDone }: { interviewId: string; row
           allowNone={false}
         />
         <label className="flex flex-col gap-1 text-xs">
-          <span className="text-muted-foreground">Motif, obligatoire</span>
-          <Textarea rows={2} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Ce que dit l'audio, et à quel moment" />
+          <span className="text-muted-foreground">{t("common.motif_obligatoire")}</span>
+          <Textarea rows={2} value={reason} onChange={(e) => setReason(e.target.value)} placeholder={t("interview.qualifications.ce_que_dit_l_audio")} />
         </label>
         {(history.data?.length ?? 0) > 0 && (
           <div className="text-muted-foreground flex flex-col gap-1 text-xs">
-            <span>Corrections antérieures, la plus ancienne d'abord</span>
+            <span>{t("interview.qualifications.corrections_anterieures_la_plus_anci")}</span>
             {history.data!.map((c) => (
               <span key={c.correction_id}>
-                {c.created_at} by {c.created_by}: {c.reason}
+                {t("interview.qualifications.created_at_by_created_by", { created_at: c.created_at, created_by: c.created_by, reason: c.reason })}
               </span>
             ))}
           </div>
         )}
         <DialogFooter>
           <Button type="submit" disabled={!ready || correct.isPending}>
-            {correct.isPending ? "Enregistrement…" : "Enregistrer la correction"}
+            {correct.isPending ? "Enregistrement…" : t("interview.qualifications.enregistrer_la_correction")}
           </Button>
         </DialogFooter>
       </form>
@@ -455,10 +456,10 @@ function CorrectionForm({ interviewId, row, onDone }: { interviewId: string; row
 function CorrectionSection({ interviewId, row }: { interviewId: string; row: UnitRow }) {
   const [open, setOpen] = useState(false)
   return (
-    <Block title="Correction" aside={row.unit.corrected ? <Badge variant="outline" className="text-warn">corrigée</Badge> : "texte et locuteur tels que segmentés"}>
+    <Block title={t("interview.qualifications.correction")} aside={row.unit.corrected ? <Badge variant="outline" className="text-warn">{t("interview.qualifications.corrigee")}</Badge> : t("interview.qualifications.texte_et_locuteur_tels_que")}>
       <div className="flex justify-end">
         <Button size="xs" variant="outline" onClick={() => setOpen(true)}>
-          Corriger l'unité
+          {t("interview.qualifications.corriger_l_unite")}
         </Button>
       </div>
       <Dialog open={open} onOpenChange={setOpen}>
@@ -480,24 +481,24 @@ function VerificationSection({ interviewId, row }: { interviewId: string; row: U
   const mark = useMutation({
     mutationFn: (state: VerificationState) => api.verifyUnit(interviewId, unitId, state, note.trim() || null),
     onSuccess: (_, state) => {
-      toast.success(state === "verified" ? `${unitId} marquée vérifiée` : `${unitId} marquée inutilisable`)
+      toast.success(state === "verified" ? t("interview.qualifications.unitid_marquee_verifiee", { unitId }) : t("interview.qualifications.unitid_marquee_inutilisable", { unitId }))
       setNote("")
       invalidateInterview(qc, interviewId)
     },
-    onError: (e) => reportError(e, "Vérification non enregistrée"),
+    onError: (e) => reportError(e, t("interview.qualifications.verification_non_enregistree")),
   })
   return (
-    <Block title="Vérification à l'audio" aside={<VerificationBadge v={v} />}>
+    <Block title={t("interview.qualifications.verification_a_l_audio")} aside={<VerificationBadge v={v} />}>
       {v.stale && (
-        <p className="text-warn text-xs">Le texte ou le locuteur a changé après le dernier contrôle : contrôlez de nouveau l'unité.</p>
+        <p className="text-warn text-xs">{t("interview.qualifications.le_texte_ou_le_locuteur_2")}</p>
       )}
-      <Input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Note : ce que vous avez entendu, et quand (facultatif)" className="text-sm" />
+      <Input value={note} onChange={(e) => setNote(e.target.value)} placeholder={t("interview.qualifications.note_ce_que_vous_avez")} className="text-sm" />
       <div className="flex gap-2">
         <Button size="xs" onClick={() => mark.mutate("verified")} disabled={mark.isPending}>
-          Marquer comme vérifiée
+          {t("interview.qualifications.marquer_comme_verifiee")}
         </Button>
         <Button size="xs" variant="outline" onClick={() => mark.mutate("unusable")} disabled={mark.isPending}>
-          Marquer comme inutilisable
+          {t("interview.qualifications.marquer_comme_inutilisable")}
         </Button>
       </div>
     </Block>
@@ -530,11 +531,11 @@ export function QualificationPanel({ interviewId, row, textRef }: { interviewId:
   const savedKind = saved?.co_constructed_kind ?? null
 
   return (
-    <section aria-label="Qualifications de l'unité" className="flex flex-col gap-3">
+    <section aria-label={t("interview.qualifications.qualifications_de_l_unite")} className="flex flex-col gap-3">
       <ClaimsSection interviewId={interviewId} row={row} textRef={textRef} />
-      <Block title="Drapeaux" aside={savedFlags.length ? savedFlags.join(", ") : "aucun"}>
+      <Block title={t("interview.qualifications.drapeaux")} aside={savedFlags.length ? savedFlags.join(", ") : "aucun"}>
         {flagsQ.isLoading ? (
-          <span className="text-muted-foreground text-xs">Chargement des drapeaux…</span>
+          <span className="text-muted-foreground text-xs">{t("interview.qualifications.chargement_des_drapeaux")}</span>
         ) : (
           <FlagsForm
             key={`${savedFlags.join()}|${savedKind ?? ""}`}

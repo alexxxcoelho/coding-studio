@@ -5,6 +5,7 @@
 import { useRef, useState, type CSSProperties } from "react"
 
 import { Input } from "@/components/ui/input"
+import { t } from "@/i18n"
 import { useCodeSearchRows } from "@/lib/code-search"
 import { codeColor, codeName, isApplicable } from "@/lib/code-tree"
 import type { CodeNode } from "@/lib/types"
@@ -14,8 +15,8 @@ export function CodeFinder({
   codes,
   onPick,
   applicableOnly = false,
-  placeholder = "Chercher un code",
-  label = "Chercher un code",
+  placeholder = t("common.chercher_un_code"),
+  label = t("common.chercher_un_code"),
   autoFocus,
   max = 8,
 }: {
@@ -51,8 +52,8 @@ export function CodeFinder({
           }
         }}
       />
-      <ul className="cl" aria-label="Codes trouvés" style={{ padding: 0 }}>
-        {list.length === 0 && <li className="l2" style={{ display: "block", cursor: "default" }}>Aucun code ne correspond.</li>}
+      <ul className="cl" aria-label={t("code_finder.codes_trouves")} style={{ padding: 0 }}>
+        {list.length === 0 && <li className="l2" style={{ display: "block", cursor: "default" }}>{t("common.aucun_code_ne_correspond")}</li>}
         {list.map((c) => {
           const why = matchedLine(found.matched.get(c.code_id), 60)
           const path = found.paths.get(c.code_id) ?? []
@@ -75,7 +76,7 @@ export function CodeFinder({
               <div>
                 <div className="nm">
                   {codeName(c)}
-                  {path.length > 0 && <span className="l3 small" style={{ fontWeight: 400 }}> dans {path.join(" › ")}</span>}
+                  {path.length > 0 && <span className="l3 small" style={{ fontWeight: 400 }}> {t("common.dans_join", { join: path.join(" › ") })}</span>}
                 </div>
                 {why && <div className="df">{why}</div>}
               </div>

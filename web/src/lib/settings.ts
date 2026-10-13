@@ -14,6 +14,7 @@ import type {
   ProvidersConfig,
   StudyConfig,
 } from "./types"
+import { t } from "@/i18n"
 
 /** Smallest accepted `max_words` (cs-model MIN_MAX_WORDS). */
 export const MIN_MAX_WORDS = 20
@@ -123,46 +124,46 @@ export function validateForm(form: StudyForm): FormErrors {
   const words = form.max_words.trim()
   const n = Number(words)
   if (words === "" || !Number.isInteger(n)) {
-    errors.max_words = "le nombre maximal de mots doit être un entier"
+    errors.max_words = t("settings.le_nombre_maximal_de_mots")
   } else if (n < MIN_MAX_WORDS) {
-    errors.max_words = `le nombre maximal de mots doit valoir au moins ${MIN_MAX_WORDS}, pas ${n}`
+    errors.max_words = t("settings.le_nombre_maximal_de_mots_2", { MIN_MAX_WORDS, n })
   }
   if (form.framework === "custom") {
     const problem = categoryProblem(form.categories)
     if (problem) errors.categories = problem
   }
   if (form.id_prefixes.length === 0) {
-    errors.id_prefixes = "indiquez au moins un préfixe d'identifiant"
+    errors.id_prefixes = t("settings.indiquez_au_moins_un_prefixe")
   } else {
     const seen = new Set<string>()
     for (const raw of form.id_prefixes) {
       const p = raw.trim()
       if (!isPrefix(p)) {
-        errors.id_prefixes = `préfixes d'identifiant : « ${p} » ne doit contenir que des lettres et des chiffres`
+        errors.id_prefixes = t("settings.prefixes_d_identifiant_p_ne", { p })
         break
       }
       if (seen.has(p)) {
-        errors.id_prefixes = `préfixes d'identifiant : ${p} en double`
+        errors.id_prefixes = t("settings.prefixes_d_identifiant_p_en", { p })
         break
       }
       seen.add(p)
     }
   }
   for (const [key, text] of [["description", form.description], ["coding_rules", form.coding_rules]] as const) {
-    if ([...text].length > MAX_TEXT) errors[key] = `le texte dépasse ${MAX_TEXT} caractères`
+    if ([...text].length > MAX_TEXT) errors[key] = t("settings.le_texte_depasse_max_text", { MAX_TEXT })
   }
-  if (form.template.version.trim() === "") errors.prompt_version = "la version du modèle de prompt est vide"
+  if (form.template.version.trim() === "") errors.prompt_version = t("settings.la_version_du_modele_de")
   return errors
 }
 
 function categoryProblem(rows: CategoryRow[]): string | undefined {
-  if (rows.length === 0) return "la liste des catégories de phase 1 est vide"
+  if (rows.length === 0) return t("settings.la_liste_des_categories_de")
   const seen = new Set<string>()
   for (const row of rows) {
     const code = row.code.trim()
-    if (code === "") return "le nom d'une catégorie de phase 1 est vide"
-    if (code === "NA") return "NA est réservé et ne peut pas être une catégorie de phase 1"
-    if (seen.has(code)) return `catégorie de phase 1 en double : ${code}`
+    if (code === "") return t("settings.le_nom_d_une_categorie")
+    if (code === "NA") return t("settings.na_est_reserve_et_ne")
+    if (seen.has(code)) return t("settings.categorie_de_phase_1_en", { code })
     seen.add(code)
   }
   return undefined
@@ -312,22 +313,22 @@ const ENV_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/
 export function validateProviderForm(f: ProviderForm, otherIds: string[]): FormErrors {
   const errors: FormErrors = {}
   const id = f.id.trim()
-  if (id === "") errors.id = "l'identifiant du fournisseur est vide"
-  else if (id === COPY_PASTE_ID) errors.id = `${COPY_PASTE_ID} est réservé au parcours manuel`
-  else if (otherIds.includes(id)) errors.id = `identifiant de fournisseur en double : ${id}`
+  if (id === "") errors.id = t("settings.l_identifiant_du_fournisseur_est")
+  else if (id === COPY_PASTE_ID) errors.id = t("settings.copy_paste_id_est_reserve", { COPY_PASTE_ID })
+  else if (otherIds.includes(id)) errors.id = t("settings.identifiant_de_fournisseur_en_double", { id })
   if (f.type === "cli") {
-    if (f.command.trim() === "") errors.command = "la commande est vide"
+    if (f.command.trim() === "") errors.command = t("settings.la_commande_est_vide")
     if (f.execution === "hosted") {
-      if (f.vendor.trim() === "") errors.vendor = "l'éditeur d'un modèle hébergé est obligatoire"
-      if (f.endpoint.trim() === "") errors.endpoint = "le point d'accès d'un modèle hébergé est obligatoire"
+      if (f.vendor.trim() === "") errors.vendor = t("settings.l_editeur_d_un_modele")
+      if (f.endpoint.trim() === "") errors.endpoint = t("settings.le_point_d_acces_d")
     }
   }
   if (f.type === "open_ai_compatible") {
-    if (f.preset === "custom" && f.base_url.trim() === "") errors.base_url = "un préréglage personnalisé demande une URL de base"
+    if (f.preset === "custom" && f.base_url.trim() === "") errors.base_url = t("settings.un_prereglage_personnalise_demande_u")
     const key = f.api_key_env.trim()
-    if (key === "") errors.api_key_env = "le nom de la variable d'environnement qui contient la clé est obligatoire"
-    else if (!ENV_NAME.test(key)) errors.api_key_env = "api_key_env est le nom d'une variable d'environnement, pas la clé elle-même"
-    if (f.model.trim() === "") errors.model = "le modèle est obligatoire"
+    if (key === "") errors.api_key_env = t("settings.le_nom_de_la_variable")
+    else if (!ENV_NAME.test(key)) errors.api_key_env = t("settings.api_key_env_est_le")
+    if (f.model.trim() === "") errors.model = t("settings.le_modele_est_obligatoire")
   }
   return errors
 }

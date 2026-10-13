@@ -9,6 +9,7 @@ import { PartEditor } from "@/components/writing/part-editor"
 import { ThemeOrderList } from "@/components/writing/theme-order-list"
 import { EmptyState } from "@/components/bits"
 import { Skeleton } from "@/components/ui/skeleton"
+import { t } from "@/i18n"
 import { analysisApi, THEME_PARTS, type PartEdit, type ThemePartKey, type ThemeSummary, type ThemeWriting } from "@/lib/analysis-api"
 import { mergeRetainedOrder, planLink } from "@/lib/analysis-dnd"
 import { akeys, invalidateThemes, invalidateWriting, retainedThemes, useThemeWriting } from "@/lib/analysis-hooks"
@@ -31,15 +32,15 @@ export function ByThemeTab({ themes, project }: { themes: ThemeSummary[]; projec
       qc.setQueryData(akeys.themes, list)
       void invalidateThemes(qc)
     },
-    onError: (e) => reportError(e, "Ordre non enregistré"),
+    onError: (e) => reportError(e, t("writing.by_theme.ordre_non_enregistre")),
   })
 
   if (retained.length === 0) {
     return (
-      <EmptyState title="Aucun thème retenu pour l'instant">
-        Rédiger part des thèmes que vous avez construits et retenus dans Analyser : seuls les thèmes au statut « retenu » apparaissent ici.
+      <EmptyState title={t("writing.by_theme.aucun_theme_retenu_pour_l")}>
+        {t("writing.by_theme.rediger_part_des_themes_que")}
         <a href="#/analyser" className="text-accent-text ml-1 hover:underline">
-          Ouvrir Analyser
+          {t("writing.by_theme.ouvrir_analyser")}
         </a>
       </EmptyState>
     )
@@ -55,7 +56,7 @@ export function ByThemeTab({ themes, project }: { themes: ThemeSummary[]; projec
       qc.setQueryData<ThemeWriting>(akeys.writing(selectedId), (w) => (w ? { ...w, parts: { ...w.parts, [part]: { ...w.parts[part], text: saved.text, nature: saved.nature, updated_at: saved.updated_at } } } : w))
       void qc.invalidateQueries({ queryKey: ["synthesis"] })
     } catch (e) {
-      reportError(e, "Partie non enregistrée")
+      reportError(e, t("writing.by_theme.partie_non_enregistree"))
       throw e
     }
   }
@@ -66,7 +67,7 @@ export function ByThemeTab({ themes, project }: { themes: ThemeSummary[]; projec
       await analysisApi.createLink({ passage_id: passageId, target: { kind: "theme_part", theme_id: selectedId, part }, link_type: linkType, note })
       await invalidateWriting(qc, selectedId)
     } catch (e) {
-      reportError(e, "Lien non créé")
+      reportError(e, t("writing.by_theme.lien_non_cree"))
     }
   }
 
@@ -75,7 +76,7 @@ export function ByThemeTab({ themes, project }: { themes: ThemeSummary[]; projec
       await analysisApi.updateLink(linkId, edit)
       if (selectedId) await invalidateWriting(qc, selectedId)
     } catch (e) {
-      reportError(e, "Lien non modifié")
+      reportError(e, t("writing.by_theme.lien_non_modifie"))
       throw e
     }
   }
@@ -85,7 +86,7 @@ export function ByThemeTab({ themes, project }: { themes: ThemeSummary[]; projec
       await analysisApi.removeLink(linkId)
       if (selectedId) await invalidateWriting(qc, selectedId)
     } catch (e) {
-      reportError(e, "Lien non retiré")
+      reportError(e, t("writing.by_theme.lien_non_retire"))
     }
   }
 
@@ -93,7 +94,7 @@ export function ByThemeTab({ themes, project }: { themes: ThemeSummary[]; projec
     if (!selectedId) return
     const plan = planLink({ passageId, target: { kind: "theme_part", theme_id: selectedId, part }, links: allLinks, linkTypes: project.link_types })
     if (plan.action === "create") void createLink(part, plan.body.passage_id, plan.body.link_type, plan.body.note)
-    else reportError(new Error(plan.action === "duplicate" ? "Ce passage est déjà lié à cette partie." : plan.reason))
+    else reportError(new Error(plan.action === "duplicate" ? t("common.ce_passage_est_deja_lie") : plan.reason))
   }
 
   return (
@@ -101,8 +102,8 @@ export function ByThemeTab({ themes, project }: { themes: ThemeSummary[]; projec
       <div className="flex min-w-0 flex-col gap-4">
         <ThemeOrderList themes={retained} selectedId={selectedId} onSelect={setPickedId} onReorder={(ids) => reorder.mutate(ids)} />
         {selectedId && (
-          <section aria-label="Passages du thème" className="flex flex-col gap-2">
-            <h2 className="hs px-1.5">Passages du thème</h2>
+          <section aria-label={t("common.passages_du_theme")} className="flex flex-col gap-2">
+            <h2 className="hs px-1.5">{t("common.passages_du_theme")}</h2>
             <ThemePassageList themeId={selectedId} draggable links={allLinks} onLinkTo={(p, part) => keyboardLink(p.passage_id, part)} />
           </section>
         )}
@@ -119,7 +120,7 @@ export function ByThemeTab({ themes, project }: { themes: ThemeSummary[]; projec
             <header className="flex flex-col gap-1">
               <h1 className="m-0 font-serif text-[26px] leading-tight font-semibold">{writing.title}</h1>
               <p className="text-muted-foreground text-sm">
-                {writing.research_questions.length > 0 ? `Questions : ${writing.research_questions.join(", ")}` : "Aucune question de recherche rattachée à ce thème"}
+                {writing.research_questions.length > 0 ? `Questions : ${writing.research_questions.join(", ")}` : t("writing.by_theme.aucune_question_de_recherche_rattach")}
               </p>
             </header>
             {THEME_PARTS.map((p, i) => (
