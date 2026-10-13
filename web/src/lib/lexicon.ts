@@ -75,8 +75,16 @@ export function selectionSummary(rows: KeywordRow[], selected: ReadonlySet<strin
   const seenI = new Set<string>()
   for (const r of rows) {
     if (!selected.has(r.stem)) continue
-    for (const p of r.passage_ids) if (!seenP.has(p)) (seenP.add(p), passageIds.push(p))
-    for (const i of r.interviews) if (!seenI.has(i)) (seenI.add(i), interviews.push(i))
+    for (const p of r.passage_ids) {
+      if (seenP.has(p)) continue
+      seenP.add(p)
+      passageIds.push(p)
+    }
+    for (const i of r.interviews) {
+      if (seenI.has(i)) continue
+      seenI.add(i)
+      interviews.push(i)
+    }
   }
   return { passageIds, interviews: interviews.sort(collator.compare) }
 }
