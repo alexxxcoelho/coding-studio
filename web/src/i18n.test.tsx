@@ -58,6 +58,8 @@ const PROJECT = {
   theme_checks: [],
   evidence_natures: [],
   link_types: [],
+  passage_origins: [],
+  passage_roles: [],
   matrix_dimensions: [],
   interpretive_framework: null,
 }

@@ -1,0 +1,1272 @@
+== #/ ==
+[aria-label] Barre latérale
+[aria-label] Masquer la barre latérale
+[title] Masquer la barre latérale
+Corpus
+Bibliothèque
+0
+Analyse
+Codebook
+Lexique
+Recherche
+Analyser
+Rédiger
+Étude
+Paramètres de l'étude
+Guide
+[title] 1 nom remplacé avant tout envoi à un modèle. Le texte libre n'est pas couvert. Les textes ne quittent jamais la machine sans un geste explicite.
+Pseudonymisation active
+Serveur injoignable
+[aria-label] Réglages
+Réglages
+Ctrl+,
+Bibliothèque
+[title] 0 entretien · etude.db enregistré
+0 entretien · etude.db enregistré
+[aria-label] Filtrer les entretiens
+En cours
+0
+Prêts
+0
+Tous
+0
+[aria-label] Rescanner le dossier
+[title] Rescanner le dossier
+Importer des transcriptions…
+[aria-label] Rechercher
+[placeholder] Rechercher
+[aria-label] Aide pour cet écran
+[title] Aide pour cet écran
+?
+[aria-label] Entretiens
+Le codebook est vide
+Importez une palette de départ ou créez vos codes depuis les passages.
+Ouvrir le codebook
+Aucun entretien pour l'instant
+Choisissez le dossier qui contient un sous-dossier par entretien, nommé avec son identifiant, puis lancez le scan.
+Importer des transcriptions…
+Dossier
+non choisi
+
+== #/codebook ==
+[aria-label] Barre latérale
+[aria-label] Masquer la barre latérale
+[title] Masquer la barre latérale
+Corpus
+Bibliothèque
+0
+Analyse
+Codebook
+Lexique
+Recherche
+Analyser
+Rédiger
+Étude
+Paramètres de l'étude
+Guide
+[title] 1 nom remplacé avant tout envoi à un modèle. Le texte libre n'est pas couvert. Les textes ne quittent jamais la machine sans un geste explicite.
+Pseudonymisation active
+Serveur injoignable
+[aria-label] Réglages
+Réglages
+Ctrl+,
+Codebook
+[title] Version undefined · 0 codes actifs · 0 fusionné
+Version undefined · 0 codes actifs · 0 fusionné
+Historique
+Journal
+Importer CSV…
+[aria-label] Nouveau code
+[title] Nouveau code
++
+[aria-label] Filtrer les codes
+[placeholder] Filtrer les codes
+[aria-label] Aide pour cet écran
+[title] Aide pour cet écran
+?
+[aria-label] Arbre des codes
+Le codebook est vide
+Créez un premier code, importez un fichier CSV, ou créez vos codes depuis les passages en codant.
+Nouveau code
+
+== #/to-clarify ==
+[aria-label] Barre latérale
+[aria-label] Masquer la barre latérale
+[title] Masquer la barre latérale
+Corpus
+Bibliothèque
+0
+Analyse
+Codebook
+Lexique
+Recherche
+Analyser
+Rédiger
+Étude
+Paramètres de l'étude
+Guide
+[title] 1 nom remplacé avant tout envoi à un modèle. Le texte libre n'est pas couvert. Les textes ne quittent jamais la machine sans un geste explicite.
+Pseudonymisation active
+Serveur injoignable
+[aria-label] Réglages
+Réglages
+Ctrl+,
+À clarifier
+[title] Étiquettes provisoires posées sur des unités en phase 2. Chacune devient un code de terrain ou rejoint un code existant.
+Étiquettes provisoires posées sur des unités en phase 2. Chacune devient un code de terrain ou rejoint un code existant.
+[aria-label] Aide pour cet écran
+[title] Aide pour cet écran
+?
+Rien à clarifier
+En phase 2, utilisez ? sur une unité qu'aucun code ne couvre encore pour lui donner une étiquette provisoire et une courte note.
+
+== #/saturation ==
+[aria-label] Barre latérale
+[aria-label] Masquer la barre latérale
+[title] Masquer la barre latérale
+Corpus
+Bibliothèque
+0
+Analyse
+Codebook
+Lexique
+Recherche
+Analyser
+Rédiger
+Étude
+Paramètres de l'étude
+Guide
+[title] 1 nom remplacé avant tout envoi à un modèle. Le texte libre n'est pas couvert. Les textes ne quittent jamais la machine sans un geste explicite.
+Pseudonymisation active
+Serveur injoignable
+[aria-label] Réglages
+Réglages
+Ctrl+,
+Saturation
+[title] Lecture provisoire : première utilisation et création seulement. L'enrichissement du sens se documente dans les mémos, il n'est pas compté ici.
+Lecture provisoire : première utilisation et création seulement. L'enrichissement du sens se documente dans les mémos, il n'est pas compté ici.
+[aria-label] Aide pour cet écran
+[title] Aide pour cet écran
+?
+Lecture provisoire : première utilisation et création seulement
+Un code est compté dans le premier entretien, dans l'ordre du codage, dont le codage de phase 2 le porte. Un code de terrain est compté là où il a été créé. La colonne cumulée se lit comme une courbe : une fin plate signifie que les entretiens suivants n'ont ajouté aucun code. Le sens gagné par un code se trouve dans les mémos de la page Réponses.
+Aucun codage de phase 2 pour l'instant
+Le tableau se remplit à mesure que les entretiens sont codés en phase 2.
+
+== #/settings ==
+[aria-label] Barre latérale
+[aria-label] Masquer la barre latérale
+[title] Masquer la barre latérale
+Corpus
+Bibliothèque
+0
+Analyse
+Codebook
+Lexique
+Recherche
+Analyser
+Rédiger
+Étude
+Paramètres de l'étude
+Guide
+[title] 1 nom remplacé avant tout envoi à un modèle. Le texte libre n'est pas couvert. Les textes ne quittent jamais la machine sans un geste explicite.
+Pseudonymisation active
+Serveur injoignable
+[aria-label] Réglages
+Réglages
+Ctrl+,
+Paramètres de l'étude
+[title] Enregistrés dans coding.db, avec l'étude
+Enregistrés dans coding.db, avec l'étude
+[aria-label] Fichier de modèle de projet
+Importer un modèle de projet…
+Exporter…
+[aria-label] Aide pour cet écran
+[title] Aide pour cet écran
+?
+Étude
+Nom de l'étude
+Longueur maximale d'une unité, en mots
+Description de l'étude
+Règles de codage
+Préfixes d'identifiants des dossiers
+INT
+[aria-label] Retirer le préfixe INT
+×
+[aria-label] Nouveau préfixe
+Ajouter un préfixe
+Intervieweurs
+[aria-label] Nouvel intervieweur
+Ajouter un intervieweur
+Instructions envoyées au modèle
+Version des instructions
+Introduction du codebook
+Introduction des unités
+Enregistrer l'étude
+Questions de recherche
+Questions de recherche
+[aria-label] Nouvelle question de recherche
+[placeholder] Nouvelle question de recherche
+Ajouter une question
+Chaque question garde son identifiant ; les codes et la rédaction s'y rattachent.
+Modèles et listes de l'étude
+[aria-label] Modèles et listes de l'étude
+Modèles de mémo de familiarisation
+Aucun modèle
+0
+[aria-label] Modifier : Modèles de mémo de familiarisation
+Modifier…
+Attributs d'entretien
+Aucun attribut
+0
+[aria-label] Modifier : Attributs d'entretien
+Modifier…
+Cadre d'interprétation
+N'apparaît qu'aux étapes Analyser et Rédiger, jamais au codage
+[aria-label] Cadre d'interprétation
+Aucun
+TOE
+TAM/UTAUT
+Personnalisé
+Dimensions personnalisées de la matrice
+Par exemple : qui décide, qui paie, qui utilise
+aucune
+[aria-label] Modifier : Dimensions personnalisées de la matrice
+Modifier…
+Fin d'entretien
+Les points à vérifier avant de passer à la suite
+0
+[aria-label] Modifier : Fin d'entretien
+Modifier…
+Contrôles d'un thème
+Ce qu'on vérifie avant de garder un thème
+0
+[aria-label] Modifier : Contrôles d'un thème
+Modifier…
+Natures de preuve
+Comment un passage appuie une affirmation
+0
+[aria-label] Modifier : Natures de preuve
+Modifier…
+Types de liens
+Les relations qu'on peut poser entre deux thèmes
+0
+[aria-label] Modifier : Types de liens
+Modifier…
+Origines du propos
+D'où vient ce qui est dit : expérience vécue, opinion, document…
+0
+[aria-label] Modifier : Origines du propos
+Modifier…
+Rôles dans la décision
+Ce que le passage fait dans la décision : déclencheur, contrainte…
+0
+[aria-label] Modifier : Rôles dans la décision
+Modifier…
+Les valeurs de cellule de la matrice (présent, non évoqué, contredit, incertain) restent fixes : elles font partie de la méthode.
+Enregistrer les modèles et listes
+Pseudonymisation avant envoi
+ce qui part vers un modèle
+[aria-label] Remplacer les noms avant tout envoi à un modèle
+Pseudonymisation active
+: les noms de la liste sont remplacés dans chaque prompt et chaque envoi.
+[aria-label] Liste des noms
+Type
+Nom réel
+Pseudonyme
+Actions
+[aria-label] Type du nom 1
+Personne
+Organisation
+[aria-label] Nom réel 1
+[aria-label] Pseudonyme 1
+[aria-label] Retirer le nom 1
+Retirer
+Ajouter un nom
+Enregistrer la liste
+Liste de
+1
+nom
+(personnes)
+, empreinte SHA-256
+dddddddddddddddd
+, enregistrée avec chaque prompt. Le journal garde l'empreinte et les nombres, jamais les noms.
+Le texte libre n'est pas couvert.
+Le texte libre n'est pas couvert.
+Import du codebook
+les codes sont ajoutés ou mis à jour, jamais supprimés
+Type d'import
+CSV
+JSON
+coding.db de la thèse
+Chemin du fichier
+[placeholder] /chemin/vers/codebook.csv
+Importer le codebook
+Exports et vérification
+ces vues sont des sorties, pas des étapes
+Journal d'audit
+Chaque action, en ajout seul, avec la chaîne SHA-256.
+Table de saturation
+Premier usage et création des codes, entretien par entretien.
+Matrice transversale
+Les thèmes par entretien et par dimension.
+À clarifier
+Étiquettes provisoires posées en phase 2.
+
+== #/audit ==
+[aria-label] Barre latérale
+[aria-label] Masquer la barre latérale
+[title] Masquer la barre latérale
+Corpus
+Bibliothèque
+0
+Analyse
+Codebook
+Lexique
+Recherche
+Analyser
+Rédiger
+Étude
+Paramètres de l'étude
+Guide
+[title] 1 nom remplacé avant tout envoi à un modèle. Le texte libre n'est pas couvert. Les textes ne quittent jamais la machine sans un geste explicite.
+Pseudonymisation active
+Serveur injoignable
+[aria-label] Réglages
+Réglages
+Ctrl+,
+Journal d'audit
+[title] Chaque action est ajoutée, jamais modifiée. Chaque événement porte l'empreinte SHA-256 du précédent : toute modification ultérieure rompt la chaîne.
+Chaque action est ajoutée, jamais modifiée. Chaque événement porte l'empreinte SHA-256 du précédent : toute modification ultérieure rompt la chaîne.
+Vérifier la chaîne
+[aria-label] Aide pour cet écran
+[title] Aide pour cet écran
+?
+N°
+Date
+Auteur
+Action
+Entretien
+Cible
+Empreinte
+
+== #/analyser ==
+[aria-label] Barre latérale
+[aria-label] Masquer la barre latérale
+[title] Masquer la barre latérale
+Corpus
+Bibliothèque
+0
+Analyse
+Codebook
+Lexique
+Recherche
+Analyser
+Rédiger
+Étude
+Paramètres de l'étude
+Guide
+[title] 1 nom remplacé avant tout envoi à un modèle. Le texte libre n'est pas couvert. Les textes ne quittent jamais la machine sans un geste explicite.
+Pseudonymisation active
+Serveur injoignable
+[aria-label] Réglages
+Réglages
+Ctrl+,
+Analyser
+[title] Des codes aux thèmes, puis comparaison des entretiens
+Des codes aux thèmes, puis comparaison des entretiens
+[aria-label] Onglets d'Analyser
+Thèmes
+Matrice
+Explorer
+Co-occurrence
+Décisions documentées
+[aria-label] Aide pour cet écran
+[title] Aide pour cet écran
+?
+[aria-label] Thèmes
+[aria-label] Thèmes
+Thèmes
+Nouveau thème
+Aucun thème pour l'instant. Un thème regroupe des codes et porte une interprétation : il se construit après le codage.
+Aucun thème sélectionné
+Un thème regroupe des codes et porte une interprétation. Créez-en un avec « Nouveau thème », puis glissez-y des codes depuis l'arbre.
+[aria-label] Arbre des codes
+Codes
+[aria-label] Filtrer les codes
+[placeholder] Filtrer les codes
+Glissez un code dans la fiche du thème. Un code peut servir deux thèmes. Regroupez d'abord vos codes sous un code focalisé, dans le Codebook.
+Aucun code ne correspond.
+
+== #/lexique ==
+[aria-label] Barre latérale
+[aria-label] Masquer la barre latérale
+[title] Masquer la barre latérale
+Corpus
+Bibliothèque
+0
+Analyse
+Codebook
+Lexique
+Recherche
+Analyser
+Rédiger
+Étude
+Paramètres de l'étude
+Guide
+[title] 1 nom remplacé avant tout envoi à un modèle. Le texte libre n'est pas couvert. Les textes ne quittent jamais la machine sans un geste explicite.
+Pseudonymisation active
+Serveur injoignable
+[aria-label] Réglages
+Réglages
+Ctrl+,
+Lexique
+[title] Surlignages et lexique · statistique et déterministe, sans IA générative
+Surlignages et lexique · statistique et déterministe, sans IA générative
+[aria-label] Aide pour cet écran
+[title] Aide pour cet écran
+?
+[aria-label] Outils du lexique
+Mots-clés
+Passages proches
+Recherche en contexte
+Fréquences par attribut
+Comment lire ces tableaux
+[aria-label] Mots-clés des surlignages
+Les mots (regroupés par racine) qui reviennent le plus dans les surlignages sans code, comparés au reste du texte des enquêtés. Cochez des mots pour créer un code : les surlignages qui les contiennent y sont rattachés.
+[aria-label] Limiter à un entretien
+Tous les entretiens
+unmocked GET /api/lexicon/keywords
+
+== #/search ==
+[aria-label] Barre latérale
+[aria-label] Masquer la barre latérale
+[title] Masquer la barre latérale
+Corpus
+Bibliothèque
+0
+Analyse
+Codebook
+Lexique
+Recherche
+Analyser
+Rédiger
+Étude
+Paramètres de l'étude
+Guide
+[title] 1 nom remplacé avant tout envoi à un modèle. Le texte libre n'est pas couvert. Les textes ne quittent jamais la machine sans un geste explicite.
+Pseudonymisation active
+Serveur injoignable
+[aria-label] Réglages
+Réglages
+Ctrl+,
+Bibliothèque
+[title] 0 entretien · etude.db enregistré
+0 entretien · etude.db enregistré
+[aria-label] Filtrer les entretiens
+En cours
+0
+Prêts
+0
+Tous
+0
+[aria-label] Rescanner le dossier
+[title] Rescanner le dossier
+Importer des transcriptions…
+[aria-label] Rechercher
+[placeholder] Rechercher
+[aria-label] Aide pour cet écran
+[title] Aide pour cet écran
+?
+[aria-label] Entretiens
+Le codebook est vide
+Importez une palette de départ ou créez vos codes depuis les passages.
+Ouvrir le codebook
+Aucun entretien pour l'instant
+Choisissez le dossier qui contient un sous-dossier par entretien, nommé avec son identifiant, puis lancez le scan.
+Importer des transcriptions…
+Dossier
+non choisi
+
+== #/rediger ==
+[aria-label] Barre latérale
+[aria-label] Masquer la barre latérale
+[title] Masquer la barre latérale
+Corpus
+Bibliothèque
+0
+Analyse
+Codebook
+Lexique
+Recherche
+Analyser
+Rédiger
+Étude
+Paramètres de l'étude
+Guide
+[title] 1 nom remplacé avant tout envoi à un modèle. Le texte libre n'est pas couvert. Les textes ne quittent jamais la machine sans un geste explicite.
+Pseudonymisation active
+Serveur injoignable
+[aria-label] Réglages
+Réglages
+Ctrl+,
+Rédiger
+[title] Les résultats, thème par thème
+Les résultats, thème par thème
+[aria-label] Onglets de Rédiger
+Par thème
+Synthèse par question
+Audit final
+Décisions documentées
+[aria-label] Aide pour cet écran
+[title] Aide pour cet écran
+?
+Exporter en Markdown
+[aria-label] Par thème
+Aucun thème retenu pour l'instant
+Rédiger part des thèmes que vous avez construits et retenus dans Analyser : seuls les thèmes au statut « retenu » apparaissent ici.
+Ouvrir Analyser
+
+== #/guide ==
+[aria-label] Barre latérale
+[aria-label] Masquer la barre latérale
+[title] Masquer la barre latérale
+Corpus
+Bibliothèque
+0
+Analyse
+Codebook
+Lexique
+Recherche
+Analyser
+Rédiger
+Étude
+Paramètres de l'étude
+Guide
+[title] 1 nom remplacé avant tout envoi à un modèle. Le texte libre n'est pas couvert. Les textes ne quittent jamais la machine sans un geste explicite.
+Pseudonymisation active
+Serveur injoignable
+[aria-label] Réglages
+Réglages
+Ctrl+,
+Guide
+[title] Sommaire
+Sommaire
+[aria-label] Aide pour cet écran
+[title] Aide pour cet écran
+?
+[aria-label] Sommaire
+Sommaire
+Ce que couvre ce guide
+Le parcours en une liste
+Les écrans de l'application
+Comment lire ce guide
+Ce qui est personnalisable
+1
+Préparer l'étude
+2
+Coder un entretien
+3
+Revoir (facultatif)
+4
+Analyser : des codes aux thèmes
+5
+Rédiger les résultats
+6
+Exporter et auditer
+7
+Glossaire
+Guide de Coding Studio
+Ce que couvre ce guide
+Coding Studio est un outil local d'analyse qualitative d'entretiens semi-directifs. Il vous aide à passer de transcriptions à des résultats que vous pouvez défendre, chaque affirmation pouvant être suivie jusqu'aux passages exacts. Il reprend l'essentiel d'un logiciel comme NVivo (codage de passages, arbre de codes, mémos, matrices, exports) et ajoute deux options : un second codage par un modèle de langage, fait à l'aveugle, et un atelier lexical sans IA générative.
+Le guide décrit l'outil pour n'importe quelle étude. Questions, attributs, mémos et cadre d'interprétation se définissent dans les Réglages de votre projet. Les exemples portent sur une étude fictive : l'adoption d'un nouveau système de prêt par de petites bibliothèques (entretiens BIB-01, BIB-02, ...).
+Le parcours en une liste
+Le travail suit six temps. Le parcours n'est pas une cascade : revenir aux entretiens, rouvrir un code ou réécrire un thème est normal.
+Préparer (une fois par étude). Vous créez le projet, vous écrivez vos questions de recherche, vous définissez les attributs d'entretien, les modèles de mémo et les listes de contrôle, puis vous importez les transcriptions.
+Coder (entretien par entretien). Vous écrivez un mémo de familiarisation, puis vous lisez les tours du répondant et vous posez des codes sur des passages. Le codebook se construit en codant.
+Revoir (facultatif, entretien par entretien). Vous harmonisez le codebook après chaque changement important, et vous pouvez faire relire un entretien par un modèle de langage, à l'aveugle, pour confronter les deux lectures.
+Analyser (sur l'ensemble des entretiens). Vous regroupez les codes en thèmes, vous testez chaque thème, vous comparez les entretiens dans une matrice et vous explorez les mots et les passages proches.
+Rédiger (sur l'ensemble des entretiens). Vous écrivez le texte des résultats thème par thème, vous reliez chaque passage cité à la partie qu'il soutient, puis vous répondez à chaque question de recherche.
+Exporter et auditer. Vous produisez les paquets d'export, vous vérifiez le journal d'audit, vous contrôlez trois affirmations au hasard et vous constituez vos annexes.
+Dans l'application, les étapes 2 à 5 forment la barre numérotée de l'écran d'un entretien. Les étapes 1 et 6 se font depuis la Bibliothèque et les Réglages.
+Les écrans de l'application
+La navigation du haut offre la Bibliothèque, l'Analyser, Rédiger, le Codebook, les Réglages et le Guide, plus l'entretien ouvert. Chaque écran porte en haut à droite un bouton « ? » qui ouvre la section correspondante du guide dans un tiroir latéral, sans quitter l'écran.
+Bibliothèque : la liste des entretiens, l'import et la fiche. Voir
+Préparer
+.
+Coder : le texte d'un entretien, la liste des codes, le mémo. Voir
+Coder
+.
+Surlignages et lexique : le surlignage sans code et l'atelier de mots-clés. Voir
+Coder
+.
+Détail : le tiroir d'un passage que vous allez citer. Voir
+Coder
+.
+Revoir, volet IA : la préparation du prompt et l'import de la réponse. Voir
+Revoir
+.
+Revoir, volet décisions : les désaccords et les concepts proposés. Voir
+Revoir
+.
+Analyser : les thèmes, la matrice, l'exploration. Voir
+Analyser
+.
+Rédiger : cinq onglets (par thème, synthèse par question, lecture par le cadre, audit final, décisions documentées). Voir
+Rédiger
+.
+Codebook : l'arbre des codes. Voir
+Coder
+.
+Réglages : tout ce qui se définit une fois par étude. Voir
+Préparer
+.
+Guide : ce texte, avec son sommaire et le bouton « ? » de chaque écran. Voir
+Sommaire
+.
+Comment lire ce guide
+Chaque étape suit le même plan.
+Pourquoi cette étape : trois à six phrases sur la méthode.
+Ce que vous faites : des actions numérotées. Sous chacune, un bloc « Dans Coding Studio » dit où cliquer, ce qui s'affiche et ce qui est enregistré.
+Pièges fréquents : les erreurs courantes.
+Ce qui sort de cette étape : ce que vous avez en main à la fin.
+Trois principes traversent tout le guide.
+Un code décrit, un thème interprète. Les codes que vous posez en codant restent proches de ce que dit le répondant. Les thèmes, construits plus tard, sont des propositions que vous formulez et que vous défendez.
+Le cadre d'interprétation est facultatif et tardif. Si vous en choisissez un, il n'apparaît qu'aux étapes Analyser et Rédiger. Il n'apparaît jamais pendant le codage et n'est jamais un champ des codes.
+Vous restez l'auteur. L'outil enregistre, compare, compte et propose, mais ne décide jamais à votre place. Il refuse aussi de produire un chiffre que vous ne pourriez pas retrouver dans les données.
+Ce qui est personnalisable
+Ces éléments sont des listes modifiables, avec des valeurs par défaut : modèles de mémo, attributs d'entretien, liste de contrôle de fin d'entretien, cadre d'interprétation, contrôles de thème (sept par défaut), natures de preuve, types de lien et dimensions de matrice. Un modèle de projet JSON exporte ces choix pour une nouvelle étude (voir
+Préparer
+). Seules les valeurs de cellule de la matrice (présent, non évoqué, contredit, incertain) sont fixes.
+[aria-label] Sur cette page
+Sur cette page
+Ce que couvre ce guide
+Le parcours en une liste
+Les écrans de l'application
+Comment lire ce guide
+Ce qui est personnalisable
+
+== #/guide/preparer ==
+[aria-label] Barre latérale
+[aria-label] Masquer la barre latérale
+[title] Masquer la barre latérale
+Corpus
+Bibliothèque
+0
+Analyse
+Codebook
+Lexique
+Recherche
+Analyser
+Rédiger
+Étude
+Paramètres de l'étude
+Guide
+[title] 1 nom remplacé avant tout envoi à un modèle. Le texte libre n'est pas couvert. Les textes ne quittent jamais la machine sans un geste explicite.
+Pseudonymisation active
+Serveur injoignable
+[aria-label] Réglages
+Réglages
+Ctrl+,
+Guide
+[title] Préparer l'étude
+Préparer l'étude
+[aria-label] Aide pour cet écran
+[title] Aide pour cet écran
+?
+[aria-label] Sommaire
+Sommaire
+1
+Préparer l'étude
+Pourquoi cette étape
+Ce que vous faites
+Pièges fréquents
+Ce qui sort de cette étape
+2
+Coder un entretien
+3
+Revoir (facultatif)
+4
+Analyser : des codes aux thèmes
+5
+Rédiger les résultats
+6
+Exporter et auditer
+7
+Glossaire
+Préparer l'étude
+Pourquoi cette étape
+Une analyse qualitative se défend par sa traçabilité, et la traçabilité se décide avant le premier codage. Il s'agit de dire ce que vous cherchez (les questions de recherche), qui vous avez interrogé (les attributs d'entretien) et comment vous allez lire (les modèles de mémo, la liste de contrôle). Braun et Clarke (2006, 2021) rappellent que l'analyse thématique n'est pas une technique neutre : les choix du chercheur la façonnent, et ils doivent être explicites. Noter dès le départ le statut des propos (déploiement vécu, projet non réalisé, avis d'expert) évite de donner plus tard le même poids à des situations différentes. Cette étape se fait une fois par étude.
+Ce que vous faites
+1. Créer le projet
+Un projet correspond à une base de données et à un dossier de transcriptions. Tout ce que vous faites ensuite (codes, mémos, thèmes, journal) est écrit dans cette base.
+Dans Coding Studio.
+Au premier lancement de l'application de bureau, une fenêtre demande où garder la base : choisissez un dossier que vous sauvegardez. Depuis un terminal, vous désignez la base et le dossier des entretiens par les options de lancement. Pour changer d'étude, ouvrez ou créez une autre base depuis le menu Base de données. Rien ne quitte votre machine tant que vous ne configurez pas de fournisseur d'IA.
+2. Ouvrir les Réglages
+Les Réglages sont l'écran où se définit l'étude. On y vient au début, puis rarement.
+Dans Coding Studio.
+Cliquez sur Réglages dans la barre du haut. Le bloc Étude contient le nom de l'étude, une description d'un paragraphe (lue par le modèle si vous lancez une revue IA), les questions de recherche, les règles de codage, la longueur maximale d'une unité (150 mots par défaut), les noms des intervieweurs et les préfixes d'identifiants. Enregistrer valide le bloc, et chaque modification est datée dans le journal. Les autres blocs sont Fournisseurs IA (facultatif), Exports et vérification, et Modèles et listes de l'étude, où se trouvent les attributs, les modèles de mémo, le cadre d'interprétation, les dimensions personnalisées de la matrice et les listes éditables. Exemple de règle de codage : « Coder ce que le répondant affirme ; plusieurs codes possibles ; marquer non pertinent si rien d'utile. »
+3. Écrire les questions de recherche
+Vos questions orientent la lecture. Elles servent à relier les codes aux thèmes, puis les thèmes aux réponses finales.
+Dans Coding Studio.
+Dans Réglages, bloc Étude, champ Questions de recherche, saisissez une question par ligne, chacune avec un identifiant court (Q1, Q2, ...), repris dans la fiche de thème, dans Rédiger et dans les exports. Exemple fictif : Q1, pourquoi une petite bibliothèque change-t-elle de système de prêt ? Q2, qu'est-ce qui rend le changement difficile ? Q3, quel rôle joue le réseau de bibliothèques ? Un texte reformulé reste historisé dans le journal.
+4. Définir les attributs d'entretien
+Un attribut est une caractéristique de l'entretien que vous voudrez utiliser plus tard comme filtre ou comme ligne de matrice. Il se définit une fois pour le projet et se remplit pour chaque entretien.
+Dans Coding Studio.
+Dans Réglages, bloc Modèles et listes de l'étude, section Attributs d'entretien, cliquez sur + Attribut, donnez un nom et un type : texte, liste de valeurs, nombre ou date. Exemples : type de bibliothèque (liste : communale, scolaire, associative), rôle du répondant (texte), nombre de bénévoles (nombre), date de l'entretien (date), version du guide d'entretien (liste : A, B), statut des propos (liste : expérience vécue, projet, avis d'expert, observation indirecte). Les attributs deviennent des colonnes de la Bibliothèque, des filtres et des lignes ou colonnes de la matrice. Le statut des propos est fortement recommandé. Les valeurs se remplissent dans la fiche de chaque entretien (action 10). La même section propose des dimensions personnalisées de la matrice (+ Dimension), par exemple « qui décide, qui paie, qui utilise ».
+5. Préparer les modèles de mémo
+Le mémo de familiarisation se rédige après la lecture complète d'un entretien et avant tout codage. Ses questions dépendent de votre étude, donc elles se règlent dans un modèle.
+Dans Coding Studio.
+Dans Réglages, bloc Modèles et listes de l'étude, section Modèles de mémo de familiarisation, cliquez sur + Modèle, donnez-lui un nom, puis saisissez les questions. Vous pouvez avoir plusieurs modèles (par exemple « Par défaut », 4 questions, et « Entretien expert », 6 questions) et en marquer un par défaut. Dans la fiche d'un entretien, vous choisissez le modèle ; dans l'écran Coder, vous ajoutez, retirez ou reformulez une question pour cet entretien seul, sans toucher au modèle.
+Un modèle générique par défaut :
+Que raconte ce répondant, en quelques lignes ?
+Qu'est-ce qui m'a surpris ?
+Quelles contradictions ou particularités relève-t-on ?
+Que faudrait-il demander aux entretiens suivants ?
+Un second exemple, pour une étude d'un autre type (l'expérience de patients après une sortie d'hôpital) :
+Quel est le parcours décrit, du premier symptôme à aujourd'hui ?
+Qui a aidé, et qui a manqué ?
+Quels mots le répondant emploie-t-il pour parler de sa situation ?
+Quel point faut-il vérifier à l'oreille avant de le citer ?
+6. Régler la liste de contrôle de fin d'entretien
+La liste de contrôle est une série de cases à cocher que vous passez en revue à la fin du codage d'un entretien. Elle vous évite d'oublier un passage de vérification.
+Dans Coding Studio.
+Dans Réglages, bloc Modèles et listes de l'étude, section Listes éditables, la liste Fin d'entretien compte quatre points par défaut : tous les tours du répondant vus ; codes Plus tard traités ou assumés ; mémos des nouveaux codes écrits ; mémo de fin d'entretien rédigé (position du répondant, mécanisme central, exceptions, questions pour les suivants). Ajoutez, retirez ou reformulez. Elle s'affiche dans le panneau Fin d'entretien de l'écran Coder (voir
+Coder
+). Les autres listes éditables sont les contrôles d'un thème (7), les natures de preuve (5) et les types de lien (6).
+7. Choisir un cadre d'interprétation, ou aucun
+Un cadre d'interprétation est une grille théorique qui sert à lire vos thèmes une fois construits. Il est facultatif. Dans l'approche hybride de Fereday et Muir-Cochrane (2006), le codage reste ouvert aux données et le cadre aide ensuite à interpréter. L'outil suit cette logique : le cadre n'apparaît qu'aux étapes Analyser et Rédiger, jamais dans le codage ni dans le codebook.
+Dans Coding Studio.
+Dans Réglages, bloc Modèles et listes de l'étude, section Cadre d'interprétation (facultatif), choisissez Aucun (valeur par défaut), un préréglage (TOE : technologie, organisation, environnement ; TAM/UTAUT) ou Personnalisé, où vous nommez vos propres dimensions. L'outil ajoute toujours une ligne « hors cadre » pour ce que le cadre n'explique pas. Avec Aucun, les champs de lecture par le cadre n'apparaissent pas.
+8. Déclarer les intervieweurs
+Les tours de l'intervieweur donnent le contexte, mais ne se codent pas. L'outil doit donc savoir lesquels ils sont.
+Dans Coding Studio.
+Dans Réglages, bloc Étude, champ Noms des intervieweurs, saisissez les noms ou étiquettes tels qu'ils figurent dans vos transcriptions (par exemple INT). Les tours correspondants s'affichent en gris dans l'écran Coder et ne partent jamais vers un modèle.
+9. Importer les transcriptions et lire la Bibliothèque
+Importez des transcriptions déjà épurées : locuteurs identifiés, repères de temps, noms pseudonymisés si vos engagements l'exigent.
+Dans Coding Studio.
+Placez chaque entretien dans un sous-dossier du dossier des entretiens, nommé avec le préfixe réglé dans l'étude (BIB-01, BIB-02), avec une transcription épurée, un tour par paragraphe, du type
+**INT [00:25]:** question
+puis
+**RESP [00:29]:** réponse
+(un exemple fictif se trouve dans
+examples/library
+). Dans la Bibliothèque, cliquez sur Importer des transcriptions. Chaque entretien devient une ligne, avec les colonnes ID, les attributs de l'étude, Guide, Mémo (fait ou à faire), Coder (par exemple 40 / 97 tours) et Revoir. Le filtre au-dessus de la liste restreint les lignes selon un attribut (par exemple version du guide : B). Un entretien nouveau est découpé en unités, un tour de parole chacune, coupé à la longueur maximale réglée ; le découpage est déterministe. L'empreinte de chaque fichier source est calculée pour détecter toute modification.
+10. Remplir la fiche d'entretien
+La fiche réunit ce que vous savez de l'entretien avant de le coder.
+Dans Coding Studio.
+Dans la Bibliothèque, un clic sur une ligne ouvre la Fiche à droite ; un double-clic, ou le bouton Coder de la fiche, ouvre l'écran Coder. La fiche contient trois blocs. Attributs : les champs que vous avez définis (les listes sont des menus), à remplir avant de coder car ils servent ensuite de filtres dans l'Analyser. Mémo de familiarisation : le choix du modèle de mémo, avec le décompte des questions ajoutées ou retirées pour cet entretien. Source : le fichier de transcription, le nombre de tours et la mention des tours de l'intervieweur, grisés et jamais codés (par exemple 84 tours dont 61 du répondant, 23 grisés).
+11. Régler la pseudonymisation
+La pseudonymisation protège les répondants et leurs organisations. Elle intervient dans vos transcriptions avant l'import, et dans ce qui part vers un modèle.
+Dans Coding Studio.
+Dans Réglages, bloc Fournisseurs IA, cochez Pseudonymiser les noms de personnes et d'organisations avant tout envoi, puis complétez la liste de remplacement (nom réel vers pseudonyme). Elle s'applique à chaque prompt généré. Elle complète la pseudonymisation de vos transcriptions sans la remplacer : une forme de nom que vous n'avez pas listée ne sera pas remplacée. Relisez un prompt avant de l'envoyer à un fournisseur hébergé. Aucune clé de fournisseur n'est stockée : elle se nomme par sa variable d'environnement.
+12. Exporter ou importer un modèle de projet
+Un modèle de projet réutilise vos choix pour une nouvelle étude, sans les données.
+Dans Coding Studio.
+Dans Réglages, bloc Modèles et listes de l'étude, Exporter écrit un fichier JSON avec description, questions, règles, cadre, attributs, modèles de mémo, listes éditables et dimensions de matrice. Il ne contient ni transcription, ni codage, ni mémo rédigé. Dans une nouvelle base, Importer un modèle de projet (JSON) remplit ces champs : relisez-les avant de commencer.
+Pièges fréquents
+Écrire des questions trop larges pour guider la lecture. Une question à laquelle on répond par « tout » n'oriente rien.
+Oublier le statut des propos, puis comparer comme équivalents un déploiement vécu et un avis d'expert.
+Croire que la liste de pseudonymisation suffit. Elle ne rattrape pas une transcription mal anonymisée.
+Ce qui sort de cette étape
+Un projet avec sa base, ses questions et ses règles de codage.
+Des attributs définis, des modèles de mémo et une liste de contrôle propres à l'étude.
+Un cadre d'interprétation choisi ou, le plus souvent, aucun.
+Les entretiens listés dans la Bibliothèque, découpés en unités, avec une fiche remplie.
+Une liste de pseudonymisation prête.
+Si vous le souhaitez, un modèle de projet JSON réutilisable.
+[aria-label] Sur cette page
+Sur cette page
+Pourquoi cette étape
+Ce que vous faites
+Pièges fréquents
+Ce qui sort de cette étape
+
+== #/interviews/INT-01/sources ==
+[aria-label] Barre latérale
+[aria-label] Masquer la barre latérale
+[title] Masquer la barre latérale
+Corpus
+Bibliothèque
+0
+INT-01
+[aria-label] Fermer INT-01
+[title] Fermer INT-01
+Analyse
+Codebook
+Lexique
+Recherche
+Analyser
+Rédiger
+Étude
+Paramètres de l'étude
+Guide
+[title] 1 nom remplacé avant tout envoi à un modèle. Le texte libre n'est pas couvert. Les textes ne quittent jamais la machine sans un geste explicite.
+Pseudonymisation active
+Serveur injoignable
+[aria-label] Réglages
+Réglages
+Ctrl+,
+INT-01
+[title] Sources
+Sources
+[aria-label] Aide pour cet écran
+[title] Aide pour cet écran
+?
+Aucun entretien INT-01 dans la bibliothèque
+Balayez de nouveau le dossier des entretiens depuis la Bibliothèque.
+
+== #/interviews/INT-01/coding ==
+[aria-label] Barre latérale
+[aria-label] Masquer la barre latérale
+[title] Masquer la barre latérale
+Corpus
+Bibliothèque
+0
+INT-01
+[aria-label] Fermer INT-01
+[title] Fermer INT-01
+Analyse
+Codebook
+Lexique
+Recherche
+Analyser
+Rédiger
+Étude
+Paramètres de l'étude
+Guide
+[title] 1 nom remplacé avant tout envoi à un modèle. Le texte libre n'est pas couvert. Les textes ne quittent jamais la machine sans un geste explicite.
+Pseudonymisation active
+Serveur injoignable
+[aria-label] Réglages
+Réglages
+Ctrl+,
+[aria-label] Aide pour cet écran
+[title] Aide pour cet écran
+?
+L'entretien n'a pas pu être chargé
+unmocked GET /api/interviews/INT-01/phases/1/units
+
+== #/interviews/INT-01/highlights ==
+[aria-label] Barre latérale
+[aria-label] Masquer la barre latérale
+[title] Masquer la barre latérale
+Corpus
+Bibliothèque
+0
+INT-01
+[aria-label] Fermer INT-01
+[title] Fermer INT-01
+Analyse
+Codebook
+Lexique
+Recherche
+Analyser
+Rédiger
+Étude
+Paramètres de l'étude
+Guide
+[title] 1 nom remplacé avant tout envoi à un modèle. Le texte libre n'est pas couvert. Les textes ne quittent jamais la machine sans un geste explicite.
+Pseudonymisation active
+Serveur injoignable
+[aria-label] Réglages
+Réglages
+Ctrl+,
+INT-01
+[title] Codage · surlignage · 0 surlignage sans code
+Codage · surlignage · 0 surlignage sans code
+[aria-label] Étapes de l'entretien
+Coder
+Surlignages
+Revoir
+[aria-label] Rechercher dans les surlignages
+[placeholder] Rechercher dans les surlignages
+[aria-label] Aide pour cet écran
+[title] Aide pour cet écran
+?
+[aria-label] Surlignages
+Un surlignage n'est pas un code : il reste visible et sert de citation candidate. Codez-le avec un code existant, ou faites-en un nouveau code dont il devient l'origine et le premier exemple.
+Aucun surlignage sans code
+Dans Coder, sélectionnez un passage à la souris puis appuyez sur H, ou cliquez sur Surligner.
+Retourner à Coder
+[aria-label] Lexique
+Lexique
+Aucun passage sélectionné
+Sélectionnez un surlignage : le panneau affiche ses expressions-clés (YAKE), ses racines et un libellé provisoire que vous pouvez utiliser ou ignorer.
+Lire le guide
+Mots-clés de tous les surlignages
+unmocked GET /api/lexicon/keywords
+Recherche en contexte et fréquences par attribut
+[aria-label] Raccourcis
+H
+surligner sans coder (dans Coder)
+
+== #/interviews/INT-01/ai ==
+[aria-label] Barre latérale
+[aria-label] Masquer la barre latérale
+[title] Masquer la barre latérale
+Corpus
+Bibliothèque
+0
+INT-01
+[aria-label] Fermer INT-01
+[title] Fermer INT-01
+Analyse
+Codebook
+Lexique
+Recherche
+Analyser
+Rédiger
+Étude
+Paramètres de l'étude
+Guide
+[title] 1 nom remplacé avant tout envoi à un modèle. Le texte libre n'est pas couvert. Les textes ne quittent jamais la machine sans un geste explicite.
+Pseudonymisation active
+Serveur injoignable
+[aria-label] Réglages
+Réglages
+Ctrl+,
+INT-01
+[title] Revue · pas de revue
+Revue · pas de revue
+[aria-label] Étapes de l'entretien
+Coder
+Surlignages
+Revoir
+[aria-label] Volets de la revue
+Harmoniser
+Revue IA
+Décisions
+[aria-label] Aide pour cet écran
+[title] Aide pour cet écran
+?
+La revue n'a pas pu être chargée
+unmocked GET /api/interviews/INT-01/phases/2
+
+== #/interviews/INT-01/review ==
+[aria-label] Barre latérale
+[aria-label] Masquer la barre latérale
+[title] Masquer la barre latérale
+Corpus
+Bibliothèque
+0
+INT-01
+[aria-label] Fermer INT-01
+[title] Fermer INT-01
+Analyse
+Codebook
+Lexique
+Recherche
+Analyser
+Rédiger
+Étude
+Paramètres de l'étude
+Guide
+[title] 1 nom remplacé avant tout envoi à un modèle. Le texte libre n'est pas couvert. Les textes ne quittent jamais la machine sans un geste explicite.
+Pseudonymisation active
+Serveur injoignable
+[aria-label] Réglages
+Réglages
+Ctrl+,
+INT-01
+[title] Revue · pas de revue
+Revue · pas de revue
+[aria-label] Étapes de l'entretien
+Coder
+Surlignages
+Revoir
+[aria-label] Volets de la revue
+Harmoniser
+Revue IA
+Décisions
+[aria-label] Aide pour cet écran
+[title] Aide pour cet écran
+?
+La revue n'a pas pu être chargée
+unmocked GET /api/interviews/INT-01/phases/2
+
+== #/interviews/INT-01/harmonise ==
+[aria-label] Barre latérale
+[aria-label] Masquer la barre latérale
+[title] Masquer la barre latérale
+Corpus
+Bibliothèque
+0
+INT-01
+[aria-label] Fermer INT-01
+[title] Fermer INT-01
+Analyse
+Codebook
+Lexique
+Recherche
+Analyser
+Rédiger
+Étude
+Paramètres de l'étude
+Guide
+[title] 1 nom remplacé avant tout envoi à un modèle. Le texte libre n'est pas couvert. Les textes ne quittent jamais la machine sans un geste explicite.
+Pseudonymisation active
+Serveur injoignable
+[aria-label] Réglages
+Réglages
+Ctrl+,
+INT-01
+[title] Revue · pas de revue
+Revue · pas de revue
+[aria-label] Étapes de l'entretien
+Coder
+Surlignages
+Revoir
+[aria-label] Volets de la revue
+Harmoniser
+Revue IA
+Décisions
+[aria-label] Aide pour cet écran
+[title] Aide pour cet écran
+?
+unmocked GET /api/interviews/INT-01/harmonisation
+
+== #/interviews/INT-01/cases ==
+[aria-label] Barre latérale
+[aria-label] Masquer la barre latérale
+[title] Masquer la barre latérale
+Corpus
+Bibliothèque
+0
+INT-01
+[aria-label] Fermer INT-01
+[title] Fermer INT-01
+Analyse
+Codebook
+Lexique
+Recherche
+Analyser
+Rédiger
+Étude
+Paramètres de l'étude
+Guide
+[title] 1 nom remplacé avant tout envoi à un modèle. Le texte libre n'est pas couvert. Les textes ne quittent jamais la machine sans un geste explicite.
+Pseudonymisation active
+Serveur injoignable
+[aria-label] Réglages
+Réglages
+Ctrl+,
+INT-01
+[title] Cas
+Cas
+[aria-label] Aide pour cet écran
+[title] Aide pour cet écran
+?
+Aucun entretien INT-01 dans la bibliothèque
+Balayez de nouveau le dossier des entretiens depuis la Bibliothèque.
+
+== #/interviews/INT-01/verification ==
+[aria-label] Barre latérale
+[aria-label] Masquer la barre latérale
+[title] Masquer la barre latérale
+Corpus
+Bibliothèque
+0
+INT-01
+[aria-label] Fermer INT-01
+[title] Fermer INT-01
+Analyse
+Codebook
+Lexique
+Recherche
+Analyser
+Rédiger
+Étude
+Paramètres de l'étude
+Guide
+[title] 1 nom remplacé avant tout envoi à un modèle. Le texte libre n'est pas couvert. Les textes ne quittent jamais la machine sans un geste explicite.
+Pseudonymisation active
+Serveur injoignable
+[aria-label] Réglages
+Réglages
+Ctrl+,
+INT-01
+[title] Vérification
+Vérification
+[aria-label] Aide pour cet écran
+[title] Aide pour cet écran
+?
+Aucun entretien INT-01 dans la bibliothèque
+Balayez de nouveau le dossier des entretiens depuis la Bibliothèque.
+
+== #/interviews/INT-01/audit ==
+[aria-label] Barre latérale
+[aria-label] Masquer la barre latérale
+[title] Masquer la barre latérale
+Corpus
+Bibliothèque
+0
+INT-01
+[aria-label] Fermer INT-01
+[title] Fermer INT-01
+Analyse
+Codebook
+Lexique
+Recherche
+Analyser
+Rédiger
+Étude
+Paramètres de l'étude
+Guide
+[title] 1 nom remplacé avant tout envoi à un modèle. Le texte libre n'est pas couvert. Les textes ne quittent jamais la machine sans un geste explicite.
+Pseudonymisation active
+Serveur injoignable
+[aria-label] Réglages
+Réglages
+Ctrl+,
+INT-01
+[title] Audit et export
+Audit et export
+[aria-label] Aide pour cet écran
+[title] Aide pour cet écran
+?
+Aucun entretien INT-01 dans la bibliothèque
+Balayez de nouveau le dossier des entretiens depuis la Bibliothèque.
+
+== réglages general ==
+Réglages, Général
+Réglages de l'application : apparence, fournisseurs IA et options avancées.
+[aria-label] Sections des réglages
+Général
+Fournisseurs IA
+Avancé
+OK
+Apparence
+[aria-label] Apparence
+Automatique
+Clair
+Sombre
+Couleur d'accent
+Système suit la couleur choisie dans macOS.
+[aria-label] Couleur d'accent
+[aria-label] Système
+[title] Système
+[aria-label] Graphite
+[title] Graphite
+[aria-label] Bleu
+[title] Bleu
+[aria-label] Violet
+[title] Violet
+[aria-label] Rose
+[title] Rose
+[aria-label] Rouge
+[title] Rouge
+[aria-label] Orange
+[title] Orange
+[aria-label] Jaune
+[title] Jaune
+[aria-label] Vert
+[title] Vert
+Automatique suit le mode clair ou sombre du système, y compris le passage automatique en soirée.
+Lecture
+Taille du texte des transcriptions
+[aria-label] Taille du texte des transcriptions
+Petit
+Moyen
+Grand
+Afficher les raccourcis sous la transcription
+[aria-label] Afficher les raccourcis
+Langue
+Langue de l'interface
+[aria-label] Langue de l'interface
+Français
+Le français est la seule langue de l'interface pour l'instant.
+Fermer
+
+== réglages providers ==
+Réglages, Fournisseurs IA
+Réglages de l'application : apparence, fournisseurs IA et options avancées.
+[aria-label] Sections des réglages
+Général
+Fournisseurs IA
+Avancé
+OK
+Fournisseurs de modèles
+le copier-coller reste toujours disponible et fait référence
+Ajouter un fournisseur
+Fermer
+
+== réglages advanced ==
+Réglages, Avancé
+Réglages de l'application : apparence, fournisseurs IA et options avancées.
+[aria-label] Sections des réglages
+Général
+Fournisseurs IA
+Avancé
+OK
+Base de données
+Base de l'étude
+/tmp/etude.db
+Base de codage d'origine
+aucune
+Dossier des entretiens
+non choisi
+Version
+0.0.0
+Chemins en lecture seule : ils se règlent au lancement de l'application.
+Vérification
+Chaîne du journal d'audit
+Serveur injoignable.
+Vérifier
+Journal d'audit
+Ouvrir
+Fermer
+
+== aide coder ==
+Aide
+Coder un entretien, tiré du guide de Coding Studio.
+Coder un entretien
+Pourquoi cette étape
+Coder, c'est donner à chaque passage utile une étiquette qui dit ce qu'il contient. Saldaña distingue un premier cycle de codage, descriptif et proche des mots du répondant, et des cycles ultérieurs qui regroupent et reformulent. Coding Studio suit cet ordre : vous posez d'abord des codes concrets, parfois longs (« Formation du personnel jugée plus lourde que le matériel »), puis vous les regroupez, et les thèmes ne naissent qu'à l'étape Analyser. L'approche est hybride au sens de Fereday et Muir-Cochrane (2006) : vous pouvez partir d'une palette issue de la littérature, tout en restant libre de créer des codes à partir des données. Braun et Clarke (2006, 2021) rappellent que la familiarisation précède le codage, d'où le mémo qui ouvre cette étape.
+Ce que vous faites
+1. Écrire le mémo de familiarisation
+Avant de coder, lisez l'entretien en entier, puis répondez aux questions du modèle de mémo, une page au plus. Pour les trois premiers entretiens, ce mémo précède tout codage : il fixe votre première compréhension du cas avant que les codes ne la découpent.
+Dans Coding Studio.
+Dans la Bibliothèque, double-cliquez sur l'entretien, ou cliquez sur Coder dans sa fiche. Lors de la première visite, le panneau Mémo de familiarisation (modèle : Par défaut) s'ouvre en premier, avant tout codage. Il affiche les questions du modèle choisi dans la fiche : avec le modèle générique, que raconte l
+
+== aide analyser ==
+Aide
+Analyser : des codes aux thèmes, tiré du guide de Coding Studio.
+Analyser : des codes aux thèmes
+Pourquoi cette étape
+C'est ici que l'analyse thématique se fait. Braun et Clarke (2006, 2021) insistent : les thèmes ne « émergent » pas des données, ils sont construits par le chercheur à partir des codes, en fonction de ses questions. Un thème n'est donc pas un sujet (« les coûts ») mais une proposition analytique (« l'adoption dépend de l'alignement entre l'effort demandé et la valeur reçue »), qui peut être nuancée ou contredite, et c'est ce qui la rend vérifiable. La seconde moitié de l'étape applique la méthode du cadre de Gale et al. (2013) : une matrice dont les lignes sont des cas et les colonnes des thèmes ou des codes, pour comparer les entretiens sans perdre le lien avec les passages. L'étape est itérative : un thème renvoie à ses codes, un passage à son entretien.
+Ce que vous faites
+1. Regrouper les codes
+Avant de formuler des thèmes, vérifiez que vos codes sont regroupés. Un code focalisé est un parent qui réunit des codes descriptifs voisins, par exemple « Absence de besoin » sur « Prêt papier jugé suffisant » et « Peu d'emprunts par jour ».
+Dans Coding Studio.
+Dans le Codebook, glissez les codes descriptifs sous un parent (voir
+Coder
+). Pour chaque groupe, ouvrez les passages du parent et vérifiez que vous pouvez dire en une phrase ce qui les relie. L'outil ne calcule aucun regroupement à votre place.
+2. Créer un thème
+Un thème regroupe des codes et porte une 
+
+== aide exporter ==
+Aide
+Exporter et auditer, tiré du guide de Coding Studio.
+Exporter et auditer
+Pourquoi cette étape
+Une analyse qualitative qui ne peut pas être revue demande à être crue sur parole. Coding Studio garde tout dans une base unique et produit des exports dont vos tableaux et annexes sont tirés, de sorte qu'aucun chiffre du rapport n'est saisi à la main. Le journal d'audit enregistre chaque opération dans l'ordre, chaque entrée étant liée à la précédente par une empreinte : on ne peut en supprimer ni en modifier une sans que la chaîne casse. C'est ce qui permet de prouver que votre codage précédait celui du modèle. Braun et Clarke (2021) demandent un rapport transparent sur les choix faits ; le paquet d'export en est la forme concrète. Exportez en cours de route pour sauvegarder, puis une dernière fois avant la remise.
+Ce que vous faites
+1. Exporter un entretien
+L'export d'un entretien rassemble tout ce qui le concerne dans un dossier daté.
+Dans Coding Studio.
+Dans Réglages, bloc Exports et vérification, cliquez sur Exporter un entretien et choisissez l'entretien. L'outil écrit un dossier horodaté (par exemple
+exports/2026-10-13_BIB-01
+) sans jamais écraser un export précédent. L'écran affiche ensuite le nombre de fichiers et indique que les empreintes sont vérifiées. Le dossier contient notamment la liste des unités, le codage humain, le codage et la comparaison de chaque revue IA (si elle a eu lieu) avec le texte envoyé et la réponse brute, les décisions, le codebook, les citati
+
+== aide codebook ==
+Aide
+Coder un entretien, tiré du guide de Coding Studio.
+Coder un entretien
+Pourquoi cette étape
+Coder, c'est donner à chaque passage utile une étiquette qui dit ce qu'il contient. Saldaña distingue un premier cycle de codage, descriptif et proche des mots du répondant, et des cycles ultérieurs qui regroupent et reformulent. Coding Studio suit cet ordre : vous posez d'abord des codes concrets, parfois longs (« Formation du personnel jugée plus lourde que le matériel »), puis vous les regroupez, et les thèmes ne naissent qu'à l'étape Analyser. L'approche est hybride au sens de Fereday et Muir-Cochrane (2006) : vous pouvez partir d'une palette issue de la littérature, tout en restant libre de créer des codes à partir des données. Braun et Clarke (2006, 2021) rappellent que la familiarisation précède le codage, d'où le mémo qui ouvre cette étape.
+Ce que vous faites
+1. Écrire le mémo de familiarisation
+Avant de coder, lisez l'entretien en entier, puis répondez aux questions du modèle de mémo, une page au plus. Pour les trois premiers entretiens, ce mémo précède tout codage : il fixe votre première compréhension du cas avant que les codes ne la découpent.
+Dans Coding Studio.
+Dans la Bibliothèque, double-cliquez sur l'entretien, ou cliquez sur Coder dans sa fiche. Lors de la première visite, le panneau Mémo de familiarisation (modèle : Par défaut) s'ouvre en premier, avant tout codage. Il affiche les questions du modèle choisi dans la fiche : avec le modèle générique, que raconte l
