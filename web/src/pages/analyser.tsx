@@ -5,6 +5,7 @@
 import { useMemo, useState } from "react"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 
+import { CooccurrenceTab } from "@/components/analysis/cooccurrence"
 import { DecisionsPanel } from "@/components/analysis/decisions"
 import { ExplorerTab } from "@/components/analysis/explorer"
 import { CodeSource } from "@/components/analysis/code-source"
@@ -20,11 +21,12 @@ import { akeys, invalidateThemes, useCasesAll, useQuestions, useTheme, useThemes
 import { useCodes, useProjectConfig } from "@/lib/hooks"
 import { reportError } from "@/lib/notify"
 
-type Tab = "themes" | "matrix" | "explorer" | "decisions"
+type Tab = "themes" | "matrix" | "explorer" | "cooccurrence" | "decisions"
 const TABS: { id: Tab; label: string }[] = [
   { id: "themes", label: "Thèmes" },
   { id: "matrix", label: "Matrice" },
   { id: "explorer", label: "Explorer" },
+  { id: "cooccurrence", label: "Co-occurrence" },
   { id: "decisions", label: "Décisions documentées" },
 ]
 
@@ -96,6 +98,7 @@ export function AnalyserPage() {
         {tab === "themes" && <ThemesTab />}
         {tab === "matrix" && <MatrixTab project={projectQ.data} />}
         {tab === "explorer" && <ExplorerTab project={projectQ.data} />}
+        {tab === "cooccurrence" && <CooccurrenceTab />}
         {tab === "decisions" && <DecisionsPanel />}
       </div>
     </>
