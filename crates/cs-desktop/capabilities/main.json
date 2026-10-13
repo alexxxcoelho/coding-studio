@@ -1,0 +1,8 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "main",
+  "description": "The main window shows the local server of the app: it may start a window drag from the toolbar (data-tauri-drag-region), nothing else.",
+  "windows": ["main"],
+  "remote": { "urls": ["http://127.0.0.1:*"] },
+  "permissions": ["core:window:allow-start-dragging"]
+}

@@ -20,8 +20,13 @@ serde_json.workspace = true
 axum.workspace = true
 tokio.workspace = true
 open.workspace = true
-tauri.workspace = true
+# macos-private-api: needed for a transparent window, which the sidebar vibrancy shows through.
+tauri = { workspace = true, features = ["macos-private-api"] }
 tauri-plugin-dialog.workspace = true
+
+# Sidebar material of the macOS window (Liquid Glass look); other platforms keep an opaque window.
+[target.'cfg(target_os = "macos")'.dependencies]
+window-vibrancy = "0.8"
 
 [dev-dependencies]
 tempfile.workspace = true

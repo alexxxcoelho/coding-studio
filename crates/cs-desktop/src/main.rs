@@ -38,11 +38,11 @@ fn main() {
             });
         })
         .setup(|app| {
-            WebviewWindowBuilder::new(app, MAIN, WebviewUrl::App("index.html".into()))
-                .title("Coding Studio")
-                .inner_size(1440.0, 920.0)
-                .min_inner_size(960.0, 600.0)
-                .build()?;
+            let window = main_window_builder(app).build()?;
+            #[cfg(target_os = "macos")]
+            apply_sidebar_material(&window);
+            #[cfg(not(target_os = "macos"))]
+            let _ = window;
             let handle = app.handle().clone();
             std::thread::spawn(move || {
                 if let Err(err) = start(&handle) {
@@ -57,6 +57,38 @@ fn main() {
         })
         .run(tauri::generate_context!())
         .expect("Coding Studio failed to run");
+}
+
+/// The main window. On macOS the title bar is an overlay with a hidden title,
+/// so that the web layer draws its own toolbar under the traffic lights, and
+/// the window is transparent so that the sidebar material (see
+/// `apply_sidebar_material`) shows through. The theme follows the system.
+fn main_window_builder(app: &tauri::App) -> WebviewWindowBuilder<'_, tauri::Wry, tauri::App> {
+    let builder = WebviewWindowBuilder::new(app, MAIN, WebviewUrl::App("index.html".into()))
+        .title("Coding Studio")
+        .inner_size(1440.0, 920.0)
+        .min_inner_size(960.0, 600.0)
+        .theme(None);
+    #[cfg(target_os = "macos")]
+    let builder = builder
+        .title_bar_style(tauri::TitleBarStyle::Overlay)
+        .hidden_title(true)
+        .transparent(true)
+        // Read by the web layer (web/src/lib/desktop.ts): leave the sidebar translucent.
+        .initialization_script("window.__CS_VIBRANCY__ = true;");
+    builder
+}
+
+/// Sidebar material behind the web layer, which keeps the sidebar background
+/// translucent when it sees `__CS_VIBRANCY__`.
+#[cfg(target_os = "macos")]
+fn apply_sidebar_material(window: &tauri::WebviewWindow) {
+    use window_vibrancy::{apply_vibrancy, NSVisualEffectMaterial};
+    // A failure only costs the material: the web layer then draws its own
+    // opaque sidebar colours.
+    if let Err(err) = apply_vibrancy(window, NSVisualEffectMaterial::Sidebar, None, None) {
+        eprintln!("vibrancy: {err}");
+    }
 }
 
 fn config_path(app: &AppHandle) -> Result<PathBuf> {

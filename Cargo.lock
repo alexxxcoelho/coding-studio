@@ -700,6 +700,7 @@ dependencies = [
  "tauri-plugin-dialog",
  "tempfile",
  "tokio",
+ "window-vibrancy",
 ]
 
 [[package]]
