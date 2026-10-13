@@ -58,7 +58,7 @@ describe("saturation", () => {
     expect(saturationTotals(rows)).toEqual({ codes: 3, fieldCodes: 1, labelsOpened: 2, labelsResolved: 1 })
   })
   it("labels an unattributed interview", () => {
-    expect(interviewLabel("")).toBe("not attributed")
+    expect(interviewLabel("")).toBe("non attribué")
     expect(interviewLabel("ECO-07")).toBe("ECO-07")
   })
 })
