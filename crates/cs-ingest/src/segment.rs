@@ -62,13 +62,18 @@ pub fn split_long(text: &str, max_words: usize) -> Vec<String> {
 /// One unit per turn, turns over `MAX_WORDS` words split at sentence ends.
 /// Unit ids are `<interview_id>-U001`, `-U002`... in source order.
 pub fn segment(interview_id: &str, turns: &[Turn]) -> Vec<Unit> {
+    segment_max(interview_id, turns, MAX_WORDS)
+}
+
+/// `segment` with turns over `max_words` words split at sentence ends.
+pub fn segment_max(interview_id: &str, turns: &[Turn], max_words: usize) -> Vec<Unit> {
     let mut units = Vec::new();
     for turn in turns {
         let text = turn.text.trim();
         if text.is_empty() {
             continue;
         }
-        for chunk in split_long(text, MAX_WORDS) {
+        for chunk in split_long(text, max_words) {
             if chunk.is_empty() {
                 continue;
             }

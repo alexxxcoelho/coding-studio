@@ -16,7 +16,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use cs_model::{
     AgreementReport, AiOutput, Arbitration, Code, CodingMap, Divergence, FinalCoding, PromptPart,
-    ReviewItem, Segmentation, ValidationIssue,
+    PromptTemplate, ReviewItem, Segmentation, ValidationIssue,
 };
 use serde_json::json;
 
@@ -25,6 +25,7 @@ mod parse;
 mod prompt;
 pub mod providers;
 mod report;
+pub mod template;
 
 pub use analysis::cohen_kappa;
 pub use prompt::{part_unit_ids, parts_for_batch, phase_title};
@@ -32,11 +33,12 @@ pub use providers::{
     providers_from_config, Execution, IsolationReport, ModelProvider, ProviderDescription,
     ProviderKind, ProviderRequest, ProviderResponse, ProvidersConfig,
 };
+pub use template::build_prompts_with;
 
 /// Identifier of the prompt template, journalised with every run. Version 3:
 /// phase 2 only, codes grouped by TOE attachment. Version 3.1: unit ids found
 /// in code texts are redacted, so the codebook cannot reveal code origins.
-pub const PROMPT_VERSION: &str = "CS-P04-EN v3.1";
+pub const PROMPT_VERSION: &str = cs_model::config::DEFAULT_PROMPT_VERSION;
 /// Value the AI must put in the `schema` field of its answer.
 pub const OUTPUT_SCHEMA_ID: &str = "coding-studio/ai-coding/v1";
 
@@ -73,7 +75,7 @@ pub fn batch_scope(parts: &[PromptPart]) -> (Vec<String>, BTreeSet<String>) {
 /// Deterministic: the same input and batch size always give byte-identical
 /// text.
 pub fn build_prompts(input: &PromptInput, batch_size: usize) -> Vec<PromptPart> {
-    prompt::build(input, batch_size)
+    template::build_prompts_with(&PromptTemplate::default(), input, batch_size)
 }
 
 /// JSON Schema (draft 2020-12) of the expected answer. Generic: the prompt

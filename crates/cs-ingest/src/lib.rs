@@ -14,7 +14,8 @@ use std::path::Path;
 
 use anyhow::{Context, Result};
 use cs_model::{
-    sha256_hex, CsError, InterviewEntry, Segmentation, SourceKind, Turn, Unit, SEGMENTATION_RULE,
+    sha256_hex, CsError, InterviewEntry, Segmentation, SourceKind, Turn, Unit, MAX_WORDS,
+    SEGMENTATION_RULE,
 };
 
 mod parse;
@@ -25,12 +26,7 @@ mod text;
 pub use segment::{split_long, split_sentences};
 
 /// Names under which the candidate appears in platform transcripts.
-pub const DEFAULT_INTERVIEWER_NAMES: &[&str] = &[
-    "Dos Santos Alexandre",
-    "Alexandre Dos Santos",
-    "Alexandre Dos Santos Coelho",
-    "Alex",
-];
+pub const DEFAULT_INTERVIEWER_NAMES: &[&str] = cs_model::config::DEFAULT_INTERVIEWERS;
 
 /// `DEFAULT_INTERVIEWER_NAMES` as owned strings, for `parse_source`.
 pub fn default_interviewer_names() -> Vec<String> {
@@ -113,6 +109,27 @@ pub fn build_segmentation(
     rel_path: &str,
     interviewer_names: &[String],
 ) -> Result<Segmentation> {
+    build_segmentation_inner(entry, rel_path, interviewer_names, MAX_WORDS)
+}
+
+/// Rule identifier stored with a segmentation: `SEGMENTATION_RULE` for the
+/// default limit, the same rule with the configured limit otherwise.
+pub fn segmentation_rule(max_words: usize) -> String {
+    if max_words == MAX_WORDS {
+        SEGMENTATION_RULE.to_string()
+    } else {
+        format!(
+            "turns-v1: one unit per continuous speaker turn, turns over {max_words} words split at sentence boundaries"
+        )
+    }
+}
+
+fn build_segmentation_inner(
+    entry: &InterviewEntry,
+    rel_path: &str,
+    interviewer_names: &[String],
+    max_words: usize,
+) -> Result<Segmentation> {
     let kind = entry
         .sources
         .iter()
@@ -129,7 +146,7 @@ pub fn build_segmentation(
     let bytes = std::fs::read(&path).with_context(|| format!("cannot read {}", path.display()))?;
     let source_sha256 = sha256_hex(&bytes);
     let (turns, warnings) = parse_source(&path, kind, interviewer_names)?;
-    let units = segment(&entry.interview_id, &turns);
+    let units = segment::segment_max(&entry.interview_id, &turns, max_words);
     if units.is_empty() {
         return Err(CsError::Validation(format!(
             "{rel_path} produced no unit: format not recognised or file offline"
@@ -140,11 +157,48 @@ pub fn build_segmentation(
         interview_id: entry.interview_id.clone(),
         source_rel_path: rel_path.to_string(),
         source_sha256,
-        rule: SEGMENTATION_RULE.to_string(),
+        rule: segmentation_rule(max_words),
         hash: Segmentation::units_hash(&units),
         units,
         warnings,
     })
+}
+
+// ------------------------------------------------- configurable variants (v5)
+
+/// `parse_interview_id` with the prefixes of `config.id_prefixes`.
+pub fn parse_interview_id_with(
+    config: &cs_model::StudyConfig,
+    folder_name: &str,
+) -> Option<String> {
+    scan::parse_interview_id_re(&config.id_regex(), folder_name)
+}
+
+/// `scan_library` with the prefixes of `config.id_prefixes`.
+pub fn scan_library_with(
+    config: &cs_model::StudyConfig,
+    root: &Path,
+) -> Result<Vec<InterviewEntry>> {
+    scan::scan_library_re(&config.id_regex(), root)
+}
+
+/// `segment` with `config.max_words` instead of `MAX_WORDS`.
+pub fn segment_with(
+    config: &cs_model::StudyConfig,
+    interview_id: &str,
+    turns: &[Turn],
+) -> Vec<Unit> {
+    segment::segment_max(interview_id, turns, config.max_words)
+}
+
+/// `build_segmentation` with `config.interviewers` for role detection and
+/// `config.max_words` for the split.
+pub fn build_segmentation_with(
+    config: &cs_model::StudyConfig,
+    entry: &InterviewEntry,
+    rel_path: &str,
+) -> Result<Segmentation> {
+    build_segmentation_inner(entry, rel_path, &config.interviewers, config.max_words)
 }
 
 #[cfg(test)]

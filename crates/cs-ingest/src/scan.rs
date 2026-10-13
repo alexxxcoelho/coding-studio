@@ -7,18 +7,25 @@ use std::sync::LazyLock;
 
 use anyhow::{Context, Result};
 use chrono::{DateTime, SecondsFormat, Utc};
-use cs_model::{sha256_hex, InterviewEntry, SourceFile, SourceKind};
+use cs_model::{sha256_hex, InterviewEntry, SourceFile, SourceKind, StudyConfig};
 use regex::Regex;
 use walkdir::WalkDir;
 
 /// Folder names never inventoried (deliberate, not reported).
 const SKIP_DIRS: &[&str] = &["archive", "sources", "__pycache__", "generated"];
 
-/// Normalises an interview ID from a folder name.
+/// Pattern of the interview IDs of the default configuration.
+static DEFAULT_ID: LazyLock<Regex> = LazyLock::new(|| StudyConfig::default().id_regex());
+
+/// Normalises an interview ID from a folder name with the default prefixes.
 pub fn parse_interview_id(folder_name: &str) -> Option<String> {
-    static ID: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(r"^(INT|ECO|RET|ADJ)-?(\d+)").unwrap());
-    let caps = ID.captures(folder_name)?;
+    parse_interview_id_re(&DEFAULT_ID, folder_name)
+}
+
+/// Normalises an interview ID from a folder name with the given pattern
+/// (see `StudyConfig::id_regex`).
+pub fn parse_interview_id_re(id: &Regex, folder_name: &str) -> Option<String> {
+    let caps = id.captures(folder_name)?;
     Some(format!("{}-{}", &caps[1], &caps[2]))
 }
 
@@ -192,8 +199,14 @@ fn scan_folder(id: String, folder: &Path) -> Result<InterviewEntry> {
     })
 }
 
-/// Scans `root`: every direct sub-folder with an interview ID becomes an entry.
+/// Scans `root` with the default prefixes.
 pub fn scan_library(root: &Path) -> Result<Vec<InterviewEntry>> {
+    scan_library_re(&DEFAULT_ID, root)
+}
+
+/// Scans `root`: every direct sub-folder with an interview ID (matched by
+/// `id_re`) becomes an entry.
+pub fn scan_library_re(id_re: &Regex, root: &Path) -> Result<Vec<InterviewEntry>> {
     let read = std::fs::read_dir(root)
         .with_context(|| format!("cannot read library folder {}", root.display()))?;
     let mut folders: Vec<(String, std::path::PathBuf)> = Vec::new();
@@ -211,7 +224,7 @@ pub fn scan_library(root: &Path) -> Result<Vec<InterviewEntry>> {
     folders.sort();
     let mut by_id: BTreeMap<String, InterviewEntry> = BTreeMap::new();
     for (name, path) in folders {
-        let Some(id) = parse_interview_id(&name) else {
+        let Some(id) = parse_interview_id_re(id_re, &name) else {
             continue;
         };
         if let Some(existing) = by_id.get_mut(&id) {

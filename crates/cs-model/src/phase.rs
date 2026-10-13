@@ -90,6 +90,28 @@ pub fn is_phase2_code(code: &Code) -> bool {
 /// first, codebook order within each group.
 pub fn phase2_codes<'a>(codebook: &'a Codebook, phase1: &CodeSet) -> Vec<&'a Code> {
     let contexts: Vec<&str> = phase1.iter().filter_map(|c| toe_of_context(c)).collect();
+    phase2_codes_for_toe(codebook, &contexts)
+}
+
+/// Every phase 2 code offered for a unit whose phase 1 categories are
+/// `phase1`, the categories being those of the study (see
+/// `StudyConfig::effective_categories`): the codes attached to the TOE
+/// letters of those categories first.
+pub fn phase2_codes_for_categories<'a>(
+    codebook: &'a Codebook,
+    categories: &[crate::Category],
+    phase1: &CodeSet,
+) -> Vec<&'a Code> {
+    let toes: Vec<&str> = phase1
+        .iter()
+        .filter_map(|name| categories.iter().find(|c| &c.name == name))
+        .filter_map(|c| c.attachment.as_deref())
+        .collect();
+    phase2_codes_for_toe(codebook, &toes)
+}
+
+/// `phase2_codes` for the TOE letters `contexts` of a unit.
+fn phase2_codes_for_toe<'a>(codebook: &'a Codebook, contexts: &[&str]) -> Vec<&'a Code> {
     let attached = |c: &Code| c.toe.as_deref().is_some_and(|t| contexts.contains(&t));
     let usable: Vec<&Code> = codebook
         .codes

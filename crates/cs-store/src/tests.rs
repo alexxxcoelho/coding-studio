@@ -1525,6 +1525,9 @@ fn audit_filter_by_interview() {
 // v4 modules (dev graph 12.10.2026); each may use the fixtures above through `super::*`.
 mod cases_v4;
 mod claims_v4;
+mod codebook_import_v5;
 mod memos_saturation_v4;
 mod snapshots_v4;
+#[allow(clippy::field_reassign_with_default)]
+mod study_config_v5;
 mod verification_v4;

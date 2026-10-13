@@ -15,10 +15,11 @@ use axum::http::{header, StatusCode, Uri};
 use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post, put};
 use axum::{Json, Router};
-use cs_model::phase::{phase1_codebook, phase2_codes, phase2_prompt_codes, PHASE_1, PHASE_2};
+use cs_model::config::STUDY_CONFIG_KEY;
+use cs_model::phase::{phase2_codes_for_categories, phase2_prompt_codes, PHASE_1, PHASE_2};
 use cs_model::{
     AiRunMeta, Arbitration, ArbitrationChoice, Case, Claim, Code, CodeSet, CodingMap, CsError,
-    HumanCoding, ResolutionKind, RqMemo, Segmentation, SpeakerRole, Unit,
+    HumanCoding, ResolutionKind, RqMemo, Segmentation, SpeakerRole, StudyConfig, Unit,
 };
 use cs_store::{CodePatch, ResolveRequest, Store};
 use include_dir::{include_dir, Dir};
@@ -127,6 +128,7 @@ pub fn router(state: AppState) -> Router {
     const P: &str = "/api/interviews/{id}/phases/{phase}";
     Router::new()
         .route("/api/state", get(api_state))
+        .route("/api/config", get(get_config).put(put_config))
         .route("/api/pick", post(pick))
         .route("/api/library/scan", post(scan_library))
         .route("/api/interviews", get(list_interviews))
@@ -382,6 +384,7 @@ async fn static_file(uri: Uri) -> Response {
 
 async fn api_state(State(st): State<AppState>) -> ApiResult {
     let store = st.store();
+    let cfg = store.study_config()?;
     Ok(Json(json!({
         "version": VERSION,
         "db_path": st.db_path,
@@ -391,7 +394,45 @@ async fn api_state(State(st): State<AppState>) -> ApiResult {
         "codebook_size": store.codebook()?.codes.len(),
         "chain": store.verify_chain()?,
         "native_dialogs": st.picker.is_some(),
+        "framework": cfg.framework,
+        "study_name": cfg.study_name,
     })))
+}
+
+// ------------------------------------------------------------ study config
+
+/// The configuration in force: the stored one, or the default.
+async fn get_config(State(st): State<AppState>) -> ApiResult {
+    Ok(Json(json!(st.store().study_config()?)))
+}
+
+#[derive(Deserialize, Default)]
+struct ForceQuery {
+    #[serde(default)]
+    force: bool,
+}
+
+/// Validates and stores the configuration. A change of the phase 1 category
+/// names after phase 1 coding exists is refused (409) unless `?force=true`.
+async fn put_config(
+    State(st): State<AppState>,
+    Query(q): Query<ForceQuery>,
+    Json(cfg): Json<StudyConfig>,
+) -> ApiResult {
+    let stored = st.store().set_study_config_with(&cfg, q.force, &st.actor)?;
+    Ok(Json(json!(stored)))
+}
+
+/// The configuration the segmentation uses. Once a configuration has been
+/// stored it wins over the interviewer names given on the command line.
+fn segmentation_config(store: &Store, st: &AppState) -> anyhow::Result<StudyConfig> {
+    if store.setting(STUDY_CONFIG_KEY)?.is_some() {
+        return store.study_config();
+    }
+    Ok(StudyConfig {
+        interviewers: st.interviewer_names.clone(),
+        ..StudyConfig::default()
+    })
 }
 
 #[derive(Deserialize)]
@@ -446,13 +487,18 @@ async fn scan_library(State(st): State<AppState>, body: Option<Json<ScanBody>>) 
     if !root_path.is_dir() {
         return Err(invalid(format!("{root} is not a folder")));
     }
-    let entries = cs_ingest::scan_library(root_path)?;
+    let entries = cs_ingest::scan_library_with(&store.study_config()?, root_path)?;
     for entry in &entries {
         store.upsert_interview(entry, &st.actor)?;
     }
-    Ok(Json(
-        json!({ "root": root, "interviews": store.summaries()? }),
-    ))
+    // The interviews this scan found, as the configured ID pattern reads them.
+    let found: BTreeSet<&str> = entries.iter().map(|e| e.interview_id.as_str()).collect();
+    let interviews: Vec<_> = store
+        .summaries()?
+        .into_iter()
+        .filter(|s| found.contains(s.interview_id.as_str()))
+        .collect();
+    Ok(Json(json!({ "root": root, "interviews": interviews })))
 }
 
 async fn list_interviews(State(st): State<AppState>) -> ApiResult {
@@ -537,7 +583,8 @@ async fn segment(
                 "{id} has no transcript to segment; choose a source"
             ))
         })?;
-    let seg = cs_ingest::build_segmentation(&entry, &rel, &st.interviewer_names)?;
+    let cfg = segmentation_config(&store, &st)?;
+    let seg = cs_ingest::build_segmentation_with(&cfg, &entry, &rel)?;
     store.save_segmentation(&seg, &st.actor)?;
     Ok(Json(json!(store.segmentation(&id)?)))
 }
@@ -568,7 +615,7 @@ async fn units(
     let units = current_units(&store, &id, &seg)?;
     let codings = store.human_codings(&id, phase)?;
     if phase == PHASE_1 {
-        let allowed = phase1_codebook().codes;
+        let allowed = store.phase1_codebook()?.codes;
         let rows: Vec<Value> = units
             .iter()
             .map(|u| {
@@ -584,6 +631,7 @@ async fn units(
     let scope: BTreeSet<String> = store.phase_units(&id, PHASE_2)?.into_iter().collect();
     let p1 = store.human_coding_map(&id, PHASE_1)?;
     let book = store.codebook()?;
+    let categories = store.study_config()?.effective_categories();
     let labels = store.to_clarify_items(Some(&id), false)?;
     let mut claims: BTreeMap<String, Vec<Claim>> = BTreeMap::new();
     for claim in store.claims(&id)? {
@@ -604,7 +652,7 @@ async fn units(
         .filter(|u| scope.contains(&u.unit_id) || codings.contains_key(&u.unit_id))
         .map(|u| {
             let ctx = p1.get(&u.unit_id).cloned().unwrap_or_default();
-            let allowed: Vec<&Code> = phase2_codes(&book, &ctx);
+            let allowed: Vec<&Code> = phase2_codes_for_categories(&book, &categories, &ctx);
             json!({
                 "unit": u,
                 "coding": codings.get(&u.unit_id),
@@ -780,12 +828,16 @@ async fn codebook(State(st): State<AppState>) -> ApiResult {
     Ok(Json(json!(st.store().codebook()?)))
 }
 
-async fn codebook_phase1() -> ApiResult {
-    Ok(Json(json!(phase1_codebook())))
+async fn codebook_phase1(State(st): State<AppState>) -> ApiResult {
+    Ok(Json(json!(st.store().phase1_codebook()?)))
 }
 
+/// `{kind, path}` with kind `csv`, `json` or `coding_db`. The former bodies
+/// `{coding_db}` and `{}` (the coding.db of the start-up) still work.
 #[derive(Deserialize, Default)]
 struct ImportCodebookBody {
+    kind: Option<String>,
+    path: Option<String>,
     coding_db: Option<String>,
 }
 
@@ -794,16 +846,37 @@ async fn import_codebook(
     body: Option<Json<ImportCodebookBody>>,
 ) -> ApiResult {
     let body = body.map(|b| b.0).unwrap_or_default();
-    let path = body
-        .coding_db
-        .filter(|p| !p.trim().is_empty())
-        .map(PathBuf::from)
-        .or_else(|| st.coding_db.clone())
-        .ok_or_else(|| invalid("no coding.db given; enter its path"))?;
+    let clean = |p: Option<String>| p.filter(|p| !p.trim().is_empty());
+    let (kind, path) = match body.kind {
+        Some(kind) => (kind, clean(body.path)),
+        None => {
+            let path = clean(body.coding_db)
+                .map(PathBuf::from)
+                .or_else(|| st.coding_db.clone());
+            let path = path.ok_or_else(|| invalid("no coding.db given; enter its path"))?;
+            ("coding_db".to_string(), Some(path.display().to_string()))
+        }
+    };
+    let kind = match kind.as_str() {
+        "csv" | "json" | "coding_db" => kind,
+        other => {
+            return Err(invalid(format!(
+                "unknown kind {other}; use csv, json or coding_db"
+            )))
+        }
+    };
+    let path = path.ok_or_else(|| invalid("path is required: enter the file to import"))?;
+    let path = PathBuf::from(path);
     if !path.is_file() {
         return Err(invalid(format!("{} is not a file", path.display())));
     }
-    Ok(Json(json!(st.store().import_codebook(&path, &st.actor)?)))
+    let store = st.store();
+    let book = match kind.as_str() {
+        "csv" => store.import_codebook_csv(&path, &st.actor)?,
+        "json" => store.import_codebook_json(&path, &st.actor)?,
+        _ => store.import_codebook(&path, &st.actor)?,
+    };
+    Ok(Json(json!(book)))
 }
 
 #[derive(Deserialize)]
@@ -1233,6 +1306,7 @@ async fn generate_prompts(
     only_phase2(&phase)?;
     let batch = body.map(|b| b.0.batch_size).unwrap_or(0);
     let store = st.store();
+    let template = store.study_config()?.prompt_template;
     let seg = require_segmentation(&store, &id)?;
     let unit_ids = store.phase_units(&id, PHASE_2)?;
     if unit_ids.is_empty() {
@@ -1247,7 +1321,8 @@ async fn generate_prompts(
             "no code can be offered to the AI; import or create codes first",
         ));
     }
-    let parts = cs_ai::build_prompts(
+    let parts = cs_ai::build_prompts_with(
+        &template,
         &cs_ai::PromptInput {
             seg: &seg,
             unit_ids: &unit_ids,
@@ -1296,6 +1371,8 @@ async fn create_run(
     Json(body): Json<RunBody>,
 ) -> ApiResult {
     only_phase2(&phase)?;
+    let store = st.store();
+    let template_version = store.study_config()?.prompt_template.version;
     let meta = AiRunMeta {
         run_label: body.run_label,
         model_name: body.model_name,
@@ -1305,7 +1382,7 @@ async fn create_run(
         context_length: body.context_length,
         batch_size: body.batch_size,
         prompt_id_version: if body.prompt_id_version.trim().is_empty() {
-            cs_ai::PROMPT_VERSION.to_string()
+            template_version
         } else {
             body.prompt_id_version
         },
@@ -1317,7 +1394,6 @@ async fn create_run(
         notes: body.notes,
         batch_id: body.batch_id,
     };
-    let store = st.store();
     require_interview(&store, &id)?;
     let run_id = store.create_ai_run(&id, &meta, &st.actor)?;
     Ok(Json(json!(store.ai_run(run_id)?)))
@@ -1369,6 +1445,7 @@ async fn review(State(st): State<AppState>, UrlPath(id): UrlPath<String>) -> Api
         seg.units.iter().map(|u| (u.unit_id.as_str(), u)).collect();
     let p1 = store.human_coding_map(&id, PHASE_1)?;
     let book = store.codebook()?;
+    let categories = store.study_config()?.effective_categories();
     let items: Vec<Value> = r
         .items
         .iter()
@@ -1376,7 +1453,7 @@ async fn review(State(st): State<AppState>, UrlPath(id): UrlPath<String>) -> Api
             let mut v = json!(e);
             v["unit"] = json!(units.get(e.item.unit_id.as_str()));
             let ctx = p1.get(&e.item.unit_id).cloned().unwrap_or_default();
-            v["allowed"] = json!(phase2_codes(&book, &ctx));
+            v["allowed"] = json!(phase2_codes_for_categories(&book, &categories, &ctx));
             v
         })
         .collect();

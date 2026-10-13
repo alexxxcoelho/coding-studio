@@ -5,7 +5,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 
 use anyhow::{Context, Result};
-use cs_model::phase::{is_phase2_code, phase1_codebook};
+use cs_model::phase::is_phase2_code;
 use cs_model::{
     family_for_toe, sha256_hex, Code, CodeSet, Codebook, HumanCoding, ResearchQuestion, Unit, NA,
     PHASE_2, TOE_LETTERS,
@@ -107,7 +107,9 @@ fn check_toe(toe: &Option<String>) -> Result<Option<String>> {
     }
 }
 
-fn check_code_name(name: &str) -> Result<()> {
+/// Name of a phase 2 code: non-empty, no separators, not NA, and not the name
+/// of a phase 1 category of the study (`phase1`).
+pub(crate) fn check_code_name(name: &str, phase1: &[String]) -> Result<()> {
     if name.is_empty() {
         return Err(validation("code name is empty"));
     }
@@ -122,7 +124,7 @@ fn check_code_name(name: &str) -> Result<()> {
             "a code name cannot contain spaces, quotes, commas or semicolons",
         ));
     }
-    if phase1_codebook().get(name).is_some() {
+    if phase1.iter().any(|p| p == name) {
         return Err(validation(format!(
             "{name} is a phase 1 category and cannot be a phase 2 code"
         )));
@@ -375,7 +377,13 @@ impl Store {
     /// Validates a new code and inserts it on `conn` with its audit event.
     pub(crate) fn insert_code(&self, conn: &Connection, code: &Code, actor: &str) -> Result<Code> {
         let name = code.code.trim();
-        check_code_name(name)?;
+        let phase1: Vec<String> = self
+            .study_config()?
+            .effective_categories()
+            .into_iter()
+            .map(|c| c.name)
+            .collect();
+        check_code_name(name, &phase1)?;
         if self.code_row(name)?.is_some() {
             return Err(validation(format!("code {name} already exists")));
         }

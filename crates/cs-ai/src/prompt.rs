@@ -8,10 +8,13 @@
 use std::collections::BTreeMap;
 use std::fmt::Write as _;
 
-use cs_model::{canonical_hash, sha256_hex, Code, PromptPart, SpeakerRole, Unit, NA, PHASE_2};
+use cs_model::config::CODE_COUNT_PLACEHOLDER;
+use cs_model::{
+    canonical_hash, sha256_hex, Code, PromptPart, PromptTemplate, SpeakerRole, Unit, NA, PHASE_2,
+};
 use serde_json::{json, Value};
 
-use crate::{PromptInput, OUTPUT_SCHEMA_ID, PROMPT_VERSION};
+use crate::{PromptInput, OUTPUT_SCHEMA_ID};
 
 /// Number of parts for `n` units and a requested batch size (0 = one part).
 pub fn parts_for_batch(n: usize, batch_size: usize) -> u32 {
@@ -162,7 +165,12 @@ pub(crate) fn ordered_codes(codes: &[Code]) -> Vec<&Code> {
 
 // --------------------------------------------------------------- build
 
-pub(crate) fn build(input: &PromptInput, batch_size: usize) -> Vec<PromptPart> {
+/// Parts of the prompt for `template`, `batch_size` units per part.
+pub(crate) fn build(
+    template: &PromptTemplate,
+    input: &PromptInput,
+    batch_size: usize,
+) -> Vec<PromptPart> {
     let units = scope_units(input);
     let of = parts_for_batch(units.len(), batch_size);
     let listed = ordered_codes(input.codes);
@@ -171,7 +179,7 @@ pub(crate) fn build(input: &PromptInput, batch_size: usize) -> Vec<PromptPart> {
     (1..=of)
         .map(|part| {
             let part_units = part_slice(&units, part, of);
-            let text = render(input, &listed, &hash, part_units, part, of);
+            let text = render(template, input, &listed, &hash, part_units, part, of);
             PromptPart {
                 interview_id: input.seg.interview_id.clone(),
                 phase: PHASE_2,
@@ -182,12 +190,26 @@ pub(crate) fn build(input: &PromptInput, batch_size: usize) -> Vec<PromptPart> {
                 unit_ids: part_units.iter().map(|u| u.unit_id.clone()).collect(),
                 segmentation_hash: input.seg.hash.clone(),
                 codebook_hash: hash.clone(),
-                prompt_version: PROMPT_VERSION.to_string(),
+                prompt_version: template.version.clone(),
                 sha256: sha256_hex(text.as_bytes()),
                 text,
             }
         })
         .collect()
+}
+
+/// Splits a header at its first second-level heading: the title block (the
+/// text before it) and the rest. The meta lines of the prompt follow the
+/// title block. A header without heading is a title block only.
+fn split_header(header: &str) -> (&str, &str) {
+    let mut offset = 0;
+    for line in header.split_inclusive('\n') {
+        if line.starts_with("## ") {
+            return header.split_at(offset);
+        }
+        offset += line.len();
+    }
+    (header, "")
 }
 
 /// Schema embedded in a prompt: the generic schema with the values of this
@@ -278,6 +300,7 @@ fn code_line(c: &Code) -> String {
 }
 
 fn render(
+    template: &PromptTemplate,
     input: &PromptInput,
     listed: &[&Code],
     codebook_hash: &str,
@@ -290,50 +313,32 @@ fn render(
     let mut t = String::new();
     let first = units.first().map(|u| u.unit_id.as_str()).unwrap_or("");
     let last = units.last().map(|u| u.unit_id.as_str()).unwrap_or("");
+    let (title, rest) = split_header(&template.header);
 
     // Writing to a String cannot fail; the results are ignored on purpose.
-    let _ = writeln!(t, "# Coding Studio: blind secondary coding");
-    let _ = writeln!(t);
-    let _ = writeln!(t, "Detailed coding with concrete codes");
-    let _ = writeln!(t);
+    if !title.trim().is_empty() {
+        let _ = writeln!(t, "{}", title.trim_end());
+        let _ = writeln!(t);
+    }
     let _ = writeln!(t, "interview_id: {}", seg.interview_id);
     let _ = writeln!(t, "phase: {phase}");
     let _ = writeln!(t, "part: {part} of {of}");
-    let _ = writeln!(t, "prompt_version: {PROMPT_VERSION}");
+    let _ = writeln!(t, "prompt_version: {}", template.version);
     let _ = writeln!(t, "segmentation_hash: {}", seg.hash);
     let _ = writeln!(t, "codebook_hash: {codebook_hash}");
     let _ = writeln!(t, "units_in_this_part: {} ({first} to {last})", units.len());
     let _ = writeln!(t);
-
-    let _ = writeln!(t, "## Role");
-    let _ = writeln!(t);
-    let _ = writeln!(
-        t,
-        "You are a secondary coder on a qualitative study. You apply a closed codebook. \
-You do not produce analysis, you do not build themes, and you do not interpret beyond \
-the assignment of codes."
-    );
-    let _ = writeln!(t);
-    let _ = writeln!(t, "## Task");
-    let _ = writeln!(t);
-    let _ = writeln!(
-        t,
-        "For each unit listed under UNITS, assign the code or codes of the codebook that \
-apply. The codes name concrete mechanisms, such as a legal obligation, a customer requirement \
-or a lack of skills. They are grouped by the context of the technology-organisation-environment \
-(TOE) framework they belong to; the grouping is there for orientation only, and any code may \
-apply to any unit."
-    );
-    let _ = writeln!(t);
+    if !rest.trim().is_empty() {
+        let _ = writeln!(t, "{}", rest.trim());
+        let _ = writeln!(t);
+    }
 
     let _ = writeln!(t, "## Codebook");
     let _ = writeln!(t);
-    let _ = writeln!(
-        t,
-        "One code per line, as JSON with the fields code, label and definition. These {} \
-codes and NA are the only valid values.",
-        listed.len()
-    );
+    let intro = template
+        .codebook_intro
+        .replace(CODE_COUNT_PLACEHOLDER, &listed.len().to_string());
+    let _ = writeln!(t, "{intro}");
     for (toe, title) in GROUPS {
         let group: Vec<&&Code> = listed.iter().filter(|c| c.toe.as_deref() == toe).collect();
         if group.is_empty() {
@@ -350,19 +355,14 @@ codes and NA are the only valid values.",
 
     let _ = writeln!(t, "## Rules");
     let _ = writeln!(t);
-    for (i, rule) in RULES.iter().enumerate() {
-        let _ = writeln!(t, "{}. {rule}", i + 1);
+    if !template.footer.trim().is_empty() {
+        let _ = writeln!(t, "{}", template.footer.trim());
     }
     let _ = writeln!(t);
 
     let _ = writeln!(t, "## Units");
     let _ = writeln!(t);
-    let _ = writeln!(
-        t,
-        "One unit per line, as JSON with the fields unit_id, speaker (INT = interviewer, \
-RESP = respondent, any other label is the speaker label of the source), timestamp and text. \
-Characters may appear as JSON escapes; read them as the characters they encode."
-    );
+    let _ = writeln!(t, "{}", template.units_intro.trim());
     let _ = writeln!(t);
     for u in units {
         let fields = vec![
@@ -413,13 +413,3 @@ answer, where the angle brackets are placeholders:"
     let _ = writeln!(t, "{}", escape_dashes(&pretty));
     t
 }
-
-const RULES: &[&str] = &[
-    "Use ONLY the codes of the codebook, written exactly as listed. You may not create, merge or rename codes.",
-    "If no code applies, answer NA. NA is a valid and frequent answer; never force a code for the sake of completeness. NA is never combined with another code.",
-    "A unit may carry several codes.",
-    "Code what is SAID in the unit, not what you infer from the context of the interview. A unit that could not be coded on its own is coded NA.",
-    "Interviewer turns (speaker INT) are coded NA by default, unless the interviewer reports a fact from the field in that turn.",
-    "Write no comment, no justification and no memo.",
-    "Process EVERY unit listed under UNITS, in order, without omitting any: one entry per unit, no unit twice, no unit that is not listed.",
-];

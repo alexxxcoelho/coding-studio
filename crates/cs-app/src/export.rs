@@ -997,7 +997,7 @@ pub fn write_package(
     let manifest = json!({
         "tool": "Coding Studio",
         "version": crate::VERSION,
-        "prompt_version": cs_ai::PROMPT_VERSION,
+        "prompt_version": store.study_config()?.prompt_template.version,
         "phase1_codebook": cs_model::phase::PHASE1_CODEBOOK_VERSION,
         "generated_at": crate::now(),
         "generated_by": actor,

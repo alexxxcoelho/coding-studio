@@ -1,3 +1,4 @@
+#![allow(clippy::needless_range_loop)]
 //! The v4 procedure, end to end, through the HTTP router on a temporary
 //! library and database, with fictional data.
 //!
@@ -234,7 +235,9 @@ fn json_of(dir: &Path, name: &str) -> Value {
 fn section<'a>(text: &'a str, from: &str, to: &str) -> &'a str {
     let Some(a) = text.find(from) else { return "" };
     let rest = &text[a..];
-    let b = rest[from.len()..].find(to).map_or(rest.len(), |i| i + from.len());
+    let b = rest[from.len()..]
+        .find(to)
+        .map_or(rest.len(), |i| i + from.len());
     &rest[..b]
 }
 
@@ -332,7 +335,14 @@ async fn audited(app: &Router, rep: &mut Rep, wanted: &[&str]) {
     }
 }
 
-async fn put_coding(app: &Router, rep: &mut Rep, phase: u8, interview: &str, unit: &str, body: Value) -> Value {
+async fn put_coding(
+    app: &Router,
+    rep: &mut Rep,
+    phase: u8,
+    interview: &str,
+    unit: &str,
+    body: Value,
+) -> Value {
     let (st, r) = call(
         app,
         "PUT",
@@ -340,7 +350,12 @@ async fn put_coding(app: &Router, rep: &mut Rep, phase: u8, interview: &str, uni
         Some(body),
     )
     .await;
-    rep.status(st, &[StatusCode::OK], &r, &format!("phase {phase} coding of {unit}"));
+    rep.status(
+        st,
+        &[StatusCode::OK],
+        &r,
+        &format!("phase {phase} coding of {unit}"),
+    );
     r
 }
 
@@ -378,7 +393,11 @@ async fn v4_procedure_end_to_end() {
     )
     .await;
     rep.status(st, &[StatusCode::OK], &scan, "first scan");
-    rep.eq(arr(&scan["interviews"]).len(), 1, "one interview after the first scan");
+    rep.eq(
+        arr(&scan["interviews"]).len(),
+        1,
+        "one interview after the first scan",
+    );
     let (st, seg) = call(app, "POST", &format!("{I}/segment"), None).await;
     rep.status(st, &[StatusCode::OK], &seg, "segment INT-01");
     let seg_ids: Vec<String> = arr(&seg["units"])
@@ -386,8 +405,16 @@ async fn v4_procedure_end_to_end() {
         .map(|u| u["unit_id"].as_str().unwrap_or("").to_string())
         .collect();
     rep.eq(seg_ids.clone(), all_units.clone(), "16 units, U001 to U016");
-    rep.eq(&seg["units"][1]["role"], &json!("respondent"), "U002 is a respondent turn");
-    rep.eq(&seg["units"][0]["role"], &json!("interviewer"), "U001 is an interviewer turn");
+    rep.eq(
+        &seg["units"][1]["role"],
+        &json!("respondent"),
+        "U002 is a respondent turn",
+    );
+    rep.eq(
+        &seg["units"][0]["role"],
+        &json!("interviewer"),
+        "U001 is an interviewer turn",
+    );
     let original_u10_text = seg["units"][9]["text"].as_str().unwrap_or("").to_string();
 
     // Phase 1: every unit gets a provisional category; the interviewer's are NA.
@@ -402,15 +429,47 @@ async fn v4_procedure_end_to_end() {
         &["ORG"],
     ];
     for r in 0..8 {
-        put_coding(app, &mut rep, 1, "INT-01", &uid(2 * r + 1), json!({ "codes": ["NA"] })).await;
-        put_coding(app, &mut rep, 1, "INT-01", &resp(r), json!({ "codes": p1[r] })).await;
+        put_coding(
+            app,
+            &mut rep,
+            1,
+            "INT-01",
+            &uid(2 * r + 1),
+            json!({ "codes": ["NA"] }),
+        )
+        .await;
+        put_coding(
+            app,
+            &mut rep,
+            1,
+            "INT-01",
+            &resp(r),
+            json!({ "codes": p1[r] }),
+        )
+        .await;
     }
-    let (_, ph1) = call(app, "GET", &format!("{P1}"), None).await;
-    rep.eq(&ph1["summary"]["n_units"], &json!(16), "phase 1 sees 16 units");
-    rep.eq(&ph1["summary"]["n_human_coded"], &json!(16), "phase 1: 16 units coded");
-    rep.eq(&ph1["guard"]["complete"], &json!(true), "phase 1 guard: complete");
+    let (_, ph1) = call(app, "GET", P1, None).await;
+    rep.eq(
+        &ph1["summary"]["n_units"],
+        &json!(16),
+        "phase 1 sees 16 units",
+    );
+    rep.eq(
+        &ph1["summary"]["n_human_coded"],
+        &json!(16),
+        "phase 1: 16 units coded",
+    );
+    rep.eq(
+        &ph1["guard"]["complete"],
+        &json!(true),
+        "phase 1 guard: complete",
+    );
     let (_, rows) = call(app, "GET", &format!("{P2}/units"), None).await;
-    rep.eq(arr(&rows).len(), 8, "eight units in phase 2 scope (phase 1 not NA)");
+    rep.eq(
+        arr(&rows).len(),
+        8,
+        "eight units in phase 2 scope (phase 1 not NA)",
+    );
 
     // Phase 2: concrete codes, several on one unit, an excerpt and a memo.
     // The memo is a sentinel that must never reach a prompt.
@@ -424,13 +483,57 @@ async fn v4_procedure_end_to_end() {
                  "memo": "SENTINEL-MEMO-ALPHA" }),
     )
     .await;
-    put_coding(app, &mut rep, 2, "INT-01", &resp(2), json!({ "codes": ["TECH-COST", "ORG-SKILLS"] })).await;
-    put_coding(app, &mut rep, 2, "INT-01", &resp(3), json!({ "codes": ["ENV-PARTNER"] })).await;
-    put_coding(app, &mut rep, 2, "INT-01", &resp(4), json!({ "codes": ["TECH-COST"] })).await;
-    put_coding(app, &mut rep, 2, "INT-01", &resp(5), json!({ "codes": ["TECH-COST"] })).await;
-    put_coding(app, &mut rep, 2, "INT-01", &resp(6), json!({ "codes": ["TECH-ADV"] })).await;
+    put_coding(
+        app,
+        &mut rep,
+        2,
+        "INT-01",
+        &resp(2),
+        json!({ "codes": ["TECH-COST", "ORG-SKILLS"] }),
+    )
+    .await;
+    put_coding(
+        app,
+        &mut rep,
+        2,
+        "INT-01",
+        &resp(3),
+        json!({ "codes": ["ENV-PARTNER"] }),
+    )
+    .await;
+    put_coding(
+        app,
+        &mut rep,
+        2,
+        "INT-01",
+        &resp(4),
+        json!({ "codes": ["TECH-COST"] }),
+    )
+    .await;
+    put_coding(
+        app,
+        &mut rep,
+        2,
+        "INT-01",
+        &resp(5),
+        json!({ "codes": ["TECH-COST"] }),
+    )
+    .await;
+    put_coding(
+        app,
+        &mut rep,
+        2,
+        "INT-01",
+        &resp(6),
+        json!({ "codes": ["TECH-ADV"] }),
+    )
+    .await;
     let r = put_coding(app, &mut rep, 2, "INT-01", &resp(1), json!({ "codes": ["TECH-ADV", "OUT-REALISED"], "excerpt": "sixty to ninety-eight percent", "memo": "SENTINEL-MEMO-ALPHA" })).await;
-    rep.eq(sset(&r["codes"]), sorted(&["TECH-ADV", "OUT-REALISED"]), "U004 carries two codes");
+    rep.eq(
+        sset(&r["codes"]),
+        sorted(&["TECH-ADV", "OUT-REALISED"]),
+        "U004 carries two codes",
+    );
 
     // A label to clarify on U002.
     let (st, label) = call(
@@ -440,17 +543,43 @@ async fn v4_procedure_end_to_end() {
         Some(json!({ "label": "sentinel label supplier tagging", "note": "SENTINEL-NOTE who pays?" })),
     )
     .await;
-    rep.status(st, &[StatusCode::OK, StatusCode::CREATED], &label, "label to clarify on U002");
+    rep.status(
+        st,
+        &[StatusCode::OK, StatusCode::CREATED],
+        &label,
+        "label to clarify on U002",
+    );
     let tid = label["id"].as_i64().unwrap_or(0);
 
     // The batch cannot leave while U016 is uncoded, and no snapshot is taken.
-    let (st, e) = call(app, "POST", &format!("{P2}/prompts"), Some(json!({ "batch_size": 4 }))).await;
-    rep.eq(st, StatusCode::BAD_REQUEST, "prompt refused while U016 has no phase 2 coding");
-    rep.ok(e["error"].as_str().unwrap_or("").contains(&resp(7)), "refusal names U016");
+    let (st, e) = call(
+        app,
+        "POST",
+        &format!("{P2}/prompts"),
+        Some(json!({ "batch_size": 4 })),
+    )
+    .await;
+    rep.eq(
+        st,
+        StatusCode::BAD_REQUEST,
+        "prompt refused while U016 has no phase 2 coding",
+    );
+    rep.ok(
+        e["error"].as_str().unwrap_or("").contains(&resp(7)),
+        "refusal names U016",
+    );
     let (st, snaps) = call(app, "GET", &format!("{I}/snapshots"), None).await;
     rep.status(st, &[StatusCode::OK], &snaps, "snapshots route answers");
     rep.eq(arr(&snaps).len(), 0, "a refused prompt takes no snapshot");
-    put_coding(app, &mut rep, 2, "INT-01", &resp(7), json!({ "codes": ["ORG-SKILLS"] })).await;
+    put_coding(
+        app,
+        &mut rep,
+        2,
+        "INT-01",
+        &resp(7),
+        json!({ "codes": ["ORG-SKILLS"] }),
+    )
+    .await;
 
     // The label becomes a field code. Its texts name units: the prompt must redact them.
     let (st, res) = call(
@@ -474,16 +603,43 @@ async fn v4_procedure_end_to_end() {
         })),
     )
     .await;
-    rep.status(st, &[StatusCode::OK], &res, "label resolved into a new field code");
-    rep.eq(&res["resolved"][0]["resolved"]["kind"], &json!("new_code"), "resolution kind");
+    rep.status(
+        st,
+        &[StatusCode::OK],
+        &res,
+        "label resolved into a new field code",
+    );
+    rep.eq(
+        &res["resolved"][0]["resolved"]["kind"],
+        &json!("new_code"),
+        "resolution kind",
+    );
     let new = find_by(&res["codebook"]["codes"], "code", "SUPPLIER-TAGGING");
-    rep.eq(&new["origin"], &json!("field"), "the new code is a field code");
+    rep.eq(
+        &new["origin"],
+        &json!("field"),
+        "the new code is a field code",
+    );
     let (_, rows) = call(app, "GET", &format!("{P2}/units"), None).await;
-    let r2 = find_by(&Value::Array(arr(&rows).iter().map(|r| r["unit"].clone()).collect()), "unit_id", &resp(0));
+    let r2 = find_by(
+        &Value::Array(arr(&rows).iter().map(|r| r["unit"].clone()).collect()),
+        "unit_id",
+        &resp(0),
+    );
     rep.ok(!r2.is_null(), "U002 is in the phase 2 list");
-    let row2 = arr(&rows).into_iter().find(|r| r["unit"]["unit_id"] == resp(0).as_str()).unwrap_or(Value::Null);
-    rep.eq(sset(&row2["coding"]["codes"]), sorted(&["SUPPLIER-TAGGING"]), "U002 now carries the field code");
-    rep.ok(!row2["to_clarify"][0]["resolved"].is_null(), "U002 label is resolved in the row");
+    let row2 = arr(&rows)
+        .into_iter()
+        .find(|r| r["unit"]["unit_id"] == resp(0).as_str())
+        .unwrap_or(Value::Null);
+    rep.eq(
+        sset(&row2["coding"]["codes"]),
+        sorted(&["SUPPLIER-TAGGING"]),
+        "U002 now carries the field code",
+    );
+    rep.ok(
+        !row2["to_clarify"][0]["resolved"].is_null(),
+        "U002 label is resolved in the row",
+    );
 
     // Annotations that must not reach the AI: a flag, and a claim with a memo.
     let (st, f) = call(
@@ -509,7 +665,12 @@ async fn v4_procedure_end_to_end() {
         })),
     )
     .await;
-    rep.status(st, &[StatusCode::OK, StatusCode::CREATED], &c, "claim on U008 before the prompt");
+    rep.status(
+        st,
+        &[StatusCode::OK, StatusCode::CREATED],
+        &c,
+        "claim on U008 before the prompt",
+    );
     audited(
         app,
         &mut rep,
@@ -531,15 +692,32 @@ async fn v4_procedure_end_to_end() {
     // 2. Prompt generation: snapshot, blindness, redaction
     // =====================================================================
     rep.step("2 prompt and snapshot");
-    let (st, parts) = call(app, "POST", &format!("{P2}/prompts"), Some(json!({ "batch_size": 4 }))).await;
+    let (st, parts) = call(
+        app,
+        "POST",
+        &format!("{P2}/prompts"),
+        Some(json!({ "batch_size": 4 })),
+    )
+    .await;
     rep.status(st, &[StatusCode::OK], &parts, "prompt generation");
     let parts = arr(&parts);
     rep.eq(parts.len(), 2, "eight units at four per part: two parts");
-    let all_text: String = parts.iter().map(|p| p["text"].as_str().unwrap_or("")).collect::<Vec<_>>().join("\n");
+    let all_text: String = parts
+        .iter()
+        .map(|p| p["text"].as_str().unwrap_or(""))
+        .collect::<Vec<_>>()
+        .join("\n");
     for p in &parts {
-        rep.eq(&p["prompt_version"], &json!("CS-P04-EN v3.1"), "prompt_version field");
+        rep.eq(
+            &p["prompt_version"],
+            &json!("CS-P04-EN v3.1"),
+            "prompt_version field",
+        );
         rep.ok(
-            p["text"].as_str().unwrap_or("").contains("prompt_version: CS-P04-EN v3.1"),
+            p["text"]
+                .as_str()
+                .unwrap_or("")
+                .contains("prompt_version: CS-P04-EN v3.1"),
             "prompt text names its version",
         );
         rep.eq(&p["batch_id"], &json!(1), "batch 1");
@@ -553,22 +731,70 @@ async fn v4_procedure_end_to_end() {
     let snap = snaps.first().cloned().unwrap_or(Value::Null);
     rep.eq(&snap["batch_id"], &json!(1), "snapshot of batch 1");
     rep.eq(&snap["phase"], &json!(2), "snapshot of phase 2");
-    rep.eq(snap["codings"].as_object().map_or(0, |o| o.len()), 8, "snapshot holds the eight units");
-    rep.eq(sset(&snap["codings"][resp(0).as_str()]), sorted(&["SUPPLIER-TAGGING"]), "snapshot U002 holds the resolved field code");
-    rep.eq(sset(&snap["codings"][resp(2).as_str()]), sorted(&["TECH-COST", "ORG-SKILLS"]), "snapshot U006");
-    rep.eq(snap["sha256"].as_str().map_or(0, str::len), 64, "snapshot digest");
-    rep.eq(&snap["segmentation_hash"], &parts[0]["segmentation_hash"], "snapshot segmentation hash");
-    rep.eq(&snap["codebook_hash"], &parts[0]["codebook_hash"], "snapshot codebook hash");
+    rep.eq(
+        snap["codings"].as_object().map_or(0, |o| o.len()),
+        8,
+        "snapshot holds the eight units",
+    );
+    rep.eq(
+        sset(&snap["codings"][resp(0).as_str()]),
+        sorted(&["SUPPLIER-TAGGING"]),
+        "snapshot U002 holds the resolved field code",
+    );
+    rep.eq(
+        sset(&snap["codings"][resp(2).as_str()]),
+        sorted(&["TECH-COST", "ORG-SKILLS"]),
+        "snapshot U006",
+    );
+    rep.eq(
+        snap["sha256"].as_str().map_or(0, str::len),
+        64,
+        "snapshot digest",
+    );
+    rep.eq(
+        &snap["segmentation_hash"],
+        &parts[0]["segmentation_hash"],
+        "snapshot segmentation hash",
+    );
+    rep.eq(
+        &snap["codebook_hash"],
+        &parts[0]["codebook_hash"],
+        "snapshot codebook hash",
+    );
 
     // Blindness: nothing the candidate wrote beyond the codebook and the units.
-    for sentinel in ["SENTINEL-MEMO", "SENTINEL-NOTE", "SENTINEL-CLAIM", "sentinel label", "supplier tagging"] {
-        rep.ok(!all_text.contains(sentinel), &format!("prompt lacks {sentinel}"));
+    for sentinel in [
+        "SENTINEL-MEMO",
+        "SENTINEL-NOTE",
+        "SENTINEL-CLAIM",
+        "sentinel label",
+        "supplier tagging",
+    ] {
+        rep.ok(
+            !all_text.contains(sentinel),
+            &format!("prompt lacks {sentinel}"),
+        );
     }
     for human in ["\"CONTEXT\"", "\"TECH\"", "\"ORG\"", "\"ENV\""] {
-        rep.ok(!all_text.contains(human), &format!("prompt lacks phase 1 context {human}"));
+        rep.ok(
+            !all_text.contains(human),
+            &format!("prompt lacks phase 1 context {human}"),
+        );
     }
-    for annotation in ["CO-CONSTRUCTED", "SECOND-HAND", "UNFINISHED", "VERIFY", "EV2", "PROBED", "constraint", "excerpt"] {
-        rep.ok(!all_text.contains(annotation), &format!("prompt lacks annotation {annotation}"));
+    for annotation in [
+        "CO-CONSTRUCTED",
+        "SECOND-HAND",
+        "UNFINISHED",
+        "VERIFY",
+        "EV2",
+        "PROBED",
+        "constraint",
+        "excerpt",
+    ] {
+        rep.ok(
+            !all_text.contains(annotation),
+            &format!("prompt lacks annotation {annotation}"),
+        );
     }
     let mut seen_units = 0;
     for p in &parts {
@@ -578,13 +804,26 @@ async fn v4_procedure_end_to_end() {
         for line in units_block.lines().filter(|l| l.starts_with('{')) {
             seen_units += 1;
             let v: Value = serde_json::from_str(line).unwrap_or(Value::Null);
-            let keys: BTreeSet<String> = v.as_object().map(|o| o.keys().cloned().collect()).unwrap_or_default();
+            let keys: BTreeSet<String> = v
+                .as_object()
+                .map(|o| o.keys().cloned().collect())
+                .unwrap_or_default();
             rep.eq(
                 keys,
-                ["speaker", "text", "timestamp", "unit_id"].iter().map(|s| s.to_string()).collect(),
+                ["speaker", "text", "timestamp", "unit_id"]
+                    .iter()
+                    .map(|s| s.to_string())
+                    .collect(),
                 "a unit line carries only unit_id, speaker, timestamp, text",
             );
-            for code in ["TECH-ADV", "TECH-COST", "ORG-SKILLS", "ENV-PARTNER", "OUT-REALISED", "SUPPLIER-TAGGING"] {
+            for code in [
+                "TECH-ADV",
+                "TECH-COST",
+                "ORG-SKILLS",
+                "ENV-PARTNER",
+                "OUT-REALISED",
+                "SUPPLIER-TAGGING",
+            ] {
                 rep.ok(!line.contains(code), "a unit line holds no code");
             }
         }
@@ -592,10 +831,16 @@ async fn v4_procedure_end_to_end() {
             !book_block.contains("INT-01-U") && !book_block.contains("ECO-02-U"),
             "no unit id inside the code texts",
         );
-        rep.ok(book_block.contains("[unit]") || !book_block.contains("SUPPLIER-TAGGING"), "unit ids in code texts are redacted as [unit]");
+        rep.ok(
+            book_block.contains("[unit]") || !book_block.contains("SUPPLIER-TAGGING"),
+            "unit ids in code texts are redacted as [unit]",
+        );
     }
     rep.eq(seen_units, 8, "the eight units are in the prompt parts");
-    rep.ok(all_text.contains("SUPPLIER-TAGGING"), "the field code is offered to the AI");
+    rep.ok(
+        all_text.contains("SUPPLIER-TAGGING"),
+        "the field code is offered to the AI",
+    );
     rep.ok(all_text.contains("[unit]"), "redaction marker present");
 
     // A run and its answer.
@@ -609,7 +854,12 @@ async fn v4_procedure_end_to_end() {
     rep.status(st, &[StatusCode::OK], &run, "run created");
     rep.eq(&run["batch_id"], &json!(1), "run attached to batch 1");
     let run_id = run["run_id"].as_i64().unwrap_or(0);
-    audited(app, &mut rep, &["prompt.generate", "human_snapshot.take", "ai.run.create"]).await;
+    audited(
+        app,
+        &mut rep,
+        &["prompt.generate", "human_snapshot.take", "ai.run.create"],
+    )
+    .await;
 
     // =====================================================================
     // 3. Import, review on the snapshot, revision after import, arbitration
@@ -623,7 +873,11 @@ async fn v4_procedure_end_to_end() {
         Some(json!({ "raw": answer(&parts[0], |_| codes(&["NOT-A-CODE"])), "part": 1, "of": 2 })),
     )
     .await;
-    rep.eq(st, StatusCode::BAD_REQUEST, "an answer with an unknown code is refused");
+    rep.eq(
+        st,
+        StatusCode::BAD_REQUEST,
+        "an answer with an unknown code is refused",
+    );
     rep.ok(!arr(&e["issues"]).is_empty(), "the refusal lists issues");
 
     let ai: BTreeMap<String, Vec<String>> = [
@@ -650,48 +904,159 @@ async fn v4_procedure_end_to_end() {
         rep.status(st, &[StatusCode::OK], &r, "valid answer imported");
         last = r;
     }
-    rep.eq(&last["complete"], &json!(true), "run complete after both parts");
-    rep.eq(&last["parts_received"], &json!([1, 2]), "both parts received");
+    rep.eq(
+        &last["complete"],
+        &json!(true),
+        "run complete after both parts",
+    );
+    rep.eq(
+        &last["parts_received"],
+        &json!([1, 2]),
+        "both parts received",
+    );
 
     let (st, review) = call(app, "GET", &format!("{I}/review"), None).await;
     rep.status(st, &[StatusCode::OK], &review, "review");
     rep.eq(&review["n_disagreements"], &json!(2), "two disagreements");
-    rep.eq(&review["n_sampled"], &json!(5), "agreement sample: max(5, ceil(10%)) of the six agreements");
+    rep.eq(
+        &review["n_sampled"],
+        &json!(5),
+        "agreement sample: max(5, ceil(10%)) of the six agreements",
+    );
     let items = arr(&review["items"]);
-    let disagreements: Vec<String> = items.iter().filter(|i| i["kind"] == "disagreement").map(|i| i["unit_id"].as_str().unwrap_or("").to_string()).collect();
-    let sample: Vec<String> = items.iter().filter(|i| i["kind"] == "agreement_sample").map(|i| i["unit_id"].as_str().unwrap_or("").to_string()).collect();
-    rep.eq(disagreements.clone(), vec![resp(2), resp(6)], "disagreements are U006 and U014, in order, first");
-    rep.eq(items.iter().take(2).filter(|i| i["kind"] == "disagreement").count(), 2, "disagreements come first");
+    let disagreements: Vec<String> = items
+        .iter()
+        .filter(|i| i["kind"] == "disagreement")
+        .map(|i| i["unit_id"].as_str().unwrap_or("").to_string())
+        .collect();
+    let sample: Vec<String> = items
+        .iter()
+        .filter(|i| i["kind"] == "agreement_sample")
+        .map(|i| i["unit_id"].as_str().unwrap_or("").to_string())
+        .collect();
+    rep.eq(
+        disagreements.clone(),
+        vec![resp(2), resp(6)],
+        "disagreements are U006 and U014, in order, first",
+    );
+    rep.eq(
+        items
+            .iter()
+            .take(2)
+            .filter(|i| i["kind"] == "disagreement")
+            .count(),
+        2,
+        "disagreements come first",
+    );
     let agreeing: BTreeSet<String> = [0usize, 1, 3, 4, 5, 7].iter().map(|r| resp(*r)).collect();
-    rep.ok(sample.iter().all(|u| agreeing.contains(u)), "the sample is drawn among agreements only");
-    rep.eq(sample.iter().collect::<BTreeSet<_>>().len(), 5, "five distinct sampled units");
-    rep.eq(&review["seeds"][0]["run_label"], &json!("R1"), "sample seed recorded for R1");
+    rep.ok(
+        sample.iter().all(|u| agreeing.contains(u)),
+        "the sample is drawn among agreements only",
+    );
+    rep.eq(
+        sample.iter().collect::<BTreeSet<_>>().len(),
+        5,
+        "five distinct sampled units",
+    );
+    rep.eq(
+        &review["seeds"][0]["run_label"],
+        &json!("R1"),
+        "sample seed recorded for R1",
+    );
     rep.ok(!review["seeds"][0]["seed"].is_null(), "the seed is present");
-    rep.eq(arr(&review["snapshots"]).len(), 1, "review names the snapshot used");
-    rep.eq(&review["snapshots"][0]["sha256"], &snap["sha256"], "same snapshot digest as the snapshots route");
+    rep.eq(
+        arr(&review["snapshots"]).len(),
+        1,
+        "review names the snapshot used",
+    );
+    rep.eq(
+        &review["snapshots"][0]["sha256"],
+        &snap["sha256"],
+        "same snapshot digest as the snapshots route",
+    );
     let (_, review_again) = call(app, "GET", &format!("{I}/review"), None).await;
-    rep.eq(&review_again["items"], &review["items"], "the review is deterministic");
+    rep.eq(
+        &review_again["items"],
+        &review["items"],
+        "the review is deterministic",
+    );
     let (_, ag_before) = call(app, "GET", &format!("{I}/agreement"), None).await;
-    rep.eq(&ag_before["reports"][0]["n_units"], &json!(8), "agreement over eight units");
-    rep.eq(&ag_before["reports"][0]["n_exact"], &json!(6), "six exact on the snapshot");
+    rep.eq(
+        &ag_before["reports"][0]["n_units"],
+        &json!(8),
+        "agreement over eight units",
+    );
+    rep.eq(
+        &ag_before["reports"][0]["n_exact"],
+        &json!(6),
+        "six exact on the snapshot",
+    );
 
     // The candidate revises U006 after the import: the live coding now equals the AI.
-    let r = put_coding(app, &mut rep, 2, "INT-01", &resp(2), json!({ "codes": ["TECH-COST"] })).await;
-    rep.eq(&r["revised_after_ai"], &json!(true), "revision after the AI is flagged");
+    let r = put_coding(
+        app,
+        &mut rep,
+        2,
+        "INT-01",
+        &resp(2),
+        json!({ "codes": ["TECH-COST"] }),
+    )
+    .await;
+    rep.eq(
+        &r["revised_after_ai"],
+        &json!(true),
+        "revision after the AI is flagged",
+    );
     let (_, review2) = call(app, "GET", &format!("{I}/review"), None).await;
-    rep.eq(&review2["n_disagreements"], &json!(2), "still two disagreements after the revision");
+    rep.eq(
+        &review2["n_disagreements"],
+        &json!(2),
+        "still two disagreements after the revision",
+    );
     let item = find_by(&review2["items"], "unit_id", &resp(2));
-    rep.eq(&item["kind"], &json!("disagreement"), "U006 stays a disagreement on the frozen reference");
-    rep.eq(sset(&item["human"]), sorted(&["TECH-COST", "ORG-SKILLS"]), "human is the frozen value");
-    rep.eq(sset(&item["human_current"]), sorted(&["TECH-COST"]), "human_current is the live value");
-    rep.eq(&item["revised_since_snapshot"], &json!(true), "revised_since_snapshot");
+    rep.eq(
+        &item["kind"],
+        &json!("disagreement"),
+        "U006 stays a disagreement on the frozen reference",
+    );
+    rep.eq(
+        sset(&item["human"]),
+        sorted(&["TECH-COST", "ORG-SKILLS"]),
+        "human is the frozen value",
+    );
+    rep.eq(
+        sset(&item["human_current"]),
+        sorted(&["TECH-COST"]),
+        "human_current is the live value",
+    );
+    rep.eq(
+        &item["revised_since_snapshot"],
+        &json!(true),
+        "revised_since_snapshot",
+    );
     let item14 = find_by(&review2["items"], "unit_id", &resp(6));
-    rep.eq(&item14["revised_since_snapshot"], &json!(false), "U014 not revised");
+    rep.eq(
+        &item14["revised_since_snapshot"],
+        &json!(false),
+        "U014 not revised",
+    );
     let (_, ag_after) = call(app, "GET", &format!("{I}/agreement"), None).await;
-    rep.eq(&ag_after["reports"], &ag_before["reports"], "the initial comparison does not change");
-    rep.eq(&ag_after["reports"][0]["divergent_unit_ids"], &json!([resp(2), resp(6)]), "divergent units unchanged");
+    rep.eq(
+        &ag_after["reports"],
+        &ag_before["reports"],
+        "the initial comparison does not change",
+    );
+    rep.eq(
+        &ag_after["reports"][0]["divergent_unit_ids"],
+        &json!([resp(2), resp(6)]),
+        "divergent units unchanged",
+    );
     let (_, snaps_after) = call(app, "GET", &format!("{I}/snapshots"), None).await;
-    rep.eq(&snaps_after[0]["sha256"], &snap["sha256"], "the snapshot is never edited");
+    rep.eq(
+        &snaps_after[0]["sha256"],
+        &snap["sha256"],
+        "the snapshot is never edited",
+    );
 
     // Arbitration of U014: a rationale is required.
     let (st, _) = call(
@@ -701,7 +1066,11 @@ async fn v4_procedure_end_to_end() {
         Some(json!({ "choice": {"type": "human"}, "final_codes": ["TECH-ADV"], "rationale": " " })),
     )
     .await;
-    rep.eq(st, StatusCode::BAD_REQUEST, "a disagreement cannot be decided without a rationale");
+    rep.eq(
+        st,
+        StatusCode::BAD_REQUEST,
+        "a disagreement cannot be decided without a rationale",
+    );
     let (st, d) = call(
         app,
         "PUT",
@@ -713,18 +1082,43 @@ async fn v4_procedure_end_to_end() {
     rep.status(st, &[StatusCode::OK], &d, "arbitration of U014");
     let (_, review3) = call(app, "GET", &format!("{I}/review"), None).await;
     rep.eq(&review3["n_decided"], &json!(1), "one decision");
-    rep.eq(&find_by(&review3["items"], "unit_id", &resp(6))["decision"]["choice"]["type"], &json!("human"), "decision on the item");
+    rep.eq(
+        &find_by(&review3["items"], "unit_id", &resp(6))["decision"]["choice"]["type"],
+        &json!("human"),
+        "decision on the item",
+    );
     let (_, fin) = call(app, "GET", &format!("{I}/final"), None).await;
     rep.eq(&fin["n_open_disagreements"], &json!(1), "U006 still open");
-    audited(app, &mut rep, &["ai.output.import", "review.sample", "review.decide"]).await;
+    audited(
+        app,
+        &mut rep,
+        &["ai.output.import", "review.sample", "review.decide"],
+    )
+    .await;
 
     // =====================================================================
     // 4. Flags, corrections, verification
     // =====================================================================
     rep.step("4 flags, corrections, verification");
-    let (st, _) = call(app, "PUT", &format!("{I}/units/{}/flags", resp(7)), Some(json!({ "flags": ["CO-CONSTRUCTED"] }))).await;
-    rep.eq(st, StatusCode::BAD_REQUEST, "CO-CONSTRUCTED without a kind is refused");
-    let (st, _) = call(app, "PUT", &format!("{I}/units/{}/flags", resp(7)), Some(json!({ "flags": ["CO-CONSTRUCTED"], "co_constructed_kind": "other" }))).await;
+    let (st, _) = call(
+        app,
+        "PUT",
+        &format!("{I}/units/{}/flags", resp(7)),
+        Some(json!({ "flags": ["CO-CONSTRUCTED"] })),
+    )
+    .await;
+    rep.eq(
+        st,
+        StatusCode::BAD_REQUEST,
+        "CO-CONSTRUCTED without a kind is refused",
+    );
+    let (st, _) = call(
+        app,
+        "PUT",
+        &format!("{I}/units/{}/flags", resp(7)),
+        Some(json!({ "flags": ["CO-CONSTRUCTED"], "co_constructed_kind": "other" })),
+    )
+    .await;
     rep.eq(st, StatusCode::BAD_REQUEST, "an unknown kind is refused");
     let (st, f) = call(
         app,
@@ -737,21 +1131,51 @@ async fn v4_procedure_end_to_end() {
     rep.eq(&f["co_constructed_kind"], &json!("assent"), "kind stored");
     let (_, flags) = call(app, "GET", &format!("{I}/flags"), None).await;
     rep.eq(arr(&flags).len(), 2, "two flagged units");
-    rep.eq(sset(&find_by(&flags, "unit_id", &resp(5))["flags"]), sorted(&["SECOND-HAND", "VERIFY"]), "flags of U012");
-    rep.eq(sset(&find_by(&flags, "unit_id", &resp(7))["flags"]), sorted(&["CO-CONSTRUCTED"]), "flags of U016");
+    rep.eq(
+        sset(&find_by(&flags, "unit_id", &resp(5))["flags"]),
+        sorted(&["SECOND-HAND", "VERIFY"]),
+        "flags of U012",
+    );
+    rep.eq(
+        sset(&find_by(&flags, "unit_id", &resp(7))["flags"]),
+        sorted(&["CO-CONSTRUCTED"]),
+        "flags of U016",
+    );
 
     // A correction of the text, with its reason; the segmentation keeps the original.
     let u10 = resp(4);
     let fixed1 = "We have not yet decided whether to extend the tags to the smaller articles, mainly because of the cost.";
-    let (st, e) = call(app, "POST", &format!("{I}/units/{u10}/corrections"), Some(json!({ "text": fixed1, "role": "respondent", "reason": " " }))).await;
+    let (st, e) = call(
+        app,
+        "POST",
+        &format!("{I}/units/{u10}/corrections"),
+        Some(json!({ "text": fixed1, "role": "respondent", "reason": " " })),
+    )
+    .await;
     rep.eq(st, StatusCode::BAD_REQUEST, "a correction needs a reason");
     rep.ok(e["kind"] == "validation", "validation error kind");
     let (st, c1) = call(app, "POST", &format!("{I}/units/{u10}/corrections"), Some(json!({ "text": fixed1, "role": "respondent", "reason": "Audio: the respondent adds the cost reason" }))).await;
-    rep.status(st, &[StatusCode::OK, StatusCode::CREATED], &c1, "first correction of U010");
-    rep.eq(&c1["reason"], &json!("Audio: the respondent adds the cost reason"), "reason stored");
+    rep.status(
+        st,
+        &[StatusCode::OK, StatusCode::CREATED],
+        &c1,
+        "first correction of U010",
+    );
+    rep.eq(
+        &c1["reason"],
+        &json!("Audio: the respondent adds the cost reason"),
+        "reason stored",
+    );
     let (_, rows) = call(app, "GET", &format!("{P2}/units"), None).await;
-    let row10 = arr(&rows).into_iter().find(|r| r["unit"]["unit_id"] == u10.as_str()).unwrap_or(Value::Null);
-    rep.eq(&row10["unit"]["text"], &json!(fixed1), "the phase 2 row shows the corrected text");
+    let row10 = arr(&rows)
+        .into_iter()
+        .find(|r| r["unit"]["unit_id"] == u10.as_str())
+        .unwrap_or(Value::Null);
+    rep.eq(
+        &row10["unit"]["text"],
+        &json!(fixed1),
+        "the phase 2 row shows the corrected text",
+    );
     rep.eq(&row10["unit"]["corrected"], &json!(true), "unit.corrected");
     let (_, detail) = call(app, "GET", I, None).await;
     rep.eq(
@@ -765,49 +1189,131 @@ async fn v4_procedure_end_to_end() {
     rep.status(st, &[StatusCode::OK], &v, "verification state");
     let targets = arr(&v["targets"]);
     let reasons = |u: &str| sset(&find_by(&v["targets"], "unit_id", u)["reasons"]);
-    rep.ok(reasons(&resp(1)).contains(&"quoted".to_string()), "U004 target: quoted (excerpt)");
-    rep.ok(reasons(&resp(3)).contains(&"quoted".to_string()), "U008 target: quoted (claim)");
-    rep.ok(reasons(&resp(5)).contains(&"flagged".to_string()), "U012 target: flagged");
-    rep.ok(reasons(&resp(2)).contains(&"disagreement".to_string()), "U006 target: disagreement");
-    rep.ok(reasons(&resp(6)).contains(&"disagreement".to_string()), "U014 target: disagreement");
-    let sample_ids: Vec<String> = targets.iter().filter(|t| sset(&t["reasons"]).contains(&"sample".to_string())).map(|t| t["unit_id"].as_str().unwrap_or("").to_string()).collect();
+    rep.ok(
+        reasons(&resp(1)).contains(&"quoted".to_string()),
+        "U004 target: quoted (excerpt)",
+    );
+    rep.ok(
+        reasons(&resp(3)).contains(&"quoted".to_string()),
+        "U008 target: quoted (claim)",
+    );
+    rep.ok(
+        reasons(&resp(5)).contains(&"flagged".to_string()),
+        "U012 target: flagged",
+    );
+    rep.ok(
+        reasons(&resp(2)).contains(&"disagreement".to_string()),
+        "U006 target: disagreement",
+    );
+    rep.ok(
+        reasons(&resp(6)).contains(&"disagreement".to_string()),
+        "U014 target: disagreement",
+    );
+    let sample_ids: Vec<String> = targets
+        .iter()
+        .filter(|t| sset(&t["reasons"]).contains(&"sample".to_string()))
+        .map(|t| t["unit_id"].as_str().unwrap_or("").to_string())
+        .collect();
     let other = targets.len() - sample_ids.len();
     let remaining = 16 - other;
     let expected = 5usize.max(remaining.div_ceil(10)).min(remaining);
-    rep.eq(sample_ids.len(), expected, "sample size is max(5, ceil(10%)) of the remaining units");
+    rep.eq(
+        sample_ids.len(),
+        expected,
+        "sample size is max(5, ceil(10%)) of the remaining units",
+    );
     rep.ok(
-        targets.iter().filter(|t| sset(&t["reasons"]).contains(&"sample".to_string())).all(|t| arr(&t["reasons"]).len() == 1),
+        targets
+            .iter()
+            .filter(|t| sset(&t["reasons"]).contains(&"sample".to_string()))
+            .all(|t| arr(&t["reasons"]).len() == 1),
         "a sampled unit has no other reason",
     );
     let (_, v_again) = call(app, "GET", &format!("{I}/verification"), None).await;
-    rep.eq(&v_again["targets"], &v["targets"], "the sample is deterministic once drawn");
-    rep.eq(&v["coverage"]["n_units"], &json!(16), "coverage over 16 units");
-    rep.eq(&v["coverage"]["n_verified"], &json!(0), "nothing verified yet");
+    rep.eq(
+        &v_again["targets"],
+        &v["targets"],
+        "the sample is deterministic once drawn",
+    );
+    rep.eq(
+        &v["coverage"]["n_units"],
+        &json!(16),
+        "coverage over 16 units",
+    );
+    rep.eq(
+        &v["coverage"]["n_verified"],
+        &json!(0),
+        "nothing verified yet",
+    );
 
     // Verify U010 and U004, then correct U010 again.
     for u in [&u10, &resp(1)] {
-        let (st, s) = call(app, "PUT", &format!("{I}/units/{u}/verification"), Some(json!({ "state": "verified", "note": "listened" }))).await;
+        let (st, s) = call(
+            app,
+            "PUT",
+            &format!("{I}/units/{u}/verification"),
+            Some(json!({ "state": "verified", "note": "listened" })),
+        )
+        .await;
         rep.status(st, &[StatusCode::OK], &s, &format!("verify {u}"));
         rep.eq(&s["state"], &json!("verified"), "state verified");
         rep.eq(&s["stale"], &json!(false), "not stale");
     }
     let (_, v) = call(app, "GET", &format!("{I}/verification"), None).await;
-    rep.eq(&v["coverage"]["n_verified"], &json!(2), "two units verified");
+    rep.eq(
+        &v["coverage"]["n_verified"],
+        &json!(2),
+        "two units verified",
+    );
     let fixed2 = "We have not yet decided whether to extend the tags to the smaller articles, mainly because of the tag cost.";
-    let (st, c2) = call(app, "POST", &format!("{I}/units/{u10}/corrections"), Some(json!({ "text": fixed2, "role": "respondent", "reason": "Second listening, wording" }))).await;
-    rep.status(st, &[StatusCode::OK, StatusCode::CREATED], &c2, "second correction of U010");
-    rep.ok(c2["correction_id"].as_i64().unwrap_or(0) > c1["correction_id"].as_i64().unwrap_or(0), "append-only: a new correction id");
+    let (st, c2) = call(
+        app,
+        "POST",
+        &format!("{I}/units/{u10}/corrections"),
+        Some(
+            json!({ "text": fixed2, "role": "respondent", "reason": "Second listening, wording" }),
+        ),
+    )
+    .await;
+    rep.status(
+        st,
+        &[StatusCode::OK, StatusCode::CREATED],
+        &c2,
+        "second correction of U010",
+    );
+    rep.ok(
+        c2["correction_id"].as_i64().unwrap_or(0) > c1["correction_id"].as_i64().unwrap_or(0),
+        "append-only: a new correction id",
+    );
     let (_, list) = call(app, "GET", &format!("{I}/units/{u10}/corrections"), None).await;
     rep.eq(arr(&list).len(), 2, "both corrections kept");
     let (_, v) = call(app, "GET", &format!("{I}/verification"), None).await;
     let s10 = find_by(&v["status"], "unit_id", &u10);
-    rep.eq(&s10["state"], &json!("unverified"), "U010 back to unverified after a correction");
+    rep.eq(
+        &s10["state"],
+        &json!("unverified"),
+        "U010 back to unverified after a correction",
+    );
     rep.eq(&s10["stale"], &json!(true), "U010 stale");
     let s4 = find_by(&v["status"], "unit_id", &resp(1));
     rep.eq(&s4["state"], &json!("verified"), "U004 still verified");
     rep.eq(&v["coverage"]["n_stale"], &json!(1), "one stale unit");
-    rep.eq(&v["coverage"]["n_verified"], &json!(1), "one verified unit left");
-    audited(app, &mut rep, &["unit.flags", "unit.correct", "unit.verify", "verification.sample"]).await;
+    rep.eq(
+        &v["coverage"]["n_verified"],
+        &json!(1),
+        "one verified unit left",
+    );
+    audited(
+        app,
+        &mut rep,
+        &[
+            "unit.flags",
+            "unit.correct",
+            "unit.verify",
+            "verification.sample",
+        ],
+    )
+    .await;
 
     // =====================================================================
     // 5. Claims
@@ -821,8 +1327,15 @@ async fn v4_procedure_end_to_end() {
         Some(json!({ "unit_id": u4, "excerpt": "not in this unit", "codes": ["TECH-ADV"] })),
     )
     .await;
-    rep.eq(st, StatusCode::BAD_REQUEST, "an excerpt that is not a substring is rejected");
-    rep.ok(e["error"].as_str().unwrap_or("").contains("excerpt"), "the error names excerpt");
+    rep.eq(
+        st,
+        StatusCode::BAD_REQUEST,
+        "an excerpt that is not a substring is rejected",
+    );
+    rep.ok(
+        e["error"].as_str().unwrap_or("").contains("excerpt"),
+        "the error names excerpt",
+    );
     let (st, e) = call(
         app,
         "POST",
@@ -831,7 +1344,10 @@ async fn v4_procedure_end_to_end() {
     )
     .await;
     rep.eq(st, StatusCode::BAD_REQUEST, "an unknown role is rejected");
-    rep.ok(e["error"].as_str().unwrap_or("").contains("role"), "the error names role");
+    rep.ok(
+        e["error"].as_str().unwrap_or("").contains("role"),
+        "the error names role",
+    );
     let (st, _) = call(
         app,
         "POST",
@@ -839,7 +1355,11 @@ async fn v4_procedure_end_to_end() {
         Some(json!({ "unit_id": u4, "excerpt": "sixty to ninety-eight percent", "codes": ["ENV-PARTNER"] })),
     )
     .await;
-    rep.eq(st, StatusCode::BAD_REQUEST, "claim codes must be among the unit's codes");
+    rep.eq(
+        st,
+        StatusCode::BAD_REQUEST,
+        "claim codes must be among the unit's codes",
+    );
     let (st, claim) = call(
         app,
         "POST",
@@ -855,11 +1375,24 @@ async fn v4_procedure_end_to_end() {
         })),
     )
     .await;
-    rep.status(st, &[StatusCode::OK, StatusCode::CREATED], &claim, "claim with excerpt, EV level, provenance and role");
+    rep.status(
+        st,
+        &[StatusCode::OK, StatusCode::CREATED],
+        &claim,
+        "claim with excerpt, EV level, provenance and role",
+    );
     let cid = claim["claim_id"].as_i64().unwrap_or(0);
-    rep.eq(&claim["excerpt"], &json!("sixty to ninety-eight percent"), "excerpt stored");
+    rep.eq(
+        &claim["excerpt"],
+        &json!("sixty to ninety-eight percent"),
+        "excerpt stored",
+    );
     rep.eq(&claim["ev_level"], &json!("EV3"), "ev_level stored");
-    rep.eq(&claim["provenance"], &json!("SPONTANEOUS"), "provenance stored");
+    rep.eq(
+        &claim["provenance"],
+        &json!("SPONTANEOUS"),
+        "provenance stored",
+    );
     rep.eq(&claim["role"], &json!("trigger"), "role stored");
     let mut upd = claim.clone();
     upd["ev_level"] = json!("EV4");
@@ -867,17 +1400,32 @@ async fn v4_procedure_end_to_end() {
     rep.status(st, &[StatusCode::OK], &got, "claim updated");
     rep.eq(&got["ev_level"], &json!("EV4"), "ev_level updated");
     let (_, all) = call(app, "GET", &format!("{I}/claims"), None).await;
-    rep.eq(arr(&all).len(), 2, "two claims in the interview (U008 and U004)");
+    rep.eq(
+        arr(&all).len(),
+        2,
+        "two claims in the interview (U008 and U004)",
+    );
     let (_, mine) = call(app, "GET", &format!("{I}/units/{u4}/claims"), None).await;
     rep.eq(arr(&mine).len(), 1, "one claim on U004");
     let (_, rev) = call(app, "GET", &format!("{I}/claims/review"), None).await;
-    rep.eq(&rev, &json!([]), "nothing to review while claims agree with the units");
+    rep.eq(
+        &rev,
+        &json!([]),
+        "nothing to review while claims agree with the units",
+    );
     // The code of the claim is removed from the unit.
     put_coding(app, &mut rep, 2, "INT-01", &u4, json!({ "codes": ["OUT-REALISED"], "excerpt": "sixty to ninety-eight percent", "memo": "SENTINEL-MEMO-ALPHA" })).await;
     let (_, rev) = call(app, "GET", &format!("{I}/claims/review"), None).await;
     rep.eq(arr(&rev).len(), 1, "one claim to review");
-    rep.eq(&rev[0]["claim_id"], &json!(cid), "the claim whose code was removed");
-    rep.ok(!rev[0]["reason"].as_str().unwrap_or("").is_empty(), "with a reason");
+    rep.eq(
+        &rev[0]["claim_id"],
+        &json!(cid),
+        "the claim whose code was removed",
+    );
+    rep.ok(
+        !rev[0]["reason"].as_str().unwrap_or("").is_empty(),
+        "with a reason",
+    );
     audited(app, &mut rep, &["claim.create", "claim.update"]).await;
 
     // =====================================================================
@@ -886,19 +1434,60 @@ async fn v4_procedure_end_to_end() {
     rep.step("6 cases and cross-case");
     std::fs::create_dir_all(ctx.root.join("ECO-02_Other")).unwrap();
     std::fs::write(ctx.root.join("ECO-02_Other/01_transcript_raw.vtt"), VTT).unwrap();
-    let (st, scan) = call(app, "POST", "/api/library/scan", Some(json!({ "root": ctx.root }))).await;
+    let (st, scan) = call(
+        app,
+        "POST",
+        "/api/library/scan",
+        Some(json!({ "root": ctx.root })),
+    )
+    .await;
     rep.status(st, &[StatusCode::OK], &scan, "second scan");
-    rep.eq(arr(&scan["interviews"]).len(), 2, "two interviews after the second scan");
+    rep.eq(
+        arr(&scan["interviews"]).len(),
+        2,
+        "two interviews after the second scan",
+    );
     let (st, seg2) = call(app, "POST", "/api/interviews/ECO-02/segment", None).await;
     rep.status(st, &[StatusCode::OK], &seg2, "segment ECO-02");
-    let e2 = seg2["units"][1]["unit_id"].as_str().unwrap_or("").to_string();
-    let e4 = seg2["units"][3]["unit_id"].as_str().unwrap_or("").to_string();
-    rep.eq(e2.clone(), "ECO-02-U002".to_string(), "ECO-02 respondent unit");
-    for (u, c) in [("ECO-02-U001", "NA"), ("ECO-02-U002", "TECH"), ("ECO-02-U003", "NA"), ("ECO-02-U004", "ENV")] {
+    let e2 = seg2["units"][1]["unit_id"]
+        .as_str()
+        .unwrap_or("")
+        .to_string();
+    let e4 = seg2["units"][3]["unit_id"]
+        .as_str()
+        .unwrap_or("")
+        .to_string();
+    rep.eq(
+        e2.clone(),
+        "ECO-02-U002".to_string(),
+        "ECO-02 respondent unit",
+    );
+    for (u, c) in [
+        ("ECO-02-U001", "NA"),
+        ("ECO-02-U002", "TECH"),
+        ("ECO-02-U003", "NA"),
+        ("ECO-02-U004", "ENV"),
+    ] {
         put_coding(app, &mut rep, 1, "ECO-02", u, json!({ "codes": [c] })).await;
     }
-    put_coding(app, &mut rep, 2, "ECO-02", &e2, json!({ "codes": ["TECH-ADV"] })).await;
-    put_coding(app, &mut rep, 2, "ECO-02", &e4, json!({ "codes": ["ENV-PARTNER"] })).await;
+    put_coding(
+        app,
+        &mut rep,
+        2,
+        "ECO-02",
+        &e2,
+        json!({ "codes": ["TECH-ADV"] }),
+    )
+    .await;
+    put_coding(
+        app,
+        &mut rep,
+        2,
+        "ECO-02",
+        &e4,
+        json!({ "codes": ["ENV-PARTNER"] }),
+    )
+    .await;
 
     let u8_ = resp(3);
     let (st, case1) = call(
@@ -918,9 +1507,18 @@ async fn v4_procedure_end_to_end() {
         })),
     )
     .await;
-    rep.status(st, &[StatusCode::OK, StatusCode::CREATED], &case1, "case 1 with units of two interviews");
+    rep.status(
+        st,
+        &[StatusCode::OK, StatusCode::CREATED],
+        &case1,
+        "case 1 with units of two interviews",
+    );
     rep.eq(&case1["case_id"], &json!("INT-01-C1"), "case id");
-    rep.eq(&case1["interviews"], &json!(["ECO-02", "INT-01"]), "the case spans both interviews");
+    rep.eq(
+        &case1["interviews"],
+        &json!(["ECO-02", "INT-01"]),
+        "the case spans both interviews",
+    );
     let (st, case2) = call(
         app,
         "POST",
@@ -928,40 +1526,85 @@ async fn v4_procedure_end_to_end() {
         Some(json!({ "label": "Deferred extension", "trigger": { "text": "Open question on small articles" } })),
     )
     .await;
-    rep.status(st, &[StatusCode::OK, StatusCode::CREATED], &case2, "case 2 without any unit");
+    rep.status(
+        st,
+        &[StatusCode::OK, StatusCode::CREATED],
+        &case2,
+        "case 2 without any unit",
+    );
     rep.eq(&case2["case_id"], &json!("INT-01-C2"), "second case id");
     let (_, all) = call(app, "GET", "/api/cases", None).await;
     rep.eq(arr(&all).len(), 2, "two cases");
     let (_, eco_cases) = call(app, "GET", "/api/interviews/ECO-02/cases", None).await;
-    rep.eq(arr(&eco_cases).len(), 1, "ECO-02 lists the case that holds its unit");
+    rep.eq(
+        arr(&eco_cases).len(),
+        1,
+        "ECO-02 lists the case that holds its unit",
+    );
 
     let (_, cc) = call(app, "GET", "/api/cross-case", None).await;
     let cells = arr(&cc["cells"]);
     let cell = |rq: &str, case_id: &str| -> Value {
-        cells.iter().find(|c| c["rq"] == rq && c["case_id"] == case_id).cloned().unwrap_or(Value::Null)
+        cells
+            .iter()
+            .find(|c| c["rq"] == rq && c["case_id"] == case_id)
+            .cloned()
+            .unwrap_or(Value::Null)
     };
     let sq3 = cell("SQ3", "INT-01-C1");
     rep.eq(&sq3["documented"], &json!(true), "case 1 is documented");
-    rep.eq(&sq3["codes"], &json!([{ "code": "ENV-PARTNER", "units": [u8_] }]), "SQ3: only the attributed U008, not U002 or ECO-02-U004");
+    rep.eq(
+        &sq3["codes"],
+        &json!([{ "code": "ENV-PARTNER", "units": [u8_] }]),
+        "SQ3: only the attributed U008, not U002 or ECO-02-U004",
+    );
     let sq1 = cell("SQ1", "INT-01-C1");
-    rep.eq(&sq1["codes"], &json!([{ "code": "TECH-ADV", "units": [e2] }]), "SQ1: only the attributed ECO-02 unit, not U004 or U014");
+    rep.eq(
+        &sq1["codes"],
+        &json!([{ "code": "TECH-ADV", "units": [e2] }]),
+        "SQ1: only the attributed ECO-02 unit, not U004 or U014",
+    );
     for rq in ["SQ1", "SQ2", "SQ3"] {
         let c = cell(rq, "INT-01-C2");
-        rep.eq(&c["documented"], &json!(false), &format!("{rq}: case 2 undocumented"));
-        rep.eq(&c["codes"], &json!([]), &format!("{rq}: case 2 holds no code"));
+        rep.eq(
+            &c["documented"],
+            &json!(false),
+            &format!("{rq}: case 2 undocumented"),
+        );
+        rep.eq(
+            &c["codes"],
+            &json!([]),
+            &format!("{rq}: case 2 holds no code"),
+        );
     }
     let (_, v) = call(app, "GET", &format!("{I}/verification"), None).await;
-    rep.ok(sset(&find_by(&v["targets"], "unit_id", &u8_)["reasons"]).contains(&"case".to_string()), "U008 is now also a case target");
+    rep.ok(
+        sset(&find_by(&v["targets"], "unit_id", &u8_)["reasons"]).contains(&"case".to_string()),
+        "U008 is now also a case target",
+    );
     let (_, v2) = call(app, "GET", "/api/interviews/ECO-02/verification", None).await;
-    rep.ok(sset(&find_by(&v2["targets"], "unit_id", &e2)["reasons"]).contains(&"case".to_string()), "ECO-02-U002 is a case target of its own interview");
+    rep.ok(
+        sset(&find_by(&v2["targets"], "unit_id", &e2)["reasons"]).contains(&"case".to_string()),
+        "ECO-02-U002 is a case target of its own interview",
+    );
     audited(app, &mut rep, &["case.create"]).await;
 
     // =====================================================================
     // 7. Research question memo and saturation
     // =====================================================================
     rep.step("7 memo and saturation");
-    let (st, e) = call(app, "PUT", "/api/research-questions/SQ1/memo", Some(json!({ "documented": "x", "units_for": ["INT-01-U999"] }))).await;
-    rep.eq(st, StatusCode::BAD_REQUEST, "a memo naming an unknown unit is refused");
+    let (st, e) = call(
+        app,
+        "PUT",
+        "/api/research-questions/SQ1/memo",
+        Some(json!({ "documented": "x", "units_for": ["INT-01-U999"] })),
+    )
+    .await;
+    rep.eq(
+        st,
+        StatusCode::BAD_REQUEST,
+        "a memo naming an unknown unit is refused",
+    );
     rep.eq(&e["kind"], &json!("validation"), "validation kind");
     let (st, put) = call(
         app,
@@ -978,7 +1621,11 @@ async fn v4_procedure_end_to_end() {
     )
     .await;
     rep.status(st, &[StatusCode::OK], &put, "memo with four parts");
-    rep.eq(&put["units_for"], &json!([resp(1), resp(6), e2]), "units for");
+    rep.eq(
+        &put["units_for"],
+        &json!([resp(1), resp(6), e2]),
+        "units for",
+    );
     rep.eq(&put["units_against"], &json!([resp(2)]), "units against");
     let (st, got) = call(app, "GET", "/api/research-questions/SQ1/memo", None).await;
     rep.status(st, &[StatusCode::OK], &got, "memo read back");
@@ -996,12 +1643,26 @@ async fn v4_procedure_end_to_end() {
     rep.eq(&rows[0]["order"], &json!(1), "order 1");
     rep.eq(&rows[1]["interview_id"], &json!("ECO-02"), "ECO-02 second");
     rep.eq(&rows[1]["order"], &json!(2), "order 2");
-    rep.ok(sset(&rows[0]["codes_first_used"]).contains(&"TECH-ADV".to_string()), "TECH-ADV first used in INT-01");
-    rep.eq(sset(&rows[0]["field_codes_created"]), sorted(&["SUPPLIER-TAGGING"]), "field code created in INT-01");
+    rep.ok(
+        sset(&rows[0]["codes_first_used"]).contains(&"TECH-ADV".to_string()),
+        "TECH-ADV first used in INT-01",
+    );
+    rep.eq(
+        sset(&rows[0]["field_codes_created"]),
+        sorted(&["SUPPLIER-TAGGING"]),
+        "field code created in INT-01",
+    );
     rep.eq(&rows[0]["labels_opened"], &json!(1), "one label opened");
     rep.eq(&rows[0]["labels_resolved"], &json!(1), "one label resolved");
-    rep.eq(&rows[1]["codes_first_used"], &json!([]), "ECO-02 uses no code for the first time");
-    rep.ok(!rows[0]["first_coded_at"].as_str().unwrap_or("").is_empty(), "first_coded_at present");
+    rep.eq(
+        &rows[1]["codes_first_used"],
+        &json!([]),
+        "ECO-02 uses no code for the first time",
+    );
+    rep.ok(
+        !rows[0]["first_coded_at"].as_str().unwrap_or("").is_empty(),
+        "first_coded_at present",
+    );
     audited(app, &mut rep, &["rq_memo.update"]).await;
 
     // =====================================================================
@@ -1012,7 +1673,10 @@ async fn v4_procedure_end_to_end() {
     let (st, exp) = call(app, "POST", &format!("{I}/export"), None).await;
     rep.status(st, &[StatusCode::OK], &exp, "interview export");
     let dir = PathBuf::from(exp["dir"].as_str().unwrap_or("/nonexistent"));
-    rep.ok(dir.starts_with(ctx.db.parent().unwrap()), "package under the database folder");
+    rep.ok(
+        dir.starts_with(ctx.db.parent().unwrap()),
+        "package under the database folder",
+    );
     let mut expected: Vec<String> = [
         "units.csv",
         "phase1_contexts.csv",
@@ -1048,9 +1712,16 @@ async fn v4_procedure_end_to_end() {
     for part in 1..=2 {
         let prefix = format!("phase2_batch1_prompt_part{part}_of2_");
         let found = std::fs::read_dir(&dir)
-            .map(|d| d.filter_map(|e| e.ok()).map(|e| e.file_name().to_string_lossy().to_string()).any(|n| n.starts_with(&prefix) && n.ends_with(".txt")))
+            .map(|d| {
+                d.filter_map(|e| e.ok())
+                    .map(|e| e.file_name().to_string_lossy().to_string())
+                    .any(|n| n.starts_with(&prefix) && n.ends_with(".txt"))
+            })
             .unwrap_or(false);
-        rep.ok(found, &format!("prompt part {part} file {prefix}<hash>.txt"));
+        rep.ok(
+            found,
+            &format!("prompt part {part} file {prefix}<hash>.txt"),
+        );
         expected.push(format!("phase2_ai_run{run_id}_R1_part{part}_raw.txt"));
     }
     expected.push(format!("phase2_run{run_id}_R1.json"));
@@ -1059,102 +1730,270 @@ async fn v4_procedure_end_to_end() {
         rep.ok(dir.join(f).is_file(), &format!("export file {f}"));
     }
     let manifest = json_of(&dir, "manifest.json");
-    let listed: BTreeSet<String> = arr(&manifest["files"]).iter().filter_map(|f| f["name"].as_str().map(str::to_string)).collect();
+    let listed: BTreeSet<String> = arr(&manifest["files"])
+        .iter()
+        .filter_map(|f| f["name"].as_str().map(str::to_string))
+        .collect();
     for f in &arr(&manifest["files"]) {
         let name = f["name"].as_str().unwrap_or("");
         let bytes = std::fs::read(dir.join(name)).unwrap_or_default();
-        rep.eq(cs_model::sha256_hex(&bytes), f["sha256"].as_str().unwrap_or("").to_string(), &format!("manifest digest of {name}"));
+        rep.eq(
+            cs_model::sha256_hex(&bytes),
+            f["sha256"].as_str().unwrap_or("").to_string(),
+            &format!("manifest digest of {name}"),
+        );
     }
-    for f in ["state.json", "db_snapshot.sqlite", "claims.csv", "units_verification.csv", "unit_corrections.csv", "human_snapshot_batch1.json"] {
+    for f in [
+        "state.json",
+        "db_snapshot.sqlite",
+        "claims.csv",
+        "units_verification.csv",
+        "unit_corrections.csv",
+        "human_snapshot_batch1.json",
+    ] {
         rep.ok(listed.contains(f), &format!("manifest lists {f}"));
     }
-    rep.eq(&exp["manifest_sha256"], &json!(cs_model::sha256_hex(&std::fs::read(dir.join("manifest.json")).unwrap_or_default())), "manifest_sha256 in the answer");
+    rep.eq(
+        &exp["manifest_sha256"],
+        &json!(cs_model::sha256_hex(
+            &std::fs::read(dir.join("manifest.json")).unwrap_or_default()
+        )),
+        "manifest_sha256 in the answer",
+    );
 
     // state.json
     let state = json_of(&dir, "state.json");
-    rep.eq(state["sha256"].as_str().map_or(0, str::len), 64, "state.json digest");
-    rep.eq(&state["generator"]["version"], &json!(env!("CARGO_PKG_VERSION")), "generator version");
-    rep.ok(state["generator"]["git"].as_str().is_some_and(|g| !g.is_empty()), "generator git field");
+    rep.eq(
+        state["sha256"].as_str().map_or(0, str::len),
+        64,
+        "state.json digest",
+    );
+    rep.eq(
+        &state["generator"]["version"],
+        &json!(env!("CARGO_PKG_VERSION")),
+        "generator version",
+    );
+    rep.ok(
+        state["generator"]["git"]
+            .as_str()
+            .is_some_and(|g| !g.is_empty()),
+        "generator git field",
+    );
     rep.ok(state["parts"].is_object(), "state.json carries its parts");
 
     // The database snapshot opens and holds the claims.
     let snap_path = dir.join("db_snapshot.sqlite");
-    match rusqlite::Connection::open_with_flags(&snap_path, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY) {
+    match rusqlite::Connection::open_with_flags(
+        &snap_path,
+        rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY,
+    ) {
         Ok(conn) => {
-            let n: i64 = conn.query_row("SELECT COUNT(*) FROM claims", [], |r| r.get(0)).unwrap_or(-1);
+            let n: i64 = conn
+                .query_row("SELECT COUNT(*) FROM claims", [], |r| r.get(0))
+                .unwrap_or(-1);
             rep.eq(n, 2, "db_snapshot.sqlite: two claims rows");
-            let n: i64 = conn.query_row("SELECT COUNT(*) FROM claims WHERE excerpt = 'sixty to ninety-eight percent'", [], |r| r.get(0)).unwrap_or(-1);
+            let n: i64 = conn
+                .query_row(
+                    "SELECT COUNT(*) FROM claims WHERE excerpt = 'sixty to ninety-eight percent'",
+                    [],
+                    |r| r.get(0),
+                )
+                .unwrap_or(-1);
             rep.eq(n, 1, "db_snapshot.sqlite: the exact excerpt");
-            let n: i64 = conn.query_row("SELECT COUNT(*) FROM human_snapshots", [], |r| r.get(0)).unwrap_or(-1);
+            let n: i64 = conn
+                .query_row("SELECT COUNT(*) FROM human_snapshots", [], |r| r.get(0))
+                .unwrap_or(-1);
             rep.eq(n, 1, "db_snapshot.sqlite: the frozen reference");
-            let ok: String = conn.query_row("PRAGMA integrity_check", [], |r| r.get(0)).unwrap_or_default();
+            let ok: String = conn
+                .query_row("PRAGMA integrity_check", [], |r| r.get(0))
+                .unwrap_or_default();
             rep.eq(ok, "ok".to_string(), "db_snapshot.sqlite integrity");
         }
         Err(e) => {
-            rep.ok(false, &format!("db_snapshot.sqlite opens with rusqlite: {e}"));
+            rep.ok(
+                false,
+                &format!("db_snapshot.sqlite opens with rusqlite: {e}"),
+            );
         }
     }
 
     // Contents of the main files.
-    rep.eq(text_of(&dir, "claims.csv").lines().count(), 3, "claims.csv: header and two claims");
-    rep.ok(text_of(&dir, "ev_distribution.csv").contains("EV4") && !text_of(&dir, "ev_distribution.csv").contains("EV3"), "ev_distribution.csv reflects the update");
-    rep.eq(text_of(&dir, "unit_corrections.csv").lines().count(), 3, "unit_corrections.csv: header and two corrections");
-    rep.eq(text_of(&dir, "cases.csv").lines().count(), 3, "cases.csv: header and two cases");
-    rep.ok(text_of(&dir, "case_units.csv").contains("ECO-02-U002"), "case_units.csv names the unit of the other interview");
-    rep.ok(text_of(&dir, "units_verification.csv").contains(&format!("{u10},unverified,1,")), "units_verification.csv: U010 unverified and stale");
+    rep.eq(
+        text_of(&dir, "claims.csv").lines().count(),
+        3,
+        "claims.csv: header and two claims",
+    );
+    rep.ok(
+        text_of(&dir, "ev_distribution.csv").contains("EV4")
+            && !text_of(&dir, "ev_distribution.csv").contains("EV3"),
+        "ev_distribution.csv reflects the update",
+    );
+    rep.eq(
+        text_of(&dir, "unit_corrections.csv").lines().count(),
+        3,
+        "unit_corrections.csv: header and two corrections",
+    );
+    rep.eq(
+        text_of(&dir, "cases.csv").lines().count(),
+        3,
+        "cases.csv: header and two cases",
+    );
+    rep.ok(
+        text_of(&dir, "case_units.csv").contains("ECO-02-U002"),
+        "case_units.csv names the unit of the other interview",
+    );
+    rep.ok(
+        text_of(&dir, "units_verification.csv").contains(&format!("{u10},unverified,1,")),
+        "units_verification.csv: U010 unverified and stale",
+    );
     let review_md = text_of(&dir, "phase2_review.md");
-    rep.ok(review_md.contains("## Snapshots") && review_md.contains("## Revisions since the snapshot"), "phase2_review.md sections");
-    rep.ok(review_md.contains(&resp(2)), "phase2_review.md names the revised unit");
+    rep.ok(
+        review_md.contains("## Snapshots") && review_md.contains("## Revisions since the snapshot"),
+        "phase2_review.md sections",
+    );
+    rep.ok(
+        review_md.contains(&resp(2)),
+        "phase2_review.md names the revised unit",
+    );
     let snapshot_json = json_of(&dir, "human_snapshot_batch1.json");
-    rep.eq(&snapshot_json["sha256"], &snap["sha256"], "exported snapshot has the digest of the stored one");
+    rep.eq(
+        &snapshot_json["sha256"],
+        &snap["sha256"],
+        "exported snapshot has the digest of the stored one",
+    );
     let audit_jsonl = text_of(&dir, "audit_log.jsonl");
-    rep.eq(audit_jsonl.lines().count(), arr(&before_export).len(), "audit_log.jsonl holds every event of the interview");
-    rep.eq(&json_of(&dir, "audit_chain.json")["ok"], &json!(true), "audit_chain.json verifies");
+    rep.eq(
+        audit_jsonl.lines().count(),
+        arr(&before_export).len(),
+        "audit_log.jsonl holds every event of the interview",
+    );
+    rep.eq(
+        &json_of(&dir, "audit_chain.json")["ok"],
+        &json!(true),
+        "audit_chain.json verifies",
+    );
     for entry in std::fs::read_dir(&dir).unwrap() {
         let path = entry.unwrap().path();
         let text = std::fs::read_to_string(&path).unwrap_or_default();
-        rep.ok(!text.contains('\u{2014}') && !text.contains('\u{2013}'), &format!("no dash in {}", path.file_name().unwrap().to_string_lossy()));
+        rep.ok(
+            !text.contains('\u{2014}') && !text.contains('\u{2013}'),
+            &format!("no dash in {}", path.file_name().unwrap().to_string_lossy()),
+        );
     }
 
     rep.step("8 cross-case export");
     let (st, cc) = call(app, "POST", "/api/export/cross-case", None).await;
     rep.status(st, &[StatusCode::OK], &cc, "cross-case export");
     let cdir = PathBuf::from(cc["folder"].as_str().unwrap_or("/nonexistent"));
-    for f in ["answers.md", "cross_case.csv", "saturation.csv", "saturation.md", "cases.csv", "state.json", "manifest.json", "README.md"] {
+    for f in [
+        "answers.md",
+        "cross_case.csv",
+        "saturation.csv",
+        "saturation.md",
+        "cases.csv",
+        "state.json",
+        "manifest.json",
+        "README.md",
+    ] {
         rep.ok(cdir.join(f).is_file(), &format!("cross-case file {f}"));
     }
     let cman = json_of(&cdir, "manifest.json");
     for f in &arr(&cman["files"]) {
         let name = f["name"].as_str().unwrap_or("");
         let bytes = std::fs::read(cdir.join(name)).unwrap_or_default();
-        rep.eq(cs_model::sha256_hex(&bytes), f["sha256"].as_str().unwrap_or("").to_string(), &format!("cross-case manifest digest of {name}"));
+        rep.eq(
+            cs_model::sha256_hex(&bytes),
+            f["sha256"].as_str().unwrap_or("").to_string(),
+            &format!("cross-case manifest digest of {name}"),
+        );
     }
-    let clisted: BTreeSet<String> = arr(&cman["files"]).iter().filter_map(|f| f["name"].as_str().map(str::to_string)).collect();
-    for f in ["answers.md", "cross_case.csv", "saturation.csv", "saturation.md", "cases.csv", "state.json"] {
-        rep.ok(clisted.contains(f), &format!("cross-case manifest lists {f}"));
+    let clisted: BTreeSet<String> = arr(&cman["files"])
+        .iter()
+        .filter_map(|f| f["name"].as_str().map(str::to_string))
+        .collect();
+    for f in [
+        "answers.md",
+        "cross_case.csv",
+        "saturation.csv",
+        "saturation.md",
+        "cases.csv",
+        "state.json",
+    ] {
+        rep.ok(
+            clisted.contains(f),
+            &format!("cross-case manifest lists {f}"),
+        );
     }
-    rep.eq(&cman["state_sha256"], &json_of(&cdir, "state.json")["sha256"], "manifest state digest equals state.json");
+    rep.eq(
+        &cman["state_sha256"],
+        &json_of(&cdir, "state.json")["sha256"],
+        "manifest state digest equals state.json",
+    );
     let answers = text_of(&cdir, "answers.md");
-    for part in ["Accuracy gains are reported by two respondents.", "Advantage is perceived through inventory accuracy and counting time.", "Partner pressure explains adoption better than advantage.", "Two interviews, one sector."] {
+    for part in [
+        "Accuracy gains are reported by two respondents.",
+        "Advantage is perceived through inventory accuracy and counting time.",
+        "Partner pressure explains adoption better than advantage.",
+        "Two interviews, one sector.",
+    ] {
         rep.ok(answers.contains(part), "answers.md carries the memo part");
     }
-    rep.ok(answers.contains(&format!("`{}`", resp(1))) && answers.contains(&format!("`{}`", resp(2))), "answers.md lists units for and against");
-    rep.ok(answers.contains("no memo yet"), "answers.md marks questions without a memo");
-    let csv = text_of(&cdir, "cross_case.csv");
-    rep.ok(csv.lines().any(|l| l.starts_with("SQ3,INT-01-C1,1,ENV-PARTNER,")), "cross_case.csv: documented cell of case 1");
     rep.ok(
-        csv.lines().filter(|l| l.contains("INT-01-C2")).all(|l| !["TECH-", "ENV-", "ORG-", "OUT-"].iter().any(|c| l.contains(c))),
+        answers.contains(&format!("`{}`", resp(1))) && answers.contains(&format!("`{}`", resp(2))),
+        "answers.md lists units for and against",
+    );
+    rep.ok(
+        answers.contains("no memo yet"),
+        "answers.md marks questions without a memo",
+    );
+    let csv = text_of(&cdir, "cross_case.csv");
+    rep.ok(
+        csv.lines()
+            .any(|l| l.starts_with("SQ3,INT-01-C1,1,ENV-PARTNER,")),
+        "cross_case.csv: documented cell of case 1",
+    );
+    rep.ok(
+        csv.lines().filter(|l| l.contains("INT-01-C2")).all(|l| {
+            !["TECH-", "ENV-", "ORG-", "OUT-"]
+                .iter()
+                .any(|c| l.contains(c))
+        }),
         "cross_case.csv: the case without units holds no code",
     );
     let sat_csv = text_of(&cdir, "saturation.csv");
-    rep.eq(sat_csv.lines().count(), 3, "saturation.csv: header and two interviews");
-    rep.ok(sat_csv.lines().nth(1).is_some_and(|l| l.starts_with("INT-01,1,")), "saturation.csv: INT-01 first");
-    rep.ok(text_of(&cdir, "saturation.md").to_lowercase().contains("provisional"), "saturation.md says provisional");
-    rep.eq(text_of(&cdir, "cases.csv").lines().count(), 3, "cross-case cases.csv");
+    rep.eq(
+        sat_csv.lines().count(),
+        3,
+        "saturation.csv: header and two interviews",
+    );
+    rep.ok(
+        sat_csv
+            .lines()
+            .nth(1)
+            .is_some_and(|l| l.starts_with("INT-01,1,")),
+        "saturation.csv: INT-01 first",
+    );
+    rep.ok(
+        text_of(&cdir, "saturation.md")
+            .to_lowercase()
+            .contains("provisional"),
+        "saturation.md says provisional",
+    );
+    rep.eq(
+        text_of(&cdir, "cases.csv").lines().count(),
+        3,
+        "cross-case cases.csv",
+    );
     for entry in std::fs::read_dir(&cdir).unwrap() {
         let path = entry.unwrap().path();
         let text = std::fs::read_to_string(&path).unwrap_or_default();
-        rep.ok(!text.contains('\u{2014}') && !text.contains('\u{2013}'), &format!("no dash in cross-case {}", path.file_name().unwrap().to_string_lossy()));
+        rep.ok(
+            !text.contains('\u{2014}') && !text.contains('\u{2013}'),
+            &format!(
+                "no dash in cross-case {}",
+                path.file_name().unwrap().to_string_lossy()
+            ),
+        );
     }
     audited(app, &mut rep, &["export.package", "export.cross_case"]).await;
 
@@ -1165,7 +2004,10 @@ async fn v4_procedure_end_to_end() {
     let (st, events) = call(app, "GET", "/api/audit", None).await;
     rep.status(st, &[StatusCode::OK], &events, "audit log");
     let events = arr(&events);
-    let have: BTreeSet<String> = events.iter().filter_map(|e| e["action"].as_str().map(str::to_string)).collect();
+    let have: BTreeSet<String> = events
+        .iter()
+        .filter_map(|e| e["action"].as_str().map(str::to_string))
+        .collect();
     for a in [
         "library.interview.add",
         "codebook.import",
@@ -1194,11 +2036,17 @@ async fn v4_procedure_end_to_end() {
         rep.ok(have.contains(a), &format!("every action is audited: {a}"));
     }
     rep.ok(
-        events.iter().filter(|e| e["action"] == "coding.set").all(|e| e["actor"] == "candidate"),
+        events
+            .iter()
+            .filter(|e| e["action"] == "coding.set")
+            .all(|e| e["actor"] == "candidate"),
         "coding events carry the actor",
     );
     let seqs: Vec<i64> = events.iter().filter_map(|e| e["seq"].as_i64()).collect();
-    rep.ok(seqs.windows(2).all(|w| w[1] == w[0] + 1), "sequence numbers are contiguous");
+    rep.ok(
+        seqs.windows(2).all(|w| w[1] == w[0] + 1),
+        "sequence numbers are contiguous",
+    );
     rep.ok(
         events.windows(2).all(|w| w[1]["prev_hash"] == w[0]["hash"]),
         "each event stores the digest of the previous one",
@@ -1206,19 +2054,44 @@ async fn v4_procedure_end_to_end() {
     let (st, chain) = call(app, "GET", "/api/audit/verify", None).await;
     rep.status(st, &[StatusCode::OK], &chain, "chain verification");
     rep.eq(&chain["ok"], &json!(true), "the hash chain verifies");
-    rep.eq(&chain["n_events"], &json!(events.len()), "the chain covers every event");
+    rep.eq(
+        &chain["n_events"],
+        &json!(events.len()),
+        "the chain covers every event",
+    );
     rep.ok(chain["first_bad_seq"].is_null(), "no bad event");
     let (_, only_eco) = call(app, "GET", "/api/audit?interview_id=ECO-02", None).await;
-    rep.ok(!arr(&only_eco).is_empty() && arr(&only_eco).iter().all(|e| e["interview_id"] == "ECO-02"), "audit filter by interview");
+    rep.ok(
+        !arr(&only_eco).is_empty() && arr(&only_eco).iter().all(|e| e["interview_id"] == "ECO-02"),
+        "audit filter by interview",
+    );
 
     // The record cannot be edited, even by someone with the database file.
     let raw = rusqlite::Connection::open(&ctx.db).unwrap();
-    rep.ok(raw.execute("UPDATE audit_log SET actor = 'x' WHERE seq = 1", []).is_err(), "audit_log refuses UPDATE");
-    rep.ok(raw.execute("DELETE FROM audit_log WHERE seq = 1", []).is_err(), "audit_log refuses DELETE");
-    rep.ok(raw.execute("DELETE FROM human_snapshots", []).is_err(), "human_snapshots refuses DELETE");
-    rep.ok(raw.execute("DELETE FROM unit_corrections", []).is_err(), "unit_corrections refuses DELETE");
+    rep.ok(
+        raw.execute("UPDATE audit_log SET actor = 'x' WHERE seq = 1", [])
+            .is_err(),
+        "audit_log refuses UPDATE",
+    );
+    rep.ok(
+        raw.execute("DELETE FROM audit_log WHERE seq = 1", [])
+            .is_err(),
+        "audit_log refuses DELETE",
+    );
+    rep.ok(
+        raw.execute("DELETE FROM human_snapshots", []).is_err(),
+        "human_snapshots refuses DELETE",
+    );
+    rep.ok(
+        raw.execute("DELETE FROM unit_corrections", []).is_err(),
+        "unit_corrections refuses DELETE",
+    );
     let (_, chain) = call(app, "GET", "/api/audit/verify", None).await;
-    rep.eq(&chain["ok"], &json!(true), "the chain still verifies after the attempts");
+    rep.eq(
+        &chain["ok"],
+        &json!(true),
+        "the chain still verifies after the attempts",
+    );
 
     rep.finish();
 }

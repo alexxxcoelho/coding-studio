@@ -4,7 +4,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use anyhow::Result;
-use cs_model::phase::{is_phase2_code, is_relevant, phase1_codebook, phase2_codes};
+use cs_model::phase::{is_phase2_code, is_relevant, phase2_codes_for_categories};
 use cs_model::{
     check_code_set, Code, CodeSet, CodingMap, HumanCoding, Resolution, ResolutionKind, ToClarify,
     NA, PHASE_1, PHASE_2,
@@ -113,14 +113,18 @@ impl Store {
     pub fn allowed_codes(&self, interview_id: &str, phase: u8, unit_id: &str) -> Result<Vec<Code>> {
         check_phase(phase)?;
         if phase == PHASE_1 {
-            return Ok(phase1_codebook().codes);
+            return Ok(self.phase1_codebook()?.codes);
         }
         let p1 = self
             .human_coding_map(interview_id, PHASE_1)?
             .remove(unit_id)
             .unwrap_or_default();
+        let categories = self.study_config()?.effective_categories();
         let book = self.codebook()?;
-        Ok(phase2_codes(&book, &p1).into_iter().cloned().collect())
+        Ok(phase2_codes_for_categories(&book, &categories, &p1)
+            .into_iter()
+            .cloned()
+            .collect())
     }
 
     fn validate_codes(&self, phase: u8, unit_id: &str, codes: &CodeSet) -> Result<()> {
@@ -128,17 +132,26 @@ impl Store {
         if codes.contains(NA) && codes.len() > 1 {
             issues.push("NA cannot be combined with other codes".to_string());
         }
+        let phase1 = if phase == PHASE_1 {
+            Some(self.phase1_codebook()?)
+        } else {
+            None
+        };
         for code in codes.iter().filter(|c| c.as_str() != NA) {
-            let ok = if phase == PHASE_1 {
-                phase1_codebook().get(code).is_some()
-            } else {
-                self.code_row(code)?.as_ref().is_some_and(is_phase2_code)
+            let ok = match &phase1 {
+                Some(book) => book.get(code).is_some(),
+                None => self.code_row(code)?.as_ref().is_some_and(is_phase2_code),
             };
             if !ok {
-                issues.push(if phase == PHASE_1 {
-                    format!("{code} is not a phase 1 category (TECH, ORG, ENV, CONTEXT or NA)")
-                } else {
-                    format!("code {code} is unknown, inactive or merged")
+                issues.push(match &phase1 {
+                    Some(book) => {
+                        let names: Vec<&str> = book.codes.iter().map(|c| c.code.as_str()).collect();
+                        format!(
+                            "{code} is not a phase 1 category ({} or NA)",
+                            names.join(", ")
+                        )
+                    }
+                    None => format!("code {code} is unknown, inactive or merged"),
                 });
             }
         }

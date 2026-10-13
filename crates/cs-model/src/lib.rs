@@ -9,9 +9,11 @@ use std::collections::{BTreeMap, BTreeSet};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
+pub mod config;
 pub mod phase;
 pub mod reconcile;
 
+pub use config::{Category, FrameworkPreset, PromptTemplate, StudyConfig};
 pub use phase::{PHASE_1, PHASE_2};
 
 /// Code used when no code of the codebook applies to a unit. Exclusive: a unit

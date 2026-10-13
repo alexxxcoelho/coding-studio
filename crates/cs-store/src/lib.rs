@@ -22,6 +22,7 @@ mod coding;
 mod memos;
 mod review;
 mod saturation;
+mod study_config;
 mod verification;
 
 pub use codebook::{CodePatch, MergeOutcome};
