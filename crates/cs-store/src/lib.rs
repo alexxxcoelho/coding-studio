@@ -22,7 +22,9 @@ mod claims;
 mod codebook;
 mod codetree;
 mod coding;
+mod final_audit;
 mod library;
+mod links;
 mod matrix;
 mod memos;
 mod passages;
@@ -33,6 +35,7 @@ mod simple;
 mod study_config;
 mod themes;
 mod verification;
+mod writing;
 
 pub use codebook::{CodePatch, ImportReport, MergeOutcome};
 pub use codetree::{
@@ -40,10 +43,12 @@ pub use codetree::{
     UndoCreateOutcome,
 };
 pub use coding::ResolveRequest;
+pub use final_audit::{AuditChainLink, AuditClaim, AuditGap, FinalAudit};
 pub use library::{
     LibraryProgress, LibraryReview, LibraryRow, LibraryTotals, PassageQualify, UnitMark,
     MARK_TO_REVIEW,
 };
+pub use links::{LinkView, PassageBrief};
 pub use matrix::{
     CellPatch, Matrix, MatrixAxis, MatrixCell, MatrixConfig, MatrixEntry, MatrixFilter,
     MatrixOptions, MatrixViewRecord,
@@ -57,6 +62,10 @@ pub use review::{Review, ReviewEntry};
 pub use simple::SimpleProgress;
 pub use themes::{
     NewTheme, ThemeCheckView, ThemeCodeView, ThemeCounts, ThemeHistoryEntry, ThemePatch, ThemeView,
+};
+pub use writing::{
+    FrameworkCellReading, FrameworkReading, FrameworkRow, FrameworkTable, PartEdit, PartState,
+    QuestionSynthesis, ThemeWriting,
 };
 
 use std::collections::BTreeMap;
@@ -142,6 +151,10 @@ pub(crate) fn guard_err(msg: impl Into<String>) -> anyhow::Error {
 
 pub(crate) fn not_found(msg: impl Into<String>) -> anyhow::Error {
     anyhow::Error::new(CsError::NotFound(msg.into()))
+}
+
+pub(crate) fn is_not_found(err: &anyhow::Error) -> bool {
+    matches!(err.downcast_ref::<CsError>(), Some(CsError::NotFound(_)))
 }
 
 pub(crate) fn check_phase(phase: u8) -> Result<()> {

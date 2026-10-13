@@ -87,9 +87,4 @@ impl Index {
             .map(|(i, _)| i)
             .collect()
     }
-
-    /// Whether the passage carries at least one real (non-reserved) code.
-    pub fn is_coded(p: &Passage) -> bool {
-        p.codings.iter().any(|c| !c.system)
-    }
 }
