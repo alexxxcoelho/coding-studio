@@ -43,6 +43,67 @@ struct Fields {
     passages: Vec<String>,
 }
 
+/// Legacy fixed case fields as (id, value), empty string when unset.
+fn legacy_values(c: &Case) -> [(&'static str, String); 8] {
+    let o = |v: &Option<String>| v.clone().unwrap_or_default();
+    [
+        ("decision", o(&c.decision)),
+        ("granularity", o(&c.granularity)),
+        ("carrier_chosen", o(&c.carrier_chosen)),
+        ("carriers_rejected", c.carriers_rejected.join("; ")),
+        ("account_type", o(&c.account_type)),
+        ("swiss_link", o(&c.swiss_link)),
+        ("stage", o(&c.stage)),
+        ("outcome_status", o(&c.outcome_status)),
+    ]
+}
+
+/// Sets the legacy field `id` of the case from a characteristic value.
+fn set_legacy(c: &mut Case, id: &str, value: Option<&str>) {
+    let v = value.map(str::to_string);
+    match id {
+        "decision" => c.decision = v,
+        "granularity" => c.granularity = v,
+        "carrier_chosen" => c.carrier_chosen = v,
+        "carriers_rejected" => {
+            c.carriers_rejected = value
+                .map(|v| {
+                    v.split(';')
+                        .map(str::trim)
+                        .filter(|p| !p.is_empty())
+                        .map(str::to_string)
+                        .collect()
+                })
+                .unwrap_or_default()
+        }
+        "account_type" => c.account_type = v,
+        "swiss_link" => c.swiss_link = v,
+        "stage" => c.stage = v,
+        "outcome_status" => c.outcome_status = v,
+        _ => {}
+    }
+}
+
+/// Characteristics are the canonical form of the case fields (F-87). A value
+/// the case holds in a legacy field only is copied to its characteristic; the
+/// legacy fields are then rewritten from the characteristics, so that both
+/// views agree.
+fn merge_legacy(c: &mut Case) {
+    for (id, v) in legacy_values(c) {
+        if !v.is_empty() && !c.characteristics.contains_key(id) {
+            c.characteristics.insert(id.to_string(), v);
+        }
+    }
+    sync_legacy(c);
+}
+
+fn sync_legacy(c: &mut Case) {
+    for (id, _) in legacy_values(c) {
+        let v = c.characteristics.get(id).cloned();
+        set_legacy(c, id, v.as_deref());
+    }
+}
+
 /// Interview of a unit id: the prefix before `-U` (`ECO-16-U002` gives `ECO-16`).
 fn interview_of(unit_id: &str) -> Option<&str> {
     unit_id.rsplit_once("-U").map(|(interview, _)| interview)
@@ -111,6 +172,7 @@ fn with_fields(mut case: Case, fields: &str) -> Result<Case> {
     });
     case.characteristics = f.characteristics;
     case.passages = f.passages;
+    merge_legacy(&mut case);
     Ok(case)
 }
 
@@ -180,7 +242,7 @@ impl Store {
 
     /// Normalises a case and checks its units and evidence against the
     /// current segmentations.
-    fn clean_case(&self, interview_id: &str, case: &Case) -> Result<Case> {
+    fn clean_case(&self, interview_id: &str, case: &Case, before: Option<&Case>) -> Result<Case> {
         let label = case.label.trim();
         if label.is_empty() {
             return Err(validation("a case needs a label"));
@@ -273,8 +335,51 @@ impl Store {
             }
             characteristics.insert(k.to_string(), v.to_string());
         }
+        // The legacy fields of the first study are views of characteristics.
+        // A legacy field the client changed wins; otherwise the characteristic does.
+        for (id, now_value) in legacy_values(case) {
+            let was = before
+                .map(|b| {
+                    legacy_values(b)
+                        .into_iter()
+                        .find(|(i, _)| *i == id)
+                        .map(|(_, v)| v)
+                        .unwrap_or_default()
+                })
+                .unwrap_or_default();
+            let now_value = now_value.trim().to_string();
+            if now_value != was.trim() {
+                if now_value.is_empty() {
+                    characteristics.remove(id);
+                } else {
+                    characteristics.insert(id.to_string(), now_value);
+                }
+            } else if !now_value.is_empty() && !characteristics.contains_key(id) {
+                characteristics.insert(id.to_string(), now_value);
+            }
+        }
         if characteristics.len() > 40 {
             return Err(validation("at most 40 characteristics per decision"));
+        }
+        // When the project defines case fields, only they are accepted, typed.
+        let defs = self.project_config()?.case_fields;
+        if !defs.is_empty() {
+            for (k, v) in characteristics.iter_mut() {
+                let def = defs.iter().find(|d| &d.id == k).ok_or_else(|| {
+                    validation(format!(
+                        "{k} is not a case field of this project (fields: {})",
+                        defs.iter()
+                            .map(|d| d.id.as_str())
+                            .collect::<Vec<_>>()
+                            .join(", ")
+                    ))
+                })?;
+                *v = def
+                    .check_value(v)
+                    .map_err(|e| validation(e.to_string()))?
+                    .unwrap_or_default();
+            }
+            characteristics.retain(|_, v| !v.is_empty());
         }
         let mut passages: Vec<String> = Vec::new();
         for p in case
@@ -289,7 +394,7 @@ impl Store {
                 passages.push(p.to_string());
             }
         }
-        Ok(Case {
+        let mut cleaned = Case {
             outcome,
             characteristics,
             passages,
@@ -313,7 +418,9 @@ impl Store {
             outcome_status: clean_opt(&case.outcome_status),
             notes: clean_opt(&case.notes),
             updated_at: now(),
-        })
+        };
+        sync_legacy(&mut cleaned);
+        Ok(cleaned)
     }
 
     fn write_case(&self, case: &Case, before: Option<&Case>, actor: &str) -> Result<()> {
@@ -383,7 +490,7 @@ impl Store {
     /// New case of an interview; `case_id` generated (`<ID>-C<n>`) when empty.
     pub fn create_case(&self, interview_id: &str, case: &Case, actor: &str) -> Result<Case> {
         self.require_interview(interview_id)?;
-        let mut c = self.clean_case(interview_id, case)?;
+        let mut c = self.clean_case(interview_id, case, None)?;
         if c.case_id.is_empty() {
             let existing: BTreeSet<String> = self
                 .cases(Some(interview_id))?
@@ -409,7 +516,7 @@ impl Store {
     /// Replaces the content of a case (its id and interview stay).
     pub fn update_case(&self, case_id: &str, case: &Case, actor: &str) -> Result<Case> {
         let before = self.case(case_id)?;
-        let mut c = self.clean_case(&before.interview_id, case)?;
+        let mut c = self.clean_case(&before.interview_id, case, Some(&before))?;
         c.case_id = before.case_id.clone();
         let mut cmp = c.clone();
         cmp.updated_at = before.updated_at.clone();
@@ -484,4 +591,63 @@ impl Store {
             cells,
         })
     }
+}
+
+/// Moves the values of the legacy fixed fields into `characteristics` for
+/// every case of a database written before F-87 (idempotent: a case that
+/// already holds the characteristic is left as it is). Runs on every open;
+/// writes one `case.fields_migrated` event when something moved.
+pub(crate) fn migrate_case_fields(conn: &rusqlite::Connection) -> Result<usize> {
+    type Row = (String, String, Option<String>, Option<String>);
+    let rows: Vec<Row> = {
+        let mut stmt = conn
+            .prepare("SELECT case_id, fields, stage, outcome_status FROM cases ORDER BY case_id")?;
+        let r = stmt
+            .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))?
+            .collect::<rusqlite::Result<_>>()?;
+        r
+    };
+    let mut moved: Vec<String> = Vec::new();
+    for (case_id, fields, stage, status) in rows {
+        let mut f: Fields = from_json(&fields)?;
+        let mut characteristics = f.characteristics.clone();
+        let legacy = [
+            ("decision", f.decision.clone().unwrap_or_default()),
+            ("granularity", f.granularity.clone().unwrap_or_default()),
+            (
+                "carrier_chosen",
+                f.carrier_chosen.clone().unwrap_or_default(),
+            ),
+            ("carriers_rejected", f.carriers_rejected.join("; ")),
+            ("account_type", f.account_type.clone().unwrap_or_default()),
+            ("swiss_link", f.swiss_link.clone().unwrap_or_default()),
+            ("stage", stage.unwrap_or_default()),
+            ("outcome_status", status.unwrap_or_default()),
+        ];
+        for (id, v) in legacy {
+            let v = v.trim().to_string();
+            if !v.is_empty() && !characteristics.contains_key(id) {
+                characteristics.insert(id.to_string(), v);
+            }
+        }
+        if characteristics != f.characteristics {
+            f.characteristics = characteristics;
+            conn.execute(
+                "UPDATE cases SET fields = ?1 WHERE case_id = ?2",
+                params![to_json(&f), case_id],
+            )?;
+            moved.push(case_id);
+        }
+    }
+    if !moved.is_empty() {
+        append_event(
+            conn,
+            "system",
+            "case.fields_migrated",
+            None,
+            None,
+            json!({"cases": moved, "note": "legacy case fields copied to characteristics"}),
+        )?;
+    }
+    Ok(moved.len())
 }

@@ -168,11 +168,45 @@ fn opt_text(value: &Option<String>) -> &str {
     value.as_deref().unwrap_or("")
 }
 
-/// One row per case, lists joined with `;`.
-fn cases_csv(cases: &[Case]) -> String {
+/// Case fields beyond the eight legacy columns: the project's fields in
+/// their order, then any other characteristic found in the cases (id, label).
+pub(crate) fn extra_case_fields(
+    cases: &[Case],
+    defs: &[cs_model::project::CaseFieldDef],
+) -> Vec<(String, String)> {
+    let legacy: Vec<&str> = cs_model::project::LEGACY_CASE_FIELDS
+        .iter()
+        .map(|(id, _, _)| *id)
+        .collect();
+    let mut out: Vec<(String, String)> = defs
+        .iter()
+        .filter(|d| !legacy.contains(&d.id.as_str()))
+        .map(|d| (d.id.clone(), d.label.clone()))
+        .collect();
+    let mut others: BTreeSet<&str> = BTreeSet::new();
+    for c in cases {
+        for k in c.characteristics.keys() {
+            if !legacy.contains(&k.as_str()) && !out.iter().any(|(id, _)| id == k) {
+                others.insert(k);
+            }
+        }
+    }
+    out.extend(others.into_iter().map(|k| (k.to_string(), k.to_string())));
+    out
+}
+
+/// One row per case, lists joined with `;`. The eight columns of the first
+/// study stay where they were; the project's own case fields follow `n_units`
+/// as `field:<id>` columns.
+fn cases_csv(cases: &[Case], defs: &[cs_model::project::CaseFieldDef]) -> String {
+    let extra = extra_case_fields(cases, defs);
     let mut out = String::from(
-        "case_id,label,interview_id,interviews,decision,granularity,carrier_chosen,carriers_rejected,account_type,swiss_link,stage,outcome_status,n_units\n",
+        "case_id,label,interview_id,interviews,decision,granularity,carrier_chosen,carriers_rejected,account_type,swiss_link,stage,outcome_status,n_units",
     );
+    for (id, _) in &extra {
+        out.push_str(&format!(",{}", csv_field(&format!("field:{id}"))));
+    }
+    out.push('\n');
     for c in cases {
         let row = [
             csv_field(&c.case_id),
@@ -189,6 +223,12 @@ fn cases_csv(cases: &[Case]) -> String {
             csv_field(opt_text(&c.outcome_status)),
             c.units.len().to_string(),
         ];
+        let mut row = row.to_vec();
+        for (id, _) in &extra {
+            row.push(csv_field(
+                c.characteristics.get(id).map_or("", |v| v.as_str()),
+            ));
+        }
         out.push_str(&row.join(","));
         out.push('\n');
     }
@@ -366,7 +406,12 @@ fn to_clarify_csv(items: &[ToClarify]) -> String {
 }
 
 /// Markdown synthesis of the cases of one interview.
-pub(crate) fn cases_md(interview_id: &str, cases: &[Case]) -> String {
+pub(crate) fn cases_md(
+    interview_id: &str,
+    cases: &[Case],
+    defs: &[cs_model::project::CaseFieldDef],
+) -> String {
+    let extra = extra_case_fields(cases, defs);
     let mut s = format!("# Case syntheses, {interview_id}\n\n");
     if cases.is_empty() {
         s.push_str("No case recorded.\n");
@@ -390,6 +435,11 @@ pub(crate) fn cases_md(interview_id: &str, cases: &[Case]) -> String {
                 "Carriers rejected: {}\n",
                 c.carriers_rejected.join("; ")
             ));
+        }
+        for (id, label) in &extra {
+            if let Some(v) = c.characteristics.get(id).filter(|v| !v.is_empty()) {
+                s.push_str(&format!("{label}: {v}\n"));
+            }
         }
         if c.units.is_empty() {
             s.push_str("Attributed units: 0.\n");
@@ -981,8 +1031,12 @@ pub fn write_package(
         "cases.json",
         serde_json::to_string_pretty(&cases)?.as_bytes(),
     )?;
-    w.write("cases.md", cases_md(interview_id, &cases).as_bytes())?;
-    w.write("cases.csv", cases_csv(&cases).as_bytes())?;
+    let case_defs = store.project_config()?.case_fields;
+    w.write(
+        "cases.md",
+        cases_md(interview_id, &cases, &case_defs).as_bytes(),
+    )?;
+    w.write("cases.csv", cases_csv(&cases, &case_defs).as_bytes())?;
     w.write("case_units.csv", case_units_csv(&cases).as_bytes())?;
     w.write("codebook.csv", codebook_csv.as_bytes())?;
     let ids = [interview_id.to_string()];
@@ -1235,7 +1289,10 @@ pub fn write_cross_case(
     w.write("cross_case.csv", cross_case_csv(&cross.cells).as_bytes())?;
     w.write("saturation.csv", saturation_csv(&saturation).as_bytes())?;
     w.write("saturation.md", saturation_md(&saturation).as_bytes())?;
-    w.write("cases.csv", cases_csv(&cross.cases).as_bytes())?;
+    w.write(
+        "cases.csv",
+        cases_csv(&cross.cases, &store.project_config()?.case_fields).as_bytes(),
+    )?;
     let (codebook_csv, _) = store.codebook_export()?;
     w.write("codebook.csv", codebook_csv.as_bytes())?;
     let passages = crate::export_v1::all_passages(store, &interview_ids)?;

@@ -339,6 +339,7 @@ impl Store {
         conn.execute_batch(SCHEMA)?;
         analysis_schema::migrate(&conn)?;
         review_schema::migrate(&conn)?;
+        cases::migrate_case_fields(&conn)?;
         // Databases made before providers existed lack the column: added in
         // place, so that their content is kept.
         let has_provider: bool = conn

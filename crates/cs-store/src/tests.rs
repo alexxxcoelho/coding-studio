@@ -1526,6 +1526,7 @@ fn audit_filter_by_interview() {
 }
 
 // v4 modules (dev graph 12.10.2026); each may use the fixtures above through `super::*`.
+mod case_fields_v2;
 mod cases_v4;
 mod claims_v4;
 mod codebook_import_v5;
