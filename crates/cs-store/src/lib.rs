@@ -22,6 +22,7 @@ mod codetree;
 mod coding;
 mod memos;
 mod passages;
+mod project;
 mod review;
 mod saturation;
 mod simple;
@@ -32,6 +33,10 @@ pub use codebook::{CodePatch, ImportReport, MergeOutcome};
 pub use codetree::{CodeUpdate, NewCodeFromPassage, ResolvedCode, Revision};
 pub use coding::ResolveRequest;
 pub use passages::{NewPassage, PassageFilter};
+pub use project::{
+    AttributeView, ChecklistItemView, ChecklistView, MemoAnswer, MemoOverrides, MemoQuestionView,
+    MemoView, TemplateChange, TemplateReport,
+};
 pub use review::{Review, ReviewEntry};
 pub use simple::SimpleProgress;
 

@@ -625,3 +625,26 @@ impl ProjectConfig {
         next
     }
 }
+
+/// A research question as carried by a project template.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TemplateQuestion {
+    pub id: String,
+    #[serde(default)]
+    pub text: String,
+}
+
+/// Value of `ProjectTemplate::format`.
+pub const TEMPLATE_FORMAT: &str = "coding-studio-project-template";
+
+/// The project template: the whole study configuration, no interview data,
+/// no coding, no provider secret.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ProjectTemplate {
+    pub format: String,
+    pub version: u32,
+    /// Study name, segmentation settings, phase 1 categories, prompt template.
+    pub study_config: crate::StudyConfig,
+    pub research_questions: Vec<TemplateQuestion>,
+    pub project_config: ProjectConfig,
+}

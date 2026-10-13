@@ -95,7 +95,7 @@ impl Store {
 
     /// Whether any candidate phase 1 coding has been recorded. Automatic
     /// codings (see `simple`) do not count.
-    fn phase1_coding_exists(&self) -> Result<bool> {
+    pub(crate) fn phase1_coding_exists(&self) -> Result<bool> {
         let n: i64 = self.conn.query_row(
             "SELECT COUNT(*) FROM human_codings WHERE phase = ?1 AND COALESCE(modifier, '') <> ?2",
             rusqlite::params![PHASE_1, crate::simple::AUTO_MODIFIER],

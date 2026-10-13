@@ -452,3 +452,15 @@ CREATE TRIGGER IF NOT EXISTS passages_no_delete BEFORE DELETE ON passages
 BEGIN SELECT RAISE(ABORT, 'passages are deleted logically'); END;
 CREATE TRIGGER IF NOT EXISTS passage_codings_no_delete BEFORE DELETE ON passage_codings
 BEGIN SELECT RAISE(ABORT, 'passage codings are removed logically'); END;
+
+-- V1 lot 2: per-interview data governed by the project configuration
+-- (attribute values, familiarisation memo, end-of-interview checklist).
+-- One JSON document per kind; every write is audited.
+CREATE TABLE IF NOT EXISTS interview_data (
+    interview_id TEXT NOT NULL,
+    kind         TEXT NOT NULL,
+    body         TEXT NOT NULL,
+    updated_at   TEXT NOT NULL,
+    updated_by   TEXT NOT NULL,
+    PRIMARY KEY (interview_id, kind)
+);
