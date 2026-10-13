@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Surlignages et lexique</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0;font-family:system-ui,sans-serif;color:#333;background:#fff}
+a{color:#444}a:hover{color:#000}
+</style>
+</helmet>
+<div style="max-width: 1280px; min-height: 820px; box-sizing: border-box; display: flex; flex-direction: column; font-size: 14px;">
+  <div style="display: flex; align-items: center; gap: 24px; padding: 12px 24px; border-bottom: 1.5px solid #888; background: #f4f4f4;">
+    <div style="font-weight: 600; font-size: 16px;">Coding Studio</div>
+    <nav style="display: flex; gap: 16px;">
+      <a href="Main.dc.html" style="text-decoration: none; padding: 4px 0;">Bibliotheque</a>
+      <a href="Code.dc.html" style="font-weight: 600; border-bottom: 2px solid #333; text-decoration: none; padding: 4px 0;">Entretien ECO-16</a>
+      <a href="Codebook.dc.html" style="text-decoration: none; padding: 4px 0;">Codebook</a>
+      <a href="Settings.dc.html" style="text-decoration: none; padding: 4px 0;">Reglages</a>
+    </nav>
+    <div style="margin-left: auto; font-size: 12px; color: #b45309; font-style: italic;">complement de l'ecran 2 : le surlignage dans l'etape Coder, et le panneau Lexique qui s'en nourrit</div>
+  </div>
+  <div style="display: flex; flex-wrap: wrap; gap: 16px; padding: 16px 24px;">
+    <div style="flex: 999 1 520px; min-width: 0; border: 1.5px solid #888; border-radius: 4px; display: flex; flex-direction: column;">
+      <div style="padding: 8px 12px; background: #eee; display: flex; gap: 12px; align-items: center;">
+        <span style="font-weight: 600;">Transcription (etape Coder, avec surlignage)</span>
+        <span style="font-size: 12px; color: #666;">selectionner un passage a la souris puis H : surligne sans code</span>
+      </div>
+      <div style="padding: 10px 12px; color: #999; border-top: 1px solid #ddd; font-style: italic;">U031 INT 09:40 Et pour les rappels, comment ca se passe aujourd'hui ?</div>
+      <div style="padding: 10px 12px; border-top: 1px solid #ddd; border-left: 4px solid #333; background: #fafafa; display: flex; flex-direction: column; gap: 6px;">
+        <div style="display: flex; gap: 12px; align-items: center;"><span style="font-weight: 600;">U032 RESP 09:44</span><span style="font-size: 12px; color: #666;">pas encore code, 2 surlignages</span></div>
+        <div>Aujourd'hui on rappelle <mark style="background: #ffe66d;">tout le lot, on ne sait pas quelles bouteilles sont deja vendues</mark>, donc on bloque tout chez les revendeurs et on attend les retours. <mark style="background: #ffe66d;">Ca nous coute une semaine de travail a chaque fois</mark>, mais ca n'arrive pas souvent.</div>
+        <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+          <button style="border: 1.5px solid #888; background: #fff; padding: 3px 10px; border-radius: 4px; font-size: 12px;">Surligner (H)</button>
+          <button style="border: 1.5px solid #888; background: #fff; padding: 3px 10px; border-radius: 4px; font-size: 12px;">Nouveau code depuis le surlignage</button>
+          <span style="font-size: 12px; color: #b45309; font-style: italic;">le passage surligne devient l'exemple et l'origine du code cree</span>
+        </div>
+      </div>
+      <div style="padding: 10px 12px; border-top: 1px solid #ddd; color: #999; font-style: italic;">U033 INT 10:12 Une semaine pour combien de bouteilles, a peu pres ?</div>
+      <div style="padding: 8px 12px; border-top: 1px solid #ddd; font-size: 12px; color: #b45309; font-style: italic;">un surlignage n'est pas un code : c'est un passage retenu pour construire les codes ; il reste visible apres codage et sert aussi de citation candidate (ecran 3)</div>
+    </div>
+    <div style="flex: 1 1 380px; min-width: 0; display: flex; flex-direction: column; gap: 12px;">
+      <div style="border: 1.5px solid #888; border-radius: 4px; display: flex; flex-direction: column;">
+        <div style="padding: 8px 12px; background: #eee; font-weight: 600;">Lexique du surlignage selectionne</div>
+        <div style="padding: 8px 12px; border-top: 1px solid #ddd; font-size: 13px; display: flex; flex-direction: column; gap: 4px;">
+          <div>Mots-cles (YAKE) : <span style="border: 1px solid #888; border-radius: 10px; padding: 1px 8px;">lot</span> <span style="border: 1px solid #888; border-radius: 10px; padding: 1px 8px;">bouteilles vendues</span> <span style="border: 1px solid #888; border-radius: 10px; padding: 1px 8px;">rappel</span></div>
+          <div style="color: #666;">Racines : rappel, lot, bouteill, vend, bloqu, revendeur</div>
+          <button style="border: 1.5px solid #888; background: #fff; padding: 3px 10px; border-radius: 4px; font-size: 12px; align-self: flex-start;">Utiliser "lot, rappel" comme libelle provisoire</button>
+          <div style="font-size: 12px; color: #b45309; font-style: italic;">statistique, deterministe, trois langues ; propose un nom, ne juge rien</div>
+        </div>
+      </div>
+      <div style="border: 1.5px solid #888; border-radius: 4px; display: flex; flex-direction: column;">
+        <div style="padding: 8px 12px; background: #eee; display: flex; align-items: center; gap: 8px;"><span style="font-weight: 600;">Mots-cles de tous les surlignages</span><span style="margin-left: auto; font-size: 12px; color: #666;">47 surlignages, 3 entretiens</span></div>
+        <div style="display: grid; grid-template-columns: 1fr 60px 1fr; gap: 0; padding: 6px 12px; border-top: 1px solid #ddd; font-size: 12px; font-weight: 600; color: #666;"><div>mot-cle (racine)</div><div>passages</div><div>entretiens</div></div>
+        <div style="display: grid; grid-template-columns: 1fr 60px 1fr; padding: 6px 12px; border-top: 1px solid #ddd; font-size: 13px;"><div>lot</div><div>11</div><div>ECO-16, RET-22, ECO-32</div></div>
+        <div style="display: grid; grid-template-columns: 1fr 60px 1fr; padding: 6px 12px; border-top: 1px solid #ddd; font-size: 13px;"><div>rappel</div><div>9</div><div>ECO-16, ECO-32</div></div>
+        <div style="display: grid; grid-template-columns: 1fr 60px 1fr; padding: 6px 12px; border-top: 1px solid #ddd; font-size: 13px;"><div>cout, couter</div><div>8</div><div>ECO-16, RET-22, ECO-32</div></div>
+        <div style="display: grid; grid-template-columns: 1fr 60px 1fr; padding: 6px 12px; border-top: 1px solid #ddd; font-size: 13px;"><div>revendeur</div><div>6</div><div>ECO-16, ECO-32</div></div>
+        <div style="padding: 8px 12px; border-top: 1px solid #ddd; display: flex; flex-direction: column; gap: 6px;">
+          <div style="font-size: 12px; color: #666;">Cocher des mots-cles pour voir les passages qui les portent, puis :</div>
+          <button style="border: 1.5px solid #888; background: #fff; padding: 3px 10px; border-radius: 4px; font-size: 12px; align-self: flex-start;">Creer un code a partir de cette selection (lot + rappel : 14 passages)</button>
+          <div style="font-size: 12px; color: #b45309; font-style: italic;">liste avec effectifs, pas de nuage de mots ; c'est ici que le codebook se construit a partir des trois premiers entretiens</div>
+        </div>
+      </div>
+      <div style="border: 1.5px dashed #999; border-radius: 4px; display: flex; flex-direction: column;">
+        <div style="padding: 8px 12px; background: #eee; font-weight: 600;">Passages proches de U032 (vocabulaire partage)</div>
+        <div style="padding: 6px 12px; border-top: 1px solid #ddd; font-size: 13px;">ECO-32 U061, 0.42 : "le lot reste l'unite de controle, on ne descend pas en dessous"</div>
+        <div style="padding: 6px 12px; border-top: 1px solid #ddd; font-size: 13px;">RET-22 U088, 0.31 : "un rappel, c'est tout le carton qui revient"</div>
+        <div style="padding: 8px 12px; border-top: 1px solid #ddd; font-size: 12px; color: #b45309; font-style: italic;">similarite TF-IDF sur racines, tous entretiens ; sert a verifier la couverture d'un code et a retrouver ce qu'on a manque ; ne voit pas les synonymes ni les langues differentes</div>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":820}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

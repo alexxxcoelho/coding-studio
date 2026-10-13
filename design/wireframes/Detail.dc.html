@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Tiroir Detail d'une unite citee</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0;font-family:system-ui,sans-serif;color:#333;background:#fff}
+a{color:#444}a:hover{color:#000}
+</style>
+</helmet>
+<div style="max-width: 1280px; min-height: 820px; box-sizing: border-box; display: flex; flex-direction: column; font-size: 14px;">
+  <div style="display: flex; align-items: center; gap: 24px; padding: 12px 24px; border-bottom: 1.5px solid #888; background: #f4f4f4;">
+    <div style="font-weight: 600; font-size: 16px;">Coding Studio</div>
+    <nav style="display: flex; gap: 16px;">
+      <a href="Main.dc.html" style="text-decoration: none; padding: 4px 0;">Bibliotheque</a>
+      <a href="Code.dc.html" style="font-weight: 600; border-bottom: 2px solid #333; text-decoration: none; padding: 4px 0;">Entretien ECO-16</a>
+      <a href="Codebook.dc.html" style="text-decoration: none; padding: 4px 0;">Codebook</a>
+      <a href="Settings.dc.html" style="text-decoration: none; padding: 4px 0;">Reglages</a>
+    </nav>
+  </div>
+  <div style="display: flex; flex-wrap: wrap; gap: 16px; padding: 16px 24px;">
+    <div style="flex: 1 1 420px; min-width: 0; border: 1.5px solid #888; border-radius: 4px; opacity: 0.55;">
+      <div style="padding: 8px 12px; background: #eee; font-weight: 600;">Transcription (meme liste que l'ecran 2, l'unite U042 reste selectionnee)</div>
+      <div style="padding: 10px 12px; color: #999; font-style: italic; border-top: 1px solid #ddd;">U041 INT 12:04 Et combien de temps a pris le deploiement en magasin ?</div>
+      <div style="padding: 10px 12px; border-top: 1px solid #ddd; border-left: 4px solid #333; background: #fafafa;">U042 RESP 12:10 Six mois pour les deux premiers magasins, surtout a cause de la formation des equipes de reception. Le materiel lui-meme etait pret en trois semaines.</div>
+      <div style="padding: 10px 12px; color: #999; font-style: italic; border-top: 1px solid #ddd;">U043 INT 12:31 Et la formation, qui l'a faite ?</div>
+    </div>
+    <div style="flex: 1 1 560px; min-width: 0; border: 1.5px solid #888; border-radius: 4px; display: flex; flex-direction: column;">
+      <div style="padding: 8px 12px; background: #eee; display: flex; align-items: center; gap: 12px;">
+        <span style="font-weight: 600;">Detail de U042</span>
+        <span style="font-size: 12px; color: #b45309; font-style: italic;">tiroir ferme par defaut ; on ne l'ouvre que pour une unite qu'on va citer dans la these</span>
+        <a href="Code.dc.html" style="margin-left: auto; border: 1.5px solid #888; padding: 3px 10px; border-radius: 4px; text-decoration: none; font-size: 12px;">Fermer</a>
+      </div>
+      <div style="padding: 12px; border-top: 1px solid #ddd; display: flex; flex-direction: column; gap: 8px;">
+        <div style="font-weight: 600;">A. Verifier a l'audio</div>
+        <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+          <span style="border: 1px solid #888; border-radius: 10px; padding: 1px 8px; font-size: 12px;">etat : non verifie</span>
+          <button style="border: 1.5px solid #888; background: #fff; padding: 3px 10px; border-radius: 4px;">Ouvrir l'audio a 12:10</button>
+          <button style="border: 1.5px solid #888; background: #fff; padding: 3px 10px; border-radius: 4px;">Marquer verifie</button>
+          <button style="border: 1.5px solid #888; background: #fff; padding: 3px 10px; border-radius: 4px;">Inutilisable</button>
+        </div>
+        <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+          <button style="border: 1.5px dashed #999; background: #fff; padding: 3px 10px; border-radius: 4px; font-size: 12px;">Corriger le texte ou le locuteur</button>
+          <span style="font-size: 12px; color: #b45309; font-style: italic;">la correction est datee avec une raison, l'original reste lisible, l'unite repasse non verifiee</span>
+        </div>
+      </div>
+      <div style="padding: 12px; border-top: 1px solid #ddd; display: flex; flex-direction: column; gap: 8px;">
+        <div style="font-weight: 600;">B. Citation</div>
+        <div style="border: 1px solid #aaa; border-radius: 4px; padding: 8px; background: #fafafa;">Six mois pour les deux premiers magasins, <mark style="background: #ddd;">surtout a cause de la formation des equipes de reception</mark>. Le materiel lui-meme etait pret en trois semaines.</div>
+        <div style="font-size: 12px; color: #b45309; font-style: italic;">on selectionne le passage exact a la souris ; l'outil verifie que c'est une sous-chaine exacte ; les natures de preuve decrivent, elles ne classent pas (un chiffre rapporte n'est pas plus fiable qu'un recit direct)</div>
+        <div style="display: flex; gap: 12px; flex-wrap: wrap; align-items: center;">
+          <label style="display: flex; gap: 6px; align-items: center; font-size: 13px;">Nature de la preuve
+            <select aria-label="Nature de la preuve" style="border: 1px solid #aaa; border-radius: 4px; padding: 2px 6px;"><option>recit de premiere main</option><option>propos rapporte</option><option>estimation chiffree</option><option>document cite</option><option>opinion</option></select>
+          </label>
+          <label style="display: flex; gap: 6px; align-items: center; font-size: 13px;">Origine
+            <select aria-label="Origine" style="border: 1px solid #aaa; border-radius: 4px; padding: 2px 6px;"><option>spontane</option><option>sollicite par ma question</option><option>tire d'un document</option><option>infere par moi</option></select>
+          </label>
+          <label style="display: flex; gap: 6px; align-items: center; font-size: 13px;">Role
+            <select aria-label="Role" style="border: 1px solid #aaa; border-radius: 4px; padding: 2px 6px;"><option>contrainte</option><option>declencheur</option><option>justification apres coup</option><option>condition facilitatrice</option><option>indetermine</option></select>
+          </label>
+        </div>
+        <div style="display: flex; gap: 8px; align-items: center;">
+          <span style="font-size: 12px;">Codes soutenus :</span>
+          <span style="font-size: 12px; border: 1px solid #888; border-radius: 10px; padding: 1px 8px;">PROCESS-CHANGE</span>
+          <button style="border: 1.5px solid #888; background: #fff; padding: 3px 10px; border-radius: 4px; margin-left: auto;">Enregistrer la citation</button>
+        </div>
+        <div style="font-size: 12px; color: #666;">Citations deja enregistrees sur cette unite : aucune</div>
+      </div>
+      <div style="padding: 12px; border-top: 1px solid #ddd; display: flex; flex-direction: column; gap: 8px;">
+        <div style="font-weight: 600;">C. Drapeaux (facultatif)</div>
+        <div style="display: flex; gap: 12px; flex-wrap: wrap; font-size: 13px;">
+          <label style="display: flex; gap: 6px; align-items: center;"><input type="checkbox" aria-label="Attribution ou mot incertain"> attribution ou mot incertain</label>
+          <label style="display: flex; gap: 6px; align-items: center;"><input type="checkbox" aria-label="Propos rapporte"> propos rapporte</label>
+          <label style="display: flex; gap: 6px; align-items: center;"><input type="checkbox" aria-label="Phrase inachevee"> phrase inachevee</label>
+          <label style="display: flex; gap: 6px; align-items: center;"><input type="checkbox" aria-label="Acquiescement a ma formulation"> acquiescement a ma formulation</label>
+        </div>
+        <div style="font-size: 12px; color: #b45309; font-style: italic;">quatre cases, rien d'autre ; le dernier drapeau demande si c'est un simple oui ou une reponse avec contenu propre</div>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":820}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

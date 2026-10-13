@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Bibliotheque</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0;font-family:system-ui,sans-serif;color:#333;background:#fff}
+a{color:#444}a:hover{color:#000}
+</style>
+</helmet>
+<div style="max-width: 1280px; min-height: 760px; box-sizing: border-box; display: flex; flex-direction: column; font-size: 14px;">
+  <div style="display: flex; align-items: center; gap: 24px; padding: 12px 24px; border-bottom: 1.5px solid #888; background: #f4f4f4;">
+    <div style="font-weight: 600; font-size: 16px;">Coding Studio</div>
+    <nav style="display: flex; gap: 16px;">
+      <a href="Main.dc.html" style="font-weight: 600; border-bottom: 2px solid #333; text-decoration: none; padding: 4px 0;">Bibliotheque</a>
+      <a href="Analyse.dc.html" style="text-decoration: none; padding: 4px 0;">Analyser</a>
+      <a href="Answer.dc.html" style="text-decoration: none; padding: 4px 0;">Rediger</a>
+      <a href="Codebook.dc.html" style="text-decoration: none; padding: 4px 0;">Codebook</a>
+      <a href="Settings.dc.html" style="text-decoration: none; padding: 4px 0;">Reglages</a>
+      <a href="Guide.dc.html" style="text-decoration: none; padding: 4px 0;">Guide</a>
+    </nav>
+    <button style="margin-left: auto; border: 1.5px solid #888; background: #fff; border-radius: 50%; width: 26px; height: 26px; font-size: 13px;">?</button>
+  </div>
+  <div style="display: flex; flex-wrap: wrap; gap: 16px; padding: 16px 24px;">
+    <div style="flex: 999 1 640px; min-width: 0; display: flex; flex-direction: column; gap: 10px;">
+      <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+        <h1 style="margin: 0; font-size: 20px;">Entretiens</h1>
+        <button style="border: 1.5px solid #888; background: #fff; padding: 4px 10px; border-radius: 4px;">Importer des transcriptions</button>
+        <select aria-label="Filtre" style="border: 1px solid #aaa; border-radius: 4px; padding: 3px 6px; font-size: 12px;"><option>filtre : aucun</option><option>secteur : detail</option><option>version du guide : B</option></select>
+        <span style="font-size: 12px; color: #b45309; font-style: italic;">les colonnes d'attributs sont celles definies dans Reglages, propres a chaque etude</span>
+      </div>
+      <div style="border: 1.5px solid #888; border-radius: 4px; overflow-x: auto;">
+        <div style="min-width: 640px;">
+          <div style="display: grid; grid-template-columns: 80px 1fr 1fr 70px 90px 110px 90px; background: #eee; padding: 8px 12px; font-weight: 600; font-size: 13px;">
+            <div>ID</div><div>Attribut 1 (ex. secteur)</div><div>Attribut 2 (ex. role)</div><div>Guide</div><div>Memo</div><div>Coder</div><div>Revoir</div>
+          </div>
+          <div style="display: grid; grid-template-columns: 80px 1fr 1fr 70px 90px 110px 90px; padding: 8px 12px; border-top: 1px solid #ccc; font-size: 13px; background: #f7f7f7; border-left: 3px solid #333;">
+            <div style="font-weight: 600;">INT-01</div><div>bibliotheque communale</div><div>responsable</div><div>A</div><div>fait</div><div>61 / 61 tours</div><div>arbitre</div>
+          </div>
+          <div style="display: grid; grid-template-columns: 80px 1fr 1fr 70px 90px 110px 90px; padding: 8px 12px; border-top: 1px solid #ccc; font-size: 13px;">
+            <div style="font-weight: 600;">INT-02</div><div>reseau regional</div><div>informaticien</div><div>B</div><div>fait</div><div>40 / 97 tours</div><div>non</div>
+          </div>
+          <div style="display: grid; grid-template-columns: 80px 1fr 1fr 70px 90px 110px 90px; padding: 8px 12px; border-top: 1px solid #ccc; font-size: 13px; color: #888;">
+            <div style="font-weight: 600;">INT-03</div><div>a renseigner</div><div>a renseigner</div><div>B</div><div>a faire</div><div>pas commence</div><div>non</div>
+          </div>
+        </div>
+      </div>
+      <div style="font-size: 12px; color: #b45309; font-style: italic;">une ligne par entretien ; Memo = memo de familiarisation (premier geste de l'etape Coder) ; Revoir est facultatif ; un clic sur la ligne ouvre la fiche a droite, double clic ouvre l'etape Coder</div>
+    </div>
+    <div style="flex: 1 1 360px; min-width: 0; border: 1.5px solid #888; border-radius: 4px; display: flex; flex-direction: column;">
+      <div style="padding: 8px 12px; background: #eee; font-weight: 600; display: flex; align-items: center;">Fiche INT-01 <a href="Code.dc.html" style="margin-left: auto; border: 1.5px solid #888; padding: 2px 10px; border-radius: 4px; text-decoration: none; font-weight: 400; font-size: 13px; background: #fff;">Coder</a></div>
+      <div style="padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; font-size: 13px;">
+        <div style="font-weight: 600;">Attributs</div>
+        <label style="display: flex; gap: 8px; align-items: center;">Secteur <select aria-label="Secteur" style="margin-left: auto; border: 1px solid #aaa; border-radius: 4px; padding: 2px 6px;"><option>bibliotheque communale</option></select></label>
+        <label style="display: flex; gap: 8px; align-items: center;">Role du repondant <input type="text" aria-label="Role" value="responsable" style="margin-left: auto; border: 1px solid #aaa; border-radius: 4px; padding: 2px 6px; width: 150px;"></label>
+        <label style="display: flex; gap: 8px; align-items: center;">Version du guide d'entretien <select aria-label="Version du guide" style="margin-left: auto; border: 1px solid #aaa; border-radius: 4px; padding: 2px 6px;"><option>A</option><option>B</option></select></label>
+        <label style="display: flex; gap: 8px; align-items: center;">Statut des propos <select aria-label="Statut des propos" style="margin-left: auto; border: 1px solid #aaa; border-radius: 4px; padding: 2px 6px;"><option>experience vecue</option><option>projet</option><option>opinion</option><option>mixte</option></select></label>
+        <div style="font-size: 12px; color: #b45309; font-style: italic;">champs, types et valeurs definis par l'etude dans Reglages ; aucun n'est impose par l'outil</div>
+        <div style="font-weight: 600; border-top: 1px solid #ddd; padding-top: 8px;">Memo de familiarisation</div>
+        <label style="display: flex; gap: 8px; align-items: center;">Modele <select aria-label="Modele de memo" style="margin-left: auto; border: 1px solid #aaa; border-radius: 4px; padding: 2px 6px;"><option>Par defaut (4 questions)</option><option>Entretien expert (6 questions)</option></select></label>
+        <div style="font-size: 12px; color: #666;">pour cet entretien : 1 question ajoutee, 1 retiree</div>
+        <div style="font-size: 12px; color: #b45309; font-style: italic;">le modele donne les questions de depart ; on les adapte entretien par entretien a l'etape Coder ; la version du modele est conservee</div>
+        <div style="font-weight: 600; border-top: 1px solid #ddd; padding-top: 8px;">Source</div>
+        <div style="font-size: 12px; color: #666;">INT-01/transcription.md, 84 tours dont 61 du repondant ; intervieweur reconnu : 23 tours grises, jamais codes</div>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":760}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

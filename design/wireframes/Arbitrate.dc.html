@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Etape Arbitrer</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0;font-family:system-ui,sans-serif;color:#333;background:#fff}
+a{color:#444}a:hover{color:#000}
+</style>
+</helmet>
+<div style="max-width: 1280px; min-height: 820px; box-sizing: border-box; display: flex; flex-direction: column; font-size: 14px;">
+  <div style="display: flex; align-items: center; gap: 24px; padding: 12px 24px; border-bottom: 1.5px solid #888; background: #f4f4f4;">
+    <div style="font-weight: 600; font-size: 16px;">Coding Studio</div>
+    <nav style="display: flex; gap: 16px;">
+      <a href="Main.dc.html" style="text-decoration: none; padding: 4px 0;">Bibliotheque</a>
+      <a href="Arbitrate.dc.html" style="font-weight: 600; border-bottom: 2px solid #333; text-decoration: none; padding: 4px 0;">Entretien ECO-16</a>
+      <a href="Codebook.dc.html" style="text-decoration: none; padding: 4px 0;">Codebook</a>
+      <a href="Settings.dc.html" style="text-decoration: none; padding: 4px 0;">Reglages</a>
+    </nav>
+  </div>
+  <div style="display: flex; align-items: center; padding: 0 24px; border-bottom: 1.5px solid #888;">
+    <a href="Code.dc.html" style="padding: 12px 16px; text-decoration: none; color: #666;">1 Coder <span>61 / 61</span></a>
+    <a href="Arbitrate.dc.html" style="padding: 12px 16px; border-bottom: 3px solid #333; font-weight: 600; text-decoration: none;">2 Revoir (facultatif) <span style="font-weight: 400; color: #666;">revue IA faite, 9 / 12 decides</span></a>
+    <a href="Analyse.dc.html" style="padding: 12px 16px; text-decoration: none; color: #666;">3 Analyser</a>
+    <a href="Answer.dc.html" style="padding: 12px 16px; text-decoration: none; color: #666;">4 Rediger</a>
+    <div style="margin-left: auto; font-size: 12px; color: #b45309; font-style: italic;">second volet de Revoir (le premier est l'ecran 4) : harmonisation apres relecture du codebook, et revue IA si elle a ete lancee</div>
+  </div>
+  <div style="padding: 16px 24px; display: flex; flex-direction: column; gap: 16px;">
+    <div style="display: flex; gap: 12px; align-items: baseline;">
+      <h2 style="margin: 0; font-size: 18px;">Desaccords</h2>
+      <span style="color: #666;">7 sur 9 decides</span>
+      <span style="font-size: 12px; color: #b45309; font-style: italic;">une carte par unite ou le modele et vous n'avez pas pose les memes codes ; la comparaison porte sur votre codage fige au moment du prompt</span>
+    </div>
+    <div style="border: 1.5px solid #888; border-radius: 4px; padding: 12px; display: flex; flex-direction: column; gap: 10px;">
+      <div style="display: flex; gap: 12px; align-items: center;">
+        <span style="font-weight: 600;">U042</span>
+        <span style="font-size: 12px; color: #666;">12:10, apres INT : "Et combien de temps a pris le deploiement en magasin ?"</span>
+      </div>
+      <div style="border: 1px solid #aaa; border-radius: 4px; background: #fafafa; padding: 8px;">Six mois pour les deux premiers magasins, surtout a cause de la formation des equipes de reception. Le materiel lui-meme etait pret en trois semaines.</div>
+      <div style="display: flex; gap: 24px; flex-wrap: wrap;">
+        <div style="display: flex; gap: 6px; align-items: center;"><span style="font-size: 12px; color: #666;">Vous :</span><span style="font-size: 12px; border: 1px solid #888; border-radius: 10px; padding: 1px 8px;">COST-BURDEN</span><span style="font-size: 12px; border: 1px solid #888; border-radius: 10px; padding: 1px 8px;">PROCESS-CHANGE</span></div>
+        <div style="display: flex; gap: 6px; align-items: center;"><span style="font-size: 12px; color: #666;">Modele :</span><span style="font-size: 12px; border: 1px solid #888; border-radius: 10px; padding: 1px 8px;">PROCESS-CHANGE</span><span style="font-size: 12px; border: 1px solid #888; border-radius: 10px; padding: 1px 8px;">SKILLS-CAPACITY</span></div>
+      </div>
+      <div style="display: flex; gap: 16px; flex-wrap: wrap; align-items: center;">
+        <label style="display: flex; gap: 6px; align-items: center;"><input type="radio" name="d42" checked> Garder le mien</label>
+        <label style="display: flex; gap: 6px; align-items: center;"><input type="radio" name="d42"> Prendre celui du modele</label>
+        <label style="display: flex; gap: 6px; align-items: center;"><input type="radio" name="d42"> Autre (choisir les codes)</label>
+      </div>
+      <div style="display: flex; gap: 8px; align-items: center;">
+        <input type="text" aria-label="Justification" placeholder="justification, obligatoire pour un desaccord" style="flex: 1; border: 1px solid #aaa; border-radius: 4px; padding: 4px 6px;">
+        <button style="border: 1.5px solid #888; background: #fff; padding: 6px 12px; border-radius: 4px;">Enregistrer</button>
+      </div>
+      <div style="font-size: 12px; color: #b45309; font-style: italic;">votre decision est finale et conservee a part de votre codage initial et de celui du modele ; trois objets, jamais ecrases</div>
+    </div>
+    <div style="border: 1.5px solid #888; border-radius: 4px; padding: 12px; display: flex; flex-direction: column; gap: 8px; color: #666;">
+      <div style="display: flex; gap: 12px; align-items: center;"><span style="font-weight: 600;">U057</span><span style="font-size: 12px; border: 1px solid #aaa; border-radius: 10px; padding: 1px 8px;">decide</span><span style="font-size: 12px;">garde le mien : "le modele a lu une contrainte la ou le repondant decrit un choix"</span></div>
+    </div>
+    <div style="display: flex; gap: 12px; align-items: baseline; margin-top: 8px;">
+      <h2 style="margin: 0; font-size: 18px;">Echantillon d'accords</h2>
+      <span style="color: #666;">2 sur 3 revus</span>
+      <span style="font-size: 12px; color: #b45309; font-style: italic;">quelques unites tirees au sort parmi les accords (seed enregistree) pour verifier qu'un accord n'est pas un double aveuglement ; justification facultative</span>
+    </div>
+    <div style="border: 1.5px solid #888; border-radius: 4px; padding: 12px; display: flex; flex-direction: column; gap: 8px;">
+      <div style="display: flex; gap: 12px; align-items: center;"><span style="font-weight: 600;">U018</span><span style="font-size: 12px; color: #666;">vous et le modele : NO-NEED</span></div>
+      <div style="border: 1px solid #aaa; border-radius: 4px; background: #fafafa; padding: 8px;">Pour nos volumes, un code sur le carton suffit, personne ne nous a jamais demande plus.</div>
+      <div style="display: flex; gap: 8px; align-items: center;">
+        <button style="border: 1.5px solid #888; background: #fff; padding: 4px 10px; border-radius: 4px;">Confirmer</button>
+        <button style="border: 1.5px solid #888; background: #fff; padding: 4px 10px; border-radius: 4px;">Corriger</button>
+      </div>
+    </div>
+    <div style="border: 1.5px solid #888; border-radius: 4px; padding: 12px; display: flex; flex-direction: column; gap: 8px;">
+      <div style="font-weight: 600;">Concepts absents du codebook, proposes par la revue IA</div>
+      <div style="font-size: 13px;">"Formation interne apres le depart de l'integrateur" (U044, U052) <button style="border: 1.5px solid #888; background: #fff; padding: 2px 8px; border-radius: 4px; font-size: 12px;">Creer un code</button> <button style="border: 1.5px solid #888; background: #fff; padding: 2px 8px; border-radius: 4px; font-size: 12px;">Rattacher a un code existant</button> <button style="border: 1.5px solid #888; background: #fff; padding: 2px 8px; border-radius: 4px; font-size: 12px;">Ecarter</button></div>
+      <div style="font-size: 12px; color: #b45309; font-style: italic;">candidats, jamais appliques seuls ; une decision motivee, datee, comme pour un desaccord</div>
+    </div>
+    <div style="border: 1.5px dashed #999; border-radius: 4px; padding: 10px 12px; font-size: 12px; color: #666;">Harmonisation sans IA : apres une fusion ou une redefinition de code, la liste des tours a reverifier apparait ici aussi (meme mecanisme que l'ecran Codebook). Quand tout est decide, la Bibliotheque marque l'entretien comme revu.</div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":820}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

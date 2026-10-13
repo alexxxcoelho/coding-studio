@@ -1,0 +1,147 @@
+{
+  "v": 3,
+  "attachments": {},
+  "boards": {
+    "Analyser.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "is_interactive": true,
+      "radius": 16,
+      "title": "4 · Analyser",
+      "w": 1440,
+      "x": 0,
+      "y": 1020
+    },
+    "Codebook.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "is_interactive": true,
+      "radius": 16,
+      "title": "6 · Codebook",
+      "w": 1440,
+      "x": 3040,
+      "y": 1020
+    },
+    "Coder.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "is_interactive": true,
+      "radius": 16,
+      "title": "2 · Coder",
+      "w": 1440,
+      "x": 1520,
+      "y": 0
+    },
+    "Etude.dc.html": {
+      "expand": "fill",
+      "h": 1760,
+      "is_interactive": true,
+      "radius": 16,
+      "title": "9 · Paramètres de l'étude",
+      "w": 1440,
+      "x": 3040,
+      "y": 2040
+    },
+    "Guide.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "is_interactive": true,
+      "radius": 16,
+      "title": "8 · Guide",
+      "w": 1440,
+      "x": 1520,
+      "y": 2040
+    },
+    "Lexique.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "is_interactive": true,
+      "radius": 16,
+      "title": "7 · Surlignage et lexique",
+      "w": 1440,
+      "x": 0,
+      "y": 2040
+    },
+    "Main.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "is_interactive": true,
+      "radius": 16,
+      "title": "1 · Bibliothèque",
+      "w": 1440,
+      "x": 0,
+      "y": 0
+    },
+    "Rediger.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "is_interactive": true,
+      "radius": 16,
+      "title": "5 · Rédiger",
+      "w": 1440,
+      "x": 1520,
+      "y": 1020
+    },
+    "Revoir.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "is_interactive": true,
+      "radius": 16,
+      "title": "3 · Revoir et arbitrer",
+      "w": 1440,
+      "x": 3040,
+      "y": 0
+    },
+    "Settings.dc.html": {
+      "h": 620,
+      "is_interactive": true,
+      "radius": 16,
+      "title": "Réglages de l'app · Général (⌘,)",
+      "w": 760,
+      "x": 4560,
+      "y": 0
+    },
+    "SettingsIA.dc.html": {
+      "h": 620,
+      "is_interactive": true,
+      "radius": 16,
+      "title": "Réglages de l'app · Fournisseurs IA",
+      "w": 760,
+      "x": 4560,
+      "y": 740
+    }
+  },
+  "createdOnFiles": {
+    "at": "2026-10-13T09:30:00Z",
+    "v": 1
+  },
+  "designSystems": [],
+  "launch": {
+    "view": "canvas"
+  },
+  "notes": {
+    "t": {
+      "kind": "title1",
+      "maxW": 5320,
+      "text": "Coding Studio · macOS (Tauri + Rust)",
+      "w": 240,
+      "x": 0,
+      "y": -300
+    }
+  },
+  "order": [
+    "Main.dc.html",
+    "Coder.dc.html",
+    "Revoir.dc.html",
+    "Settings.dc.html",
+    "Analyser.dc.html",
+    "Rediger.dc.html",
+    "Codebook.dc.html",
+    "SettingsIA.dc.html",
+    "Lexique.dc.html",
+    "Guide.dc.html",
+    "Etude.dc.html"
+  ],
+  "pages": [],
+  "title": "Coding Studio, refonte desktop"
+}

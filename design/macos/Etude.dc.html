@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Paramètres de l'étude</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="macos.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+.page{flex:1;padding:4px 28px 40px;display:flex;justify-content:center}
+.col{width:100%;max-width:720px}
+.sq{display:grid;grid-template-columns:54px minmax(0,1fr);gap:10px;align-items:center}
+.pm{display:flex;border-top:.5px solid var(--sep)}
+.pm button{width:28px;height:24px;border:0;background:transparent;font:inherit;font-size:15px;color:var(--label);cursor:pointer;border-right:.5px solid var(--sep)}
+.tok{display:inline-flex;align-items:center;height:20px;padding:0 8px;border-radius:999px;background:var(--fill2);font-size:12px}
+.stepper{display:inline-flex;align-items:center;gap:6px}
+.stepper .field{width:56px;text-align:right}
+.chev{color:var(--label3);flex:none}
+.wf .win{min-height:1760px}
+</style>
+</helmet>
+<div class="win {{mode}}" style="min-height:1760px; --acL: {{acl}}; --acLS: {{acls}}; --acD: {{acd}}; --acDS: {{acds}}">
+<nav class="sb" aria-label="Barre latérale">
+<div class="lights" aria-hidden="true"><i></i><i></i><i></i><span class="tog"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><rect x="1.8" y="2.8" width="12.4" height="10.4" rx="2.2"></rect><path d="M6 2.8v10.4"></path></svg></span></div>
+<div class="sb-h" style="padding-top:2px">Corpus</div>
+<a class="it" href="Main.dc.html"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.35" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 2.5h3v11h-3zM6.8 2.5h3v11h-3z"></path><path d="M11 3.3l2.3-.6 2 10.3-2.3.6z"></path></svg>Bibliothèque<span class="n">15</span></a>
+<a class="it sub" href="Revoir.dc.html"><span class="dot" style="background:var(--accent)"></span>ECO-16<span class="n">9/12</span></a>
+<a class="it sub" href="Coder.dc.html"><span class="dot" style="background:var(--label3)"></span>RET-22<span class="n">40/97</span></a>
+<div class="sb-h">Analyse</div>
+<a class="it" href="Codebook.dc.html"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.35" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 2.5h5l6 6-5 5-6-6z"></path><circle cx="5.3" cy="5.3" r=".9"></circle></svg>Codebook<span class="n">v1.2</span></a>
+<a class="it" href="Analyser.dc.html"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.35" aria-hidden="true"><rect x="2" y="2" width="12" height="12" rx="2.5"></rect><path d="M2 6.5h12M6.5 6.5V14"></path></svg>Analyser</a>
+<a class="it" href="Rediger.dc.html"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.35" stroke-linejoin="round" aria-hidden="true"><path d="M10.8 2.7l2.5 2.5-7.8 7.8-3.2.7.7-3.2z"></path></svg>Rédiger</a>
+<div class="sb-h">Étude</div>
+<a class="it on" href="Etude.dc.html"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.35" stroke-linejoin="round" aria-hidden="true"><path d="M4 1.8h5.2L12.5 5v9.2H4z"></path><path d="M6.2 8h4M6.2 10.5h4"></path></svg>Paramètres de l'étude</a>
+<a class="it" href="Guide.dc.html"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.35" stroke-linejoin="round" aria-hidden="true"><path d="M8 4c-1.4-1-3.4-1.4-5.5-1.2v9.6c2.1-.2 4.1.2 5.5 1.2 1.4-1 3.4-1.4 5.5-1.2V2.8C11.4 2.6 9.4 3 8 4zM8 4v9.6"></path></svg>Guide</a>
+<div class="sb-foot">
+<div class="sb-note"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.35" stroke-linejoin="round" aria-hidden="true"><path d="M8 1.5l5.5 2v4c0 3.5-2.5 5.8-5.5 7-3-1.2-5.5-3.5-5.5-7v-4z"></path></svg>Pseudonymisation active</div>
+<a class="it" href="Settings.dc.html"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.35" stroke-linecap="round" aria-hidden="true"><circle cx="8" cy="8" r="2.2"></circle><path d="M8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2M3.4 3.4l1.4 1.4M11.2 11.2l1.4 1.4M3.4 12.6l1.4-1.4M11.2 4.8l1.4-1.4"></path></svg>Réglages<span class="n">⌘,</span></a>
+</div>
+</nav>
+<div class="ct">
+<header class="tb">
+<div class="ttl"><b>Paramètres de l'étude</b><span>Enregistrés dans coding.db, avec l'étude</span></div>
+<div class="cap"><button class="ci" type="button">Importer un modèle de projet…</button><span class="vs"></span><button class="ci" type="button">Exporter…</button></div>
+<button class="help" type="button" aria-label="Aide pour cet écran">?</button>
+</header>
+<div class="page">
+<div class="col">
+<div class="gh" style="margin-top:6px">Étude</div>
+<div class="grp">
+<label class="row"><span class="k">Nom</span><input class="field" style="width:380px" type="text" value="Item-level identification adoption in Switzerland"></label>
+<div class="row" style="flex-direction:column;align-items:stretch;gap:6px"><label for="desc">Description envoyée au modèle<small class="l2 small" style="display:block">Un paragraphe</small></label><textarea id="desc" class="field" placeholder="Contexte de l'étude, population, objectif…"></textarea></div>
+</div>
+<div class="gh">Questions de recherche</div>
+<div class="grp" style="overflow:hidden">
+<div class="row sq"><span class="mono b">SQ1</span><input class="field" type="text" value="Pourquoi les organisations adoptent-elles l'identification à l'unité ?" aria-label="Question SQ1"></div>
+<div class="row sq"><span class="mono b">SQ2</span><input class="field" type="text" placeholder="Texte de la question" aria-label="Question SQ2"></div>
+<div class="row sq"><span class="mono b">SQ3</span><input class="field" type="text" placeholder="Texte de la question" aria-label="Question SQ3"></div>
+<div class="pm"><button type="button" aria-label="Ajouter une question">+</button><button type="button" aria-label="Retirer la question">−</button></div>
+</div>
+<p class="gf">Chaque question garde son identifiant ; les codes et la rédaction s'y rattachent.</p>
+<div class="gh">Codage</div>
+<div class="grp">
+<div class="row" style="flex-direction:column;align-items:stretch;gap:6px"><label for="rules">Règles de codage envoyées au modèle</label><textarea id="rules" class="field">Coder ce que le répondant affirme ; plusieurs codes possibles ; NA si rien d'utile.</textarea></div>
+<div class="row"><span class="k">Longueur maximale d'une unité<small>Segmentation par tour de parole</small></span><span class="stepper"><input class="field" type="text" value="150" aria-label="Mots par unité"><span class="l2">mots</span></span></div>
+<div class="row"><span class="k">Intervieweurs<small>Leurs tours sont grisés et ne se codent pas</small></span><span class="r8"><span class="tok">Dos Santos Alexandre</span><span class="tok">Alex</span><button class="btn" type="button">Ajouter…</button></span></div>
+<div class="row"><span class="k">Préfixes d'identifiants des dossiers</span><span class="r8"><span class="tok">INT</span><span class="tok">ECO</span><span class="tok">RET</span><span class="tok">ADJ</span></span></div>
+</div>
+<div class="gh">Modèles et listes</div>
+<div class="grp">
+<a class="row" href="#" style="text-decoration:none;color:var(--label)"><span class="k">Modèles de mémo de familiarisation<small>Par défaut, 4 questions · Entretien expert, 6 questions</small></span><span class="v">2</span><svg class="chev" width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M3.5 2l3 3-3 3"></path></svg></a>
+<a class="row" href="#" style="text-decoration:none;color:var(--label)"><span class="k">Attributs d'entretien<small>Secteur (liste) · Rôle (texte) · Version du guide (liste A, B) · Statut des propos (liste)</small></span><span class="v">4</span><svg class="chev" width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M3.5 2l3 3-3 3"></path></svg></a>
+<label class="row"><span class="k">Cadre d'interprétation<small>N'apparaît qu'aux étapes Analyser et Rédiger, jamais au codage</small></span><select class="field" style="width:200px"><option>TOE</option><option>Aucun</option></select></label>
+<a class="row" href="#" style="text-decoration:none;color:var(--label)"><span class="k">Dimensions personnalisées de la matrice<small>Par exemple : qui décide, qui paie, qui utilise</small></span><span class="v">aucune</span><svg class="chev" width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M3.5 2l3 3-3 3"></path></svg></a>
+<a class="row" href="#" style="text-decoration:none;color:var(--label)"><span class="k">Listes éditables<small>Fin d'entretien (4) · Contrôles d'un thème (7) · Natures de preuve (5) · Types de liens (6)</small></span><span class="v">4</span><svg class="chev" width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M3.5 2l3 3-3 3"></path></svg></a>
+</div>
+<p class="gf">Les valeurs de cellule de la matrice (présent, non évoqué, contredit, incertain) restent fixes : elles font partie de la méthode.</p>
+<div class="gh">Confidentialité</div>
+<div class="grp">
+<div class="row"><span class="k">Pseudonymiser avant tout envoi à un modèle<small>Noms de personnes et d'organisations</small></span><button class="switch on" type="button" role="switch" aria-checked="true" aria-label="Pseudonymiser"></button></div>
+<div class="row"><span class="k">Liste des noms à remplacer</span><button class="btn" type="button">Modifier…</button></div>
+</div>
+<div class="gh">Exports et vérification</div>
+<div class="grp">
+<div class="row"><span class="k">Dernier paquet<small><span class="mono">exports/2026-10-13_ECO-16</span> · 27 fichiers · empreintes vérifiées</small></span><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="color:var(--green-text)" role="img" aria-label="Vérifié"><path d="M3 8.5l3 3 7-7"></path></svg></div>
+<div class="row" style="justify-content:flex-end"><button class="btn" type="button">Exporter un entretien…</button><button class="btn" type="button">Exporter le transversal…</button></div>
+<div class="row r8" style="gap:16px"><a class="btn plain" href="#">Journal d'audit</a><a class="btn plain" href="#">Vérifier la chaîne</a><a class="btn plain" href="#">Table de saturation</a><a class="btn plain" href="#">Matrice transversale</a></div>
+</div>
+<p class="gf">Ces quatre vues sont des sorties, pas des étapes : elles restent ici et hors de la barre latérale.</p>
+</div>
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"appearance":{"editor":"enum","options":["Automatique","Clair","Sombre"],"default":"Automatique","section":"Apparence"},"accent":{"editor":"enum","options":["Graphite","Bleu","Violet","Rose","Rouge","Orange","Jaune","Vert"],"default":"Graphite","section":"Apparence"},"$preview":{"width":1440,"height":1760}}'>
+class Component extends DCLogic {
+renderVals() {
+var A = {Graphite:['#8C8C8C','#636366','#98989D','#636366'],Bleu:['#007AFF','#0062CC','#0A84FF','#0070E0'],Violet:['#AF52DE','#8E3BBF','#BF5AF2','#9A44C9'],Rose:['#FF2D55','#D1123F','#FF375F','#D1123F'],Rouge:['#FF3B30','#D12A20','#FF453A','#D12A20'],Orange:['#FF9500','#A85A00','#FF9F0A','#A85A00'],Jaune:['#FFCC00','#8A6D00','#FFD60A','#8A6D00'],Vert:['#28CD41','#1A7F2B','#32D74B','#1A7F2B']};
+var a = A[this.props.accent] || A.Graphite;
+var m = {Automatique:'auto',Clair:'light',Sombre:'dark'}[this.props.appearance] || 'auto';
+return { mode: m, acl: a[0], acls: a[1], acd: a[2], acds: a[3] };
+}
+}
+</script>
+</body>
+</html>

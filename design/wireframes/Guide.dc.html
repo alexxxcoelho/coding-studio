@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Guide</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0;font-family:system-ui,sans-serif;color:#333;background:#fff}
+a{color:#444}a:hover{color:#000}
+</style>
+</helmet>
+<div style="max-width: 1280px; min-height: 820px; box-sizing: border-box; display: flex; flex-direction: column; font-size: 14px;">
+  <div style="display: flex; align-items: center; gap: 24px; padding: 12px 24px; border-bottom: 1.5px solid #888; background: #f4f4f4;">
+    <div style="font-weight: 600; font-size: 16px;">Coding Studio</div>
+    <nav style="display: flex; gap: 16px;">
+      <a href="Main.dc.html" style="text-decoration: none; padding: 4px 0;">Bibliotheque</a>
+      <a href="Analyse.dc.html" style="text-decoration: none; padding: 4px 0;">Analyser</a>
+      <a href="Answer.dc.html" style="text-decoration: none; padding: 4px 0;">Rediger</a>
+      <a href="Codebook.dc.html" style="text-decoration: none; padding: 4px 0;">Codebook</a>
+      <a href="Settings.dc.html" style="text-decoration: none; padding: 4px 0;">Reglages</a>
+      <a href="Guide.dc.html" style="font-weight: 600; border-bottom: 2px solid #333; text-decoration: none; padding: 4px 0;">Guide</a>
+    </nav>
+    <input type="text" aria-label="Chercher dans le guide" placeholder="Chercher dans le guide" style="margin-left: auto; border: 1px solid #aaa; border-radius: 4px; padding: 4px 8px; width: 220px;">
+  </div>
+  <div style="display: flex; flex-wrap: wrap; gap: 16px; padding: 16px 24px;">
+    <div style="flex: 1 1 260px; min-width: 0; border: 1.5px solid #888; border-radius: 4px; display: flex; flex-direction: column; font-size: 13px;">
+      <div style="padding: 8px 12px; background: #eee; font-weight: 600;">Sommaire</div>
+      <div style="padding: 6px 12px; border-top: 1px solid #ddd;">0 Vue d'ensemble</div>
+      <div style="padding: 6px 12px; border-top: 1px solid #ddd;">1 Preparer le projet</div>
+      <div style="padding: 6px 12px; border-top: 1px solid #ddd; background: #f7f7f7; border-left: 3px solid #333; font-weight: 600;">2 Coder</div>
+      <div style="padding: 4px 12px 4px 28px; color: #666;">Le memo de familiarisation</div>
+      <div style="padding: 4px 12px 4px 28px; color: #666;">Coder un passage</div>
+      <div style="padding: 4px 12px 4px 28px; color: #666;">Creer un code en cours de route</div>
+      <div style="padding: 4px 12px 4px 28px; color: #666;">Le code Plus tard</div>
+      <div style="padding: 4px 12px 4px 28px; color: #666;">Surlignages et aide lexicale</div>
+      <div style="padding: 4px 12px 4px 28px; color: #666;">Fin d'entretien</div>
+      <div style="padding: 6px 12px; border-top: 1px solid #ddd;">3 Revoir (facultatif)</div>
+      <div style="padding: 6px 12px; border-top: 1px solid #ddd;">4 Analyser</div>
+      <div style="padding: 6px 12px; border-top: 1px solid #ddd;">5 Rediger</div>
+      <div style="padding: 6px 12px; border-top: 1px solid #ddd;">6 Exporter et auditer</div>
+      <div style="padding: 6px 12px; border-top: 1px solid #ddd;">Glossaire</div>
+    </div>
+    <div style="flex: 999 1 640px; min-width: 0; border: 1.5px solid #888; border-radius: 4px; display: flex; flex-direction: column;">
+      <div style="padding: 8px 12px; background: #eee; font-weight: 600;">2 Coder &gt; Le memo de familiarisation</div>
+      <div style="padding: 12px 16px; display: flex; flex-direction: column; gap: 10px; font-size: 13px;">
+        <div style="font-weight: 600;">Pourquoi cette etape</div>
+        <div style="color: #666;">[3 a 6 phrases sur la methode : lire l'entretien en entier avant de coder, noter ce qui frappe ; references]</div>
+        <div style="font-weight: 600;">Ce que vous faites</div>
+        <div style="color: #666;">1. Lire l'entretien en entier. 2. Repondre aux questions du modele. 3. Adapter les questions si l'entretien l'exige.</div>
+        <div style="border: 1.5px solid #888; border-radius: 4px; padding: 8px 10px; background: #f7f7f7;">
+          <div style="font-weight: 600;">Dans Coding Studio</div>
+          <div style="color: #666;">Bibliotheque, fiche de l'entretien : choisir le modele de memo. Etape Coder, panneau Memo de familiarisation : repondre ; "+ question pour cet entretien" pour en ajouter une. Le modele lui-meme se modifie dans Reglages, Modeles et listes.</div>
+          <div style="display: flex; gap: 8px; margin-top: 6px;"><a href="Code.dc.html" style="border: 1.5px solid #888; padding: 2px 8px; border-radius: 4px; text-decoration: none; font-size: 12px; background: #fff;">Ouvrir l'etape Coder</a><a href="Settings.dc.html" style="border: 1.5px solid #888; padding: 2px 8px; border-radius: 4px; text-decoration: none; font-size: 12px; background: #fff;">Ouvrir Reglages</a></div>
+        </div>
+        <div style="font-weight: 600;">Pieges frequents</div>
+        <div style="color: #666;">[liste courte]</div>
+        <div style="font-weight: 600;">Ce qui sort de cette etape</div>
+        <div style="color: #666;">[le memo date, rattache a l'entretien, exporte avec lui]</div>
+      </div>
+      <div style="padding: 8px 12px; border-top: 1px solid #ddd; font-size: 12px; color: #b45309; font-style: italic;">contenu tire des fichiers docs/guide/fr/*.md du depot, rendu tel quel, donc le meme texte sur GitHub et dans l'application ; chaque action a son encadre "Dans Coding Studio" avec des liens directs vers l'ecran concerne ; exemples tires d'une etude fictive, jamais d'une these precise</div>
+    </div>
+  </div>
+  <div style="padding: 0 24px 16px; display: flex; gap: 16px; flex-wrap: wrap;">
+    <div style="flex: 1 1 400px; border: 1.5px dashed #999; border-radius: 4px; padding: 10px 12px; font-size: 12px; color: #666;">
+      <div style="font-weight: 600; color: #333;">Aide contextuelle</div>
+      <div>Chaque ecran porte un bouton "?" en haut a droite : il ouvre la section correspondante du guide dans un tiroir lateral, sans quitter l'ecran. La correspondance ecran vers section est dans docs/guide/guide.json.</div>
+    </div>
+    <div style="flex: 1 1 400px; border: 1.5px dashed #999; border-radius: 4px; padding: 10px 12px; font-size: 12px; color: #666;">
+      <div style="font-weight: 600; color: #333;">Langues</div>
+      <div>Francais d'abord ; l'anglais est prevu pour la publication (V2). La langue suit celle de l'interface.</div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":820}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Etape Analyser</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0;font-family:system-ui,sans-serif;color:#333;background:#fff}
+a{color:#444}a:hover{color:#000}
+</style>
+</helmet>
+<div style="max-width: 1280px; min-height: 900px; box-sizing: border-box; display: flex; flex-direction: column; font-size: 14px;">
+  <div style="display: flex; align-items: center; gap: 24px; padding: 12px 24px; border-bottom: 1.5px solid #888; background: #f4f4f4;">
+    <div style="font-weight: 600; font-size: 16px;">Coding Studio</div>
+    <nav style="display: flex; gap: 16px;">
+      <a href="Main.dc.html" style="text-decoration: none; padding: 4px 0;">Bibliotheque</a>
+      <a href="Analyse.dc.html" style="font-weight: 600; border-bottom: 2px solid #333; text-decoration: none; padding: 4px 0;">Analyser</a>
+      <a href="Codebook.dc.html" style="text-decoration: none; padding: 4px 0;">Codebook</a>
+      <a href="Settings.dc.html" style="text-decoration: none; padding: 4px 0;">Reglages</a>
+    </nav>
+    <div style="margin-left: auto; font-size: 12px; color: #b45309; font-style: italic;">etape 3, transversale : des codes aux themes, puis comparaison des entretiens ; c'est ici que l'analyse thematique se fait</div>
+  </div>
+  <div style="display: flex; flex-wrap: wrap; gap: 16px; padding: 16px 24px;">
+    <div style="flex: 1 1 380px; min-width: 0; border: 1.5px solid #888; border-radius: 4px; display: flex; flex-direction: column;">
+      <div style="padding: 8px 12px; background: #eee; display: flex; align-items: center; gap: 8px;"><span style="font-weight: 600;">Themes</span><button style="margin-left: auto; border: 1.5px solid #888; background: #fff; padding: 3px 10px; border-radius: 4px; font-size: 12px;">+ Nouveau theme</button></div>
+      <div style="padding: 8px 12px; border-top: 1px solid #ddd; background: #eee; display: flex; flex-direction: column; gap: 4px;">
+        <div style="font-weight: 600;">La non-adoption n'est pas toujours un echec : certaines PME n'identifient pas de besoin unitaire</div>
+        <div style="font-size: 12px; color: #666;">statut : revise ; codes focalises : Absence de besoin, Lot ou unite ; 9 entretiens ; lecture par le cadre : O et E, et une part hors cadre</div>
+        <div style="font-size: 12px; color: #b45309; font-style: italic;">le titre d'un theme est une proposition analytique, pas un sujet</div>
+      </div>
+      <div style="padding: 8px 12px; border-top: 1px solid #ddd; display: flex; flex-direction: column; gap: 4px;">
+        <div style="font-weight: 600;">Qui supporte les couts</div>
+        <div style="font-size: 12px; color: #666;">codes : WHO-PAYS, COST-BURDEN, UNIT-MARGIN, PLACE-IN-CHAIN ; 11 entretiens</div>
+      </div>
+      <div style="padding: 8px 12px; border-top: 1px solid #ddd; display: flex; flex-direction: column; gap: 4px;">
+        <div style="font-weight: 600;">Pression de la chaine</div>
+        <div style="font-size: 12px; color: #666;">codes : PARTNER-DEMAND et sous-codes, MARKET-PRESSURE, DATA-SHARING ; 8 entretiens</div>
+      </div>
+      <div style="padding: 8px 12px; border-top: 1px solid #ddd; font-size: 12px; color: #b45309; font-style: italic;">un theme regroupe des codes et porte une interpretation (memo), il n'est pas un sujet ; on glisse un code dans un theme ; un code peut servir deux themes ; le theme est construit apres le codage, sans dimension du cadre imposee</div>
+      <div style="padding: 10px 12px; border-top: 1.5px solid #888; display: flex; flex-direction: column; gap: 6px;">
+        <div style="font-weight: 600; font-size: 13px;">Fiche du theme</div>
+        <textarea aria-label="Proposition" style="border: 1px solid #aaa; border-radius: 4px; padding: 6px; height: 54px; font-size: 13px;">Proposition (2 a 4 phrases) : non-adoption rationnelle plutot que frein ; les repondants sans besoin le disent sans regret ; a distinguer de l'attente d'une obligation (RET-34).</textarea>
+        <div style="font-size: 12px; color: #666;">Questions : SQ1, SQ3. Codes supports : Absence de besoin, Lot ou unite. Cas etayant : ECO-16, ECO-32, RET-34. Cas divergents : RET-22 (exigence du groupe). Conditions : volumes faibles, pas de donneur d'ordre. Interpretation alternative : besoin latent non formule. Limites : aucun fabricant interroge.</div>
+        <div style="display: flex; gap: 12px; align-items: center; font-size: 13px; flex-wrap: wrap;">
+          <label style="display: flex; gap: 6px; align-items: center;">Statut <select aria-label="Statut" style="border: 1px solid #aaa; border-radius: 4px; padding: 2px 6px;"><option>revise</option><option>candidat</option><option>retenu</option></select></label>
+          <label style="display: flex; gap: 6px; align-items: center;">Lecture par le cadre (si l'etude en a un ; ici TOE) <select aria-label="Lecture TOE" style="border: 1px solid #aaa; border-radius: 4px; padding: 2px 6px;"><option>O et E</option><option>T</option><option>O</option><option>E</option><option>hors cadre</option></select></label>
+          <button style="border: 1.5px solid #888; background: #fff; padding: 3px 10px; border-radius: 4px; font-size: 12px;">Controles avant "retenu" (liste de l'etude, 7 par defaut)</button>
+        </div>
+        <div style="font-size: 12px; color: #b45309; font-style: italic;">avec la page Rediger, seul endroit ou le cadre apparait ; le memo de decision explique pourquoi le theme est conserve</div>
+      </div>
+    </div>
+    <div style="flex: 999 1 640px; min-width: 0; border: 1.5px solid #888; border-radius: 4px; display: flex; flex-direction: column;">
+      <div style="padding: 8px 12px; background: #eee; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+        <span style="font-weight: 600;">Matrice</span>
+        <label style="font-size: 12px; display: flex; gap: 4px; align-items: center;">lignes <select aria-label="Lignes" style="border: 1px solid #aaa; border-radius: 4px; padding: 2px 6px; font-size: 12px;"><option>entretiens</option><option>cas</option><option>maillon de chaine</option><option>statut des propos</option></select></label>
+        <label style="font-size: 12px; display: flex; gap: 4px; align-items: center;">colonnes <select aria-label="Colonnes" style="border: 1px solid #aaa; border-radius: 4px; padding: 2px 6px; font-size: 12px;"><option>themes</option><option>codes focalises</option><option>dimension de l'etude : qui decide, qui paie, qui utilise</option><option>decision et situation</option></select></label>
+        <select aria-label="Filtrer par attribut" style="border: 1px solid #aaa; border-radius: 4px; padding: 2px 6px; font-size: 12px;"><option>filtre : aucun</option><option>secteur : detail</option><option>position : fabricant</option><option>propos : deploiement vecu</option></select>
+        <span style="font-size: 12px; color: #b45309; font-style: italic;">lignes et colonnes au choix : attribut, theme, code ou dimension definie dans Reglages ; attributs saisis dans la fiche de chaque entretien</span>
+      </div>
+      <div style="overflow-x: auto;">
+        <div style="min-width: 620px;">
+          <div style="display: grid; grid-template-columns: 110px repeat(3, minmax(0, 1fr)); background: #eee; border-top: 1px solid #ddd; font-weight: 600; font-size: 13px;"><div style="padding: 6px 10px;">Entretien</div><div style="padding: 6px 10px;">Absence de besoin</div><div style="padding: 6px 10px;">Qui supporte les couts</div><div style="padding: 6px 10px;">Pression de la chaine</div></div>
+          <div style="display: grid; grid-template-columns: 110px repeat(3, minmax(0, 1fr)); border-top: 1px solid #ddd; font-size: 13px;"><div style="padding: 6px 10px; font-weight: 600;">ECO-16</div><div style="padding: 6px 10px;">present, 3 passages : argument exprime, sans regret</div><div style="padding: 6px 10px;">present, 5 passages : couts de formation, pas de materiel</div><div style="padding: 6px 10px; color: #999;">non evoque</div></div>
+          <div style="display: grid; grid-template-columns: 110px repeat(3, minmax(0, 1fr)); border-top: 1px solid #ddd; font-size: 13px;"><div style="padding: 6px 10px; font-weight: 600;">RET-22</div><div style="padding: 6px 10px; border: 1.5px solid #333; border-radius: 3px;">contredit, 1 passage : besoin cree par le groupe</div><div style="padding: 6px 10px;">incertain, 2 passages : le groupe paie, le magasin paie</div><div style="padding: 6px 10px;">present, 6 passages : exigence du groupe</div></div>
+          <div style="display: grid; grid-template-columns: 110px repeat(3, minmax(0, 1fr)); border-top: 1px solid #ddd; font-size: 13px;"><div style="padding: 6px 10px; font-weight: 600;">ECO-32</div><div style="padding: 6px 10px;">present, 4 passages : le lot suffit</div><div style="padding: 6px 10px;">present, 1 passage</div><div style="padding: 6px 10px; color: #999;">non evoque</div></div>
+          <div style="display: grid; grid-template-columns: 110px repeat(3, minmax(0, 1fr)); border-top: 1px solid #ddd; font-size: 13px; color: #999;"><div style="padding: 6px 10px; font-weight: 600;">ECO-05</div><div style="padding: 6px 10px;">pas encore code</div><div style="padding: 6px 10px;">pas encore code</div><div style="padding: 6px 10px;">pas encore code</div></div>
+        </div>
+      </div>
+      <div style="padding: 8px 12px; border-top: 1px solid #ddd; font-size: 12px; color: #b45309; font-style: italic;">chaque cellule : une valeur fermee (present, non evoque, contredit, incertain), le nombre de passages et un resume d'une ligne facultatif ; non evoque ne veut pas dire absent dans la realite ; un clic ouvre les passages, citations et memos ; filtrer par attribut fait apparaitre les contrastes</div>
+      <div style="padding: 10px 12px; border-top: 1.5px solid #888; display: flex; flex-direction: column; gap: 6px;">
+        <div style="font-weight: 600; font-size: 13px;">Cellule RET-22, Qui supporte les couts</div>
+        <div style="font-size: 13px;">U088 "un rappel, c'est tout le carton qui revient, et c'est nous qui payons le transport" ; U112 "le groupe prend les tags, nous on prend les lecteurs"</div>
+        <div style="display: flex; gap: 8px; align-items: center;">
+          <select aria-label="Valeur de cellule" style="border: 1px solid #aaa; border-radius: 4px; padding: 2px 6px; font-size: 13px;"><option>incertain</option><option>present</option><option>non evoque</option><option>contredit</option></select>
+          <input type="text" aria-label="Resume de cellule" value="Couts partages mais percus comme subis ; contradiction interne entre U088 et U112" style="flex: 1; border: 1px solid #aaa; border-radius: 4px; padding: 4px 6px; font-size: 13px;">
+        </div>
+      </div>
+    </div>
+  </div>
+  <div style="padding: 0 24px 16px; display: flex; gap: 16px; flex-wrap: wrap;">
+    <div style="flex: 1 1 400px; border: 1.5px dashed #999; border-radius: 4px; padding: 10px 12px; font-size: 12px; color: #666;">
+      <div style="font-weight: 600; color: #333;">Explorer</div>
+      <div>Recherche de mot en contexte (KWIC) sur tous les entretiens ; passages par code ; passages proches par vocabulaire (ecran 9) ; tableau codes par attribut d'entretien.</div>
+    </div>
+    <div style="flex: 1 1 400px; border: 1.5px dashed #999; border-radius: 4px; padding: 10px 12px; font-size: 12px; color: #666;">
+      <div style="font-weight: 600; color: #333;">Decisions documentees</div>
+      <div>Onglet conserve (adopter, differer, refuser, avec les passages rattaches) ; complete l'analyse par themes, ne la remplace pas.</div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

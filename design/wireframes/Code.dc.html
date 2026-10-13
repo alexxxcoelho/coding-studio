@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Entretien, etape Coder</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0;font-family:system-ui,sans-serif;color:#333;background:#fff}
+a{color:#444}a:hover{color:#000}
+</style>
+</helmet>
+<div style="max-width: 1280px; min-height: 820px; box-sizing: border-box; display: flex; flex-direction: column; font-size: 14px;">
+  <div style="display: flex; align-items: center; gap: 24px; padding: 12px 24px; border-bottom: 1.5px solid #888; background: #f4f4f4;">
+    <div style="font-weight: 600; font-size: 16px;">Coding Studio</div>
+    <nav style="display: flex; gap: 16px;">
+      <a href="Main.dc.html" style="text-decoration: none; padding: 4px 0;">Bibliotheque</a>
+      <a href="Code.dc.html" style="font-weight: 600; border-bottom: 2px solid #333; text-decoration: none; padding: 4px 0;">Entretien ECO-16</a>
+      <a href="Codebook.dc.html" style="text-decoration: none; padding: 4px 0;">Codebook</a>
+      <a href="Settings.dc.html" style="text-decoration: none; padding: 4px 0;">Reglages</a>
+    </nav>
+  </div>
+  <div style="display: flex; align-items: center; gap: 0; padding: 0 24px; border-bottom: 1.5px solid #888;">
+    <a href="Code.dc.html" style="padding: 12px 16px; border-bottom: 3px solid #333; font-weight: 600; text-decoration: none;">1 Coder <span style="font-weight: 400; color: #666;">40 / 61</span></a>
+    <a href="Confront.dc.html" style="padding: 12px 16px; text-decoration: none; color: #666;">2 Revoir (facultatif) <span>pas de revue</span></a>
+    <a href="Analyse.dc.html" style="padding: 12px 16px; text-decoration: none; color: #666;">3 Analyser <span>transversal</span></a>
+    <a href="Answer.dc.html" style="padding: 12px 16px; text-decoration: none; color: #666;">4 Rediger <span>transversal</span></a>
+    <div style="margin-left: auto; font-size: 12px; color: #b45309; font-style: italic;">compteurs : 40 codees, 12 non pertinentes, 3 a revoir, 6 pas encore examinees ; la revue IA n'est jamais un verrou</div>
+  </div>
+  <div style="display: flex; flex-wrap: wrap; gap: 16px; padding: 16px 24px;">
+    <div style="flex: 999 1 560px; min-width: 0; border: 1.5px solid #888; border-radius: 4px; display: flex; flex-direction: column;">
+      <div style="padding: 8px 12px; background: #eee; display: flex; gap: 12px; align-items: center;">
+        <span style="font-weight: 600;">Transcription (unites)</span>
+        <span style="font-size: 12px; color: #666;">fleches : tour suivant ou precedent, N : non pertinent, R : a revoir, / : chercher un code au clavier, Entree : valider ; selectionner du texte puis coder = passage precis</span>
+      </div>
+      <div style="padding: 10px 12px; color: #999; border-top: 1px solid #ddd; font-style: italic;">U041 INT 12:04 Et combien de temps a pris le deploiement en magasin ?</div>
+      <div style="padding: 10px 12px; border-top: 1px solid #ddd; border-left: 4px solid #333; background: #fafafa; display: flex; flex-direction: column; gap: 6px;">
+        <div style="display: flex; gap: 12px; align-items: center;">
+          <span style="font-weight: 600;">U042 RESP 12:10</span>
+          <span style="font-size: 12px; border: 1px solid #888; border-radius: 10px; padding: 1px 8px;">COST-BURDEN</span>
+          <span style="font-size: 12px; border: 1px solid #888; border-radius: 10px; padding: 1px 8px;">PROCESS-CHANGE</span>
+          <span style="font-size: 12px; color: #b45309; font-style: italic;">codes poses sur l'unite selectionnee</span>
+        </div>
+        <div>Six mois pour les deux premiers magasins, <mark style="background: #e6e6e6; border-bottom: 2px solid #333;">surtout a cause de la formation des equipes de reception</mark>. <mark style="background: #e6e6e6; border-bottom: 2px dotted #333;">Le materiel lui-meme etait pret en trois semaines.</mark></div>
+        <div style="font-size: 12px; color: #b45309; font-style: italic;">deux passages codes dans le meme tour : le premier porte PROCESS-CHANGE, le second COST-BURDEN ; un code pose sans selection couvre le tour entier (geste par defaut)</div>
+        <div style="display: flex; gap: 8px; align-items: center;">
+          <button style="border: 1.5px solid #888; background: #fff; padding: 3px 10px; border-radius: 4px; font-size: 12px;">Non pertinent (N)</button>
+          <button style="border: 1.5px solid #888; background: #fff; padding: 3px 10px; border-radius: 4px; font-size: 12px;">A revoir (R)</button>
+          <button style="border: 1.5px dashed #999; background: #fff; padding: 3px 10px; border-radius: 4px; font-size: 12px;">Detail (citation, audio, drapeaux)</button>
+          <span style="font-size: 12px; color: #b45309; font-style: italic;">Detail ouvre le tiroir de l'ecran 3, ferme par defaut</span>
+        </div>
+      </div>
+      <div style="padding: 10px 12px; color: #999; border-top: 1px solid #ddd; font-style: italic;">U043 INT 12:31 Et la formation, qui l'a faite ?</div>
+      <div style="padding: 10px 12px; border-top: 1px solid #ddd; display: flex; flex-direction: column; gap: 4px;">
+        <div style="display: flex; gap: 12px;"><span style="font-weight: 600;">U044 RESP 12:34</span><span style="font-size: 12px; color: #666;">pas encore code</span></div>
+        <div>L'integrateur, au debut. Ensuite on a forme nous-memes les nouveaux, avec une fiche d'une page.</div>
+      </div>
+      <div style="padding: 10px 12px; border-top: 1px solid #ddd; display: flex; flex-direction: column; gap: 4px; color: #777;">
+        <div style="display: flex; gap: 12px;"><span style="font-weight: 600;">U045 RESP 12:52</span><span style="font-size: 12px; border: 1px solid #aaa; border-radius: 10px; padding: 1px 8px;">NA</span></div>
+        <div>Oui, je crois que c'est tout ce que je peux dire la-dessus.</div>
+      </div>
+      <div style="padding: 8px 12px; font-size: 12px; color: #b45309; font-style: italic; border-top: 1px solid #ddd;">les tours de l'intervieweur sont en gris et ne se codent pas ; NA = juge non pertinent par vous ; la liste defile, l'unite selectionnee reste en vue</div>
+    </div>
+    <div style="flex: 1 1 340px; display: flex; flex-direction: column; gap: 12px;">
+      <div style="border: 1.5px solid #888; border-radius: 4px; display: flex; flex-direction: column;">
+        <div style="padding: 8px 12px; background: #eee; display: flex; align-items: center; gap: 8px;">
+          <span style="font-weight: 600;">Codes</span>
+          <input type="text" aria-label="Chercher un code" placeholder="/ chercher, Entree pose le premier" style="margin-left: auto; width: 200px; border: 1px solid #aaa; border-radius: 4px; padding: 2px 6px; font-size: 12px;">
+        </div>
+        <div style="padding: 6px 12px; border-top: 1px solid #ddd; display: flex; gap: 8px; align-items: baseline;"><kbd style="border: 1px solid #aaa; border-radius: 3px; padding: 0 5px; font-size: 11px;">1</kbd><span style="font-weight: 600;">Legal duty</span><span style="font-size: 12px; color: #666;">loi ou reglement qui oblige ; pas la demande d'un client</span></div>
+        <div style="padding: 6px 12px; border-top: 1px solid #ddd; display: flex; gap: 8px; align-items: baseline;"><kbd style="border: 1px solid #aaa; border-radius: 3px; padding: 0 5px; font-size: 11px;">2</kbd><span style="font-weight: 600;">Partner demand</span><span style="font-size: 12px; color: #666;">un client ou un fournisseur l'exige</span></div>
+        <div style="padding: 6px 12px 6px 28px; border-top: 1px solid #ddd; display: flex; gap: 8px; align-items: baseline;"><kbd style="border: 1px solid #aaa; border-radius: 3px; padding: 0 5px; font-size: 11px;">3</kbd><span style="font-weight: 600;">Retailer listing</span><span style="font-size: 12px; color: #666;">sous-code : referencement conditionne au marquage</span></div>
+        <div style="padding: 6px 12px; border-top: 1px solid #ddd; display: flex; gap: 8px; align-items: baseline; background: #eee;"><kbd style="border: 1px solid #aaa; border-radius: 3px; padding: 0 5px; font-size: 11px;">4</kbd><span style="font-weight: 600;">Cost burden</span><span style="font-size: 12px; color: #666;">cout total percu comme un frein</span></div>
+        <div style="padding: 6px 12px; border-top: 1px solid #ddd; display: flex; gap: 8px; align-items: baseline; background: #eee;"><kbd style="border: 1px solid #aaa; border-radius: 3px; padding: 0 5px; font-size: 11px;">5</kbd><span style="font-weight: 600;">Process change</span><span style="font-size: 12px; color: #666;">procedures ou formation a modifier</span></div>
+        <div style="padding: 6px 12px; border-top: 1px solid #ddd; display: flex; gap: 8px; align-items: baseline;"><kbd style="border: 1px solid #aaa; border-radius: 3px; padding: 0 5px; font-size: 11px;">6</kbd><span style="font-weight: 600;">No need</span><span style="font-size: 12px; color: #666;">le repondant juge qu'il n'y a pas besoin</span></div>
+        <div style="padding: 6px 12px; border-top: 1px solid #ddd; color: #666; font-size: 12px;">... (liste complete, arbre deroulant, sous-codes en retrait)</div>
+        <div style="padding: 6px 12px; border-top: 1px solid #ddd; font-size: 12px; color: #b45309; font-style: italic;">bandes de codage : dans la marge gauche du texte, une pastille par code pose sur chaque tour, pour relire l'entretien d'un coup d'oeil</div>
+        <div style="padding: 8px 12px; border-top: 1.5px solid #888; display: flex; flex-direction: column; gap: 6px;">
+          <button style="border: 1.5px solid #888; background: #fff; padding: 4px 10px; border-radius: 4px; text-align: left;">+ Nouveau code depuis cette unite</button>
+          <div style="font-size: 12px; color: #b45309; font-style: italic;">ouvre un petit formulaire en place : nom, definition (inclut / exclut), parent facultatif ; l'unite courante devient l'origine du code, la version du codebook avance</div>
+        </div>
+      </div>
+      <div style="border: 1.5px dashed #999; border-radius: 4px; padding: 8px 12px; font-size: 12px; color: #666;">
+        <div>3 tours a revoir, 5 surlignages sans code (ecran 9)</div>
+        <div style="color: #b45309; font-style: italic;">aucun cadre d'interpretation ici : s'il y en a un, il n'intervient qu'aux etapes Analyser et Rediger</div>
+      </div>
+      <div style="border: 1.5px solid #888; border-radius: 4px; padding: 8px 12px; font-size: 12px; display: flex; flex-direction: column; gap: 4px;">
+        <div style="font-weight: 600; font-size: 13px;">Memo de familiarisation (modele : Par defaut)</div>
+        <div>1. Que raconte le repondant ? <span style="color: #666;">[reponse]</span></div>
+        <div>2. Qu'est-ce qui m'a surpris ? <span style="color: #666;">[reponse]</span></div>
+        <div>3. Quelles contradictions ? <span style="color: #666;">[reponse]</span></div>
+        <div>4. Qui decide de quoi ? <span style="color: #666;">(ajoutee pour cet entretien)</span> <span style="color: #666;">[reponse]</span></div>
+        <div style="display: flex; gap: 8px;"><button style="border: 1.5px solid #888; background: #fff; padding: 2px 8px; border-radius: 4px; font-size: 12px;">+ question pour cet entretien</button><button style="border: 1.5px solid #888; background: #fff; padding: 2px 8px; border-radius: 4px; font-size: 12px;">Changer de modele</button></div>
+        <div style="color: #b45309; font-style: italic;">ouvert en premier a la premiere visite, avant tout codage ; questions venues du modele choisi dans la fiche, modifiables, retirables ou ajoutees ici pour cet entretien seulement ; le modele lui-meme se modifie dans Reglages</div>
+      </div>
+      <div style="border: 1.5px dashed #999; border-radius: 4px; padding: 8px 12px; font-size: 12px; color: #666;">
+        <div style="font-weight: 600; color: #333;">Fin d'entretien (liste de controle de l'etude)</div>
+        <div>[ ] tous les tours du repondant vus ; [ ] codes "Plus tard" traites ou assumes ; [ ] memos des nouveaux codes ecrits ; [ ] questions pour les suivants notees</div>
+        <div style="color: #b45309; font-style: italic;">liste editable dans Reglages ; s'ouvre quand le dernier tour est code ; panneaux redimensionnables par la poignee centrale</div>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":820}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

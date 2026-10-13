@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Codebook</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="macos.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+.tree{flex:999 1 480px;min-width:0;padding:4px 18px 16px;display:flex;flex-direction:column;gap:8px}
+.ol .tri{width:12px;display:inline-flex;color:var(--label2)}
+.ol td .nm{display:flex;align-items:center;gap:8px}
+.ol tr.child td:first-child .nm{padding-left:22px}
+.uses{display:flex;align-items:center;gap:8px;font-variant-numeric:tabular-nums}
+.uses .bar{width:90px}
+.tbl tr.sel .bar{background:rgba(255,255,255,.3)}
+.tbl tr.sel .bar b{background:#fff}
+.tbl tr.sel .badge{background:rgba(255,255,255,.2);color:#fff}
+.tbl tr.sel .tri{color:#fff}
+.sq{display:flex;gap:4px}
+</style>
+</helmet>
+<div class="win {{mode}}" style="--acL: {{acl}}; --acLS: {{acls}}; --acD: {{acd}}; --acDS: {{acds}}">
+<nav class="sb" aria-label="Barre latérale">
+<div class="lights" aria-hidden="true"><i></i><i></i><i></i><span class="tog"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><rect x="1.8" y="2.8" width="12.4" height="10.4" rx="2.2"></rect><path d="M6 2.8v10.4"></path></svg></span></div>
+<div class="sb-h" style="padding-top:2px">Corpus</div>
+<a class="it" href="Main.dc.html"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.35" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 2.5h3v11h-3zM6.8 2.5h3v11h-3z"></path><path d="M11 3.3l2.3-.6 2 10.3-2.3.6z"></path></svg>Bibliothèque<span class="n">15</span></a>
+<a class="it sub" href="Revoir.dc.html"><span class="dot" style="background:var(--accent)"></span>ECO-16<span class="n">9/12</span></a>
+<a class="it sub" href="Coder.dc.html"><span class="dot" style="background:var(--label3)"></span>RET-22<span class="n">40/97</span></a>
+<div class="sb-h">Analyse</div>
+<a class="it on" href="Codebook.dc.html"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.35" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 2.5h5l6 6-5 5-6-6z"></path><circle cx="5.3" cy="5.3" r=".9"></circle></svg>Codebook<span class="n">v1.2</span></a>
+<a class="it" href="Analyser.dc.html"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.35" aria-hidden="true"><rect x="2" y="2" width="12" height="12" rx="2.5"></rect><path d="M2 6.5h12M6.5 6.5V14"></path></svg>Analyser</a>
+<a class="it" href="Rediger.dc.html"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.35" stroke-linejoin="round" aria-hidden="true"><path d="M10.8 2.7l2.5 2.5-7.8 7.8-3.2.7.7-3.2z"></path></svg>Rédiger</a>
+<div class="sb-h">Étude</div>
+<a class="it" href="Etude.dc.html"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.35" stroke-linejoin="round" aria-hidden="true"><path d="M4 1.8h5.2L12.5 5v9.2H4z"></path><path d="M6.2 8h4M6.2 10.5h4"></path></svg>Paramètres de l'étude</a>
+<a class="it" href="Guide.dc.html"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.35" stroke-linejoin="round" aria-hidden="true"><path d="M8 4c-1.4-1-3.4-1.4-5.5-1.2v9.6c2.1-.2 4.1.2 5.5 1.2 1.4-1 3.4-1.4 5.5-1.2V2.8C11.4 2.6 9.4 3 8 4zM8 4v9.6"></path></svg>Guide</a>
+<div class="sb-foot">
+<div class="sb-note"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.35" stroke-linejoin="round" aria-hidden="true"><path d="M8 1.5l5.5 2v4c0 3.5-2.5 5.8-5.5 7-3-1.2-5.5-3.5-5.5-7v-4z"></path></svg>Pseudonymisation active</div>
+<a class="it" href="Settings.dc.html"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.35" stroke-linecap="round" aria-hidden="true"><circle cx="8" cy="8" r="2.2"></circle><path d="M8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2M3.4 3.4l1.4 1.4M11.2 11.2l1.4 1.4M3.4 12.6l1.4-1.4M11.2 4.8l1.4-1.4"></path></svg>Réglages<span class="n">⌘,</span></a>
+</div>
+</nav>
+<div class="ct">
+<header class="tb">
+<div class="ttl"><b>Codebook</b><span>Version 1.2 · 26 codes actifs · 9 fusionnés</span></div>
+<div class="cap"><button class="ci" type="button">Historique</button><span class="vs"></span><button class="ci" type="button">Importer CSV…</button></div>
+<div class="cap"><button class="ci" type="button" aria-label="Nouveau code"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M8 3v10M3 8h10"></path></svg></button></div>
+<label class="search"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><circle cx="7" cy="7" r="4.5"></circle><path d="M10.5 10.5l3.5 3.5"></path></svg><input type="text" placeholder="Filtrer les codes" aria-label="Filtrer les codes"></label>
+<button class="help" type="button" aria-label="Aide pour cet écran">?</button>
+</header>
+<div class="content">
+<section class="tree" aria-label="Arbre des codes">
+<div class="warn" role="note"><span style="flex:1">Version 1.2 : 12 unités des entretiens précédents portent Partner demand ou Later et sont à revoir après l'ajout de Supplier mandate.</span><a class="btn" href="Coder.dc.html">Revoir les 12</a></div>
+<table class="tbl ol">
+<thead><tr><th>Code</th><th>Origine</th><th>Questions</th><th>Passages</th></tr></thead>
+<tbody>
+<tr><td><span class="nm"><span class="tri"></span><span class="sw k-legal"></span>Legal duty</span></td><td class="l2">littérature</td><td><span class="sq"><span class="badge">SQ1</span><span class="badge">SQ2</span></span></td><td><span class="uses"><i class="bar"><b style="width:45%"></b></i>14</span></td></tr>
+<tr class="sel"><td><span class="nm"><span class="tri"><svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor" aria-hidden="true"><path d="M1.5 3h7L5 7.5z"></path></svg></span><span class="sw k-partner"></span>Partner demand</span></td><td class="l2">littérature</td><td><span class="sq"><span class="badge">SQ1</span><span class="badge">SQ3</span></span></td><td><span class="uses"><i class="bar"><b style="width:71%"></b></i>22</span></td></tr>
+<tr class="child"><td><span class="nm"><span class="sw k-retail"></span>Retailer listing</span></td><td class="l2">terrain · RET-22</td><td></td><td><span class="uses"><i class="bar"><b style="width:19%"></b></i>6</span></td></tr>
+<tr class="child"><td><span class="nm"><span class="sw k-retail"></span>Supplier mandate</span></td><td class="l2">terrain · ECO-12</td><td></td><td><span class="uses"><i class="bar"><b style="width:13%"></b></i>4</span></td></tr>
+<tr><td><span class="nm"><span class="tri"></span><span class="sw k-need"></span>No need</span></td><td class="l2">terrain · ECO-32</td><td><span class="sq"><span class="badge">SQ1</span><span class="badge">SQ3</span></span></td><td><span class="uses"><i class="bar"><b style="width:61%"></b></i>19</span></td></tr>
+<tr><td><span class="nm"><span class="tri"></span><span class="sw k-cost"></span>Cost burden</span></td><td class="l2">littérature</td><td><span class="sq"><span class="badge">SQ1</span><span class="badge">SQ3</span></span></td><td><span class="uses"><i class="bar"><b style="width:100%"></b></i>31</span></td></tr>
+<tr><td><span class="nm l2"><span class="tri"></span><span class="sw" style="background:var(--fill2)"></span>Later</span></td><td class="l2">système</td><td></td><td class="l2">7 à revoir</td></tr>
+</tbody>
+</table>
+<p class="small l2" style="margin:2px 10px">Glisser un code sur un autre en fait un sous-code. Un code posé sur un sous-code compte aussi pour son parent dans les exports.</p>
+</section>
+<aside class="insp" style="flex-basis:340px" aria-label="Partner demand">
+<div class="insp-in">
+<div class="r8" style="justify-content:space-between"><span class="r8"><span class="sw k-partner"></span><span class="b" style="font-size:14px">Partner demand</span></span><a class="btn plain" href="#">22 passages</a></div>
+<label class="hs" for="n">Nom</label><input id="n" class="field" type="text" value="Partner demand">
+<label class="hs" for="i">Inclut</label><textarea id="i" class="field">Un client, un détaillant, un fournisseur ou un chef de chaîne exige ou pousse un marquage, un tag ou un format de données.</textarea>
+<label class="hs" for="x">Exclut</label><textarea id="x" class="field">Un texte légal (Legal duty), un mouvement de concurrent (Market pressure).</textarea>
+<div class="grp">
+<label class="row"><span class="k">Parent</span><select class="field" style="width:130px"><option>Aucun</option></select></label>
+<div class="row"><span class="k">Questions</span><label class="chk"><input type="checkbox" checked="">SQ1</label><label class="chk"><input type="checkbox">SQ2</label><label class="chk"><input type="checkbox" checked="">SQ3</label></div>
+<div class="row"><span class="k">Origine<small>White 2008, Whitaker 2007 · <span class="mono">INT-16 05:25</span> « he will not list any new products without the QR code »</small></span></div>
+</div>
+<label class="hs" for="m">Mémo du code</label><textarea id="m" class="field">13.10 créé depuis ENV-PARTNER ; 14.10 sous-codes ajoutés après RET-22 et ECO-12.</textarea>
+<div class="r8"><button class="btn" type="button">Désactiver</button><button class="btn" type="button">Fusionner dans…</button><button class="btn def" type="button" style="margin-left:auto">Enregistrer</button></div>
+<span class="small l2">Chaque action est datée et motivée. Fusionner recode les unités en gardant la trace.</span>
+</div>
+</aside>
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"appearance":{"editor":"enum","options":["Automatique","Clair","Sombre"],"default":"Automatique","section":"Apparence"},"accent":{"editor":"enum","options":["Graphite","Bleu","Violet","Rose","Rouge","Orange","Jaune","Vert"],"default":"Graphite","section":"Apparence"},"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+renderVals() {
+var A = {Graphite:['#8C8C8C','#636366','#98989D','#636366'],Bleu:['#007AFF','#0062CC','#0A84FF','#0070E0'],Violet:['#AF52DE','#8E3BBF','#BF5AF2','#9A44C9'],Rose:['#FF2D55','#D1123F','#FF375F','#D1123F'],Rouge:['#FF3B30','#D12A20','#FF453A','#D12A20'],Orange:['#FF9500','#A85A00','#FF9F0A','#A85A00'],Jaune:['#FFCC00','#8A6D00','#FFD60A','#8A6D00'],Vert:['#28CD41','#1A7F2B','#32D74B','#1A7F2B']};
+var a = A[this.props.accent] || A.Graphite;
+var m = {Automatique:'auto',Clair:'light',Sombre:'dark'}[this.props.appearance] || 'auto';
+return { mode: m, acl: a[0], acls: a[1], acd: a[2], acds: a[3] };
+}
+}
+</script>
+</body>
+</html>

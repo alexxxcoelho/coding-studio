@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Réglages, Fournisseurs IA</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="macos.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+.sw-win{min-height:620px;padding:0;flex-direction:column;flex-wrap:nowrap}
+.stb{display:flex;flex-direction:column;align-items:center;gap:6px;padding:12px 14px 8px;border-bottom:.5px solid var(--sep);position:relative;background:var(--under)}
+.stb .lights{position:absolute;left:14px;top:14px;padding:0}
+.stb .lights i:nth-child(2),.stb .lights i:nth-child(3){background:var(--fill2)}
+.stitle{font-size:13px;font-weight:600}
+.tabs{display:flex;gap:4px}
+.tab{display:flex;flex-direction:column;align-items:center;gap:3px;min-width:76px;padding:6px 8px 5px;border:0;border-radius:8px;background:transparent;font:inherit;font-size:11.5px;color:var(--label2);cursor:pointer;text-decoration:none}
+.win a.tab{color:var(--label2)}
+.tab svg{color:var(--label2)}
+.tab.on{background:var(--fill2);color:var(--label)}
+.tab.on svg{color:var(--accent)}
+.sbody{padding:4px 28px 24px;width:100%;max-width:640px;margin:0 auto}
+.pm{display:flex;border-top:.5px solid var(--sep)}
+.pm button{width:28px;height:24px;border:0;background:transparent;font:inherit;font-size:15px;color:var(--label);cursor:pointer;border-right:.5px solid var(--sep)}
+</style>
+</helmet>
+<div class="win sw-win {{mode}}" style="--acL: {{acl}}; --acLS: {{acls}}; --acD: {{acd}}; --acDS: {{acds}}">
+<div class="stb">
+<div class="lights" aria-hidden="true"><i></i><i></i><i></i></div>
+<div class="stitle">Fournisseurs IA</div>
+<nav class="tabs" aria-label="Sections des réglages">
+<a class="tab" href="Settings.dc.html"><svg width="22" height="22" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" aria-hidden="true"><circle cx="8" cy="8" r="2.2"></circle><path d="M8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2M3.4 3.4l1.4 1.4M11.2 11.2l1.4 1.4M3.4 12.6l1.4-1.4M11.2 4.8l1.4-1.4"></path></svg>Général</a>
+<button class="tab on" type="button" aria-current="page"><svg width="22" height="22" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="3" width="12" height="9" rx="2"></rect><path d="M5.5 14h5M8 12v2M5.5 7.5h.01M10.5 7.5h.01"></path></svg>Fournisseurs IA</button>
+<button class="tab" type="button"><svg width="22" height="22" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" aria-hidden="true"><path d="M2.5 4.5h7M12 4.5h1.5M2.5 11.5h2M7 11.5h6.5"></path><circle cx="10.5" cy="4.5" r="1.5"></circle><circle cx="5.5" cy="11.5" r="1.5"></circle></svg>Avancé</button>
+</nav>
+</div>
+<div class="sbody">
+<div class="gh">Fournisseurs</div>
+<div class="grp" style="overflow:hidden">
+<div class="row"><span class="dot" style="background:var(--green)"></span><span class="k"><span class="b">Copier-coller</span><small>Toujours présent, parcours de référence</small></span></div>
+<div class="row"><span class="dot" style="background:var(--green)"></span><span class="k"><span class="b">claude-cli</span><small>Commande locale, modèle hébergé · isolation vérifiée le 13.10</small></span><button class="btn" type="button">Tester l'isolation</button></div>
+<div class="row"><span class="dot" style="background:var(--green)"></span><span class="k"><span class="b">openai-api</span><small>Clé lue dans la variable <span class="mono">OPENAI_API_KEY</span></small></span></div>
+<div class="row"><span class="dot" style="background:var(--fill2)"></span><span class="k"><span class="b">chatgpt-oauth</span><small>Non connecté</small></span><button class="btn" type="button">Se connecter…</button></div>
+<div class="pm"><button type="button" aria-label="Ajouter un fournisseur">+</button><button type="button" aria-label="Retirer le fournisseur">−</button></div>
+</div>
+<p class="gf">Chaque fournisseur déclare ce qu'il envoie et où il s'exécute. Aucune clé n'est stockée dans la base ; chaque envoi est un geste explicite, journalisé.</p>
+<div class="gh">Envoi</div>
+<div class="grp">
+<label class="row"><span class="k">Fournisseur par défaut pour la revue</span><select class="field" style="width:160px"><option>Copier-coller</option></select></label>
+<div class="row"><span class="k">Demander confirmation avant chaque envoi</span><button class="switch on" type="button" role="switch" aria-checked="true" aria-label="Demander confirmation"></button></div>
+</div>
+<p class="gf">La pseudonymisation des noms se règle par étude, dans Paramètres de l'étude.</p>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"appearance":{"editor":"enum","options":["Automatique","Clair","Sombre"],"default":"Automatique","section":"Apparence"},"accent":{"editor":"enum","options":["Graphite","Bleu","Violet","Rose","Rouge","Orange","Jaune","Vert"],"default":"Graphite","section":"Apparence"},"$preview":{"width":760,"height":620}}'>
+class Component extends DCLogic {
+renderVals() {
+var A = {Graphite:['#8C8C8C','#636366','#98989D','#636366'],Bleu:['#007AFF','#0062CC','#0A84FF','#0070E0'],Violet:['#AF52DE','#8E3BBF','#BF5AF2','#9A44C9'],Rose:['#FF2D55','#D1123F','#FF375F','#D1123F'],Rouge:['#FF3B30','#D12A20','#FF453A','#D12A20'],Orange:['#FF9500','#A85A00','#FF9F0A','#A85A00'],Jaune:['#FFCC00','#8A6D00','#FFD60A','#8A6D00'],Vert:['#28CD41','#1A7F2B','#32D74B','#1A7F2B']};
+var a = A[this.props.accent] || A.Graphite;
+var m = {Automatique:'auto',Clair:'light',Sombre:'dark'}[this.props.appearance] || 'auto';
+return { mode: m, acl: a[0], acls: a[1], acd: a[2], acds: a[3] };
+}
+}
+</script>
+</body>
+</html>

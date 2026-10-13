@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Codebook</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0;font-family:system-ui,sans-serif;color:#333;background:#fff}
+a{color:#444}a:hover{color:#000}
+</style>
+</helmet>
+<div style="max-width: 1280px; min-height: 760px; box-sizing: border-box; display: flex; flex-direction: column; font-size: 14px;">
+  <div style="display: flex; align-items: center; gap: 24px; padding: 12px 24px; border-bottom: 1.5px solid #888; background: #f4f4f4;">
+    <div style="font-weight: 600; font-size: 16px;">Coding Studio</div>
+    <nav style="display: flex; gap: 16px;">
+      <a href="Main.dc.html" style="text-decoration: none; padding: 4px 0;">Bibliotheque</a>
+      <a href="Codebook.dc.html" style="font-weight: 600; border-bottom: 2px solid #333; text-decoration: none; padding: 4px 0;">Codebook</a>
+      <a href="Settings.dc.html" style="text-decoration: none; padding: 4px 0;">Reglages</a>
+    </nav>
+    <div style="margin-left: auto; font-size: 12px; color: #666;">version 1.2, 26 codes actifs, 9 anciens fusionnes</div>
+  </div>
+  <div style="display: flex; flex-wrap: wrap; gap: 16px; padding: 16px 24px;">
+    <div style="flex: 1 1 520px; min-width: 0; border: 1.5px solid #888; border-radius: 4px; display: flex; flex-direction: column;">
+      <div style="padding: 8px 12px; background: #eee; display: flex; gap: 8px; align-items: center;">
+        <span style="font-weight: 600;">Arbre des codes</span>
+        <button style="margin-left: auto; border: 1.5px solid #888; background: #fff; padding: 3px 10px; border-radius: 4px; font-size: 12px;">+ Nouveau code</button>
+        <button style="border: 1.5px solid #888; background: #fff; padding: 3px 10px; border-radius: 4px; font-size: 12px;">Importer CSV</button>
+      </div>
+      <div style="padding: 6px 12px; border-top: 1px solid #ddd; display: flex; gap: 10px; align-items: baseline;"><span style="font-weight: 600;">Legal duty</span><span style="font-size: 12px; color: #666;">SQ1 SQ2, litterature, 14 passages</span></div>
+      <div style="padding: 6px 12px; border-top: 1px solid #ddd; display: flex; gap: 10px; align-items: baseline; background: #eee;"><span style="font-weight: 600;">Partner demand</span><span style="font-size: 12px; color: #666;">SQ1 SQ3, litterature, 22 passages</span></div>
+      <div style="padding: 6px 12px 6px 32px; border-top: 1px solid #ddd; display: flex; gap: 10px; align-items: baseline;"><span style="font-weight: 600;">Retailer listing</span><span style="font-size: 12px; color: #666;">sous-code, terrain (RET-22 U103), 6 unites</span></div>
+      <div style="padding: 6px 12px 6px 32px; border-top: 1px solid #ddd; display: flex; gap: 10px; align-items: baseline;"><span style="font-weight: 600;">Supplier mandate</span><span style="font-size: 12px; color: #666;">sous-code, terrain (ECO-12 U044), 4 unites</span></div>
+      <div style="padding: 6px 12px; border-top: 1px solid #ddd; display: flex; gap: 10px; align-items: baseline;"><span style="font-weight: 600;">No need</span><span style="font-size: 12px; color: #666;">SQ1 SQ3, terrain (ECO-32 U061), 19 passages</span></div>
+      <div style="padding: 6px 12px; border-top: 1px solid #ddd; display: flex; gap: 10px; align-items: baseline;"><span style="font-weight: 600;">Cost burden</span><span style="font-size: 12px; color: #666;">SQ1 SQ3, litterature, 31 passages</span></div>
+      <div style="padding: 6px 12px; border-top: 1px solid #ddd; display: flex; gap: 10px; align-items: baseline; color: #999;"><span style="font-weight: 600;">Later</span><span style="font-size: 12px;">code systeme, 7 unites a revoir</span></div>
+      <div style="padding: 6px 12px; border-top: 1px solid #ddd; font-size: 12px; color: #666;">... (glisser un code sur un autre le fait sous-code ; la version du codebook change a chaque modification)</div>
+      <div style="padding: 8px 12px; border-top: 1.5px solid #888; font-size: 12px; color: #b45309; font-style: italic;">un code posé sur un sous-code compte aussi pour le parent dans les exports ; le prompt presente l'arbre tel quel</div>
+    </div>
+    <div style="flex: 1 1 420px; min-width: 0; display: flex; flex-direction: column; gap: 12px;">
+      <div style="border: 1.5px solid #888; border-radius: 4px; display: flex; flex-direction: column;">
+        <div style="padding: 8px 12px; background: #eee; font-weight: 600;">Partner demand</div>
+        <div style="padding: 10px 12px; border-top: 1px solid #ddd; display: flex; flex-direction: column; gap: 8px;">
+          <label style="display: flex; flex-direction: column; gap: 4px; font-size: 13px;">Nom (mots courants)<input type="text" aria-label="Nom" value="Partner demand" style="border: 1px solid #aaa; border-radius: 4px; padding: 4px 6px;"></label>
+          <label style="display: flex; flex-direction: column; gap: 4px; font-size: 13px;">Definition : inclut<textarea aria-label="Inclut" style="border: 1px solid #aaa; border-radius: 4px; padding: 6px; height: 44px;">Un client, un detaillant, un fournisseur ou un chef de chaine exige ou pousse un marquage, un tag ou un format de donnees.</textarea></label>
+          <label style="display: flex; flex-direction: column; gap: 4px; font-size: 13px;">Definition : exclut<textarea aria-label="Exclut" style="border: 1px solid #aaa; border-radius: 4px; padding: 6px; height: 36px;">Un texte legal (Legal duty), un mouvement de concurrent (Market pressure).</textarea></label>
+          <div style="display: flex; gap: 12px; flex-wrap: wrap; font-size: 13px;">
+            <label style="display: flex; gap: 6px; align-items: center;">Parent <select aria-label="Parent" style="border: 1px solid #aaa; border-radius: 4px; padding: 2px 6px;"><option>aucun</option><option>Legal duty</option></select></label>
+            <span style="font-size: 12px; color: #b45309; font-style: italic;">pas de champ TOE : le cadre s'applique aux themes, a l'etape Analyser</span>
+          </div>
+          <div style="display: flex; gap: 12px; flex-wrap: wrap; font-size: 13px;">
+            <label style="display: flex; gap: 6px; align-items: center;"><input type="checkbox" checked aria-label="SQ1"> SQ1</label>
+            <label style="display: flex; gap: 6px; align-items: center;"><input type="checkbox" aria-label="SQ2"> SQ2</label>
+            <label style="display: flex; gap: 6px; align-items: center;"><input type="checkbox" checked aria-label="SQ3"> SQ3</label>
+          </div>
+          <div style="font-size: 12px; color: #666;">Origine : litterature, White2008, Whitaker2007. Exemple : INT-16 05:25 "he will not list any new products without the QR code".</div>
+          <label style="display: flex; flex-direction: column; gap: 4px; font-size: 13px;">Memo du code (date, pourquoi il existe, hesitations, fusions)<textarea aria-label="Memo du code" style="border: 1px solid #aaa; border-radius: 4px; padding: 6px; height: 44px;">13.10 cree depuis ENV-PARTNER ; 14.10 sous-codes ajoutes apres RET-22 et ECO-12.</textarea></label>
+          <button style="border: 1.5px solid #888; background: #fff; padding: 3px 10px; border-radius: 4px; align-self: flex-start; font-size: 12px;">Voir les 22 passages qui portent ce code</button>
+          <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <button style="border: 1.5px solid #888; background: #fff; padding: 4px 10px; border-radius: 4px;">Enregistrer</button>
+            <button style="border: 1.5px solid #888; background: #fff; padding: 4px 10px; border-radius: 4px;">Fusionner dans...</button>
+            <button style="border: 1.5px solid #888; background: #fff; padding: 4px 10px; border-radius: 4px;">Desactiver</button>
+          </div>
+          <div style="font-size: 12px; color: #b45309; font-style: italic;">fusionner recode toutes les unites et garde la trace ; desactiver cache le code sans toucher aux codages passes ; chaque action est datee et motivee</div>
+        </div>
+      </div>
+      <div style="border: 1.5px dashed #999; border-radius: 4px; padding: 10px 12px; font-size: 12px; color: #666; display: flex; flex-direction: column; gap: 4px;">
+        <div style="font-weight: 600; color: #333;">Unites a revoir apres l'ajout de "Supplier mandate" (v1.2)</div>
+        <div>12 unites des entretiens precedents portent Partner demand ou Later : <a href="Code.dc.html">les revoir</a></div>
+        <div style="color: #b45309; font-style: italic;">la relecture tous les trois entretiens se fait ici : fusions, scissions, puis on relance le challenger seulement si on le juge utile</div>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":760}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

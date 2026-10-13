@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Etape Rediger</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0;font-family:system-ui,sans-serif;color:#333;background:#fff}
+a{color:#444}a:hover{color:#000}
+</style>
+</helmet>
+<div style="max-width: 1280px; min-height: 900px; box-sizing: border-box; display: flex; flex-direction: column; font-size: 14px;">
+  <div style="display: flex; align-items: center; gap: 24px; padding: 12px 24px; border-bottom: 1.5px solid #888; background: #f4f4f4;">
+    <div style="font-weight: 600; font-size: 16px;">Coding Studio</div>
+    <nav style="display: flex; gap: 16px;">
+      <a href="Main.dc.html" style="text-decoration: none; padding: 4px 0;">Bibliotheque</a>
+      <a href="Analyse.dc.html" style="text-decoration: none; padding: 4px 0;">Analyser</a>
+      <a href="Answer.dc.html" style="font-weight: 600; border-bottom: 2px solid #333; text-decoration: none; padding: 4px 0;">Rediger</a>
+      <a href="Codebook.dc.html" style="text-decoration: none; padding: 4px 0;">Codebook</a>
+      <a href="Settings.dc.html" style="text-decoration: none; padding: 4px 0;">Reglages</a>
+      <a href="Guide.dc.html" style="text-decoration: none; padding: 4px 0;">Guide</a>
+    </nav>
+    <div style="margin-left: auto; font-size: 12px; color: #b45309; font-style: italic;">etape 4 : on redige par theme retenu, puis on repond a chaque question</div>
+    <button style="border: 1.5px solid #888; background: #fff; border-radius: 50%; width: 26px; height: 26px; font-size: 13px;">?</button>
+  </div>
+  <div style="display: flex; gap: 0; padding: 12px 24px 0; font-size: 13px;">
+    <div style="padding: 6px 14px; border: 1.5px solid #888; border-bottom: none; border-radius: 4px 4px 0 0; font-weight: 600; background: #fff;">Par theme</div>
+    <div style="padding: 6px 14px; border-bottom: 1.5px solid #888;">Synthese par question</div>
+    <div style="padding: 6px 14px; border-bottom: 1.5px solid #888;">Lecture par le cadre</div>
+    <div style="padding: 6px 14px; border-bottom: 1.5px solid #888;">Audit final</div>
+    <div style="padding: 6px 14px; border-bottom: 1.5px solid #888; color: #666;">Decisions documentees</div>
+    <div style="flex: 1; border-bottom: 1.5px solid #888;"></div>
+  </div>
+  <div style="display: flex; flex-wrap: wrap; gap: 16px; padding: 16px 24px;">
+    <div style="flex: 1 1 260px; min-width: 0; border: 1.5px solid #888; border-radius: 4px; display: flex; flex-direction: column;">
+      <div style="padding: 8px 12px; background: #eee; font-weight: 600;">Themes retenus</div>
+      <div style="padding: 8px 12px; border-top: 1px solid #ddd; background: #f7f7f7; border-left: 3px solid #333;">T1 La non-adoption n'est pas toujours un echec</div>
+      <div style="padding: 8px 12px; border-top: 1px solid #ddd;">T2 Les couts suivent le pouvoir dans la chaine</div>
+      <div style="padding: 8px 12px; border-top: 1px solid #ddd;">T3 L'exigence vient de l'aval</div>
+      <div style="padding: 8px 12px; border-top: 1px solid #ddd; font-size: 12px; color: #b45309; font-style: italic;">seuls les themes au statut "retenu" apparaissent ; l'ordre ici devient l'ordre du chapitre des resultats</div>
+      <div style="padding: 8px 12px; border-top: 1.5px solid #888; font-weight: 600;">Passages du theme T1</div>
+      <div style="padding: 6px 12px; border-top: 1px solid #ddd; font-size: 13px;">INT-01 U018 "on n'en a jamais eu besoin" <span style="color: #666;">present</span></div>
+      <div style="padding: 6px 12px; border-top: 1px solid #ddd; font-size: 13px;">INT-04 U061 "le lot suffit" <span style="color: #666;">present</span></div>
+      <div style="padding: 6px 12px; border-top: 1px solid #ddd; font-size: 13px;">INT-02 U103 "si le reseau l'exige" <span style="color: #666;">contredit</span></div>
+      <div style="padding: 6px 12px; border-top: 1px solid #ddd; font-size: 12px; color: #b45309; font-style: italic;">glisser un passage dans le texte cree un lien ; un clic ouvre le passage dans son entretien (tiroir Detail)</div>
+    </div>
+    <div style="flex: 999 1 640px; min-width: 0; border: 1.5px solid #888; border-radius: 4px; display: flex; flex-direction: column;">
+      <div style="padding: 8px 12px; background: #eee; display: flex; align-items: center; gap: 8px;"><span style="font-weight: 600;">T1 La non-adoption n'est pas toujours un echec</span><span style="margin-left: auto; font-size: 12px; color: #666;">questions : Q1, Q3</span></div>
+      <div style="padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; font-size: 13px;">
+        <div style="font-weight: 600;">1. Enonce analytique</div>
+        <div style="border: 1px solid #aaa; border-radius: 4px; padding: 6px; color: #666;">une phrase qui dit ce que les donnees suggerent (reprise de la fiche du theme)</div>
+        <div style="font-weight: 600;">2. Mecanisme et preuves</div>
+        <div style="border: 1px solid #aaa; border-radius: 4px; padding: 6px; min-height: 60px;">Plusieurs repondants decrivent l'absence de besoin sans regret <span style="border: 1px solid #333; padding: 0 4px; border-radius: 3px; font-size: 12px;">INT-01 U018 soutient</span> ; le lot leur suffit <span style="border: 1px solid #333; padding: 0 4px; border-radius: 3px; font-size: 12px;">INT-04 U061 soutient</span>.</div>
+        <div style="font-weight: 600;">3. Variations et cas divergents</div>
+        <div style="border: 1px solid #aaa; border-radius: 4px; padding: 6px;">Le besoin apparait quand le reseau l'impose <span style="border: 1px solid #333; padding: 0 4px; border-radius: 3px; font-size: 12px;">INT-02 U103 conditionne</span>.</div>
+        <div style="font-weight: 600;">4. Explications concurrentes et limites</div>
+        <div style="border: 1px solid #aaa; border-radius: 4px; padding: 6px; color: #666;">reprise de "interpretation alternative" de la fiche</div>
+        <div style="font-weight: 600;">5. Mini-synthese</div>
+        <div style="border: 1px solid #aaa; border-radius: 4px; padding: 6px; color: #666;">la reponse partielle que ce theme apporte a Q1 et Q3 ; reprise dans l'onglet Synthese par question</div>
+        <div style="display: flex; gap: 12px; align-items: center; font-size: 12px; color: #666;"><span>Nature de la preuve de la partie 2 :</span><select aria-label="Nature de preuve" style="border: 1px solid #aaa; border-radius: 4px; padding: 2px 6px; font-size: 12px;"><option>experience vecue, plusieurs entretiens</option><option>projet ou intention</option><option>opinion</option><option>document</option><option>un seul entretien</option></select></div>
+        <div style="font-size: 12px; color: #b45309; font-style: italic;">plan en cinq parties (la 5e, mini-synthese, renvoie aux questions du theme) ; chaque lien porte un type (liste de l'etude) et une note d'une ligne ; aucune frequence n'est calculee ; le texte s'exporte en Markdown avec les citations en notes</div>
+      </div>
+    </div>
+  </div>
+  <div style="padding: 0 24px 16px; display: flex; gap: 16px; flex-wrap: wrap;">
+    <div style="flex: 1 1 360px; border: 1.5px dashed #999; border-radius: 4px; padding: 10px 12px; font-size: 12px; color: #666;">
+      <div style="font-weight: 600; color: #333;">Synthese par question (onglet 2)</div>
+      <div>Une page par question de recherche : themes qui y repondent, reponse en quelques paragraphes, limites. Les questions viennent de Reglages.</div>
+    </div>
+    <div style="flex: 1 1 360px; border: 1.5px dashed #999; border-radius: 4px; padding: 10px 12px; font-size: 12px; color: #666;">
+      <div style="font-weight: 600; color: #333;">Lecture par le cadre (onglet 3, seulement si l'etude a un cadre)</div>
+      <div>Tableau themes par dimensions du cadre : ce que le cadre explique, ce qu'il n'explique pas, ce qui reste hors cadre.</div>
+    </div>
+    <div style="flex: 1 1 360px; border: 1.5px dashed #999; border-radius: 4px; padding: 10px 12px; font-size: 12px; color: #666;">
+      <div style="font-weight: 600; color: #333;">Audit final (onglet 4)</div>
+      <div>L'outil tire trois affirmations au hasard dans le texte ; pour chacune on remonte aux passages et on coche : etayee, a nuancer, a retirer. Le resultat va dans l'export.</div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

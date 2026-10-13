@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Coder RET-22</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="macos.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+.tx{flex:999 1 520px;min-width:0;padding:2px 18px 12px;display:flex;flex-direction:column;gap:2px}
+.fbar{display:flex;align-items:center;gap:12px;padding:2px 0 10px;flex-wrap:wrap}
+.prog{margin-left:auto;display:flex;align-items:center;gap:8px;font-size:11.5px;color:var(--label2)}
+.prog .bar{width:120px}
+.u{display:grid;grid-template-columns:14px 64px minmax(0,1fr);gap:12px;padding:12px;border-radius:10px}
+.u .gut{display:flex;gap:2px;justify-content:flex-end;padding-top:4px}
+.u .gut i{width:3px;border-radius:2px;background:var(--k);display:block}
+.u .meta{font-size:11.5px;color:var(--label2);display:flex;flex-direction:column;gap:1px;padding-top:2px}
+.u .meta .mono{color:var(--label)}
+.u.int .txt{color:var(--label2)}
+.u.resp .txt{font-size:14.5px;line-height:1.6}
+.u.sel{background:color-mix(in srgb,var(--accent) 10%,transparent);box-shadow:inset 0 0 0 .5px color-mix(in srgb,var(--accent) 40%,transparent)}
+.u.na{opacity:.55}
+.u p{margin:0}
+.who{font-size:11px;font-weight:600;color:var(--label2);margin-right:8px}
+.applied{display:flex;gap:6px;align-items:center;margin-top:10px;flex-wrap:wrap}
+.applied .hint{margin-left:auto;font-size:11.5px;color:var(--label2);display:flex;gap:10px}
+.pop{position:absolute;left:0;top:30px;width:270px;z-index:5}
+.cl{list-style:none;margin:0;padding:0 6px;display:flex;flex-direction:column;gap:1px}
+.cl li{display:grid;grid-template-columns:20px 10px minmax(0,1fr) 14px;gap:9px;align-items:start;padding:6px 8px;border-radius:7px}
+.cl li.on{background:var(--fill)}
+.cl .nm{font-weight:500}
+.cl .df{font-size:11.5px;color:var(--label2);line-height:1.3}
+.cl .sw{margin-top:3px}
+.cl li.child{padding-left:26px}
+</style>
+</helmet>
+<div class="win {{mode}}" style="--acL: {{acl}}; --acLS: {{acls}}; --acD: {{acd}}; --acDS: {{acds}}">
+<nav class="sb" aria-label="Barre latérale">
+<div class="lights" aria-hidden="true"><i></i><i></i><i></i><span class="tog"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><rect x="1.8" y="2.8" width="12.4" height="10.4" rx="2.2"></rect><path d="M6 2.8v10.4"></path></svg></span></div>
+<div class="sb-h" style="padding-top:2px">Corpus</div>
+<a class="it" href="Main.dc.html"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.35" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 2.5h3v11h-3zM6.8 2.5h3v11h-3z"></path><path d="M11 3.3l2.3-.6 2 10.3-2.3.6z"></path></svg>Bibliothèque<span class="n">15</span></a>
+<a class="it sub" href="Revoir.dc.html"><span class="dot" style="background:var(--accent)"></span>ECO-16<span class="n">9/12</span></a>
+<a class="it sub on" href="Coder.dc.html"><span class="dot" style="background:var(--label3)"></span>RET-22<span class="n">40/97</span></a>
+<div class="sb-h">Analyse</div>
+<a class="it" href="Codebook.dc.html"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.35" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 2.5h5l6 6-5 5-6-6z"></path><circle cx="5.3" cy="5.3" r=".9"></circle></svg>Codebook<span class="n">v1.2</span></a>
+<a class="it" href="Analyser.dc.html"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.35" aria-hidden="true"><rect x="2" y="2" width="12" height="12" rx="2.5"></rect><path d="M2 6.5h12M6.5 6.5V14"></path></svg>Analyser</a>
+<a class="it" href="Rediger.dc.html"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.35" stroke-linejoin="round" aria-hidden="true"><path d="M10.8 2.7l2.5 2.5-7.8 7.8-3.2.7.7-3.2z"></path></svg>Rédiger</a>
+<div class="sb-h">Étude</div>
+<a class="it" href="Etude.dc.html"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.35" stroke-linejoin="round" aria-hidden="true"><path d="M4 1.8h5.2L12.5 5v9.2H4z"></path><path d="M6.2 8h4M6.2 10.5h4"></path></svg>Paramètres de l'étude</a>
+<a class="it" href="Guide.dc.html"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.35" stroke-linejoin="round" aria-hidden="true"><path d="M8 4c-1.4-1-3.4-1.4-5.5-1.2v9.6c2.1-.2 4.1.2 5.5 1.2 1.4-1 3.4-1.4 5.5-1.2V2.8C11.4 2.6 9.4 3 8 4zM8 4v9.6"></path></svg>Guide</a>
+<div class="sb-foot">
+<div class="sb-note"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.35" stroke-linejoin="round" aria-hidden="true"><path d="M8 1.5l5.5 2v4c0 3.5-2.5 5.8-5.5 7-3-1.2-5.5-3.5-5.5-7v-4z"></path></svg>Pseudonymisation active</div>
+<a class="it" href="Settings.dc.html"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.35" stroke-linecap="round" aria-hidden="true"><circle cx="8" cy="8" r="2.2"></circle><path d="M8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2M3.4 3.4l1.4 1.4M11.2 11.2l1.4 1.4M3.4 12.6l1.4-1.4M11.2 4.8l1.4-1.4"></path></svg>Réglages<span class="n">⌘,</span></a>
+</div>
+</nav>
+<div class="ct">
+<header class="tb">
+<div class="ttl"><b>RET-22</b><span>Codage · 55 sur 97 unités examinées</span></div>
+<nav class="cap" aria-label="Étapes de l'entretien"><a class="ci on" href="Coder.dc.html" aria-current="page">Coder</a><a class="ci" href="Revoir.dc.html">Revoir</a></nav>
+<div class="cap"><button class="ci" type="button" aria-label="Lire l'audio à 12:10"><svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M4 2.5l9.5 5.5L4 13.5z"></path></svg></button><span class="mono" style="padding:0 6px">12:10</span><span class="vs"></span><button class="ci" type="button">1×</button></div>
+<label class="search"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><circle cx="7" cy="7" r="4.5"></circle><path d="M10.5 10.5l3.5 3.5"></path></svg><input type="text" placeholder="Rechercher dans l'entretien" aria-label="Rechercher dans l'entretien"></label>
+<button class="help" type="button" aria-label="Aide pour cet écran">?</button>
+</header>
+<div class="content">
+<section class="tx" aria-label="Transcription">
+<div class="fbar">
+<div class="seg" role="tablist" aria-label="Filtrer les unités"><button class="s on" type="button">Toutes</button><button class="s" type="button">Restantes <span class="n">42</span></button><button class="s" type="button">À revoir <span class="n">3</span></button><button class="s" type="button">Non pertinentes <span class="n">12</span></button><button class="s" type="button">Codées <span class="n">40</span></button></div>
+<div class="prog"><span>55 / 97</span><i class="bar"><b style="width:57%"></b></i></div>
+</div>
+<div class="u int"><div class="gut"></div><div class="meta"><span class="mono">U041</span><span>12:04</span></div><div class="txt"><span class="who">INT</span>Et combien de temps a pris le déploiement en magasin ?</div></div>
+<div class="u resp sel">
+<div class="gut" aria-hidden="true"><i class="k-proc"></i><i class="k-cost"></i></div>
+<div class="meta"><span class="mono b">U042</span><span>12:10</span></div>
+<div class="txt" style="position:relative">
+<p><span class="seltext">Six mois pour les deux premiers magasins,</span> <span class="mk k-proc">surtout à cause de la formation des équipes de réception</span>. <span class="mk k-cost">Le matériel lui-même était prêt en trois semaines.</span></p>
+<div class="menu pop" role="menu" aria-label="Coder la sélection">
+<div class="mi" style="color:var(--label2)"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><circle cx="7" cy="7" r="4.5"></circle><path d="M10.5 10.5l3.5 3.5"></path></svg>Coder la sélection…<span class="r">/</span></div>
+<div class="msep"></div>
+<button class="mi on k-cost" type="button" role="menuitem"><span class="sw"></span>Cost burden<span class="r">4</span></button>
+<button class="mi k-proc" type="button" role="menuitem"><span class="sw"></span>Process change<span class="r">5</span></button>
+<button class="mi k-partner" type="button" role="menuitem"><span class="sw"></span>Partner demand<span class="r">2</span></button>
+<div class="msep"></div>
+<button class="mi" type="button" role="menuitem">Surligner<span class="r">H</span></button>
+<button class="mi" type="button" role="menuitem">Citer…<span class="r">C</span></button>
+<button class="mi" type="button" role="menuitem">Nouveau code depuis la sélection…<span class="r">⌘N</span></button>
+</div>
+<div class="applied">
+<span class="tag k-proc"><span class="sw"></span>Process change</span>
+<span class="tag k-cost"><span class="sw"></span>Cost burden</span>
+<span class="hint"><span><span class="kbd">N</span> non pertinent</span><span><span class="kbd">R</span> à revoir</span></span>
+</div>
+</div>
+</div>
+<div class="u int" style="margin-top:196px"><div class="gut"></div><div class="meta"><span class="mono">U043</span><span>12:31</span></div><div class="txt"><span class="who">INT</span>Et la formation, qui l'a faite ?</div></div>
+<div class="u resp"><div class="gut"></div><div class="meta"><span class="mono">U044</span><span>12:34</span></div><div class="txt"><p>L'intégrateur, au début. Ensuite on a formé nous-mêmes les nouveaux, avec une fiche d'une page. <span class="badge">non codée</span></p></div></div>
+<div class="u resp na"><div class="gut"></div><div class="meta"><span class="mono">U045</span><span>12:52</span></div><div class="txt"><p>Oui, je crois que c'est tout ce que je peux dire là-dessus. <span class="badge">non pertinent</span></p></div></div>
+</section>
+<aside class="insp" aria-label="Inspecteur">
+<div class="insp-in">
+<div class="seg" role="tablist" style="align-self:stretch;display:flex"><button class="s on" type="button" style="flex:1;justify-content:center">Codes</button><button class="s" type="button" style="flex:1;justify-content:center">Détail</button><a class="s" href="Lexique.dc.html" style="flex:1;justify-content:center">Lexique</a><button class="s" type="button" style="flex:1;justify-content:center">Mémo</button></div>
+<input class="field" type="text" placeholder="Chercher un code" aria-label="Chercher un code">
+</div>
+<ul class="cl">
+<li class="k-legal"><span class="kbd">1</span><span class="sw"></span><div><div class="nm">Legal duty</div><div class="df">Loi ou règlement qui oblige</div></div><span></span></li>
+<li class="k-partner"><span class="kbd">2</span><span class="sw"></span><div><div class="nm">Partner demand</div><div class="df">Un client ou un fournisseur l'exige</div></div><span></span></li>
+<li class="k-retail child"><span class="kbd">3</span><span class="sw"></span><div><div class="nm">Retailer listing</div><div class="df">Référencement conditionné au marquage</div></div><span></span></li>
+<li class="k-cost on"><span class="kbd">4</span><span class="sw"></span><div><div class="nm">Cost burden</div><div class="df">Coût total perçu comme un frein</div></div><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="color:var(--accent-text);margin-top:2px" role="img" aria-label="Appliqué"><path d="M3 8.5l3 3 7-7"></path></svg></li>
+<li class="k-proc on"><span class="kbd">5</span><span class="sw"></span><div><div class="nm">Process change</div><div class="df">Procédures ou formation à modifier</div></div><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="color:var(--accent-text);margin-top:2px" role="img" aria-label="Appliqué"><path d="M3 8.5l3 3 7-7"></path></svg></li>
+<li class="k-need"><span class="kbd">6</span><span class="sw"></span><div><div class="nm">No need</div><div class="df">Le répondant juge qu'il n'y en a pas besoin</div></div><span></span></li>
+<li class="k-skill"><span class="kbd">7</span><span class="sw"></span><div><div class="nm">Skills capacity</div><div class="df">Compétences internes disponibles ou non</div></div><span></span></li>
+</ul>
+<div class="insp-in" style="margin-top:auto">
+<button class="btn" type="button" style="width:100%">Nouveau code depuis la sélection…</button>
+<div class="grp">
+<div class="row"><span class="k">Unités à revoir</span><span class="v">3</span></div>
+<div class="row"><span class="k">Surlignages sans code</span><span class="v">5</span></div>
+</div>
+</div>
+</aside>
+</div>
+<div class="keys" aria-label="Raccourcis">
+<span><span class="kbd">↑ ↓</span> unité</span><span><span class="kbd">1–9</span> coder</span><span><span class="kbd">H</span> surligner</span><span><span class="kbd">D</span> détail et citation</span><span><span class="kbd">⌘Z</span> annuler</span>
+<span style="margin-left:auto">Sans sélection, le code couvre le tour entier</span>
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"appearance":{"editor":"enum","options":["Automatique","Clair","Sombre"],"default":"Automatique","section":"Apparence"},"accent":{"editor":"enum","options":["Graphite","Bleu","Violet","Rose","Rouge","Orange","Jaune","Vert"],"default":"Graphite","section":"Apparence"},"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+renderVals() {
+var A = {Graphite:['#8C8C8C','#636366','#98989D','#636366'],Bleu:['#007AFF','#0062CC','#0A84FF','#0070E0'],Violet:['#AF52DE','#8E3BBF','#BF5AF2','#9A44C9'],Rose:['#FF2D55','#D1123F','#FF375F','#D1123F'],Rouge:['#FF3B30','#D12A20','#FF453A','#D12A20'],Orange:['#FF9500','#A85A00','#FF9F0A','#A85A00'],Jaune:['#FFCC00','#8A6D00','#FFD60A','#8A6D00'],Vert:['#28CD41','#1A7F2B','#32D74B','#1A7F2B']};
+var a = A[this.props.accent] || A.Graphite;
+var m = {Automatique:'auto',Clair:'light',Sombre:'dark'}[this.props.appearance] || 'auto';
+return { mode: m, acl: a[0], acls: a[1], acd: a[2], acds: a[3] };
+}
+}
+</script>
+</body>
+</html>

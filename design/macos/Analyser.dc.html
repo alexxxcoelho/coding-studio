@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Analyser</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="macos.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+.themes{flex:0 1 270px;border-right:.5px solid var(--sep);padding:4px 10px 14px;display:flex;flex-direction:column;gap:4px;min-width:0}
+.th{width:100%;text-align:left;border:0;background:transparent;border-radius:8px;padding:8px 10px;font:inherit;color:var(--label);cursor:pointer;display:flex;flex-direction:column;gap:4px}
+.th.on{background:var(--fill2)}
+.th .nm{font-weight:600;display:flex;justify-content:space-between;align-items:center;gap:6px}
+.th .cs{font-size:11.5px;color:var(--label2);line-height:1.35}
+.mx{flex:999 1 460px;min-width:0;padding:4px 18px 16px;display:flex;flex-direction:column;gap:10px}
+.mxw{overflow-x:auto}
+.grid{width:100%;border-collapse:separate;border-spacing:5px;min-width:540px}
+.grid th{text-align:left;font-size:11.5px;font-weight:500;color:var(--label2);padding:0 6px 2px}
+.grid td.rh{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:12px;font-weight:600;padding:0 6px;white-space:nowrap;width:70px}
+.cell{display:flex;flex-direction:column;gap:2px;width:100%;min-height:66px;padding:8px 10px;border-radius:8px;border:0;font:inherit;text-align:left;cursor:pointer;color:var(--label)}
+.cell .n{font-size:15px;font-weight:600;font-variant-numeric:tabular-nums}
+.cell .n small{font-size:11px;font-weight:400;color:var(--label2);margin-left:4px}
+.cell .s{font-size:12px;line-height:1.35}
+.h1{background:color-mix(in srgb,var(--accent) 9%,transparent)}
+.h2{background:color-mix(in srgb,var(--accent) 17%,transparent)}
+.h3{background:color-mix(in srgb,var(--accent) 27%,transparent)}
+.h4{background:color-mix(in srgb,var(--accent) 37%,transparent)}
+.nd{background:transparent;box-shadow:inset 0 0 0 .5px var(--sep);color:var(--label3);justify-content:center;font-size:12px}
+.cell.on{box-shadow:0 0 0 2.5px var(--accent-fill)}
+.flag{font-size:11px;font-weight:600;color:var(--orange-text);display:inline-flex;align-items:center;gap:4px}
+.legend{display:flex;align-items:center;gap:5px;font-size:11.5px;color:var(--label2)}
+.legend i{display:block;width:18px;height:10px;border-radius:3px}
+.pq{padding:9px 11px;border-radius:8px;background:var(--grp);border:.5px solid var(--sep);display:flex;flex-direction:column;gap:5px;line-height:1.45}
+</style>
+</helmet>
+<div class="win {{mode}}" style="--acL: {{acl}}; --acLS: {{acls}}; --acD: {{acd}}; --acDS: {{acds}}">
+<nav class="sb" aria-label="Barre latérale">
+<div class="lights" aria-hidden="true"><i></i><i></i><i></i><span class="tog"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><rect x="1.8" y="2.8" width="12.4" height="10.4" rx="2.2"></rect><path d="M6 2.8v10.4"></path></svg></span></div>
+<div class="sb-h" style="padding-top:2px">Corpus</div>
+<a class="it" href="Main.dc.html"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.35" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 2.5h3v11h-3zM6.8 2.5h3v11h-3z"></path><path d="M11 3.3l2.3-.6 2 10.3-2.3.6z"></path></svg>Bibliothèque<span class="n">15</span></a>
+<a class="it sub" href="Revoir.dc.html"><span class="dot" style="background:var(--accent)"></span>ECO-16<span class="n">9/12</span></a>
+<a class="it sub" href="Coder.dc.html"><span class="dot" style="background:var(--label3)"></span>RET-22<span class="n">40/97</span></a>
+<div class="sb-h">Analyse</div>
+<a class="it" href="Codebook.dc.html"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.35" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 2.5h5l6 6-5 5-6-6z"></path><circle cx="5.3" cy="5.3" r=".9"></circle></svg>Codebook<span class="n">v1.2</span></a>
+<a class="it on" href="Analyser.dc.html"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.35" aria-hidden="true"><rect x="2" y="2" width="12" height="12" rx="2.5"></rect><path d="M2 6.5h12M6.5 6.5V14"></path></svg>Analyser</a>
+<a class="it" href="Rediger.dc.html"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.35" stroke-linejoin="round" aria-hidden="true"><path d="M10.8 2.7l2.5 2.5-7.8 7.8-3.2.7.7-3.2z"></path></svg>Rédiger</a>
+<div class="sb-h">Étude</div>
+<a class="it" href="Etude.dc.html"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.35" stroke-linejoin="round" aria-hidden="true"><path d="M4 1.8h5.2L12.5 5v9.2H4z"></path><path d="M6.2 8h4M6.2 10.5h4"></path></svg>Paramètres de l'étude</a>
+<a class="it" href="Guide.dc.html"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.35" stroke-linejoin="round" aria-hidden="true"><path d="M8 4c-1.4-1-3.4-1.4-5.5-1.2v9.6c2.1-.2 4.1.2 5.5 1.2 1.4-1 3.4-1.4 5.5-1.2V2.8C11.4 2.6 9.4 3 8 4zM8 4v9.6"></path></svg>Guide</a>
+<div class="sb-foot">
+<div class="sb-note"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.35" stroke-linejoin="round" aria-hidden="true"><path d="M8 1.5l5.5 2v4c0 3.5-2.5 5.8-5.5 7-3-1.2-5.5-3.5-5.5-7v-4z"></path></svg>Pseudonymisation active</div>
+<a class="it" href="Settings.dc.html"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.35" stroke-linecap="round" aria-hidden="true"><circle cx="8" cy="8" r="2.2"></circle><path d="M8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2M3.4 3.4l1.4 1.4M11.2 11.2l1.4 1.4M3.4 12.6l1.4-1.4M11.2 4.8l1.4-1.4"></path></svg>Réglages<span class="n">⌘,</span></a>
+</div>
+</nav>
+<div class="ct">
+<header class="tb">
+<div class="ttl"><b>Analyser</b><span>Des codes aux thèmes, puis comparaison des entretiens</span></div>
+<label class="r8 small l2">Entretiens <select class="field" style="width:150px"><option>Tous les codés</option></select></label>
+<label class="r8 small l2">Contraste <select class="field" style="width:150px"><option>Aucun attribut</option></select></label>
+<div class="cap"><button class="ci" type="button">Explorer</button></div>
+<button class="help" type="button" aria-label="Aide pour cet écran">?</button>
+</header>
+<div class="content">
+<aside class="themes" aria-label="Thèmes">
+<div class="r8" style="justify-content:space-between;padding:0 6px 2px"><span class="hs">Thèmes</span><button class="btn plain" type="button">Nouveau thème</button></div>
+<button class="th on" type="button"><span class="nm">Absence de besoin<span class="badge mono">O · E</span></span><span class="cs">No need, Lot or unit, Operational gain (−) · 9 entretiens</span></button>
+<button class="th" type="button"><span class="nm">Qui supporte les coûts</span><span class="cs">Who pays, Cost burden, Unit margin, Place in chain · 11 entretiens</span></button>
+<button class="th" type="button"><span class="nm">Pression de la chaîne</span><span class="cs">Partner demand et sous-codes, Market pressure, Data sharing · 8 entretiens</span></button>
+<div style="margin-top:10px;padding:0 6px;display:flex;flex-direction:column;gap:6px">
+<label class="hs" for="memo">Mémo du thème</label>
+<textarea id="memo" class="field" style="min-height:110px">Non-adoption rationnelle plutôt que frein : les répondants qui n'ont pas de besoin le disent sans regret. À distinguer de l'attente d'une obligation (RET-34).</textarea>
+<label class="r8 small l2">Lecture du cadre <select class="field" style="flex:1"><option>Organisation et Environnement</option></select></label>
+<span class="small l2">Seul endroit où le cadre d'interprétation intervient.</span>
+</div>
+</aside>
+<section class="mx" aria-label="Matrice entretiens par thèmes">
+<div class="r8" style="justify-content:space-between"><span class="hs">Passages après arbitrage</span><div class="legend"><span>moins</span><i class="h1"></i><i class="h2"></i><i class="h3"></i><i class="h4"></i><span>plus</span></div></div>
+<div class="mxw">
+<table class="grid">
+<thead><tr><th></th><th>Absence de besoin</th><th>Qui supporte les coûts</th><th>Pression de la chaîne</th></tr></thead>
+<tbody>
+<tr><td class="rh">ECO-16</td>
+<td><button class="cell h2" type="button"><span class="n">3<small>passages</small></span><span class="s">Argument exprimé, sans regret</span></button></td>
+<td><button class="cell h3" type="button"><span class="n">5<small>passages</small></span><span class="s">Coûts de formation, pas de matériel</span></button></td>
+<td><button class="cell nd" type="button">aucun passage</button></td></tr>
+<tr><td class="rh">RET-22</td>
+<td><button class="cell nd" type="button">aucun passage</button></td>
+<td><button class="cell h2 on" type="button"><span class="n">2<small>passages</small></span><span class="flag">contradiction</span><span class="s">Le groupe paie, le magasin paie</span></button></td>
+<td><button class="cell h4" type="button"><span class="n">6<small>passages</small></span><span class="s">Exigence du groupe</span></button></td></tr>
+<tr><td class="rh">ECO-32</td>
+<td><button class="cell h3" type="button"><span class="n">4<small>passages</small></span><span class="s">Le lot suffit</span></button></td>
+<td><button class="cell h1" type="button"><span class="n">1<small>passage</small></span><span class="s l2">Résumé à écrire</span></button></td>
+<td><button class="cell nd" type="button">aucun passage</button></td></tr>
+<tr><td class="rh l3">ECO-05</td><td colspan="3"><div class="cell nd" style="min-height:40px;cursor:default">Pas encore codé, exclu de la matrice</div></td></tr>
+</tbody>
+</table>
+</div>
+<p class="small l2" style="margin:0">Méthode Framework : un résumé d'une ligne par cellule, facultatif. Aucune fréquence n'est présentée comme un résultat.</p>
+</section>
+<aside class="insp" aria-label="Cellule sélectionnée">
+<div class="insp-in">
+<div><div class="hs">Cellule</div><div class="b" style="font-size:14px;margin-top:2px"><span class="mono">RET-22</span> × Qui supporte les coûts</div></div>
+<div class="pq"><span class="r8"><span class="mono b">U088</span><span class="tag k-cost"><span class="sw"></span>Cost burden</span></span><span>« Un rappel, c'est tout le carton qui revient, et c'est nous qui payons le transport. »</span></div>
+<div class="pq"><span class="r8"><span class="mono b">U112</span><span class="tag">Who pays</span></span><span>« Le groupe prend les tags, nous on prend les lecteurs. »</span></div>
+<label class="hs" for="rs">Résumé de la cellule</label>
+<input id="rs" class="field" type="text" value="Coûts partagés mais perçus comme subis">
+<label class="chk"><input type="checkbox" checked="">Contradiction à traiter dans la rédaction</label>
+<div class="r8"><a class="btn" href="Coder.dc.html">Ouvrir les passages</a><a class="btn" href="Rediger.dc.html">Lier à SQ1</a></div>
+</div>
+</aside>
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"appearance":{"editor":"enum","options":["Automatique","Clair","Sombre"],"default":"Automatique","section":"Apparence"},"accent":{"editor":"enum","options":["Graphite","Bleu","Violet","Rose","Rouge","Orange","Jaune","Vert"],"default":"Graphite","section":"Apparence"},"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+renderVals() {
+var A = {Graphite:['#8C8C8C','#636366','#98989D','#636366'],Bleu:['#007AFF','#0062CC','#0A84FF','#0070E0'],Violet:['#AF52DE','#8E3BBF','#BF5AF2','#9A44C9'],Rose:['#FF2D55','#D1123F','#FF375F','#D1123F'],Rouge:['#FF3B30','#D12A20','#FF453A','#D12A20'],Orange:['#FF9500','#A85A00','#FF9F0A','#A85A00'],Jaune:['#FFCC00','#8A6D00','#FFD60A','#8A6D00'],Vert:['#28CD41','#1A7F2B','#32D74B','#1A7F2B']};
+var a = A[this.props.accent] || A.Graphite;
+var m = {Automatique:'auto',Clair:'light',Sombre:'dark'}[this.props.appearance] || 'auto';
+return { mode: m, acl: a[0], acls: a[1], acd: a[2], acds: a[3] };
+}
+}
+</script>
+</body>
+</html>

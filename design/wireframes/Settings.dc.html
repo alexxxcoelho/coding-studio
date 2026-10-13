@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Reglages</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0;font-family:system-ui,sans-serif;color:#333;background:#fff}
+a{color:#444}a:hover{color:#000}
+</style>
+</helmet>
+<div style="max-width: 1280px; min-height: 760px; box-sizing: border-box; display: flex; flex-direction: column; font-size: 14px;">
+  <div style="display: flex; align-items: center; gap: 24px; padding: 12px 24px; border-bottom: 1.5px solid #888; background: #f4f4f4;">
+    <div style="font-weight: 600; font-size: 16px;">Coding Studio</div>
+    <nav style="display: flex; gap: 16px;">
+      <a href="Main.dc.html" style="text-decoration: none; padding: 4px 0;">Bibliotheque</a>
+      <a href="Codebook.dc.html" style="text-decoration: none; padding: 4px 0;">Codebook</a>
+      <a href="Settings.dc.html" style="font-weight: 600; border-bottom: 2px solid #333; text-decoration: none; padding: 4px 0;">Reglages</a>
+    </nav>
+    <div style="margin-left: auto; font-size: 12px; color: #b45309; font-style: italic;">on y vient une fois au debut, puis rarement</div>
+  </div>
+  <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; padding: 16px 24px;">
+    <div style="border: 1.5px solid #888; border-radius: 4px; display: flex; flex-direction: column;">
+      <div style="padding: 8px 12px; background: #eee; font-weight: 600;">Etude</div>
+      <div style="padding: 10px 12px; border-top: 1px solid #ddd; display: flex; flex-direction: column; gap: 8px; font-size: 13px;">
+        <label style="display: flex; flex-direction: column; gap: 4px;">Nom de l'etude<input type="text" aria-label="Nom de l'etude" value="Adoption d'un nouveau systeme de pret dans les petites bibliotheques" style="border: 1px solid #aaa; border-radius: 4px; padding: 4px 6px;"></label>
+        <label style="display: flex; flex-direction: column; gap: 4px;">Description envoyee au modele (un paragraphe)<textarea aria-label="Description" style="border: 1px solid #aaa; border-radius: 4px; padding: 6px; height: 56px;"></textarea></label>
+        <label style="display: flex; flex-direction: column; gap: 4px;">Questions de recherche (liste libre, chacune avec un identifiant)<textarea aria-label="Questions" style="border: 1px solid #aaa; border-radius: 4px; padding: 6px; height: 56px;"></textarea></label>
+        <label style="display: flex; flex-direction: column; gap: 4px;">Regles de codage envoyees au modele<textarea aria-label="Regles" style="border: 1px solid #aaa; border-radius: 4px; padding: 6px; height: 44px;">Coder ce que le repondant affirme ; plusieurs codes possibles ; NA si rien d'utile.</textarea></label>
+        <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+          
+          <label style="display: flex; gap: 6px; align-items: center;">Longueur max d'une unite <input type="number" aria-label="Longueur max" value="150" style="width: 70px; border: 1px solid #aaa; border-radius: 4px; padding: 2px 6px;"> mots</label>
+        </div>
+        <label style="display: flex; flex-direction: column; gap: 4px;">Noms des intervieweurs (pour reconnaitre les tours a griser)<input type="text" aria-label="Intervieweurs" value="Intervieweur A, Intervieweur B" style="border: 1px solid #aaa; border-radius: 4px; padding: 4px 6px;"></label>
+        <label style="display: flex; flex-direction: column; gap: 4px;">Prefixes d'identifiants des dossiers<input type="text" aria-label="Prefixes" value="INT" style="border: 1px solid #aaa; border-radius: 4px; padding: 4px 6px;"></label>
+        <button style="border: 1.5px solid #888; background: #fff; padding: 4px 10px; border-radius: 4px; align-self: flex-start;">Enregistrer</button>
+      </div>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 16px;">
+      <div style="border: 1.5px solid #888; border-radius: 4px; display: flex; flex-direction: column;">
+        <div style="padding: 8px 12px; background: #eee; font-weight: 600;">Fournisseurs IA (facultatif)</div>
+        <div style="padding: 10px 12px; border-top: 1px solid #ddd; display: flex; flex-direction: column; gap: 6px; font-size: 13px;">
+          <div style="display: flex; gap: 8px; align-items: center;"><span style="font-weight: 600;">copier-coller</span><span style="color: #666;">toujours present, parcours de reference</span></div>
+          <div style="display: flex; gap: 8px; align-items: center;"><span style="font-weight: 600;">claude-cli</span><span style="color: #666;">commande locale, modele heberge, isolation verifiee le 13.10</span><button style="margin-left: auto; border: 1.5px solid #888; background: #fff; padding: 2px 8px; border-radius: 4px; font-size: 12px;">Tester l'isolation</button></div>
+          <div style="display: flex; gap: 8px; align-items: center;"><span style="font-weight: 600;">openai-api</span><span style="color: #666;">cle dans la variable OPENAI_API_KEY</span></div>
+          <div style="display: flex; gap: 8px; align-items: center;"><span style="font-weight: 600;">chatgpt-oauth</span><span style="color: #666;">non connecte</span><button style="margin-left: auto; border: 1.5px solid #888; background: #fff; padding: 2px 8px; border-radius: 4px; font-size: 12px;">Se connecter</button></div>
+          <button style="border: 1.5px solid #888; background: #fff; padding: 4px 10px; border-radius: 4px; align-self: flex-start;">+ Ajouter un fournisseur</button>
+          <label style="display: flex; gap: 6px; align-items: center; font-size: 13px;"><input type="checkbox" checked aria-label="Pseudonymiser avant envoi"> Pseudonymiser les noms de personnes et d'organisations avant tout envoi (liste editable)</label>
+          <div style="font-size: 12px; color: #b45309; font-style: italic;">chaque fournisseur declare ce qu'il envoie et ou il s'execute ; aucune cle n'est stockee dans la base ; l'envoi est toujours un geste explicite, journalise</div>
+        </div>
+      </div>
+      <div style="border: 1.5px solid #888; border-radius: 4px; display: flex; flex-direction: column;">
+        <div style="padding: 8px 12px; background: #eee; font-weight: 600;">Exports et verification</div>
+        <div style="padding: 10px 12px; border-top: 1px solid #ddd; display: flex; flex-direction: column; gap: 6px; font-size: 13px;">
+          <div style="display: flex; gap: 8px; align-items: center;"><button style="border: 1.5px solid #888; background: #fff; padding: 4px 10px; border-radius: 4px;">Exporter un entretien</button><button style="border: 1.5px solid #888; background: #fff; padding: 4px 10px; border-radius: 4px;">Exporter le transversal (reponses, matrice, saturation)</button></div>
+          <div style="color: #666;">Dernier paquet : exports/2026-10-13_ECO-16, 27 fichiers, empreintes verifiees.</div>
+          <div style="display: flex; gap: 12px;"><a href="Settings.dc.html">Journal d'audit</a><a href="Settings.dc.html">Verifier la chaine</a><a href="Settings.dc.html">Table de saturation</a><a href="Settings.dc.html">Matrice transversale</a></div>
+          <div style="font-size: 12px; color: #b45309; font-style: italic;">ces quatre vues restent consultables mais ne sont plus dans la navigation ; ce sont des sorties, pas des etapes</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div style="padding: 0 24px 16px;">
+    <div style="border: 1.5px solid #888; border-radius: 4px; display: flex; flex-direction: column;">
+      <div style="padding: 8px 12px; background: #eee; display: flex; align-items: center; gap: 8px;"><span style="font-weight: 600;">Modeles et listes de l'etude</span><button style="margin-left: auto; border: 1.5px solid #888; background: #fff; padding: 2px 8px; border-radius: 4px; font-size: 12px;">Importer un modele de projet (JSON)</button><button style="border: 1.5px solid #888; background: #fff; padding: 2px 8px; border-radius: 4px; font-size: 12px;">Exporter</button></div>
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 0; font-size: 13px;">
+        <div style="padding: 10px 12px; border-top: 1px solid #ddd; display: flex; flex-direction: column; gap: 4px;">
+          <div style="font-weight: 600;">Modeles de memo de familiarisation</div>
+          <div>Par defaut (par defaut) : 4 questions</div>
+          <div>Entretien expert : 6 questions</div>
+          <button style="align-self: flex-start; border: 1.5px solid #888; background: #fff; padding: 2px 8px; border-radius: 4px; font-size: 12px;">+ Modele</button>
+          <div style="font-size: 12px; color: #b45309; font-style: italic;">un modele = une liste de questions ; chaque entretien en choisit un et peut l'adapter pour lui seul</div>
+        </div>
+        <div style="padding: 10px 12px; border-top: 1px solid #ddd; display: flex; flex-direction: column; gap: 4px;">
+          <div style="font-weight: 600;">Attributs d'entretien</div>
+          <div>Secteur (liste) ; Role (texte) ; Version du guide (liste A, B) ; Statut des propos (liste)</div>
+          <button style="align-self: flex-start; border: 1.5px solid #888; background: #fff; padding: 2px 8px; border-radius: 4px; font-size: 12px;">+ Attribut</button>
+          <div style="font-size: 12px; color: #b45309; font-style: italic;">types : texte, liste de valeurs, nombre, date ; servent de colonnes dans la Bibliotheque et de lignes, colonnes ou filtres de la matrice</div>
+        </div>
+        <div style="padding: 10px 12px; border-top: 1px solid #ddd; display: flex; flex-direction: column; gap: 4px;">
+          <div style="font-weight: 600;">Cadre d'interpretation (facultatif)</div>
+          <select aria-label="Cadre" style="align-self: flex-start; border: 1px solid #aaa; border-radius: 4px; padding: 2px 6px;"><option>aucun</option><option>TOE (prereglage)</option><option>TAM / UTAUT (prereglage)</option><option>personnalise : liste de dimensions</option></select>
+          <div style="font-size: 12px; color: #b45309; font-style: italic;">n'apparait qu'aux etapes Analyser et Rediger, jamais au codage</div>
+        </div>
+        <div style="padding: 10px 12px; border-top: 1px solid #ddd; display: flex; flex-direction: column; gap: 4px;">
+          <div style="font-weight: 600;">Dimensions personnalisees de la matrice</div>
+          <div>ex. "qui decide / qui paie / qui utilise"</div>
+          <button style="align-self: flex-start; border: 1.5px solid #888; background: #fff; padding: 2px 8px; border-radius: 4px; font-size: 12px;">+ Dimension</button>
+        </div>
+        <div style="padding: 10px 12px; border-top: 1px solid #ddd; display: flex; flex-direction: column; gap: 4px;">
+          <div style="font-weight: 600;">Listes editables (valeurs par defaut fournies)</div>
+          <div>Fin d'entretien (4 points) ; Controles d'un theme (7) ; Natures de preuve (5) ; Types de liens (6)</div>
+          <div style="font-size: 12px; color: #b45309; font-style: italic;">les valeurs de cellule de la matrice (present, non evoque, contredit, incertain) restent fixes : elles font partie de la methode</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":1000}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>
