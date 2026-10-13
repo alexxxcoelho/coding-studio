@@ -487,3 +487,33 @@ fn thirty_interviews_of_fifteen_thousand_words_answer_under_300_ms() {
         let _ = analyse_text(&c.units[10].text, Lang::Fr);
     });
 }
+
+#[test]
+fn kwic_context_never_cuts_a_word() {
+    let idx = LexIndex::build(&corpus(vec![unit(
+        "INT-01",
+        1,
+        true,
+        "Premièrement les fournisseurs étrangers imposent le marquage, ensuite le coût monte et les administrateurs hésitent encore longtemps.",
+    )]));
+    let r = idx.kwic(&KwicQuery {
+        query: "coût".into(),
+        stem: false,
+        width: 20,
+        interviews: None,
+        speakers: Speakers::Respondent,
+        limit: 10,
+        offset: 0,
+    });
+    assert_eq!(r.total, 1);
+    let h = &r.hits[0];
+    let words: Vec<&str> = "Premièrement les fournisseurs étrangers imposent le marquage, ensuite le coût monte et les administrateurs hésitent encore longtemps.".split_whitespace().collect();
+    for w in h.left.split_whitespace().chain(h.right.split_whitespace()) {
+        assert!(words.contains(&w), "mot coupé : {w:?} dans {h:?}");
+    }
+    assert!(
+        h.left.chars().count() <= 20 && h.right.chars().count() <= 20,
+        "{h:?}"
+    );
+    assert!(!h.left.is_empty() && !h.right.is_empty(), "{h:?}");
+}

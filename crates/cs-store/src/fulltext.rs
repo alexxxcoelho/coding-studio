@@ -18,7 +18,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
 
 use anyhow::Result;
-use cs_model::passage::{scalar_len, scalar_to_utf16, slice_scalars};
+use cs_model::passage::{scalar_to_utf16, slice_scalars};
 use cs_model::{sha256_hex, SpeakerRole};
 use serde::{Deserialize, Serialize};
 
@@ -546,12 +546,30 @@ fn find_matches(
     merged
 }
 
-/// A window of `2 * context` characters around the first match.
+/// A window of about `2 * context` characters around the first match, cut on
+/// word boundaries: a word that the window would cut is left out whole.
 fn excerpt(text: &str, spans: &[(usize, usize)], context: usize) -> Excerpt {
-    let len = scalar_len(text);
+    let chars: Vec<char> = text.chars().collect();
+    let len = chars.len();
     let (first_s, first_e) = spans[0];
-    let start = first_s.saturating_sub(context);
-    let end = (first_e + context).min(len);
+    let mut start = first_s.saturating_sub(context);
+    if start > 0 && !chars[start - 1].is_whitespace() && !chars[start].is_whitespace() {
+        while start < first_s && !chars[start].is_whitespace() {
+            start += 1;
+        }
+        while start < first_s && chars[start].is_whitespace() {
+            start += 1;
+        }
+    }
+    let mut end = (first_e + context).min(len);
+    if end < len && end > 0 && !chars[end - 1].is_whitespace() && !chars[end].is_whitespace() {
+        while end > first_e && !chars[end - 1].is_whitespace() {
+            end -= 1;
+        }
+        while end > first_e && chars[end - 1].is_whitespace() {
+            end -= 1;
+        }
+    }
     let window = slice_scalars(text, start, end)
         .unwrap_or_default()
         .to_string();
@@ -569,5 +587,38 @@ fn excerpt(text: &str, spans: &[(usize, usize)], context: usize) -> Excerpt {
         highlights,
         truncated_before: start > 0,
         truncated_after: end < len,
+    }
+}
+
+#[cfg(test)]
+mod excerpt_tests {
+    use super::excerpt;
+
+    #[test]
+    fn the_window_never_cuts_a_word() {
+        let text = "Premièrement les fournisseurs étrangers imposent le marquage, ensuite le coût monte et les administrateurs hésitent encore longtemps.";
+        let at = text.find("coût").unwrap();
+        let s = text[..at].chars().count();
+        let e = s + 4;
+        let x = excerpt(text, &[(s, e)], 15);
+        assert!(x.truncated_before && x.truncated_after);
+        for w in x.text.split_whitespace() {
+            assert!(
+                text.split_whitespace().any(|t| t == w),
+                "mot coupé : {w:?} dans {:?}",
+                x.text
+            );
+        }
+        let h = &x.highlights[0];
+        let hit: String = x.text.chars().skip(h.start).take(h.end - h.start).collect();
+        assert_eq!(hit, "coût");
+        assert_eq!(x.text, "ensuite le coût monte et les");
+    }
+
+    #[test]
+    fn a_short_text_is_given_whole() {
+        let x = excerpt("Un coût élevé.", &[(3, 7)], 60);
+        assert_eq!(x.text, "Un coût élevé.");
+        assert!(!x.truncated_before && !x.truncated_after);
     }
 }
