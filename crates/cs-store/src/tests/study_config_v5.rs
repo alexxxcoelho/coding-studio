@@ -87,7 +87,8 @@ fn invalid_config_is_refused_and_leaves_no_trace() {
     assert_eq!(kind(&e), "validation", "{e}");
 
     assert_eq!(s.setting(KEY).unwrap(), None);
-    assert_eq!(s.study_config().unwrap(), StudyConfig::default());
+    // Unchanged: the configuration in force when none is saved.
+    assert!(s.setting(KEY).unwrap().is_none());
     assert_eq!(s.audit_events(None).unwrap().len(), before_events);
 }
 
@@ -96,6 +97,7 @@ fn invalid_config_is_refused_and_leaves_no_trace() {
 #[test]
 fn set_config_is_audited_with_before_and_after() {
     let (s, _d) = ready();
+    let initial = s.study_config().unwrap();
     let cfg = custom(&["ALPHA", "BETA"]);
     let stored = s.set_study_config(&cfg, "alice").unwrap();
 
@@ -103,10 +105,7 @@ fn set_config_is_audited_with_before_and_after() {
     assert_eq!(events.len(), 1);
     let ev = &events[0];
     assert_eq!(ev.actor, "alice");
-    assert_eq!(
-        ev.detail["before"],
-        serde_json::to_value(StudyConfig::default()).unwrap()
-    );
+    assert_eq!(ev.detail["before"], serde_json::to_value(&initial).unwrap());
     assert_eq!(ev.detail["after"], serde_json::to_value(&stored).unwrap());
     assert_eq!(ev.detail["force"], json!(false));
     assert!(s.verify_chain().unwrap().ok);
@@ -270,4 +269,30 @@ fn other_settings_stay_editable_after_coding() {
         "CS-P04-EN v3.2"
     );
     assert_eq!(config_events(&s).len(), 2);
+}
+
+// ------------------------------------------------- neutral defaults (F-15)
+
+#[test]
+fn an_unset_configuration_is_neutral_for_a_new_database() {
+    let s = Store::open_in_memory().unwrap();
+    let cfg = s.study_config().unwrap();
+    assert_eq!(cfg.id_prefixes, vec!["INT".to_string()]);
+    assert!(!cfg.interviewers.iter().any(|n| n.contains("Dos Santos")));
+}
+
+#[test]
+fn a_first_study_database_without_configuration_keeps_its_prefixes_and_interviewers() {
+    let s = Store::open_in_memory().unwrap();
+    s.connection()
+        .execute(
+            "INSERT INTO interviews VALUES ('ECO-16','f','/tmp/f',NULL,'[]','2026-01-01T00:00:00Z')",
+            [],
+        )
+        .unwrap();
+    let cfg = s.study_config().unwrap();
+    for p in ["INT", "ECO", "RET", "ADJ"] {
+        assert!(cfg.id_prefixes.iter().any(|x| x == p), "{p}");
+    }
+    assert!(cfg.interviewers.iter().any(|n| n == "Dos Santos Alexandre"));
 }

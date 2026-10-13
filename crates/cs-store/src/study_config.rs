@@ -28,6 +28,19 @@ use crate::{append_event, from_json, guard_err, now, to_json, validation, Store}
 /// Origins a codebook file may declare (empty means `field`).
 const IMPORT_ORIGINS: [&str; 3] = ["literature", "field", "legacy"];
 
+/// Prefixes of the first study, kept for its databases saved without a configuration.
+const LEGACY_ID_PREFIXES: [&str; 4] = ["INT", "ECO", "RET", "ADJ"];
+/// Interviewer labels of the first study, kept for the same databases.
+const LEGACY_INTERVIEWERS: [&str; 7] = [
+    "Interviewer",
+    "Intervieweur",
+    "Intervieweuse",
+    "Dos Santos Alexandre",
+    "Alexandre Dos Santos",
+    "Alexandre Dos Santos Coelho",
+    "Alex",
+];
+
 impl Store {
     /// The stored configuration, or `StudyConfig::default()` when unset. The
     /// phase 1 categories are those in force (see `StudyConfig::normalised`).
@@ -46,8 +59,28 @@ impl Store {
                 }
                 Ok(cfg.normalised())
             }
-            None => Ok(StudyConfig::default()),
+            None => Ok(self.unset_study_config()?),
         }
+    }
+
+    /// Configuration in force when none was saved. A database created before
+    /// the defaults became neutral (F-15) holds interviews of the first study
+    /// (ids ECO-, RET-, ADJ-) and relied on its prefixes and interviewer
+    /// names: it keeps them, so its interviewer turns are still recognised.
+    /// Any other database gets the neutral defaults.
+    fn unset_study_config(&self) -> Result<StudyConfig> {
+        let legacy: i64 = self.conn.query_row(
+            "SELECT COUNT(*) FROM interviews WHERE interview_id GLOB 'ECO-*' \
+             OR interview_id GLOB 'RET-*' OR interview_id GLOB 'ADJ-*'",
+            [],
+            |r| r.get(0),
+        )?;
+        let mut cfg = StudyConfig::default();
+        if legacy > 0 {
+            cfg.id_prefixes = LEGACY_ID_PREFIXES.iter().map(|s| s.to_string()).collect();
+            cfg.interviewers = LEGACY_INTERVIEWERS.iter().map(|s| s.to_string()).collect();
+        }
+        Ok(cfg.normalised())
     }
 
     /// `set_study_config_with(cfg, false, actor)`.
