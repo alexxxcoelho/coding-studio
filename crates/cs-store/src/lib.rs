@@ -29,7 +29,7 @@ mod study_config;
 mod verification;
 
 pub use codebook::{CodePatch, ImportReport, MergeOutcome};
-pub use codetree::{CodeUpdate, ResolvedCode, Revision};
+pub use codetree::{CodeUpdate, NewCodeFromPassage, ResolvedCode, Revision};
 pub use coding::ResolveRequest;
 pub use passages::{NewPassage, PassageFilter};
 pub use review::{Review, ReviewEntry};

@@ -1525,6 +1525,7 @@ fn audit_filter_by_interview() {
 mod cases_v4;
 mod claims_v4;
 mod codebook_import_v5;
+mod codes_from_passage_v1;
 mod codes_v1;
 mod memos_saturation_v4;
 mod passages_v1;

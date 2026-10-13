@@ -149,6 +149,27 @@ pub struct Passage {
     pub codings: Vec<PassageCoding>,
 }
 
+/// A neighbouring turn, shown around a passage.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct UnitBrief {
+    pub unit_id: String,
+    pub speaker: String,
+    pub text: String,
+}
+
+/// A passage of a code with what the reader needs around it (F-44).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PassageContext {
+    pub passage: Passage,
+    /// Speaker label of the unit (`RESP`, `INT`...).
+    pub speaker: String,
+    pub previous: Option<UnitBrief>,
+    pub next: Option<UnitBrief>,
+    /// Names of the other codes on the same passage, the reserved code
+    /// included.
+    pub other_codes: Vec<String>,
+}
+
 /// One alias of a code.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CodeAlias {

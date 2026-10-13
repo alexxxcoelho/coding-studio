@@ -17,7 +17,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use anyhow::Result;
 use cs_model::passage::{later_node, CodeAlias, CodeCounts, CodeNode, CodeTree, LATER_ID};
 use cs_model::NA;
-use rusqlite::{params, Connection, OptionalExtension};
+use rusqlite::{params, Connection};
 use serde::Deserialize;
 use serde_json::json;
 
@@ -51,6 +51,30 @@ pub struct CodeUpdate {
     pub reason: Option<Option<String>>,
     #[serde(default)]
     pub in_prompt: Option<bool>,
+}
+
+/// A new code made from a passage: from an existing one (`passage_id`, a
+/// highlight for instance) or from a selection (`passage`). The passage
+/// becomes the origin and the first example of the code and is coded with it.
+#[derive(Debug, Clone, Default, Deserialize)]
+pub struct NewCodeFromPassage {
+    pub name: String,
+    pub definition: String,
+    #[serde(default)]
+    pub includes: String,
+    #[serde(default)]
+    pub excludes: String,
+    #[serde(default)]
+    pub parent_id: Option<String>,
+    #[serde(default)]
+    pub passage_id: Option<String>,
+    #[serde(default)]
+    pub passage: Option<crate::passages::NewPassage>,
+    #[serde(default)]
+    pub research_questions: Vec<String>,
+    /// Why the code is created (free text).
+    #[serde(default)]
+    pub reason: Option<String>,
 }
 
 /// One row of `codebook_revisions`.
@@ -853,8 +877,186 @@ impl Store {
         Ok((moved, dedup))
     }
 
+    /// Creates a code from a passage and codes the passage with it, in one
+    /// transaction: the passage is the origin and the example of the code, the
+    /// codebook version advances, one audit event is written. Nothing is kept
+    /// when any part is refused.
+    pub fn create_code_from_passage(
+        &self,
+        req: &NewCodeFromPassage,
+        actor: &str,
+    ) -> Result<(CodeNode, cs_model::passage::Passage)> {
+        let name = check_display_name(&req.name)?;
+        let definition = req.definition.trim();
+        if definition.is_empty() {
+            return Err(validation("a code needs a definition"));
+        }
+        let f = fold(&name);
+        let taken = rows(&self.conn)?
+            .iter()
+            .any(|r| fold(&r.name) == f || fold(&r.token) == f)
+            || aliases(&self.conn)?
+                .iter()
+                .any(|(_, a)| fold(&a.alias) == f);
+        if taken {
+            return Err(validation(format!("the name {name} is already used")));
+        }
+        let parent_id = match req
+            .parent_id
+            .as_deref()
+            .map(str::trim)
+            .filter(|p| !p.is_empty())
+        {
+            None => None,
+            Some(p) => {
+                let row = rows(&self.conn)?
+                    .into_iter()
+                    .find(|r| r.code_id == p || r.token == p)
+                    .ok_or_else(|| validation(format!("unknown parent code {p}")))?;
+                if row.merged_into.is_some() {
+                    return Err(validation(format!(
+                        "code {} was merged and cannot be a parent",
+                        row.code_id
+                    )));
+                }
+                Some(row.code_id)
+            }
+        };
+        let questions = self.check_questions(&req.research_questions)?;
+        if req.passage_id.is_none() && req.passage.is_none() {
+            return Err(validation(
+                "give the passage to code: an existing passage_id or a selection",
+            ));
+        }
+        let tx = self.conn.unchecked_transaction()?;
+        let passage_id = match (&req.passage_id, &req.passage) {
+            (Some(id), _) => {
+                self.passage(id)?;
+                id.clone()
+            }
+            (None, Some(sel)) => self.create_passage_in(&tx, sel, actor)?.0,
+            (None, None) => unreachable!("checked above"),
+        };
+        let passage = self.passage(&passage_id)?;
+        let code_id = Self::next_code_id(&tx)?;
+        let ord = tx
+            .query_row(
+                "SELECT COALESCE(MAX(ord), 0) FROM codes WHERE local = 1",
+                [],
+                |r| r.get::<_, i64>(0),
+            )?
+            .max(100_000)
+            + 1;
+        tx.execute(
+            "INSERT INTO codes (code, family, label, definition, origin, toe, active, in_prompt,
+               research_questions, version, ord, local, example, reason, created_at,
+               code_id, name, parent_id, includes, excludes, origin_passage_id, example_passage_id)
+             VALUES (?1, 'OTHER', '', ?2, 'field', NULL, 1, 1, ?3, 1, ?4, 1, ?5, ?6, ?7,
+               ?1, ?8, ?9, ?10, ?11, ?12, ?12)",
+            params![
+                code_id,
+                definition,
+                crate::to_json(&questions),
+                ord,
+                passage.text,
+                clean_opt(&req.reason),
+                now(),
+                name,
+                parent_id,
+                req.includes.trim(),
+                req.excludes.trim(),
+                passage_id
+            ],
+        )?;
+        self.add_coding_in(&tx, &passage_id, &code_id, "", actor)?;
+        let rev = bump_revision(&tx, actor, "create_from_passage", Some(&code_id))?;
+        append_event(
+            &tx,
+            actor,
+            "codebook.code.create_from_passage",
+            Some(&passage.interview_id),
+            Some(&code_id),
+            json!({
+                "code_id": code_id,
+                "name": name,
+                "definition": definition,
+                "includes": req.includes.trim(),
+                "excludes": req.excludes.trim(),
+                "parent_id": parent_id,
+                "passage_id": passage_id,
+                "unit_id": passage.unit_id,
+                "codebook_version": rev,
+            }),
+        )?;
+        tx.commit()?;
+        Ok((self.code_node(&code_id)?, self.passage(&passage_id)?))
+    }
+
+    /// The passages carrying a code (or one of its descendants), each with
+    /// the speaker, the previous and next turn and the other codes present,
+    /// in interview and unit order. Deleted passages and the reserved code
+    /// are not part of it.
+    pub fn passages_of_code(
+        &self,
+        key: &str,
+        include_descendants: bool,
+    ) -> Result<Vec<cs_model::passage::PassageContext>> {
+        use cs_model::passage::{PassageContext, UnitBrief};
+        let resolved = self.resolve_code(key)?;
+        let mut wanted: BTreeSet<String> = BTreeSet::from([resolved.code_id.clone()]);
+        if include_descendants && !resolved.system {
+            let all = rows(&self.conn)?;
+            let mut grew = true;
+            while grew {
+                grew = false;
+                for r in &all {
+                    if r.parent_id.as_ref().is_some_and(|p| wanted.contains(p))
+                        && wanted.insert(r.code_id.clone())
+                    {
+                        grew = true;
+                    }
+                }
+            }
+        }
+        let mut out = Vec::new();
+        let mut segs: BTreeMap<String, Vec<cs_model::Unit>> = BTreeMap::new();
+        for p in self.passages(&crate::passages::PassageFilter::default())? {
+            if !p.codings.iter().any(|c| wanted.contains(&c.code_id)) {
+                continue;
+            }
+            if !segs.contains_key(&p.interview_id) {
+                let units = self
+                    .segmentation(&p.interview_id)?
+                    .map(|s| s.units)
+                    .unwrap_or_default();
+                segs.insert(p.interview_id.clone(), units);
+            }
+            let units = &segs[&p.interview_id];
+            let idx = units.iter().position(|u| u.unit_id == p.unit_id);
+            let brief = |i: usize| UnitBrief {
+                unit_id: units[i].unit_id.clone(),
+                speaker: units[i].speaker_raw.clone(),
+                text: units[i].text.clone(),
+            };
+            out.push(PassageContext {
+                speaker: idx
+                    .map(|i| units[i].speaker_raw.clone())
+                    .unwrap_or_default(),
+                previous: idx.filter(|i| *i > 0).map(|i| brief(i - 1)),
+                next: idx.filter(|i| i + 1 < units.len()).map(|i| brief(i + 1)),
+                other_codes: p
+                    .codings
+                    .iter()
+                    .filter(|c| !wanted.contains(&c.code_id))
+                    .map(|c| c.code_name.clone())
+                    .collect(),
+                passage: p,
+            });
+        }
+        Ok(out)
+    }
+
     /// Next free stable id.
-    #[allow(dead_code)]
     pub(crate) fn next_code_id(conn: &Connection) -> Result<String> {
         let max: i64 = conn.query_row(
             "SELECT COALESCE(MAX(CAST(substr(code_id, 3) AS INTEGER)), 0) FROM codes
@@ -863,20 +1065,6 @@ impl Store {
             |r| r.get(0),
         )?;
         Ok(format!("C-{:04}", max + 1))
-    }
-
-    /// Whether a legacy token is free (no code token, id, name or alias).
-    #[allow(dead_code)]
-    pub(crate) fn token_taken(conn: &Connection, token: &str) -> Result<bool> {
-        let n: Option<i64> = conn
-            .query_row(
-                "SELECT 1 FROM codes WHERE code = ?1 OR code_id = ?1
-                 UNION SELECT 1 FROM code_aliases WHERE alias = ?1",
-                [token],
-                |r| r.get(0),
-            )
-            .optional()?;
-        Ok(n.is_some())
     }
 }
 
