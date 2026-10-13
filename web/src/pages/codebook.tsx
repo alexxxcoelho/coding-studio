@@ -168,6 +168,8 @@ export function CodebookPage() {
                               className="tri"
                               aria-label={hasChildren ? (open ? `Replier ${c.name}` : `Déplier ${c.name}`) : undefined}
                               disabled={!hasChildren}
+                              aria-hidden={!hasChildren || undefined}
+                              tabIndex={hasChildren ? undefined : -1}
                               onClick={(e) => {
                                 e.stopPropagation()
                                 toggle(c.code_id)

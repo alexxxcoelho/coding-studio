@@ -143,7 +143,7 @@ describe("Réglages", () => {
     const d = await screen.findByRole("dialog", { name: /Réglages/ })
     fireEvent.mouseDown(within(d).getByRole("tab", { name: "Fournisseurs IA" }), { button: 0 })
     fireEvent.keyDown(within(d).getByRole("tab", { name: "Fournisseurs IA" }), { key: "Enter" })
-    expect(await within(d).findByRole("region", { name: "Model providers" })).toBeInTheDocument()
+    expect(await within(d).findByRole("region", { name: "Fournisseurs de modèles" })).toBeInTheDocument()
   })
 
   it("shows the database path in Avancé", async () => {

@@ -2,7 +2,7 @@
 // below are the interface the implementation must honour.
 //
 // - Regions named by their heading: "Study configuration", "Import du codebook"
-//   (page Paramètres de l'étude) and "Model providers" (tab of Réglages).
+//   (page Paramètres de l'étude) and "Fournisseurs de modèles" (tab of Réglages).
 // - Selects are native <select> elements, so tests drive them with change events.
 // - Server refusals of a save are shown inside the region (role="alert"),
 //   never only as a toast.
@@ -212,7 +212,7 @@ describe("study configuration form", () => {
     const r = await study()
     change(within(r).getByLabelText("Longueur maximale d'une unité, en mots"), "10")
     fireEvent.click(within(r).getByRole("button", { name: "Enregistrer l'étude" }))
-    expect(await within(r).findByText("max_words must be at least 20, not 10")).toBeInTheDocument()
+    expect(await within(r).findByText("le nombre maximal de mots doit valoir au moins 20, pas 10")).toBeInTheDocument()
     expect(putConfig()).toHaveLength(0)
   })
 
@@ -221,16 +221,16 @@ describe("study configuration form", () => {
     change(within(r).getByLabelText("Jeu de catégories de départ"), "custom")
     change(within(r).getByLabelText("Code de la catégorie 2"), "  ")
     fireEvent.click(within(r).getByRole("button", { name: "Enregistrer l'étude" }))
-    expect(await within(r).findByText("a phase 1 category name is empty")).toBeInTheDocument()
+    expect(await within(r).findByText("le nom d'une catégorie de phase 1 est vide")).toBeInTheDocument()
     expect(putConfig()).toHaveLength(0)
   })
 
   it("shows the server's validation error next to the form", async () => {
     const r = await study()
-    mock.on("PUT", "/api/config", { status: 400, body: { error: "duplicate phase 1 category ALPHA", kind: "validation" } })
+    mock.on("PUT", "/api/config", { status: 400, body: { error: "catégorie de phase 1 en double : ALPHA", kind: "validation" } })
     fireEvent.click(within(r).getByRole("button", { name: "Enregistrer l'étude" }))
     const alert = await within(r).findByRole("alert")
-    expect(alert).toHaveTextContent("duplicate phase 1 category ALPHA")
+    expect(alert).toHaveTextContent("catégorie de phase 1 en double : ALPHA")
     expect(within(r).queryByText("Étude enregistrée")).toBeNull()
   })
 
@@ -330,7 +330,7 @@ describe("codebook import", () => {
 describe("model providers", () => {
   async function region() {
     renderWithClient(<ProvidersSection pollMs={5} />)
-    const r = await screen.findByRole("region", { name: "Model providers" })
+    const r = await screen.findByRole("region", { name: "Fournisseurs de modèles" })
     await within(r).findByText("claude_cli")
     return r
   }
@@ -340,39 +340,39 @@ describe("model providers", () => {
     const r = await region()
     const rows = within(r).getAllByRole("listitem")
     expect(rows.map((row) => within(row).getAllByText(/^(copy_paste|claude_cli|gpt)$/)[0].textContent)).toEqual(["copy_paste", "claude_cli", "gpt"])
-    expect(within(rows[0]).queryByRole("button", { name: /^(Edit|Remove|Probe)/ })).toBeNull()
+    expect(within(rows[0]).queryByRole("button", { name: /^(Modifier|Retirer|Tester)/ })).toBeNull()
     expect(within(rows[1]).getByText("command local, model hosted")).toBeInTheDocument()
-    expect(within(rows[1]).getByText("configured")).toBeInTheDocument()
-    expect(within(rows[2]).getByText("not configured")).toBeInTheDocument()
+    expect(within(rows[1]).getByText("configuré")).toBeInTheDocument()
+    expect(within(rows[2]).getByText("non configuré")).toBeInTheDocument()
     expect(within(rows[2]).getByText("hosted (openai, https://api.openai.com/v1)")).toBeInTheDocument()
   })
 
   it("never offers a field for the key itself", async () => {
     const r = await region()
-    fireEvent.click(within(r).getByRole("button", { name: "Add provider" }))
-    change(within(r).getByLabelText("Provider kind"), "open_ai_compatible")
-    expect(within(r).getByLabelText("API key variable name")).toBeInTheDocument()
+    fireEvent.click(within(r).getByRole("button", { name: "Ajouter un fournisseur" }))
+    change(within(r).getByLabelText("Type de fournisseur"), "open_ai_compatible")
+    expect(within(r).getByLabelText("Nom de la variable de la clé d'API")).toBeInTheDocument()
     expect(within(r).queryByLabelText(/^API key$/i)).toBeNull()
     expect(r.querySelector("input[type=password]")).toBeNull()
   })
 
   it("adds a command line provider and saves the whole configuration", async () => {
     const r = await region()
-    fireEvent.click(within(r).getByRole("button", { name: "Add provider" }))
-    expect(within(r).getByLabelText("Provider kind")).toHaveValue("cli")
-    const kinds = within(within(r).getByLabelText("Provider kind")).getAllByRole("option")
+    fireEvent.click(within(r).getByRole("button", { name: "Ajouter un fournisseur" }))
+    expect(within(r).getByLabelText("Type de fournisseur")).toHaveValue("cli")
+    const kinds = within(within(r).getByLabelText("Type de fournisseur")).getAllByRole("option")
     expect(kinds.map((o) => (o as HTMLOptionElement).value)).toEqual(["cli", "open_ai_compatible", "oauth_chat_gpt"])
-    change(within(r).getByLabelText("Provider id"), "local_llm")
-    change(within(r).getByLabelText("Command"), "/usr/local/bin/llm")
-    change(within(r).getByLabelText("Arguments (one per line)"), "--quiet\n--json")
-    change(within(r).getByLabelText("Prompt via"), "arg")
-    change(within(r).getByLabelText("Disable flags (one per line)"), "--no-memory")
-    change(within(r).getByLabelText("Model label"), "llama-3")
-    expect(within(r).queryByLabelText("Vendor")).toBeNull()
-    change(within(r).getByLabelText("Declared execution"), "hosted")
-    change(within(r).getByLabelText("Vendor"), "meta")
+    change(within(r).getByLabelText("Identifiant du fournisseur"), "local_llm")
+    change(within(r).getByLabelText("Commande"), "/usr/local/bin/llm")
+    change(within(r).getByLabelText("Arguments (un par ligne)"), "--quiet\n--json")
+    change(within(r).getByLabelText("Envoi du prompt par"), "arg")
+    change(within(r).getByLabelText("Options de désactivation (une par ligne)"), "--no-memory")
+    change(within(r).getByLabelText("Libellé du modèle"), "llama-3")
+    expect(within(r).queryByLabelText("Éditeur")).toBeNull()
+    change(within(r).getByLabelText("Exécution déclarée"), "hosted")
+    change(within(r).getByLabelText("Éditeur"), "meta")
     change(within(r).getByLabelText("Endpoint"), "https://llm.example/v1")
-    fireEvent.click(within(r).getByRole("button", { name: "Save provider" }))
+    fireEvent.click(within(r).getByRole("button", { name: "Enregistrer le fournisseur" }))
     await waitFor(() => expect(putProviders()).toHaveLength(1))
     expect(putProviders()[0].body).toEqual({
       providers: [
@@ -395,19 +395,19 @@ describe("model providers", () => {
 
   it("adds an OpenAI-compatible provider; a custom preset needs a base url", async () => {
     const r = await region()
-    fireEvent.click(within(r).getByRole("button", { name: "Add provider" }))
-    change(within(r).getByLabelText("Provider kind"), "open_ai_compatible")
-    const presets = within(within(r).getByLabelText("Preset")).getAllByRole("option")
+    fireEvent.click(within(r).getByRole("button", { name: "Ajouter un fournisseur" }))
+    change(within(r).getByLabelText("Type de fournisseur"), "open_ai_compatible")
+    const presets = within(within(r).getByLabelText("Préréglage")).getAllByRole("option")
     expect(presets.map((o) => (o as HTMLOptionElement).value)).toEqual(["openai", "zai", "custom"])
-    change(within(r).getByLabelText("Provider id"), "lan")
-    change(within(r).getByLabelText("Preset"), "custom")
-    change(within(r).getByLabelText("API key variable name"), "LAN_KEY")
-    change(within(r).getByLabelText("Model"), "qwen")
-    fireEvent.click(within(r).getByRole("button", { name: "Save provider" }))
-    expect(await within(r).findByText("a custom preset needs a base_url")).toBeInTheDocument()
+    change(within(r).getByLabelText("Identifiant du fournisseur"), "lan")
+    change(within(r).getByLabelText("Préréglage"), "custom")
+    change(within(r).getByLabelText("Nom de la variable de la clé d'API"), "LAN_KEY")
+    change(within(r).getByLabelText("Modèle"), "qwen")
+    fireEvent.click(within(r).getByRole("button", { name: "Enregistrer le fournisseur" }))
+    expect(await within(r).findByText("un préréglage personnalisé demande une URL de base")).toBeInTheDocument()
     expect(putProviders()).toHaveLength(0)
-    change(within(r).getByLabelText("Base URL"), "http://127.0.0.1:8080/v1")
-    fireEvent.click(within(r).getByRole("button", { name: "Save provider" }))
+    change(within(r).getByLabelText("URL de base"), "http://127.0.0.1:8080/v1")
+    fireEvent.click(within(r).getByRole("button", { name: "Enregistrer le fournisseur" }))
     await waitFor(() => expect(putProviders()).toHaveLength(1))
     expect(putProviders()[0].body).toMatchObject({
       providers: [CLI, GPT, { type: "open_ai_compatible", id: "lan", preset: "custom", base_url: "http://127.0.0.1:8080/v1", api_key_env: "LAN_KEY", model: "qwen" }],
@@ -416,25 +416,25 @@ describe("model providers", () => {
 
   it("refuses a pasted key in the variable name field", async () => {
     const r = await region()
-    fireEvent.click(within(r).getByRole("button", { name: "Add provider" }))
-    change(within(r).getByLabelText("Provider kind"), "open_ai_compatible")
-    change(within(r).getByLabelText("Provider id"), "oops")
-    change(within(r).getByLabelText("API key variable name"), "sk-abc123-def456")
-    change(within(r).getByLabelText("Model"), "m")
-    fireEvent.click(within(r).getByRole("button", { name: "Save provider" }))
-    expect(await within(r).findByText("api_key_env is the name of an environment variable, not the key itself")).toBeInTheDocument()
+    fireEvent.click(within(r).getByRole("button", { name: "Ajouter un fournisseur" }))
+    change(within(r).getByLabelText("Type de fournisseur"), "open_ai_compatible")
+    change(within(r).getByLabelText("Identifiant du fournisseur"), "oops")
+    change(within(r).getByLabelText("Nom de la variable de la clé d'API"), "sk-abc123-def456")
+    change(within(r).getByLabelText("Modèle"), "m")
+    fireEvent.click(within(r).getByRole("button", { name: "Enregistrer le fournisseur" }))
+    expect(await within(r).findByText("api_key_env est le nom d'une variable d'environnement, pas la clé elle-même")).toBeInTheDocument()
     expect(putProviders()).toHaveLength(0)
   })
 
   it("adds a ChatGPT account provider", async () => {
     const r = await region()
-    fireEvent.click(within(r).getByRole("button", { name: "Add provider" }))
-    change(within(r).getByLabelText("Provider kind"), "oauth_chat_gpt")
-    change(within(r).getByLabelText("Provider id"), "chatgpt")
-    change(within(r).getByLabelText("Profile"), "work")
-    change(within(r).getByLabelText("Model"), "gpt-5")
-    change(within(r).getByLabelText("Token directory"), "/tmp/tokens")
-    fireEvent.click(within(r).getByRole("button", { name: "Save provider" }))
+    fireEvent.click(within(r).getByRole("button", { name: "Ajouter un fournisseur" }))
+    change(within(r).getByLabelText("Type de fournisseur"), "oauth_chat_gpt")
+    change(within(r).getByLabelText("Identifiant du fournisseur"), "chatgpt")
+    change(within(r).getByLabelText("Profil"), "work")
+    change(within(r).getByLabelText("Modèle"), "gpt-5")
+    change(within(r).getByLabelText("Dossier des jetons"), "/tmp/tokens")
+    fireEvent.click(within(r).getByRole("button", { name: "Enregistrer le fournisseur" }))
     await waitFor(() => expect(putProviders()).toHaveLength(1))
     expect(putProviders()[0].body).toMatchObject({
       providers: [CLI, GPT, { type: "oauth_chat_gpt", id: "chatgpt", profile_id: "work", model: "gpt-5", token_dir: "/tmp/tokens" }],
@@ -443,38 +443,38 @@ describe("model providers", () => {
 
   it("edits an entry in place, keeping the order", async () => {
     const r = await region()
-    fireEvent.click(within(r).getByRole("button", { name: "Edit claude_cli" }))
-    expect(within(r).getByLabelText("Provider id")).toHaveValue("claude_cli")
-    expect(within(r).getByLabelText("Command")).toHaveValue("claude")
-    expect(within(r).getByLabelText("Arguments (one per line)")).toHaveValue("-p")
-    expect(within(r).getByLabelText("Declared execution")).toHaveValue("hosted")
-    expect(within(r).getByLabelText("Vendor")).toHaveValue("anthropic")
-    change(within(r).getByLabelText("Model label"), "claude-y")
-    fireEvent.click(within(r).getByRole("button", { name: "Save provider" }))
+    fireEvent.click(within(r).getByRole("button", { name: "Modifier claude_cli" }))
+    expect(within(r).getByLabelText("Identifiant du fournisseur")).toHaveValue("claude_cli")
+    expect(within(r).getByLabelText("Commande")).toHaveValue("claude")
+    expect(within(r).getByLabelText("Arguments (un par ligne)")).toHaveValue("-p")
+    expect(within(r).getByLabelText("Exécution déclarée")).toHaveValue("hosted")
+    expect(within(r).getByLabelText("Éditeur")).toHaveValue("anthropic")
+    change(within(r).getByLabelText("Libellé du modèle"), "claude-y")
+    fireEvent.click(within(r).getByRole("button", { name: "Enregistrer le fournisseur" }))
     await waitFor(() => expect(putProviders()).toHaveLength(1))
     expect(putProviders()[0].body).toEqual({ providers: [{ ...CLI, model_label: "claude-y" }, GPT] })
   })
 
   it("does not accept a second provider with the same id", async () => {
     const r = await region()
-    fireEvent.click(within(r).getByRole("button", { name: "Add provider" }))
-    change(within(r).getByLabelText("Provider id"), "gpt")
-    change(within(r).getByLabelText("Command"), "x")
-    fireEvent.click(within(r).getByRole("button", { name: "Save provider" }))
-    expect(await within(r).findByText("duplicate provider id gpt")).toBeInTheDocument()
+    fireEvent.click(within(r).getByRole("button", { name: "Ajouter un fournisseur" }))
+    change(within(r).getByLabelText("Identifiant du fournisseur"), "gpt")
+    change(within(r).getByLabelText("Commande"), "x")
+    fireEvent.click(within(r).getByRole("button", { name: "Enregistrer le fournisseur" }))
+    expect(await within(r).findByText("identifiant de fournisseur en double : gpt")).toBeInTheDocument()
     expect(putProviders()).toHaveLength(0)
   })
 
   it("shows a server refusal of the providers configuration", async () => {
     const r = await region()
     mock.on("PUT", "/api/providers", { status: 400, body: { error: "custom preset needs a base_url", kind: "validation" } })
-    fireEvent.click(within(r).getByRole("button", { name: "Remove gpt" }))
+    fireEvent.click(within(r).getByRole("button", { name: "Retirer gpt" }))
     expect(await within(r).findByRole("alert")).toHaveTextContent("custom preset needs a base_url")
   })
 
   it("removes an entry", async () => {
     const r = await region()
-    fireEvent.click(within(r).getByRole("button", { name: "Remove claude_cli" }))
+    fireEvent.click(within(r).getByRole("button", { name: "Retirer claude_cli" }))
     await waitFor(() => expect(putProviders()).toHaveLength(1))
     expect(putProviders()[0].body).toEqual({ providers: [GPT] })
     await waitFor(() => expect(within(r).queryByText("claude_cli")).toBeNull())
@@ -484,12 +484,12 @@ describe("model providers", () => {
     const r = await region()
     const report: IsolationReport = { ok: true, cwd_empty: true, env_scrubbed: true, instruction_files_absent: true, probe_answer: "NONE" }
     mock.on("POST", "/api/providers/claude_cli/probe", { body: report })
-    fireEvent.click(within(r).getByRole("button", { name: "Probe claude_cli" }))
-    expect(await within(r).findByText("Isolation check passed")).toBeInTheDocument()
-    const rows = within(r).getByRole("list", { name: "Isolation report of claude_cli" })
-    expect(within(rows).getByText("Empty working directory").parentElement).toHaveTextContent("yes")
-    expect(within(rows).getByText("Scrubbed environment").parentElement).toHaveTextContent("yes")
-    expect(within(rows).getByText("No instruction files").parentElement).toHaveTextContent("yes")
+    fireEvent.click(within(r).getByRole("button", { name: "Tester claude_cli" }))
+    expect(await within(r).findByText("Contrôle d'isolation réussi")).toBeInTheDocument()
+    const rows = within(r).getByRole("list", { name: "Rapport d'isolation de claude_cli" })
+    expect(within(rows).getByText("Dossier de travail vide").parentElement).toHaveTextContent("oui")
+    expect(within(rows).getByText("Environnement nettoyé").parentElement).toHaveTextContent("oui")
+    expect(within(rows).getByText("Aucun fichier d'instructions").parentElement).toHaveTextContent("oui")
     expect(within(r).getByText("NONE")).toBeInTheDocument()
   })
 
@@ -498,16 +498,16 @@ describe("model providers", () => {
     mock.on("POST", "/api/providers/claude_cli/probe", {
       body: { ok: false, cwd_empty: true, env_scrubbed: true, instruction_files_absent: false, probe_answer: "I can see CLAUDE.md" },
     })
-    fireEvent.click(within(r).getByRole("button", { name: "Probe claude_cli" }))
-    expect(await within(r).findByText("Isolation check failed")).toBeInTheDocument()
+    fireEvent.click(within(r).getByRole("button", { name: "Tester claude_cli" }))
+    expect(await within(r).findByText("Contrôle d'isolation échoué")).toBeInTheDocument()
     expect(within(r).getByText("I can see CLAUDE.md")).toBeInTheDocument()
-    expect(within(within(r).getByRole("list", { name: "Isolation report of claude_cli" })).getByText("No instruction files").parentElement).toHaveTextContent("no")
+    expect(within(within(r).getByRole("list", { name: "Rapport d'isolation de claude_cli" })).getByText("Aucun fichier d'instructions").parentElement).toHaveTextContent("non")
   })
 
   it("probes command line providers only", async () => {
     const r = await region()
-    expect(within(r).queryByRole("button", { name: "Probe gpt" })).toBeNull()
-    expect(within(r).queryByRole("button", { name: "Probe copy_paste" })).toBeNull()
+    expect(within(r).queryByRole("button", { name: "Tester gpt" })).toBeNull()
+    expect(within(r).queryByRole("button", { name: "Tester copy_paste" })).toBeNull()
   })
 
   it("connects a ChatGPT account: shows the address to open, then follows the sign-in", async () => {
@@ -520,13 +520,13 @@ describe("model providers", () => {
         : { body: { connected: true, pending: false, profile: { id: "p1", email: "me@example.org" }, error: null } },
     )
     renderWithClient(<ProvidersSection pollMs={5} />)
-    const r = await screen.findByRole("region", { name: "Model providers" })
-    fireEvent.click(await within(r).findByRole("button", { name: "Connect chatgpt" }))
+    const r = await screen.findByRole("region", { name: "Fournisseurs de modèles" })
+    fireEvent.click(await within(r).findByRole("button", { name: "Connecter chatgpt" }))
     const link = await within(r).findByRole("link", { name: "https://auth.example/authorize?state=abc" })
     expect(link).toHaveAttribute("href", "https://auth.example/authorize?state=abc")
     expect(link).toHaveAttribute("target", "_blank")
     expect(mock.to("POST", "/api/providers/chatgpt/oauth/begin")).toHaveLength(1)
-    expect(await within(r).findByText("Connected as me@example.org")).toBeInTheDocument()
+    expect(await within(r).findByText("Connecté en tant que me@example.org")).toBeInTheDocument()
     expect(mock.to("GET", "/api/providers/chatgpt/oauth/status").length).toBeGreaterThanOrEqual(3)
     // Polling stops once connected.
     const n = mock.to("GET", "/api/providers/chatgpt/oauth/status").length
@@ -540,8 +540,8 @@ describe("model providers", () => {
     mock.on("POST", "/api/providers/chatgpt/oauth/begin", { body: { url: "https://auth.example/a", state: "s" } })
     mock.on("GET", "/api/providers/chatgpt/oauth/status", { body: { connected: false, pending: false, profile: null, error: "the sign-in timed out" } })
     renderWithClient(<ProvidersSection pollMs={5} />)
-    const r = await screen.findByRole("region", { name: "Model providers" })
-    fireEvent.click(await within(r).findByRole("button", { name: "Connect chatgpt" }))
+    const r = await screen.findByRole("region", { name: "Fournisseurs de modèles" })
+    fireEvent.click(await within(r).findByRole("button", { name: "Connecter chatgpt" }))
     expect(await within(r).findByRole("alert")).toHaveTextContent("the sign-in timed out")
     const n = mock.to("GET", "/api/providers/chatgpt/oauth/status").length
     await new Promise((res) => setTimeout(res, 60))
@@ -550,6 +550,6 @@ describe("model providers", () => {
 
   it("offers Connect for ChatGPT accounts only", async () => {
     const r = await region()
-    expect(within(r).queryByRole("button", { name: /^Connect/ })).toBeNull()
+    expect(within(r).queryByRole("button", { name: /^Connecter/ })).toBeNull()
   })
 })

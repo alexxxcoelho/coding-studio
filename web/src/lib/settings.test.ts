@@ -88,19 +88,19 @@ describe("study form", () => {
   })
 
   it("refuses max_words below 20 with the server's words", () => {
-    expect(validateForm({ ...formFromConfig(TOE), max_words: "10" }).max_words).toBe("max_words must be at least 20, not 10")
+    expect(validateForm({ ...formFromConfig(TOE), max_words: "10" }).max_words).toBe("le nombre maximal de mots doit valoir au moins 20, pas 10")
     expect(validateForm({ ...formFromConfig(TOE), max_words: "20" }).max_words).toBeUndefined()
-    expect(validateForm({ ...formFromConfig(TOE), max_words: "" }).max_words).toMatch(/whole number/)
-    expect(validateForm({ ...formFromConfig(TOE), max_words: "30.5" }).max_words).toMatch(/whole number/)
+    expect(validateForm({ ...formFromConfig(TOE), max_words: "" }).max_words).toMatch(/être un entier/)
+    expect(validateForm({ ...formFromConfig(TOE), max_words: "30.5" }).max_words).toMatch(/être un entier/)
   })
 
   it("refuses empty, reserved and duplicate category names for custom only", () => {
     const row = (code: string) => ({ code, label: "l", definition: "d", attachment: "" })
     const v = (codes: string[]) => validateForm({ ...customForm(), categories: codes.map(row) }).categories
-    expect(v([])).toBe("the phase 1 category list is empty")
-    expect(v(["ALPHA", "  "])).toBe("a phase 1 category name is empty")
-    expect(v(["NA"])).toBe("NA is reserved and cannot be a phase 1 category")
-    expect(v(["ALPHA", "BETA", "ALPHA"])).toBe("duplicate phase 1 category ALPHA")
+    expect(v([])).toBe("la liste des catégories de phase 1 est vide")
+    expect(v(["ALPHA", "  "])).toBe("le nom d'une catégorie de phase 1 est vide")
+    expect(v(["NA"])).toBe("NA est réservé et ne peut pas être une catégorie de phase 1")
+    expect(v(["ALPHA", "BETA", "ALPHA"])).toBe("catégorie de phase 1 en double : ALPHA")
     expect(v(["ALPHA", "BETA"])).toBeUndefined()
     // A preset ignores the (hidden) table.
     const preset = { ...formFromConfig(TOE), categories: [row("")] }
@@ -109,15 +109,15 @@ describe("study form", () => {
 
   it("checks id prefixes", () => {
     const v = (p: string[]) => validateForm({ ...formFromConfig(TOE), id_prefixes: p }).id_prefixes
-    expect(v([])).toBe("id_prefixes must list at least one prefix")
-    expect(v(["A-B"])).toBe('id_prefixes: "A-B" must contain only letters and digits')
-    expect(v(["INT", "INT"])).toBe("id_prefixes: duplicate prefix INT")
+    expect(v([])).toBe("indiquez au moins un préfixe d'identifiant")
+    expect(v(["A-B"])).toBe("préfixes d'identifiant : « A-B » ne doit contenir que des lettres et des chiffres")
+    expect(v(["INT", "INT"])).toBe("préfixes d'identifiant : INT en double")
     expect(v(["INT", "RET2"])).toBeUndefined()
   })
 
   it("requires a prompt version", () => {
     const f = formFromConfig(TOE)
-    expect(validateForm({ ...f, template: { ...f.template, version: "  " } }).prompt_version).toBe("the prompt template version is empty")
+    expect(validateForm({ ...f, template: { ...f.template, version: "  " } }).prompt_version).toBe("la version du modèle de prompt est vide")
   })
 
   it("adds and removes chips", () => {
@@ -182,14 +182,14 @@ describe("provider form", () => {
   it("validates ids, commands and hosted declarations", () => {
     const base = { ...emptyProviderForm("cli"), id: "ok", command: "tool" }
     expect(validateProviderForm(base, [])).toEqual({})
-    expect(validateProviderForm({ ...base, id: " " }, []).id).toBe("the provider id is empty")
-    expect(validateProviderForm({ ...base, id: "copy_paste" }, []).id).toBe("copy_paste is reserved for the manual workflow")
-    expect(validateProviderForm(base, ["ok"]).id).toBe("duplicate provider id ok")
-    expect(validateProviderForm({ ...base, command: "" }, []).command).toBe("the command is empty")
+    expect(validateProviderForm({ ...base, id: " " }, []).id).toBe("l'identifiant du fournisseur est vide")
+    expect(validateProviderForm({ ...base, id: "copy_paste" }, []).id).toBe("copy_paste est réservé au parcours manuel")
+    expect(validateProviderForm(base, ["ok"]).id).toBe("identifiant de fournisseur en double : ok")
+    expect(validateProviderForm({ ...base, command: "" }, []).command).toBe("la commande est vide")
     const hosted = { ...base, execution: "hosted" as const }
     expect(validateProviderForm(hosted, [])).toMatchObject({
-      vendor: "the vendor of a hosted model is required",
-      endpoint: "the endpoint of a hosted model is required",
+      vendor: "l'éditeur d'un modèle hébergé est obligatoire",
+      endpoint: "le point d'accès d'un modèle hébergé est obligatoire",
     })
     expect(validateProviderForm({ ...hosted, vendor: "v", endpoint: "e" }, [])).toEqual({})
   })
@@ -197,13 +197,13 @@ describe("provider form", () => {
   it("validates the API kinds, and refuses a key pasted as its variable name", () => {
     const base = { ...emptyProviderForm("open_ai_compatible"), id: "gpt", api_key_env: "OPENAI_API_KEY", model: "gpt-4o" }
     expect(validateProviderForm(base, [])).toEqual({})
-    expect(validateProviderForm({ ...base, preset: "custom" }, []).base_url).toBe("a custom preset needs a base_url")
+    expect(validateProviderForm({ ...base, preset: "custom" }, []).base_url).toBe("un préréglage personnalisé demande une URL de base")
     expect(validateProviderForm({ ...base, preset: "custom", base_url: "http://127.0.0.1:8080/v1" }, [])).toEqual({})
-    expect(validateProviderForm({ ...base, api_key_env: "" }, []).api_key_env).toBe("the name of the environment variable that holds the key is required")
+    expect(validateProviderForm({ ...base, api_key_env: "" }, []).api_key_env).toBe("le nom de la variable d'environnement qui contient la clé est obligatoire")
     expect(validateProviderForm({ ...base, api_key_env: "sk-abc123-def456" }, []).api_key_env).toBe(
-      "api_key_env is the name of an environment variable, not the key itself",
+      "api_key_env est le nom d'une variable d'environnement, pas la clé elle-même",
     )
-    expect(validateProviderForm({ ...base, model: "" }, []).model).toBe("the model is required")
+    expect(validateProviderForm({ ...base, model: "" }, []).model).toBe("le modèle est obligatoire")
     const oauth = { ...emptyProviderForm("oauth_chat_gpt"), id: "chatgpt" }
     expect(validateProviderForm(oauth, [])).toEqual({})
   })

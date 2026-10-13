@@ -108,8 +108,8 @@
     --sb: rgba(236, 236, 238, .84);
     --sb-edge: rgba(0, 0, 0, .07);
     --label: #1D1D1F;
-    --label2: #5E5E63;
-    --label3: #8A8A8E;
+    --label2: #55555A;
+    --label3: #757579;
     --sep: rgba(0, 0, 0, .1);
     --fill: rgba(0, 0, 0, .045);
     --fill2: rgba(0, 0, 0, .085);
@@ -202,7 +202,7 @@
 .dark {
     --accent-c: var(--acD);
     --accent-fill: var(--acDS);
-    --accent-text: var(--acD);
+    --accent-text: color-mix(in srgb, var(--acD) 78%, #fff);
 
     --bg: #1E1E1F;
     --under: #161617;
@@ -210,8 +210,8 @@
     --sb: rgba(44, 44, 46, .84);
     --sb-edge: rgba(255, 255, 255, .08);
     --label: #F5F5F7;
-    --label2: #AEAEB2;
-    --label3: #7C7C80;
+    --label2: #B8B8BD;
+    --label3: #8E8E93;
     --sep: rgba(255, 255, 255, .11);
     --fill: rgba(255, 255, 255, .06);
     --fill2: rgba(255, 255, 255, .11);
@@ -345,6 +345,13 @@
   .search input { border: 0; outline: 0; background: transparent; font: inherit; font-size: 13px; color: var(--label); flex: 1; min-width: 0; }
   .search input:focus-visible { outline: 0; }
   .search:focus-within { outline: 3px solid color-mix(in srgb, var(--accent-c) 45%, transparent); }
+  /* Narrow windows: the search field folds to its magnifier and opens on focus, so the toolbar keeps one line. */
+  @media (max-width: 1100px) {
+    .search { width: 34px; padding: 0 9px; transition: width .12s; flex: none; }
+    .search input { width: 0; flex: 0 0 0; padding: 0; }
+    .search:focus-within { width: 210px; padding: 0 12px; }
+    .search:focus-within input { flex: 1; width: auto; }
+  }
   .help {
     width: 24px; height: 24px; border-radius: 50%; border: 0; background: var(--ctl); box-shadow: var(--ctl-shadow), 0 0 0 .5px var(--ctl-edge);
     font: inherit; font-size: 13px; font-weight: 600; color: var(--label); cursor: pointer; flex: none;
@@ -430,6 +437,7 @@
   .applied .hint { margin-left: auto; font-size: 11.5px; color: var(--label2); display: flex; gap: 10px; }
   .mk { background: color-mix(in srgb, var(--k) 22%, transparent); border-bottom: 2px solid var(--k); padding: 1px 0; border-radius: 2px 2px 0 0; cursor: pointer; }
   .hl { background: color-mix(in srgb, var(--yellow) 45%, transparent); border-radius: 2px; padding: 1px 0; cursor: pointer; }
+  .dark .hl { background: color-mix(in srgb, var(--yellow) 28%, transparent); }
   .hl.cur, .mk.cur { box-shadow: 0 0 0 1.5px var(--orange); }
   .seltext { background: color-mix(in srgb, var(--accent-c) 32%, transparent); border-radius: 2px; }
   .tag { background: var(--fill); }
