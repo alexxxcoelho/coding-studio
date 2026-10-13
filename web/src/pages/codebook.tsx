@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
+import { analysisApi } from "@/lib/analysis-api"
 import { ApiError, api } from "@/lib/api"
 import { buildRows, codeColor, descendantIds, filterRows, LATER_ID, possibleParents, wouldCycle } from "@/lib/code-tree"
 import { keys, useCodes } from "@/lib/hooks"
@@ -254,7 +255,7 @@ function Inspector({
   const [includes, setIncludes] = useState(code.includes)
   const [excludes, setExcludes] = useState(code.excludes)
   const [rqs, setRqs] = useState(code.research_questions)
-  const [reason, setReason] = useState(code.reason ?? "")
+  const [memo, setMemo] = useState(code.memo ?? "")
   const [alias, setAlias] = useState("")
   const [mergeOpen, setMergeOpen] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -265,19 +266,22 @@ function Inspector({
     definition !== code.definition ||
     includes !== code.includes ||
     excludes !== code.excludes ||
-    reason !== (code.reason ?? "") ||
+    memo !== (code.memo ?? "") ||
     rqs.join("|") !== code.research_questions.join("|")
 
   const save = useMutation({
-    mutationFn: () =>
-      api.updateCode(code.code_id, {
+    mutationFn: async () => {
+      const saved = await api.updateCode(code.code_id, {
         name: name.trim(),
         definition: definition.trim(),
         includes,
         excludes,
         research_questions: rqs,
-        reason: reason.trim() || null,
-      }),
+      })
+      // The memo has its own route and its own history; the reason of a change is no longer used for it.
+      if (memo !== (code.memo ?? "")) await analysisApi.setCodeMemo(code.code_id, memo)
+      return saved
+    },
     onSuccess: async () => {
       setError(null)
       await refresh()
@@ -412,7 +416,7 @@ function Inspector({
       </div>
 
       <Field label="Mémo du code">
-        <textarea className={TEXTAREA} rows={3} value={reason} disabled={locked} onChange={(e) => setReason(e.target.value)} />
+        <textarea className={TEXTAREA} rows={3} value={memo} disabled={locked} onChange={(e) => setMemo(e.target.value)} />
       </Field>
       {error && <Alerts messages={[error]} />}
       {code.merged_into && <p className="small l2">Fusionné dans {codes.find((c) => c.code_id === code.merged_into)?.name ?? code.merged_into}.</p>}
@@ -504,16 +508,6 @@ function MergeDialog({
 
 // ------------------------------------------------------------------ new
 
-/** Upper-case handle of a name: "Supplier mandate" gives SUPPLIER-MANDATE. */
-export function tokenOf(name: string): string {
-  return name
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .toUpperCase()
-    .replace(/[^A-Z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-}
-
 function NewCodeDialog({
   open,
   onClose,
@@ -531,33 +525,10 @@ function NewCodeDialog({
   const [definition, setDefinition] = useState("")
   const [parent, setParent] = useState("")
   const [error, setError] = useState<string | null>(null)
-  const token = tokenOf(name)
-  const clash = token !== "" && codes.some((c) => c.token === token || c.name.toLowerCase() === name.trim().toLowerCase())
+  const clash = name.trim() !== "" && codes.some((c) => c.name.toLowerCase() === name.trim().toLowerCase())
   const create = useMutation({
-    mutationFn: async () => {
-      await api.addCode({
-        code: token,
-        family: "OTHER",
-        label: name.trim(),
-        definition: definition.trim(),
-        origin: "field",
-        active: true,
-        in_prompt: true,
-        toe: null,
-        research_questions: [],
-        merged_into: null,
-        version: 1,
-        example: null,
-        reason: null,
-        created_at: null,
-      })
-      const tree = await api.codes()
-      const made = tree.codes.find((c) => c.token === token)
-      // The server names a new code after its token: give it the name typed.
-      if (made) await api.updateCode(made.code_id, { name: name.trim() })
-      if (made && parent) await api.moveCode(made.code_id, parent, "Créé comme sous-code")
-      return made?.code_id ?? null
-    },
+    // One call: the server names the code as typed and generates its token.
+    mutationFn: async () => (await analysisApi.createCode({ name: name.trim(), definition: definition.trim(), parent_id: parent || null })).code_id,
     onSuccess: async (id) => {
       qc.removeQueries({ queryKey: keys.codes })
       await refresh()
@@ -601,7 +572,7 @@ function NewCodeDialog({
           <Button variant="outline" onClick={onClose}>
             Annuler
           </Button>
-          <Button disabled={!token || !name.trim() || !definition.trim() || clash || create.isPending} onClick={() => create.mutate()}>
+          <Button disabled={!name.trim() || !definition.trim() || clash || create.isPending} onClick={() => create.mutate()}>
             Créer le code
           </Button>
         </DialogFooter>
