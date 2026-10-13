@@ -102,7 +102,10 @@ async fn an_interview_package_is_pseudonymised_in_every_text_and_keeps_its_ids()
         !text.to_lowercase().contains("retailer"),
         "organisation still there"
     );
-    assert!(!text.contains("Interviewer Person A"), "researcher still there");
+    assert!(
+        !text.contains("Interviewer Person A"),
+        "researcher still there"
+    );
     let units = std::fs::read_to_string(dir.join("units.csv")).unwrap();
     assert!(units.contains("Organisation A"), "{units}");
     assert!(units.contains("INT-01-U002"), "ids kept");

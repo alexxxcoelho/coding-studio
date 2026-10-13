@@ -213,16 +213,12 @@
     "description": "",
     "framework": "toe",
     "id_prefixes": [
-      "INT",
-      "ECO",
-      "RET",
-      "ADJ"
+      "INT"
     ],
     "interviewers": [
-      "Dos Santos Alexandre",
-      "Alexandre Dos Santos",
-      "Alexandre Dos Santos Coelho",
-      "Alex"
+      "Interviewer",
+      "Intervieweur",
+      "Intervieweuse"
     ],
     "max_words": 150,
     "phase1_categories": [

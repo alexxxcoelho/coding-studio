@@ -27,7 +27,7 @@ pub const DEFAULT_PROMPT_VERSION: &str = "CS-P04-EN v3.1";
 pub const DEFAULT_INTERVIEWERS: &[&str] = &["Interviewer", "Intervieweur", "Intervieweuse"];
 
 /// Interview id prefix of a new project. A study lists its own prefixes in
-/// its configuration (`examples/project_template.thesis.example.json` shows four).
+/// its configuration.
 pub const DEFAULT_ID_PREFIXES: &[&str] = &["INT"];
 
 /// Placeholder replaced by the number of codes offered in `codebook_intro`.

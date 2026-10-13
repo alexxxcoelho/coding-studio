@@ -7,7 +7,6 @@ use std::path::Path;
 use cs_ingest::{build_segmentation, default_interviewer_names, scan_library};
 use cs_model::SourceKind;
 
-
 #[test]
 fn real_library_segments_every_transcript() {
     let Some(library) = std::env::var_os("CS_REAL_LIBRARY") else {

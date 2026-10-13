@@ -62,6 +62,12 @@ fn setup() -> Ctx {
     let db = dir.path().join("studio/coding_studio.db");
     std::fs::create_dir_all(db.parent().unwrap()).unwrap();
     let store = Store::open(&db).unwrap();
+    {
+        let mut cfg = cs_model::StudyConfig::default();
+        cfg.id_prefixes = vec!["INT".into(), "ECO".into()];
+        cfg.interviewers = vec!["Interviewer Person A".into()];
+        store.set_study_config(&cfg, "candidate").unwrap();
+    }
     let state = AppState {
         store: Arc::new(Mutex::new(store)),
         db_path: db.clone(),

@@ -5,10 +5,7 @@
 use std::io::{Cursor, Write};
 use std::path::{Path, PathBuf};
 
-use cs_ingest::{
-    build_segmentation, classify, parse_document, parse_source,
-    scan_library,
-};
+use cs_ingest::{build_segmentation, classify, parse_document, parse_source, scan_library};
 use cs_model::{SourceKind, SpeakerRole, Turn};
 
 type Row = (String, String, SpeakerRole, String);
@@ -190,11 +187,8 @@ fn docx_without_document_xml_is_an_error() {
 
 #[test]
 fn pdf_text_layer_gives_speaker_turns() {
-    let (turns, warnings) = parse_document(
-        &fixture("interview_text_layer.pdf"),
-        &fixture_names(),
-    )
-    .unwrap();
+    let (turns, warnings) =
+        parse_document(&fixture("interview_text_layer.pdf"), &fixture_names()).unwrap();
 
     assert_eq!(
         rows(&turns),
@@ -224,11 +218,8 @@ fn pdf_text_layer_gives_speaker_turns() {
 
 #[test]
 fn pdf_without_text_layer_warns_and_yields_no_turns() {
-    let (turns, warnings) = parse_document(
-        &fixture("interview_no_text_layer.pdf"),
-        &fixture_names(),
-    )
-    .unwrap();
+    let (turns, warnings) =
+        parse_document(&fixture("interview_no_text_layer.pdf"), &fixture_names()).unwrap();
 
     assert!(turns.is_empty());
     assert!(
@@ -372,12 +363,7 @@ fn docx_only_interview_is_scanned_and_segmentable() {
         Some("EMBA - Interview - Roman.docx")
     );
 
-    let seg = build_segmentation(
-        entry,
-        "EMBA - Interview - Roman.docx",
-        &fixture_names(),
-    )
-    .unwrap();
+    let seg = build_segmentation(entry, "EMBA - Interview - Roman.docx", &fixture_names()).unwrap();
     assert_eq!(seg.units.len(), 3);
 }
 
@@ -400,11 +386,6 @@ fn text_pdf_only_interview_is_scanned_and_segmentable() {
     );
     assert!(!entry.warnings.iter().any(|w| w.contains("skipped")));
 
-    let seg = build_segmentation(
-        entry,
-        "EMBA - Interview - Roman.pdf",
-        &fixture_names(),
-    )
-    .unwrap();
+    let seg = build_segmentation(entry, "EMBA - Interview - Roman.pdf", &fixture_names()).unwrap();
     assert_eq!(seg.units.len(), 3);
 }

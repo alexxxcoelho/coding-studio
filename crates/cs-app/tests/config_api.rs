@@ -167,7 +167,7 @@ async fn get_config_returns_the_default_study_config() {
     assert_eq!(v, serde_json::to_value(StudyConfig::default()).unwrap());
     assert_eq!(v["framework"], "toe");
     assert_eq!(v["max_words"], 150);
-    assert_eq!(v["id_prefixes"], json!(["INT", "ECO", "RET", "ADJ"]));
+    assert_eq!(v["id_prefixes"], json!(["INT"]));
     assert_eq!(v["prompt_template"]["version"], "CS-P04-EN v3.1");
     assert_eq!(
         names(&v["phase1_categories"]),
@@ -400,7 +400,7 @@ async fn scan_uses_the_configured_id_prefixes() {
     let ctx = setup();
     std::fs::create_dir_all(ctx.root.join("XYZ-05_Custom")).unwrap();
     std::fs::write(ctx.root.join("XYZ-05_Custom/01_transcript_raw.vtt"), VTT).unwrap();
-    assert_eq!(ids(&scan(&ctx).await), ["ECO-02", "INT-01"]);
+    assert_eq!(ids(&scan(&ctx).await), ["INT-01"]);
 
     let mut cfg = StudyConfig::default();
     cfg.id_prefixes = vec!["XYZ".into()];
@@ -412,6 +412,11 @@ async fn scan_uses_the_configured_id_prefixes() {
 #[tokio::test]
 async fn segmentation_uses_the_configured_interviewers_and_max_words() {
     let ctx = setup();
+    let mut base = StudyConfig::default();
+    base.id_prefixes = vec!["INT".into(), "ECO".into()];
+    base.interviewers = vec!["Interviewer Person A".into()];
+    let (st, v) = put_config(&ctx.app, &base).await;
+    assert_eq!(st, StatusCode::OK, "{v}");
     scan(&ctx).await;
     let (_, seg) = call(&ctx.app, "POST", "/api/interviews/ECO-02/segment", None).await;
     assert_eq!(seg["units"].as_array().unwrap().len(), 4);
@@ -419,6 +424,7 @@ async fn segmentation_uses_the_configured_interviewers_and_max_words() {
 
     // Changing the segmentation settings applies to the next segmentation.
     let mut cfg = StudyConfig::default();
+    cfg.id_prefixes = vec!["INT".into(), "ECO".into()];
     cfg.interviewers = vec!["Jane Roe".into()];
     cfg.max_words = 20;
     let (st, v) = put_config(&ctx.app, &cfg).await;
