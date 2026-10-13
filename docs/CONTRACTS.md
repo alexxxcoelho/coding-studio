@@ -92,3 +92,7 @@ Exchange with NVivo, MAXQDA and ATLAS.ti through the REFI-QDA standard: a codebo
 - Idempotent: the same file imported twice adds nothing. Dry run first (default), then apply.
 - A file that is not a usable REFI-QDA file (malformed XML, wrong root element, not a ZIP, no `project.qde`, duplicated GUIDs, a code without name) is rejected with every problem listed; nothing is written, nothing is audited.
 - The writes go through the store, one transaction each, so they are audited as usual (code create, move, passage create, coding), plus one `refi.import.qdc` or `refi.import.qdpx` event with counts and the SHA-256 of the file. The import as a whole is not one transaction.
+
+## 12. Accepted transcript formats
+
+- Accepted transcript formats: md, txt, vtt, srt, docx, pdf with text layer. A PDF without a text layer is inventoried but yields no turns.

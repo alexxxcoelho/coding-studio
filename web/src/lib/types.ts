@@ -9,6 +9,8 @@ export type SourceKind =
   | "cleaned_markdown"
   | "budgie_markdown"
   | "written_response"
+  | "docx"
+  | "pdf"
   | "summary"
   | "record_sheet"
   | "toe_coding"

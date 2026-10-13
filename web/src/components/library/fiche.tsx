@@ -24,6 +24,8 @@ const KIND_LABEL: Record<SourceKind, string> = {
   cleaned_markdown: "Transcription épurée",
   budgie_markdown: "Export Budgie Echo",
   written_response: "Réponse écrite",
+  docx: "Transcription Word (DOCX)",
+  pdf: "Transcription PDF",
   summary: "Synthèse",
   record_sheet: "Fiche d'enregistrement",
   toe_coding: "Codage antérieur",
