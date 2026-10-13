@@ -125,6 +125,11 @@ jobs:
       - name: Lint
         run: pnpm -s lint
 
+      # fr.json and en.json: same keys and placeholders, no unused key, no
+      # French left in the English catalogue.
+      - name: Interface catalogues
+        run: node scripts/check-i18n.mjs
+
       - name: Tests
         run: pnpm -s exec vitest run
 

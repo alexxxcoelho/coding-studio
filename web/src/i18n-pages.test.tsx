@@ -8,7 +8,12 @@ import { act, cleanup, waitFor } from "@testing-library/react"
 import App from "@/App"
 import { HelpDrawer } from "@/components/help-drawer"
 import { SettingsDialog } from "@/components/settings-dialog"
+import { setLang } from "@/i18n"
 import { mockApi, renderWithClient } from "@/test-utils"
+import stop from "../scripts/french-stopwords.json"
+
+const FRENCH = new Set<string>(stop.words)
+const ACCENTS = new RegExp(`[${stop.accents}]`)
 
 const STUDY = {
   framework: "none",
@@ -137,4 +142,38 @@ describe("French interface text", () => {
   it("is unchanged on every main screen", async () => {
     await expect(await dumpAll()).toMatchFileSnapshot("./__snapshots__/i18n-pages.fr.txt")
   }, 120_000)
+})
+
+describe("English interface text", () => {
+  afterEach(() => setLang("fr", false))
+
+  it("leaves no French on any main screen", async () => {
+    setLang("en", false)
+    const text = await dumpAll()
+    // Lines that come from the mocked server (study data, server messages) keep their language.
+    const fromServer = /Personne 1|texte libre|Pilote/
+    const found: string[] = []
+    let inGuide = false
+    for (const line of text.split("\n")) {
+      if (line.startsWith("== ")) inGuide = /guide|aide/.test(line)
+      // Section markers, the language names, and the guide prose (it quotes the former French labels) are not interface text.
+      if (line.startsWith("== ") || line === "Français" || (inGuide && (line.length > 60 || line.includes("("))) || fromServer.test(line)) continue
+      const words = line.toLowerCase().split(/[^\p{L}]+/u).filter((w) => FRENCH.has(w))
+      if (words.length || ACCENTS.test(line)) found.push(`${line.slice(0, 120)} <- ${words.join(", ")}`)
+    }
+    expect(found).toEqual([])
+  }, 120_000)
+
+  it("follows the language switch live", async () => {
+    window.location.hash = "#/codebook"
+    const { container, unmount } = renderWithClient(<App />)
+    await settle(container)
+    const before = dump(container)
+    await act(async () => setLang("en", false))
+    await settle(container)
+    const after = dump(container)
+    expect(after).not.toEqual(before)
+    expect(document.documentElement.lang).toBe("en")
+    unmount()
+  })
 })

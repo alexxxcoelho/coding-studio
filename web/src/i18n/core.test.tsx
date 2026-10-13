@@ -53,12 +53,9 @@ describe("t", () => {
     expect(t("no.such.key" as Key)).toBe("no.such.key")
   })
   it("interpolates and picks plural variants from the catalogue", () => {
-    const one = Object.keys(fr).find((k) => k.endsWith("_one")) as string | undefined
-    if (!one) return
-    const base = one.slice(0, -4) as Key
-    expect(t(base, { n: 1 })).toContain("1")
-    expect(t(base, { n: 5 })).toContain("5")
-    expect(t(base, { n: 5 })).toBe((fr as Record<string, string>)[`${base}_other`].replace("{n}", "5"))
+    expect(t("common.n_codes", { n: 1 })).toBe("1 code")
+    expect(t("common.n_codes", { n: 5 })).toBe("5 codes")
+    expect(t("common.n_codes", { n: 5 })).toBe((fr as Record<string, string>)["common.n_codes_other"].replace("{n}", "5"))
   })
 })
 
