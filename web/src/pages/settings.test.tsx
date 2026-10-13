@@ -33,6 +33,8 @@ const TOE: StudyConfig = {
     footer: "1. Use only the codes.",
   },
   study_name: "Pilot",
+  description: "Étude pilote sur la RFID.",
+  coding_rules: "Coder ce que le répondant affirme.",
 }
 
 const PROJECT: ProjectConfig = {
@@ -119,40 +121,20 @@ describe("study configuration form", () => {
   it("loads the stored configuration", async () => {
     const r = await study()
     expect(within(r).getByLabelText("Nom de l'étude")).toHaveValue("Pilot")
-    expect(within(r).getByLabelText("Jeu de catégories de départ")).toHaveValue("toe")
+    expect(within(r).queryByLabelText("Jeu de catégories de départ")).toBeNull()
     expect(within(r).getByLabelText("Longueur maximale d'une unité, en mots")).toHaveValue(150)
     expect(within(r).getByLabelText("Version des instructions")).toHaveValue("CS-P04-EN v3.1")
-    expect(within(r).getByLabelText("Description envoyée au modèle")).toHaveValue("# Coding Studio")
+    expect(within(r).getByLabelText("Description de l'étude")).toHaveValue("Étude pilote sur la RFID.")
+    expect(within(r).getByLabelText("Règles de codage")).toHaveValue("Coder ce que le répondant affirme.")
     expect(within(r).getByLabelText("Introduction du codebook")).toHaveValue("These {count} codes.")
     expect(within(r).getByLabelText("Introduction des unités")).toHaveValue("One unit per line.")
-    expect(within(r).getByLabelText("Règles de codage envoyées au modèle")).toHaveValue("1. Use only the codes.")
     for (const chip of ["INT", "ECO", "Alex"]) expect(within(r).getByText(chip)).toBeInTheDocument()
   })
 
-  it("offers the four frameworks", async () => {
+  it("no longer shows the phase 1 category set", async () => {
     const r = await study()
-    const options = within(within(r).getByLabelText("Jeu de catégories de départ")).getAllByRole("option")
-    expect(options.map((o) => (o as HTMLOptionElement).value)).toEqual(["toe", "tam_utaut", "none", "custom"])
-    expect(options.map((o) => o.textContent)).toEqual(["TOE", "TAM/UTAUT", "Aucune", "Personnalisées"])
-  })
-
-  it("shows the preset categories read-only and edits them for custom only", async () => {
-    const r = await study()
-    expect(within(r).getByLabelText("Code de la catégorie 1")).toHaveValue("TECH")
-    expect(within(r).getByLabelText("Code de la catégorie 1")).toBeDisabled()
-    expect(within(r).getByLabelText("Définition de la catégorie 2")).toBeDisabled()
-    expect(within(r).getByLabelText("Rattachement de la catégorie 1")).toHaveValue("T")
+    expect(within(r).queryByLabelText("Code de la catégorie 1")).toBeNull()
     expect(within(r).queryByRole("button", { name: "Ajouter une catégorie" })).toBeNull()
-
-    change(within(r).getByLabelText("Jeu de catégories de départ"), "custom")
-    expect(within(r).getByLabelText("Code de la catégorie 1")).toBeEnabled()
-    expect(within(r).getByLabelText("Nom de la catégorie 1")).toBeEnabled()
-    expect(within(r).getByLabelText("Définition de la catégorie 1")).toBeEnabled()
-    expect(within(r).getByLabelText("Rattachement de la catégorie 1")).toBeEnabled()
-    fireEvent.click(within(r).getByRole("button", { name: "Ajouter une catégorie" }))
-    expect(within(r).getByLabelText("Code de la catégorie 4")).toHaveValue("")
-    fireEvent.click(within(r).getByRole("button", { name: "Retirer la catégorie 4" }))
-    expect(within(r).queryByLabelText("Code de la catégorie 4")).toBeNull()
   })
 
   it("saves with PUT /api/config and says so", async () => {
@@ -165,27 +147,22 @@ describe("study configuration form", () => {
     expect(putConfig()[0].body).toEqual({ ...TOE, phase1_categories: [] })
   })
 
-  it("sends the edited custom categories and the other fields", async () => {
+  it("sends the description, the coding rules and the other fields", async () => {
     const r = await study()
     mock.on("PUT", "/api/config", { body: TOE })
-    change(within(r).getByLabelText("Jeu de catégories de départ"), "custom")
-    change(within(r).getByLabelText("Code de la catégorie 1"), "ALPHA")
-    change(within(r).getByLabelText("Nom de la catégorie 1"), "Alpha")
-    change(within(r).getByLabelText("Définition de la catégorie 1"), "The first.")
-    change(within(r).getByLabelText("Rattachement de la catégorie 1"), "E")
-    fireEvent.click(within(r).getByRole("button", { name: "Retirer la catégorie 3" }))
-    fireEvent.click(within(r).getByRole("button", { name: "Retirer la catégorie 2" }))
+    change(within(r).getByLabelText("Description de l'étude"), "Une étude sur les bibliothèques.")
+    change(within(r).getByLabelText("Règles de codage"), "Plusieurs codes possibles.")
     change(within(r).getByLabelText("Nom de l'étude"), "Main study")
     change(within(r).getByLabelText("Longueur maximale d'une unité, en mots"), "200")
     change(within(r).getByLabelText("Version des instructions"), "CS-P04-EN v4")
     fireEvent.click(within(r).getByRole("button", { name: "Enregistrer l'étude" }))
     await waitFor(() => expect(putConfig()).toHaveLength(1))
     expect(putConfig()[0].body).toMatchObject({
-      framework: "custom",
       study_name: "Main study",
       max_words: 200,
-      phase1_categories: [{ code: "ALPHA", label: "Alpha", definition: "The first.", attachment: "E" }],
-      prompt_template: { version: "CS-P04-EN v4", footer: "1. Use only the codes." },
+      description: "Une étude sur les bibliothèques.",
+      coding_rules: "Plusieurs codes possibles.",
+      prompt_template: { version: "CS-P04-EN v4", header: "# Coding Studio", footer: "1. Use only the codes." },
     })
   })
 
@@ -213,15 +190,6 @@ describe("study configuration form", () => {
     change(within(r).getByLabelText("Longueur maximale d'une unité, en mots"), "10")
     fireEvent.click(within(r).getByRole("button", { name: "Enregistrer l'étude" }))
     expect(await within(r).findByText("le nombre maximal de mots doit valoir au moins 20, pas 10")).toBeInTheDocument()
-    expect(putConfig()).toHaveLength(0)
-  })
-
-  it("refuses an empty category name of a custom table before calling the server", async () => {
-    const r = await study()
-    change(within(r).getByLabelText("Jeu de catégories de départ"), "custom")
-    change(within(r).getByLabelText("Code de la catégorie 2"), "  ")
-    fireEvent.click(within(r).getByRole("button", { name: "Enregistrer l'étude" }))
-    expect(await within(r).findByText("le nom d'une catégorie de phase 1 est vide")).toBeInTheDocument()
     expect(putConfig()).toHaveLength(0)
   })
 

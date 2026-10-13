@@ -648,6 +648,10 @@ export interface StudyConfig {
   max_words: number
   prompt_template: PromptTemplate
   study_name: string
+  /** One paragraph on the study, read by the model in an AI review. */
+  description: string
+  /** The rules of coding, read by the model in an AI review. */
+  coding_rules: string
 }
 
 /** `POST /api/codebook/import` answers the codebook plus a report of the import. */

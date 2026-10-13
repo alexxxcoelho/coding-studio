@@ -17,6 +17,8 @@ const STUDY: StudyConfig = {
   max_words: 150,
   prompt_template: { version: "v1", header: "", codebook_intro: "", units_intro: "", footer: "" },
   study_name: "Pilote",
+  description: "",
+  coding_rules: "",
 }
 const PROJECT: ProjectConfig = {
   attributes: [{ id: "sector", label: "Secteur", kind: "text", choices: [], shared_with_model: false }],

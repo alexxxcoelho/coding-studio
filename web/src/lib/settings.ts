@@ -18,6 +18,9 @@ import type {
 /** Smallest accepted `max_words` (cs-model MIN_MAX_WORDS). */
 export const MIN_MAX_WORDS = 20
 
+/** Longest description or set of coding rules (cs-model MAX_TEXT). */
+export const MAX_TEXT = 20_000
+
 /** Id reserved by the manual workflow. */
 export const COPY_PASTE_ID = "copy_paste"
 
@@ -42,6 +45,11 @@ export interface StudyForm {
   interviewers: string[]
   /** Text of the number input, so that an empty or partial value can be shown. */
   max_words: string
+  /** Description of the study, a paragraph (`StudyConfig.description`). */
+  description: string
+  /** Coding rules (`StudyConfig.coding_rules`). */
+  coding_rules: string
+  /** Kept as stored: the header and the footer are no longer edited here, the two fields above replace them. */
   template: { version: string; header: string; codebook_intro: string; units_intro: string; footer: string }
 }
 
@@ -68,6 +76,8 @@ export function formFromConfig(cfg: StudyConfig): StudyForm {
     id_prefixes: [...cfg.id_prefixes],
     interviewers: [...cfg.interviewers],
     max_words: String(cfg.max_words),
+    description: cfg.description ?? "",
+    coding_rules: cfg.coding_rules ?? "",
     template: { ...cfg.prompt_template },
   }
 }
@@ -94,6 +104,8 @@ export function configFromForm(form: StudyForm): StudyConfig {
     id_prefixes: form.id_prefixes.map((p) => p.trim()).filter((p) => p !== ""),
     interviewers: [...new Set(form.interviewers.map((n) => n.trim()).filter((n) => n !== ""))],
     max_words: Number(form.max_words),
+    description: form.description,
+    coding_rules: form.coding_rules,
     prompt_template: { ...form.template },
   }
 }
@@ -135,6 +147,9 @@ export function validateForm(form: StudyForm): FormErrors {
       }
       seen.add(p)
     }
+  }
+  for (const [key, text] of [["description", form.description], ["coding_rules", form.coding_rules]] as const) {
+    if ([...text].length > MAX_TEXT) errors[key] = `le texte dépasse ${MAX_TEXT} caractères`
   }
   if (form.template.version.trim() === "") errors.prompt_version = "la version du modèle de prompt est vide"
   return errors

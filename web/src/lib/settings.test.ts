@@ -34,6 +34,8 @@ const TOE: StudyConfig = {
   max_words: 150,
   prompt_template: { version: "CS-P04-EN v3.1", header: "# H", codebook_intro: "{count} codes", units_intro: "Units", footer: "1. Rule" },
   study_name: "Pilot",
+  description: "Étude pilote.",
+  coding_rules: "Coder ce que le répondant affirme.",
 }
 
 function customForm() {
@@ -81,6 +83,19 @@ describe("study form", () => {
     expect(cfg.interviewers).toEqual(["Alex", "Jo"])
     expect(cfg.prompt_template.header).toBe("  # kept as typed\n")
     expect(cfg.id_prefixes).toEqual(["INT", "ECO"])
+  })
+
+  it("sends the description and the coding rules as fields of their own, and keeps the template header and footer", () => {
+    const f = formFromConfig(TOE)
+    expect(f.description).toBe("Étude pilote.")
+    const cfg = configFromForm({ ...f, description: "Une autre.", coding_rules: "Une règle." })
+    expect(cfg).toMatchObject({ description: "Une autre.", coding_rules: "Une règle." })
+    expect(cfg.prompt_template.header).toBe("# H")
+    expect(cfg.prompt_template.footer).toBe("1. Rule")
+  })
+
+  it("refuses a description longer than the server accepts", () => {
+    expect(validateForm({ ...formFromConfig(TOE), description: "x".repeat(20_001) }).description).toMatch(/dépasse 20000/)
   })
 
   it("accepts the stored configuration", () => {
