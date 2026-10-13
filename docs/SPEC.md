@@ -74,28 +74,37 @@ A project template is one JSON file with a version number, holding: study descri
 
 ## 4. Functional requirements
 
-Reading the tables. Status is **done** (works, checked in the code or its tests), **partial** (some of it exists, the gap is named) or **missing**. Status describes the engine and the HTTP API (`crates/`). The web interface currently implements an older multi-screen flow; the single flow exists on the server side only (automatic relevance, interviewer turns excluded, `/api/interviews/{id}/simple`), and the new web components are skeletons. The interface gaps are therefore listed once, in 4.12, and not repeated in each area. Target is **V1** (needed for the author's thesis, in the four-step flow, before 30 October 2026) or **V2** (after the thesis, for the public release). Where a requirement was adapted from the external requirements document, it is noted as "(ext.)".
+Reading the tables. Status is **done** (works, checked in the code or its tests), **partial** (some of it exists, the gap is named) or **missing**. Status describes the engine and the HTTP API (`crates/`) and the web interface (`web/src`), as they stand on `main` at the date above. A row whose status changed carries an evidence note (file or route). A row that is still partial or missing says what is missing. Target is **V1** (needed for the author's thesis, in the four-step flow, before 30 October 2026) or **V2** (after the thesis, for the public release). Where a requirement was adapted from the external requirements document, it is noted as "(ext.)".
+
+**Status counts**, over the 124 requirements of sections 4.1 to 4.13. "Before" is the table as it stood on `main` before this update; the notes of the changed rows give the evidence.
+
+| Status | Before | After |
+|---|---|---|
+| done | 37 | 90 |
+| partial | 28 | 20 |
+| missing | 59 | 14 |
+| Total | 124 | 124 |
 
 ### 4.1 Project and configuration
 
 | ID | Requirement | Status | Target |
 |---|---|---|---|
-| F-01 | Study name, description and research questions with stable ids, editable. Name and questions exist; the description exists only as free text inside the prompt template. | partial | V1 |
-| F-02 | Project template export and import as JSON, all or nothing, audited, as in 3.4. | missing | V1 |
-| F-03 | Interview attribute definitions: name, type (text, choice list, number, date), values of a choice list, order. | missing | V1 |
-| F-04 | Attribute values per interview, entered in the library and the interview sheet, usable as filter and as matrix axis. | missing | V1 |
-| F-05 | Interpretive framework: none, TOE, TAM and UTAUT, or custom list of dimensions, applied to themes in Analyse and Write only. The preset engine exists but is wired to a phase 1 classification of turns, which the new flow drops. | partial | V1 |
-| F-06 | Familiarisation memo templates: several, versioned, one default; per-interview selection and per-interview edits of questions; answers stored with the template version. | missing | V1 |
-| F-07 | Editable end-of-interview checklist, with the state of each item stored per interview. | missing | V1 |
-| F-08 | Editable list of theme checks (default of seven). | missing | V1 |
-| F-09 | Editable evidence natures, origins and roles with presets. Closed lists exist (evidence levels EV0 to EV4, four provenances, five roles) but are hard-coded and differ from the default natures of 3.1. | partial | V1 |
-| F-10 | Editable link types (default of six). | missing | V1 |
-| F-11 | Prompt template with placeholders filled from the configuration (3.3). Static parts and a code count placeholder exist; description, questions, attributes and the preceding interviewer turn are not yet inserted. | partial | V1 |
-| F-12 | Pseudonymisation of person and organisation names before any text leaves the machine, with an editable list and a local mapping. | missing | V1 |
+| F-01 | Study name, description and research questions with stable ids, editable. Evidence: study name and description fields in `web/src/components/settings/study-config.tsx`; research questions on the Settings page. | done | V1 |
+| F-02 | Project template export and import as JSON, all or nothing, audited, as in 3.4. Evidence: routes `/api/project/template` and `/api/project/template/import`; `web/src/components/settings/project-template.tsx`; tests `crates/cs-app/tests/template_api.rs`. | done | V1 |
+| F-03 | Interview attribute definitions: name, type (text, choice list, number, date), values of a choice list, order. Evidence: `ProjectConfig.attributes` in `crates/cs-model/src/project.rs`; route `/api/project-config`; editor `web/src/components/settings/project-lists.tsx`. | done | V1 |
+| F-04 | Attribute values per interview, entered in the library and the interview sheet, usable as filter and as matrix axis. Evidence: values edited in `web/src/components/library/fiche.tsx`; filters in `/api/lexicon/kwic` and the codes-by-attribute table in `web/src/components/analysis/explorer.tsx`. | done | V1 |
+| F-05 | Interpretive framework: none, TOE, TAM and UTAUT, or custom list of dimensions, applied to themes in Analyse and Write only. Evidence: `interpretive_framework` in `ProjectConfig`; route `/api/writing/framework`; `web/src/components/writing/framework-table.tsx` and `web/src/components/analysis/framework-reading.tsx`. The framework stays out of the coding screen and the prompt. | done | V1 |
+| F-06 | Familiarisation memo templates: several, versioned, one default; per-interview selection and per-interview edits of questions; answers stored with the template version. Evidence: memo templates with versions and `memo_history` in `crates/cs-model/src/project.rs`; per-interview answers in `web/src/components/library/fiche.tsx`; editor in `project-lists.tsx`. | done | V1 |
+| F-07 | Editable end-of-interview checklist, with the state of each item stored per interview. Evidence: checklist in `ProjectConfig`; per-interview state in `crates/cs-store/src/project.rs`; `web/src/components/coder/end-panel.tsx`. | done | V1 |
+| F-08 | Editable list of theme checks (default of seven). Evidence: `theme_checks` in `ProjectConfig`; route `/api/themes/{id}/checks/{check}`; `web/src/lib/theme-status.ts` asks for a reason to retain a theme with a check not done. | done | V1 |
+| F-09 | Editable evidence natures, origins and roles with presets. Closed lists exist (evidence levels EV0 to EV4, four provenances, five roles) but are hard-coded and differ from the default natures of 3.1. Evidence: evidence natures are editable (`ProjectConfig.evidence_natures`). Missing: the origin (provenance) and role lists are not in `ProjectConfig`; they stay hard-coded (four provenances, five roles), as do the evidence levels EV0 to EV4. | partial | V1 |
+| F-10 | Editable link types (default of six). Evidence: `ProjectConfig.link_types`; editor in `project-lists.tsx`; typed links through `/api/links`. | done | V1 |
+| F-11 | Prompt template with placeholders filled from the configuration (3.3): study description, research questions, codebook tree, attributes marked as shared with the model, and the preceding interviewer turn. Evidence: `crates/cs-ai/src/prompt.rs` (study description, research questions, interviewer questions block); shared attributes read in `crates/cs-app/src/v1_review.rs`. | done | V1 |
+| F-12 | Pseudonymisation of person and organisation names before any text leaves the machine, with an editable list and a local mapping. Evidence: `crates/cs-model/src/pseudonym.rs`; routes `/api/pseudonymisation` and `/api/interviews/{id}/pseudonymisation` (`crates/cs-app/src/v1_review.rs`); UI in `web/src/components/revoir/revue-ia.tsx`. Limit: free text typed by the researcher is not masked. | done | V1 |
 | F-13 | Identifier prefixes, interviewer speaker labels and longest unit length, configurable and validated. | done | V1 |
 | F-14 | Every configuration change is written to the audit log with before and after values. | done | V1 |
-| F-15 | Neutral defaults for a public release: the default interviewer labels still contain the author's names, and a few messages and fixtures mention the author's environment. | partial | V2 |
-| F-16 | Settings screen covering study, attributes, memo templates, checklist, framework, matrix defaults, lists, prompt, pseudonymisation and providers. A settings page exists for study, codebook import and providers only. | partial | V1 |
+| F-15 | Neutral defaults for a public release: the default interviewer labels still contain the author's names, and a few messages and fixtures mention the author's environment. Missing: the default interviewer labels (`DEFAULT_INTERVIEWERS` in `crates/cs-model/src/config.rs`) still carry the author's names. | partial | V2 |
+| F-16 | Settings screen covering study, attributes, memo templates, checklist, framework, matrix defaults, lists, prompt, pseudonymisation and providers. A settings page exists for study, codebook import and providers only. Missing: matrix defaults have no editor; the pseudonymisation list is edited on the Review screen and the framework in Analyse, not in Settings (`web/src/pages/settings.tsx`). | partial | V1 |
 
 ### 4.2 Corpus and library
 
@@ -103,65 +112,65 @@ Reading the tables. Status is **done** (works, checked in the code or its tests)
 |---|---|---|---|
 | F-17 | Library scan of a folder with one sub-folder per interview, inventory of every source file with its SHA-256, detection of the primary transcript. | done | V1 |
 | F-18 | Transcript formats: platform VTT, raw speech-recognition text with timestamps, cleaned Markdown with speaker turns, Budgie Echo Markdown, written responses. | done | V1 |
-| F-19 | Further formats: plain TXT and Markdown without a convention, DOCX, text PDF, SRT. (ext.) | missing | V2 |
+| F-19 | Further formats: plain TXT and Markdown without a convention, DOCX, text PDF, SRT. (ext.) Evidence: DOCX, text PDF and SRT readers in `crates/cs-ingest/src/formats.rs`, dispatched by `scan.rs`. Missing: plain TXT and Markdown without a convention are not recognised (a `.txt` file is read only when its name contains "transcript", a `.md` file only when its name is a known one). | partial | V2 |
 | F-20 | Deterministic segmentation into speaker turns, long turns split at sentence ends above the configured length; unit text unchanged except redundant spaces. | done | V1 |
 | F-21 | Interviewer turns recognised by configured labels, shown for context, excluded from coding, from prompts, from review and from verification targets. | done | V1 |
 | F-22 | Re-segmentation keeps codings by unit id and is refused only when an AI answer would be invalidated. Source files are never modified. | done | V1 |
-| F-23 | Library view with one line per interview and three counters (units coded, complete AI runs, decisions taken), the attribute values, and the state of the interview in the four steps. | partial | V1 |
-| F-24 | Immutable transcript versions: a correction creates a new version, and annotations of the previous version are projected to the new one by text and context matching, with conflicts marked "needs review". (ext.) Today corrections are overlays on units and never move codes. | partial | V2 |
+| F-23 | Library view with one line per interview and three counters (units coded, complete AI runs, decisions taken), the attribute values, and the state of the interview in the four steps. Missing: the three counters (units coded, complete AI runs, decisions taken) are not on the library line of `web/src/pages/library.tsx`. The route `/api/library/progress` exists. | partial | V1 |
+| F-24 | Immutable transcript versions: a correction creates a new version, and annotations of the previous version are projected to the new one by text and context matching, with conflicts marked "needs review". (ext.) Today corrections are overlays on units and never move codes. Missing: versioned transcripts and the projection of passages onto a new version. | partial | V2 |
 
 ### 4.3 Coding (step 1)
 
 | ID | Requirement | Status | Target |
 |---|---|---|---|
-| F-25 | Relevance by default: every respondent turn is relevant, N marks it not relevant, R marks it "to review", and the three states plus "not yet examined" are counted. Automatic relevance and the not relevant shorthand exist; "to review" does not. | partial | V1 |
+| F-25 | Relevance by default: every respondent turn is relevant, N marks it not relevant, R marks it "to review", and the three states plus "not yet examined" are counted. Evidence: route `PUT /api/interviews/{id}/units/{unit}/mark`; R key and mark in `web/src/components/coder/turn.tsx`; counts by state in `web/src/lib/coder-model.ts`. | done | V1 |
 | F-26 | Code a whole turn with one or several codes, the default gesture. | done | V1 |
-| F-27 | Passages: select a span inside a turn and code it, with several spans per turn, overlapping spans, and several codes per span. A passage stores interview, unit, start and end offsets, the exact text, and the version of the segmentation it belongs to. Nothing of this exists; the unit is the finest grain. | missing | V1 |
-| F-28 | Anchors are versioned and verified: a passage is rejected if its offsets do not give the expected text, offsets use one tested convention (Unicode scalar positions on the server, converted from the browser's UTF-16), and tests cover accents, apostrophes, emoji and line breaks. (ext.) | missing | V1 |
-| F-29 | Code identity: a stable internal id, a free-text name in plain words, a definition, and aliases (former names and synonyms). Today a code is an upper-case token that is both id and name; a label exists; renaming the id is not possible; there are no aliases. | partial | V1 |
-| F-30 | Code tree: parent and child codes by drag and drop, with moving a code under a parent never changing any coding, and a passage coded with a child counting for the parent in counts and exports. Not in the engine. | missing | V1 |
-| F-31 | Code definition with includes, excludes, examples, neighbouring codes, origin, history and a memo per code. Definition, example, origin, reason and a version counter exist; the rest does not. | partial | V1 |
-| F-32 | Create a code on the fly from a turn, a passage or a highlight: name, definition, optional parent; the creating passage becomes the origin and the example; the codebook version advances. The route to create a code and the origin field exist; creation from a passage does not. | partial | V1 |
-| F-33 | The LATER code and its worklist: a system code that parks a hesitation with an optional note, listed until resolved. The "to clarify" labels (label, note, resolution to a new or an existing code, applied to every unit with the same label) cover the same need at unit level. | partial | V1 |
+| F-27 | Passages: select a span inside a turn and code it, with several spans per turn, overlapping spans, and several codes per span. A passage stores interview, unit, start and end offsets, the exact text, and the version of the segmentation it belongs to. Nothing of this exists; the unit is the finest grain. Evidence: `crates/cs-store/src/passages.rs`; routes `/api/passages/{pid}/codings`; selection menu `web/src/components/coder/selection-menu.tsx`. | done | V1 |
+| F-28 | Anchors are versioned and verified: a passage is rejected if its offsets do not give the expected text, offsets use one tested convention (Unicode scalar positions on the server, converted from the browser's UTF-16), and tests cover accents, apostrophes, emoji and line breaks. (ext.) Evidence: `crates/cs-model/src/passage.rs` (scalar and UTF-16 offsets, anchor digest, refusal of a split surrogate pair); stale-anchor check in `crates/cs-store/src/passages.rs`. | done | V1 |
+| F-29 | Code identity: a stable internal id, a free-text name in plain words, a definition, and aliases (former names and synonyms). Evidence: stable `code_id`, name, aliases and parent in `crates/cs-store/src/codetree.rs`; routes `/api/codes/{id}/aliases`. Aliases do not feed the code picker yet (see F-41). | done | V1 |
+| F-30 | Code tree: parent and child codes by drag and drop, with moving a code under a parent never changing any coding, and a passage coded with a child counting for the parent in counts and exports. Not in the engine. Evidence: route `/api/codes/{id}/move` (`crates/cs-store/src/codetree.rs`); tree helpers in `web/src/lib/code-tree.ts`. | done | V1 |
+| F-31 | Code definition with includes, excludes, examples, neighbouring codes, origin, history and a memo per code. Evidence: `includes` and `excludes` in `crates/cs-model/src/passage.rs`. Missing: neighbouring codes have no field. | partial | V1 |
+| F-32 | Create a code on the fly from a turn, a passage or a highlight: name, definition, optional parent; the creating passage becomes the origin and the example; the codebook version advances. Evidence: route `/api/codes/from-passage`; `web/src/components/coder/new-code-dialog.tsx`; action in `web/src/components/coder/selection-menu.tsx`. | done | V1 |
+| F-33 | The LATER code and its worklist: a system code that parks a hesitation with an optional note, listed until resolved. The "to clarify" labels (label, note, resolution to a new or an existing code, applied to every unit with the same label) cover the same need at unit level. Evidence: LATER as a virtual code, routes `/api/later` and `/api/interviews/{id}/later`; unit labels in `web/src/pages/to-clarify.tsx`. | done | V1 |
 | F-34 | Codebook import from CSV and JSON, and from a legacy database opened read only; all or nothing, with a report of added, updated and absent codes; absent codes are never deleted. | done | V1 |
 | F-35 | Codebook export to CSV and SQL, timestamped, never overwritten. | done | V1 |
 | F-36 | Merge a code into another: every coding and decision is rewritten, the source is deactivated and keeps a pointer, the change is audited with a rationale. Undo of a merge is not available. | done | V1 |
 | F-37 | Deactivate and reactivate a code without touching past codings. | done | V1 |
-| F-38 | Harmonisation worklist: after a merge, a redefinition or a late new code, list the earlier turns that carry the affected codes or LATER, for targeted rereading. | missing | V1 |
-| F-39 | Split a code into two or more, with a worklist to reassign its passages, and undo of merge and split from the journal. (ext.) | missing | V2 |
-| F-40 | Codebook version number for the whole codebook (displayed, stored with exports and prompts), in addition to the per-code counter. Prompts already store the codebook digest. | partial | V1 |
-| F-41 | Code autocomplete by name, alias and definition; keys 1 to 9 for the first nine codes and a keyboard search for the rest. A code picker with a filter exists; aliases do not. | partial | V1 |
-| F-42 | Highlights: select a passage and mark it without a code (key H); highlights stay visible after coding and are candidates for citation. | missing | V1 |
-| F-43 | Coding stripes: a margin column showing the codes on each turn, optional. | missing | V1 |
-| F-44 | Passages of a code: all turns and passages carrying the code, with the interview, the speaker, the previous and next turn, the other codes present, and a link to the source. The list of units by code exists without context. | partial | V1 |
-| F-45 | Counts that never mislead: for each code, the number of passages, of distinct interviews and, when cases or attributes exist, of distinct cases and attribute values. (ext.) | partial | V1 |
-| F-46 | Interview reflexive memo and unit-level memos, dated and attributed. A free memo field on a unit coding exists; the interview memo is covered by F-48. | partial | V1 |
-| F-47 | Keyboard operation of the coding screen: next and previous turn, N, R, H, slash for code search, Enter to confirm, Escape to close. A subset exists in the older screens. | partial | V1 |
-| F-48 | Familiarisation memo at the start of each interview, from the template selected for it (F-06), required before coding the first three interviews and optional afterwards. | missing | V1 |
-| F-49 | End-of-interview checklist shown when the last turn is reached (F-07). | missing | V1 |
+| F-38 | Harmonisation worklist: after a merge, a redefinition or a late new code, list the earlier turns that carry the affected codes or LATER, for targeted rereading. Evidence: route `/api/harmonisation`; table `harmonisation_items` in `crates/cs-store/src/lot4.rs`. | done | V1 |
+| F-39 | Split a code into two or more, with a worklist to reassign its passages, and undo of merge and split from the journal. (ext.) Missing: the whole requirement: split of a code, the reassignment worklist, and undo of a merge or a split. | missing | V2 |
+| F-40 | Codebook version number for the whole codebook (displayed, stored with exports and prompts), in addition to the per-code counter. Prompts already store the codebook digest. Evidence: table `codebook_revisions` and route `/api/codebook/revisions`. | done | V1 |
+| F-41 | Code autocomplete by name, alias and definition; keys 1 to 9 for the first nine codes and a keyboard search for the rest. A code picker with a filter exists; aliases do not. Missing: the code picker does not match aliases (`web/src/components/code-picker.tsx`). Keys 1 to 9 and keyboard search exist (`web/src/lib/coder-keys.ts`). | partial | V1 |
+| F-42 | Highlights: select a passage and mark it without a code (key H); highlights stay visible after coding and are candidates for citation. Evidence: route `/api/interviews/{id}/highlights`; `web/src/pages/highlights.tsx`. | done | V1 |
+| F-43 | Coding stripes: a margin column showing the codes on each turn, optional. Evidence: coding stripes in `web/src/components/coder/turn.tsx`. | done | V1 |
+| F-44 | Passages of a code: all turns and passages carrying the code, with the interview, the speaker, the previous and next turn, the other codes present, and a link to the source. Evidence: `crates/cs-store/src/codetree.rs` returns speaker, previous and next turn and the other codes; route `/api/codes/{id}/passages`. | done | V1 |
+| F-45 | Counts that never mislead: for each code, the number of passages, of distinct interviews and, when cases or attributes exist, of distinct cases and attribute values. (ext.) Missing: counts of distinct cases and distinct attribute values per code. Passage and interview counts exist in the theme export (`crates/cs-app/src/export_analysis.rs`). | partial | V1 |
+| F-46 | Interview reflexive memo and unit-level memos, dated and attributed. Evidence: interview memo and dated answers at `/api/interviews/{id}/memo` and `/api/interviews/{id}/memo/answers`; unit notes and marks at `/api/interviews/{id}/marks`. | done | V1 |
+| F-47 | Keyboard operation of the coding screen: next and previous turn, N, R, H, slash for code search, Enter to confirm, Escape to close. Evidence: key map in `web/src/lib/coder-keys.ts` (N, R, H, search, next and previous, Enter, Escape, undo, new code). | done | V1 |
+| F-48 | Familiarisation memo at the start of each interview, from the template selected for it (F-06), required before coding the first three interviews and optional afterwards. Evidence: memo template choice and answers per interview in `web/src/components/library/fiche.tsx`. Missing: the rule that the memo is required before coding the first three interviews is not enforced in `web/src/pages/coder.tsx`. | partial | V1 |
+| F-49 | End-of-interview checklist shown when the last turn is reached (F-07). Evidence: `web/src/components/coder/end-panel.tsx`, shown when every respondent turn is examined; state kept in the interview checklist. | done | V1 |
 
 ### 4.4 Lexical workbench
 
 | ID | Requirement | Status | Target |
 |---|---|---|---|
-| F-50 | Lexical panel for a selected highlight: YAKE keyphrases, Snowball stems, and a proposed provisional label that the researcher may use or ignore. Statistical and deterministic. Nothing exists. | missing | V1 |
-| F-51 | Languages: stemming and stop words for French, English and German; the language is an attribute of the interview or of the project. | missing | V1 |
-| F-52 | Keyword table across all highlights: stem, number of passages, interviews concerned, with check boxes to show the passages and to create a code from a selection. A table with counts, never a word cloud. | missing | V1 |
-| F-53 | Similar passages: TF-IDF cosine similarity on stems across all interviews, with the score; used to check the coverage of a code and to find what was missed. It does not see synonyms or other languages, and says so. | missing | V1 |
-| F-54 | Keyword in context (KWIC) search across all interviews, filterable by attribute. | missing | V1 |
-| F-55 | Full-text search with filters on attributes, codes and speakers, including interviews that do not mention a subject. (ext.) | missing | V2 |
-| F-56 | Code co-occurrence in the same passage or within a configured proximity, documented as co-occurrence and never as causation. (ext.) | missing | V2 |
+| F-50 | Lexical panel for a selected highlight: YAKE keyphrases, Snowball stems, and a proposed provisional label that the researcher may use or ignore. Statistical and deterministic. Nothing exists. Evidence: route `/api/passages/{pid}/lexical`; `crates/cs-lex` (YAKE, Snowball); `web/src/components/lexicon/passage-panel.tsx`. | done | V1 |
+| F-51 | Languages: stemming and stop words for French, English and German; the language is an attribute of the interview or of the project. Evidence: `crates/cs-lex/src/lang.rs` (French, English, German); configuration route `/api/lexicon/config`. | done | V1 |
+| F-52 | Keyword table across all highlights: stem, number of passages, interviews concerned, with check boxes to show the passages and to create a code from a selection. A table with counts, never a word cloud. Evidence: route `/api/lexicon/keywords`; `web/src/components/lexicon/keyword-table.tsx`. | done | V1 |
+| F-53 | Similar passages: TF-IDF cosine similarity on stems across all interviews, with the score; used to check the coverage of a code and to find what was missed. It does not see synonyms or other languages, and says so. Evidence: route `/api/passages/{pid}/similar`; TF-IDF cosine in `crates/cs-lex`. | done | V1 |
+| F-54 | Keyword in context (KWIC) search across all interviews, filterable by attribute. Evidence: route `/api/lexicon/kwic` with attribute filter; `web/src/components/lexicon/kwic-search.tsx`. | done | V1 |
+| F-55 | Full-text search with filters on attributes, codes and speakers, including interviews that do not mention a subject. (ext.) Missing: the whole requirement. No full-text search route or screen exists; only KWIC (F-54). | missing | V2 |
+| F-56 | Code co-occurrence in the same passage or within a configured proximity, documented as co-occurrence and never as causation. (ext.) Missing: the whole requirement. No co-occurrence computation exists. | missing | V2 |
 
 ### 4.5 Evidence qualification and verification
 
 | ID | Requirement | Status | Target |
 |---|---|---|---|
-| F-57 | Detail drawer for a unit that will be cited: closed by default, opened only for cited passages. | missing | V1 |
+| F-57 | Detail drawer for a unit that will be cited: closed by default, opened only for cited passages. Evidence: Detail tab in `web/src/components/coder/detail-panel.tsx` (passage, codes, note, copy as quotation). Missing: it is a tab, not a drawer that stays closed and opens only for cited passages. | partial | V1 |
 | F-58 | Quotation as an exact substring of the unit, with evidence nature, origin and role, and the codes it supports. Claims with these fields, exact-substring validation and distributions exist. | done | V1 |
 | F-59 | Flags on a unit: uncertain attribution or word, reported statement, unfinished sentence, acquiescence to the interviewer's wording (with a "content or only assent" kind). Optional. | done | V1 |
 | F-60 | Corrections of text or speaker as dated overlays with a reason; the original stays readable; the unit returns to unverified. | done | V1 |
 | F-61 | Verification states (unverified, verified, unusable), the list of targets (cited, flagged, disagreed, attributed to a case, plus a seeded sample), and coverage figures exported next to any count. | done | V1 |
-| F-62 | Audio playback at the timestamp of a unit, and audio synchronised with the transcript. (ext.) | missing | V2 |
+| F-62 | Audio playback at the timestamp of a unit, and audio synchronised with the transcript. (ext.) Missing: the whole requirement. No audio playback or timestamp synchronisation exists in `web/src`. | missing | V2 |
 
 ### 4.6 Blind AI review (step 2)
 
@@ -169,46 +178,46 @@ Reading the tables. Status is **done** (works, checked in the code or its tests)
 |---|---|---|---|
 | F-63 | Blind guard: a prompt batch is refused while any unit of it lacks the human coding; generating it freezes the human coding with the digests of the units and of the codebook, append-only. | done | V1 |
 | F-64 | Deterministic prompts: identical inputs give byte-identical prompts, bound to the segmentation and codebook by hashes; unit identifiers found in code texts are redacted. | done | V1 |
-| F-65 | Prompt content from configuration (F-11), with attributes shared with the model and the preceding interviewer turn. | partial | V1 |
+| F-65 | Prompt content from configuration (F-11), with attributes shared with the model and the preceding interviewer turn. Evidence: `crates/cs-ai/src/prompt.rs` (description, research questions, interviewer questions); shared attributes in `crates/cs-app/src/v1_review.rs`. | done | V1 |
 | F-66 | Model providers behind one interface: copy and paste (always first, the reference), isolated command-line, OpenAI-compatible HTTP, ChatGPT sign-in. Each run records model, settable and unsettable parameters, place of execution (a local command may call a hosted model), prompt digest and raw answer. Keys are named by environment variable and never stored. Isolation probe for command-line providers. | done | V1 |
 | F-67 | Strict answer validation: right interview and segmentation, every unit exactly once, only offered codes or NA; all problems reported together; a refused answer is kept nowhere; accepted answers are stored verbatim with a digest. | done | V1 |
-| F-68 | Candidate concepts: the model may report a concept absent from the codebook; the report arrives in Review as a candidate to create a code, attach to an existing code, or discard, with a dated reason. Never applied automatically. Not in the prompt or the parser. | missing | V1 |
+| F-68 | Candidate concepts: the model may report a concept absent from the codebook; the report arrives in Review as a candidate to create a code, attach to an existing code, or discard, with a dated reason. Never applied automatically. Not in the prompt or the parser. Evidence: tables `concept_candidates` and `concept_decisions` (`crates/cs-store/src/lot4.rs`); `web/src/components/revoir/concept-card.tsx`. | done | V1 |
 | F-69 | Confrontation on the frozen reference: units where the human and the model differ, a seeded random sample of agreements (at least five or a tenth), and revisions shown as such. | done | V1 |
 | F-70 | Arbitration: keep mine, take the model's, or choose other codes; a written reason is required for a disagreement; the frozen reading, the model's reading and the decision are three separate records. | done | V1 |
 | F-71 | Agreement figures (exact agreement, Cohen's kappa per code), reported and not optimised. | done | V1 |
-| F-72 | Review state per interview and per corpus (not done, in progress, complete) with the declared coverage, so that the final text can say on which interviews the review was done. Progress counters exist in `/simple`. | partial | V1 |
+| F-72 | Review state per interview and per corpus (not done, in progress, complete) with the declared coverage, so that the final text can say on which interviews the review was done. Evidence: route `/api/review-state`; review screen `web/src/components/revoir/revue-ia.tsx`. | done | V1 |
 | F-73 | Review remains optional and is never a lock on Analyse or Write. | done | V1 |
-| F-74 | Second human coder and reviewer role with intercoder comparison. (ext.) | missing | V2 |
+| F-74 | Second human coder and reviewer role with intercoder comparison. (ext.) Missing: the whole requirement. No second coder account, reviewer role or intercoder comparison exists. | missing | V2 |
 
 ### 4.7 Analyse (step 3)
 
 | ID | Requirement | Status | Target |
 |---|---|---|---|
-| F-75 | Themes as analytical propositions: title, a proposition of two to four sentences, linked codes (a code may serve two themes), research questions concerned. | missing | V1 |
-| F-76 | Theme sheet: supporting codes, supporting cases, main passages, divergent cases, conditions, alternative interpretation, limits, decision memo, status (candidate, revised, retained). | missing | V1 |
-| F-77 | Theme checks: the configured list is shown on the sheet and each check is answered before a theme can be set to retained. | missing | V1 |
-| F-78 | Framework reading per theme: for each dimension of the project's framework, what the theme explains, plus "outside the framework". Absent when the project has no framework. | missing | V1 |
-| F-79 | Matrix definition: rows and columns chosen among interviews, cases, attributes, themes, codes and custom dimension lists; saved as named views; filters by attribute. | missing | V1 |
-| F-80 | Matrix cells: closed value (3.2), passage count, optional one-line summary, a click that opens the passages, citations and memos. | missing | V1 |
-| F-81 | Custom dimension lists (for example who imposes, who pays) with their own cell values and passages. | missing | V1 |
-| F-82 | Codes by attribute table: number of passages and interviews per code and attribute value. | missing | V1 |
-| F-83 | Passages by code, and cross-interview exploration by KWIC and similar passages (F-53, F-54). | partial | V1 |
+| F-75 | Themes as analytical propositions: title, a proposition of two to four sentences, linked codes (a code may serve two themes), research questions concerned. Evidence: routes `/api/themes` (`crates/cs-app/src/v1_analysis.rs`); `web/src/components/analysis/theme-list.tsx`. | done | V1 |
+| F-76 | Theme sheet: supporting codes, supporting cases, main passages, divergent cases, conditions, alternative interpretation, limits, decision memo, status (candidate, revised, retained). Evidence: `web/src/components/analysis/theme-sheet.tsx`; theme routes in `crates/cs-app/src/v1_analysis.rs`. | done | V1 |
+| F-77 | Theme checks: the configured list is shown on the sheet and each check is answered before a theme can be set to retained. Evidence: route `/api/themes/{id}/checks/{check}`; `web/src/lib/theme-status.ts` asks for a reason to retain a theme with a check not done (a recorded override, not a block). | done | V1 |
+| F-78 | Framework reading per theme: for each dimension of the project's framework, what the theme explains, plus "outside the framework". Absent when the project has no framework. Evidence: route `/api/writing/framework`; `web/src/components/analysis/framework-reading.tsx`. | done | V1 |
+| F-79 | Matrix definition: rows and columns chosen among interviews, cases, attributes, themes, codes and custom dimension lists; saved as named views; filters by attribute. Evidence: routes `/api/matrix/views` and `/api/matrix/compute`; `web/src/components/analysis/matrix-view.tsx`. | done | V1 |
+| F-80 | Matrix cells: closed value (3.2), passage count, optional one-line summary, a click that opens the passages, citations and memos. Evidence: routes `/api/matrix/cell` and `/api/matrix/cell/passages`. | done | V1 |
+| F-81 | Custom dimension lists (for example who imposes, who pays) with their own cell values and passages. Evidence: custom dimensions in `ProjectConfig.matrix_dimensions`; route `/api/matrix/options`. | done | V1 |
+| F-82 | Codes by attribute table: number of passages and interviews per code and attribute value. Evidence: `CodesByAttribute` in `web/src/components/analysis/explorer.tsx`. | done | V1 |
+| F-83 | Passages by code, and cross-interview exploration by KWIC and similar passages (F-53, F-54). Evidence: `web/src/components/analysis/explorer.tsx` (passages by code, KWIC, similar passages). | done | V1 |
 | F-84 | Cases (documented decisions): a case is documented only by units explicitly attributed to it, from any interview, with descriptive fields and five synthesis fields (trigger, alternatives, constraints, choice, result), each with what supports, contradicts and is missing. A case without units is shown as undocumented. The field names are currently those of the first study. | done | V1 |
 | F-85 | Cross-case view of research questions against cases, built from final codings. | done | V1 |
 | F-86 | Saturation record: for each interview in coding order, codes used for the first time and field codes created, provisional by design. | done | V1 |
-| F-87 | Generic case fields: the vocabulary of F-84 (adopted, deferred, rejected, granularity, carrier) becomes a configurable set of fields. | missing | V2 |
+| F-87 | Generic case fields: the vocabulary of F-84 (adopted, deferred, rejected, granularity, carrier) becomes a configurable set of fields. Missing: the whole requirement. The case fields are still fixed to the first study. | missing | V2 |
 
 ### 4.8 Write (step 4)
 
 | ID | Requirement | Status | Target |
 |---|---|---|---|
-| F-88 | Writing by theme: for each retained theme, the sheet and its passages beside the written parts (analytical statement, mechanism, evidence, variations and divergent cases, mini-synthesis). | missing | V1 |
-| F-89 | Typed links between a passage and a part of the text, chosen from the configured list, with a one-line note; a free link, not a binary for or against. | missing | V1 |
-| F-90 | Passage picker for a research question: all final-coded passages carrying a code of the question, across interviews, with verified state and a link to open the unit in its interview. | missing | V1 |
-| F-91 | Synthesis per research question: memo with what the data document, interpretation, competing explanations and limits, each with units for and against. The memo exists; the framework reading part and the link to themes do not. | partial | V1 |
-| F-92 | Framework reading table: theme, observation, reading by framework dimension, complementary dimension, limit of evidence. Generated from F-78 and the links. | missing | V1 |
-| F-93 | Final audit: draw a configurable number of random claims (default three) from the written text and show the whole path to sentence, theme, codes, passages, interview version, without manual reconstruction. | missing | V1 |
-| F-94 | Export of the written parts with their links, so that figures and quotations of a document can be generated from the package. | missing | V1 |
+| F-88 | Writing by theme: for each retained theme, the sheet and its passages beside the written parts (analytical statement, mechanism, evidence, variations and divergent cases, mini-synthesis). Evidence: `web/src/components/writing/by-theme.tsx` and `part-editor.tsx`; route `/api/writing/themes/{id}/parts/{part}`. | done | V1 |
+| F-89 | Typed links between a passage and a part of the text, chosen from the configured list, with a one-line note; a free link, not a binary for or against. Evidence: routes `/api/links` and `/api/links/{id}`; link types from `ProjectConfig.link_types`; `by-theme.tsx` creates the link. | done | V1 |
+| F-90 | Passage picker for a research question: all final-coded passages carrying a code of the question, across interviews, with verified state and a link to open the unit in its interview. Missing: a passage picker for a research question. The Write screen lists passages by theme (`web/src/components/writing/by-theme.tsx`); no route or screen lists the final-coded passages of a question across interviews. | missing | V1 |
+| F-91 | Synthesis per research question: memo with what the data document, interpretation, competing explanations and limits, each with units for and against. Evidence: table `rq_memos` and route `/api/research-questions/{id}/memo`; `web/src/components/writing/question-synthesis.tsx`. Missing: no link from each synthesis to the themes that answer its question. The framework reading is a separate table (F-92), not part of the synthesis. | partial | V1 |
+| F-92 | Framework reading table: theme, observation, reading by framework dimension, complementary dimension, limit of evidence. Generated from F-78 and the links. Evidence: `web/src/components/writing/framework-table.tsx`; route `/api/writing/framework`. | done | V1 |
+| F-93 | Final audit: draw a configurable number of random claims (default three) from the written text and show the whole path to sentence, theme, codes, passages, interview version, without manual reconstruction. Evidence: routes `/api/final-audit` and `/api/final-audit/{id}`; `web/src/components/writing/final-audit.tsx`; seeded draw of three claims in `crates/cs-store/src/final_audit.rs`. | done | V1 |
+| F-94 | Export of the written parts with their links, so that figures and quotations of a document can be generated from the package. Evidence: route `/api/writing/export` (Markdown with footnotes); `crates/cs-app/src/export_analysis.rs`. | done | V1 |
 
 ### 4.9 Audit, export, portability
 
@@ -218,12 +227,12 @@ Reading the tables. Status is **done** (works, checked in the code or its tests)
 | F-96 | Chain verification from the interface and from `GET /api/audit/verify`. | done | V1 |
 | F-97 | Interview export package: units, codings, prompts and raw answers, agreement and review, final coding, cases, claims and distributions, verification and corrections, audit log, state digest, database snapshot, manifest with SHA-256 and sizes, README. Never overwritten. | done | V1 |
 | F-98 | Cross-corpus export package: answers, cross-case matrix, saturation, cases, state, manifest. | done | V1 |
-| F-99 | Export of passages, highlights, themes and sheets, matrix views, links, memo answers, attribute values and checklist state, in the same package format (CSV and Markdown, plus JSON for ids). | missing | V1 |
+| F-99 | Export of passages, highlights, themes and sheets, matrix views, links, memo answers, attribute values and checklist state, in the same package format (CSV and Markdown, plus JSON for ids). Evidence: `passages.csv`, `highlights.csv`, `attributes.csv`, `memos.json` (checklist included) in `crates/cs-app/src/export_v1.rs`; themes, matrix and links in `export_analysis.rs`. | done | V1 |
 | F-100 | Counting unit stated in every distribution file header and in the package README. | done | V1 |
 | F-101 | Whole-project export and re-import (a ZIP with a JSON manifest and the sources) that reproduces codes, passages, themes, memos, attributes and file digests. A database copy is already part of each package; import is not. (ext.) | partial | V2 |
-| F-102 | Anonymised academic export that masks names of persons and organisations and sensitive attributes, with a manual check of free text. (ext.) | missing | V2 |
-| F-103 | Import of codebooks and codings from NVivo and MAXQDA exports, and export in REFI-QDA project and codebook formats. | missing | V2 |
-| F-104 | Export of the text and tables a final document needs (docx or Markdown) from themes, links and matrices. (ext.) | missing | V2 |
+| F-102 | Anonymised academic export that masks names of persons and organisations and sensitive attributes, with a manual check of free text. (ext.) Missing: the whole requirement. Only candidate texts are pseudonymised in exports; no anonymised academic export exists. | missing | V2 |
+| F-103 | Import of codebooks and codings from NVivo and MAXQDA exports, and export in REFI-QDA project and codebook formats. Evidence: REFI-QDA codebook and project export and import in `crates/cs-qdpx` (routes `/api/export/qdc`, `/api/export/qdpx`, and the import routes in `crates/cs-app/src/qdpx.rs`). Missing: the tests use hand-written MAXQDA-shaped and NVivo-shaped fixtures; import is not checked against files exported by NVivo or MAXQDA themselves. | partial | V2 |
+| F-104 | Export of the text and tables a final document needs (docx or Markdown) from themes, links and matrices. (ext.) Evidence: Markdown export with footnotes (`/api/writing/export`). Missing: no docx output. | partial | V2 |
 
 ### 4.10 Application, platforms, command line
 
@@ -233,17 +242,17 @@ Reading the tables. Status is **done** (works, checked in the code or its tests)
 | F-106 | Command-line launcher: database, library, legacy coding database, port, actor name, interviewer labels, no-browser flag. | done | V1 |
 | F-107 | Desktop application (Tauri 2) with native folder and file dialogs and a Database menu; unsigned builds. | done | V1 |
 | F-108 | Continuous integration on macOS, Linux and Windows. | done | V1 |
-| F-109 | Command-line equivalents of the main actions (scan, segment, export, verify) for scripted use. | missing | V2 |
-| F-110 | Signed and notarised bundles, installers for the three platforms, and a release process. | missing | V2 |
+| F-109 | Command-line equivalents of the main actions (scan, segment, export, verify) for scripted use. Missing: the whole requirement. The `coding-studio` binary takes launcher options only (`crates/cs-app/src/main.rs`); there are no scan, segment, export or verify commands. | missing | V2 |
+| F-110 | Signed and notarised bundles, installers for the three platforms, and a release process. Missing: the whole requirement. CI builds an unsigned macOS app (`.github/workflows/ci.yml`); there is no signing, notarisation, installer for the three platforms or release workflow. | missing | V2 |
 | F-111 | Light and dark appearance following the system, with a manual override. | done | V1 |
 
 ### 4.11 In-app guide
 
 | ID | Requirement | Status | Target |
 |---|---|---|---|
-| F-112 | In-app guide, in context: for each step a short explanation of what to do and what not to do, the keys, and the method rules (describe before interpreting, repetition is not importance, framework is not structure). Written from the configuration, so it follows the project's own lists. | missing | V1 |
-| F-113 | Worked fictional example project that the guide walks through, loadable with one action. | partial | V1 |
-| F-114 | English translation of the user guide (written in French first, in docs/guide/fr) for the public release. | missing | V2 |
+| F-112 | In-app guide, in context: for each step a short explanation of what to do and what not to do, the keys, and the method rules (describe before interpreting, repetition is not importance, framework is not structure). Written from the configuration, so it follows the project's own lists. Evidence: in-app guide `web/src/pages/guide.tsx`, help drawer `web/src/components/help-drawer.tsx`, text from `docs/guide/fr`. Missing: the text is static and is not written from the project configuration (`web/src/lib/guide.ts` does not read it). | partial | V1 |
+| F-113 | Worked fictional example project that the guide walks through, loadable with one action. Evidence: `examples/` (one fictional interview, a codebook, a providers file, a project template). Missing: no single action in the interface loads the example as a project. | partial | V1 |
+| F-114 | English translation of the user guide (written in French first, in docs/guide/fr) for the public release. Evidence: `docs/guide/en/` (eight files, same structure as `docs/guide/fr/`). | done | V2 |
 
 The example library holds one fictional interview, a codebook and a providers file, which makes F-113 partial.
 
@@ -251,21 +260,21 @@ The example library holds one fictional interview, a codebook and a providers fi
 
 | ID | Requirement | Status | Target |
 |---|---|---|---|
-| F-115 | Single navigation: Library, Codebook, Analyse, Write, Settings; an Interview entry appears when one is open. No simple and advanced modes. The current web interface has a mode switch skeleton and the older multi-screen flow. | missing | V1 |
-| F-116 | Interview screen with the transcript list, the code panel, resizable panels, progress counters, the four-step bar, and the Detail drawer. | missing | V1 |
-| F-117 | Review screens (generate prompt, paste or run, confront, arbitrate) rebuilt on the single flow. Components exist in the older flow. | partial | V1 |
-| F-118 | Analyse and Write screens for F-75 to F-94. | missing | V1 |
-| F-119 | Interface language selection (English, French) with translated strings. | missing | V2 |
-| F-120 | Keyboard accessibility and screen-reader labels for all actions, contrast checked in both appearances. | partial | V2 |
-| F-121 | Three-panel layout (navigation, list, detail) with right-click actions and coding stripes. (ext.) | partial | V2 |
+| F-115 | Single navigation: Library, Codebook, Analyse, Write, Settings; an Interview entry appears when one is open. No simple and advanced modes. Evidence: `web/src/components/sidebar.tsx` and `web/src/lib/nav.ts` (Library, Codebook, Analyser, Rediger, Settings; Lexique and Guide are extra entries). No simple or advanced mode switch. | done | V1 |
+| F-116 | Interview screen with the transcript list, the code panel, resizable panels, progress counters, the four-step bar, and the Detail drawer. Evidence: interview tabs in `web/src/pages/interview.tsx`; coder in `web/src/pages/coder.tsx`; step capsule `StepsCapsule`; Detail tab. Missing: no resizable panels in `web/src`. | partial | V1 |
+| F-117 | Review screens (generate prompt, paste or run, confront, arbitrate) rebuilt on the single flow. Evidence: `web/src/components/revoir/` (prompt, answers, decisions, concept cards); tabs `ai` and `review` in `web/src/pages/interview.tsx`. | done | V1 |
+| F-118 | Analyse and Write screens for F-75 to F-94. Evidence: `web/src/pages/analyser.tsx`, `web/src/pages/rediger.tsx`, `web/src/components/analysis/`, `web/src/components/writing/`. | done | V1 |
+| F-119 | Interface language selection (English, French) with translated strings. Missing: the whole requirement. The interface is French only, enforced by `web/src/i18n.test.tsx`, and has no language selection. | missing | V2 |
+| F-120 | Keyboard accessibility and screen-reader labels for all actions, contrast checked in both appearances. Missing: no accessibility audit and no screen-reader or contrast check is recorded in the repository. | partial | V2 |
+| F-121 | Three-panel layout (navigation, list, detail) with right-click actions and coding stripes. (ext.) Evidence: coding stripes in `web/src/components/coder/turn.tsx`. Missing: the three-panel layout and the right-click actions. | partial | V2 |
 
 ### 4.13 Teams (V2)
 
 | ID | Requirement | Status | Target |
 |---|---|---|---|
-| F-122 | Several users on one project with roles (analyst, reviewer), authentication, and per-user attribution in the audit log. The actor name is already recorded. | missing | V2 |
-| F-123 | Concurrent editing or synchronisation strategy for a shared project folder, with conflict reporting. | missing | V2 |
-| F-124 | Reviewer role: read the codebook, decisions and justifications and annotate without changing sources or codings. (ext.) | missing | V2 |
+| F-122 | Several users on one project with roles (analyst, reviewer), authentication, and per-user attribution in the audit log. The actor name is already recorded. Missing: the whole requirement. The audit log records a single actor name (`--actor`); there are no users, roles or authentication. | missing | V2 |
+| F-123 | Concurrent editing or synchronisation strategy for a shared project folder, with conflict reporting. Missing: the whole requirement. No synchronisation or conflict reporting exists for a shared folder. | missing | V2 |
+| F-124 | Reviewer role: read the codebook, decisions and justifications and annotate without changing sources or codings. (ext.) Missing: the whole requirement. No reviewer role exists. | missing | V2 |
 
 ## 5. Non-functional requirements
 
@@ -398,23 +407,25 @@ Tests A1 to A12 are adapted from the external requirements document. A13 to A20 
 
 ## 8. Backlog
 
+Status at the date above. Done items are marked "Done"; the remaining items keep their order.
+
 ### 8.1 V1, ordered
 
 V1 is what the author needs for the thesis before 30 October 2026. The order puts what blocks the rest first. Each lot ends green on `make check`, with the web build regenerated and the acceptance tests of the lot added.
 
-**Lot 1, Passages and coding.** F-27, F-28 (passage entity and versioned anchors), F-29 (stable code ids, names, aliases), F-30 (code tree), F-31, F-32 (create from passage), F-33 (LATER), F-25 (to review state), F-42 (highlights), F-43 (stripes), F-41, F-47, F-44, F-45, F-40, F-46. Tests A1, A2, A4, A5, A11.
+**Lot 1, Passages and coding.** Done: F-25, F-27, F-28, F-29, F-30, F-32, F-33, F-40, F-42, F-43, F-44, F-46, F-47. Remaining, in order: F-41 (aliases in the code picker), F-31 (neighbouring codes), F-45 (distinct cases and distinct attribute values per code). Tests A1, A2, A4, A5, A11 are covered on the server side (`docs/DEVGRAPH_v1_lots1-2.md`).
 
-**Lot 2, Configuration and attributes.** F-01, F-03, F-04, F-02 (project template), F-06, F-48 (memo templates and answers), F-07, F-49 (checklist), F-08, F-09, F-10 (editable lists), F-05 (framework moved to Analyse and Write), F-16 (settings screen). Tests A21 to A24, A26. This lot comes early because Lots 3 and 4 read the lists.
+**Lot 2, Configuration and attributes.** Done: F-01, F-02, F-03, F-04, F-05, F-06, F-07, F-08, F-10, F-49. Remaining, in order: F-48 (memo required before coding the first three interviews), F-09 (origin and role lists), F-16 (matrix defaults and the pseudonymisation list in Settings). Tests A21 to A24, A26 are covered on the server side (`docs/DEVGRAPH_v1_lots1-2.md`).
 
-**Lot 3, Lexical workbench.** F-50, F-51, F-52, F-53, F-54. Test A27. It depends on Lot 1 for highlights.
+**Lot 3, Lexical workbench.** Done: F-50, F-51, F-52, F-53, F-54. Remaining: none. Test A27 is covered on the server side (`docs/DEVGRAPH_v1_lots3-4.md`).
 
-**Lot 4, Review.** F-65 (prompt content from configuration, with F-11), F-12 (pseudonymisation), F-68 (candidate concepts), F-38 (harmonisation worklist), F-72 (review state), F-117 (screens on the single flow). Tests A9, A10, A13 to A19, A28.
+**Lot 4, Review.** Done: F-12, F-38, F-65, F-68, F-72, F-117. Remaining: none. Tests A9, A10, A13 to A19, A28 are covered on the server side (`docs/DEVGRAPH_v1_lots3-4.md`). Free text is not pseudonymised (see F-12).
 
-**Lot 5, Analyse and Write.** F-75 to F-83, F-88 to F-94, F-118. Tests A8, A25, A29. The matrix and the links are the largest items; themes and sheets can ship first.
+**Lot 5, Analyse and Write.** Done: F-75 to F-83, F-88, F-89, F-92, F-93, F-94, F-118. Remaining, in order: F-90 (passage picker for a research question), F-91 (link from each synthesis to the themes that answer it). Tests A8, A25, A29 are covered on the server side (`docs/DEVGRAPH_v1_lot5.md`).
 
-**Lot 6, Detail, export and single flow.** F-57 (Detail drawer on passages), F-23 (library counters and attributes), F-115, F-116 (single navigation and interview screen), F-99 (export of the new entities).
+**Lot 6, Detail, export and single flow.** Done: F-99, F-115. Remaining, in order: F-57 (Detail drawer that opens for cited passages), F-23 (the three counters on the library line), F-116 (resizable panels in the interview screen).
 
-**Lot 7, In-app guide.** F-112, F-113, with the guide text written from the configuration.
+**Lot 7, In-app guide.** Remaining, in order: F-112 (guide text written from the configuration), F-113 (loading the example project with one action).
 
 Before the first thesis export, the whole V1 set needs one manual pass on the example library and a pilot on two or three real interviews with human time measured.
 
@@ -422,17 +433,17 @@ Before the first thesis export, the whole V1 set needs one manual pass on the ex
 
 V2 turns the thesis tool into a publishable one.
 
-1. Neutral defaults, removal of study-specific documents, wording and fixtures (F-15), following `docs/PUBLISHING.md`; first public release 0.1.0 with the generic README, the licence and the example project.
-2. English translation of the user guide (F-114), interface localisation (F-119).
-3. Packaging: signed and notarised bundles, installers, release automation (F-110), command-line equivalents of main actions (F-109).
-4. Versioned transcripts with projection of passages (F-24), undo of merges, split of codes (F-39).
-5. Whole-project export and import (F-101), anonymised export (F-102).
-6. Import of codebooks and codings from NVivo and MAXQDA exports, export in REFI-QDA project and codebook formats (F-103).
-7. Further transcript formats: DOCX, text PDF, SRT (F-19), then audio synchronised with the transcript (F-62).
-8. Full-text search with filters (F-55), code co-occurrence (F-56), export of documents for writing (F-104).
-9. Generic case fields (F-87).
-10. Accessibility audit and fixes (F-120), the three-panel layout with context menus (F-121).
-11. Multi-user: roles, authentication, a synchronisation strategy (F-122, F-123), reviewer role and a second human coder with intercoder comparison (F-74, F-124).
+1. Neutral defaults, removal of study-specific documents, wording and fixtures (F-15), following `docs/PUBLISHING.md`; first public release 0.1.0 with the generic README, the licence and the example project. Remaining: F-15.
+2. Done: English translation of the user guide (F-114). Remaining: interface localisation (F-119).
+3. Remaining: signed and notarised bundles, installers, release automation (F-110), command-line equivalents of the main actions (F-109).
+4. Remaining: versioned transcripts with projection of passages (F-24), undo of merges and split of codes (F-39).
+5. Remaining: whole-project export and import (F-101), anonymised export (F-102).
+6. Partly done: import and export in REFI-QDA project and codebook formats (F-103). Remaining: checks against real NVivo and MAXQDA exports.
+7. Remaining: plain TXT and Markdown without a convention (F-19), audio synchronised with the transcript (F-62).
+8. Remaining: full-text search with filters (F-55), code co-occurrence (F-56), export of documents for writing in docx (F-104).
+9. Remaining: generic case fields (F-87).
+10. Remaining: accessibility audit and fixes (F-120), the three-panel layout with context menus (F-121).
+11. Remaining: several users with roles and a synchronisation strategy (F-122, F-123), reviewer role and a second human coder with intercoder comparison (F-74, F-124).
 12. Optional, evaluated after the release and only with human validation: suggestions of existing codes for a passage, suggestions of close codes to merge, consistency checks of a code definition across its passages. These follow the external document's AI section and the rules of section 9.
 
 ## 9. Out of scope and deliberate refusals
