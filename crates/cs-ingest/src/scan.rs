@@ -38,7 +38,8 @@ pub fn classify(rel_path: &str) -> SourceKind {
         .to_lowercase();
     let ext = name.rsplit_once('.').map(|(_, e)| e).unwrap_or("");
     match ext {
-        "vtt" => SourceKind::Vtt,
+        // SRT cues are read by the subtitle reader, dispatched on the extension.
+        "vtt" | "srt" => SourceKind::Vtt,
         "txt" if name.contains("transcript") => SourceKind::TimestampedText,
         "md" => {
             if name.starts_with("02_transcript_cleaned_diarised") {
