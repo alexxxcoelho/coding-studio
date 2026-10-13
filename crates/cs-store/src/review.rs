@@ -42,6 +42,15 @@ pub struct Review {
     pub snapshots: Vec<ReviewSnapshotRef>,
 }
 
+/// Value of a `name: value` meta line of a prompt, when it has one.
+fn meta_line(text: &str, name: &str) -> Option<String> {
+    let prefix = format!("{name}: ");
+    text.lines()
+        .take_while(|l| !l.starts_with("## "))
+        .find_map(|l| l.strip_prefix(&prefix))
+        .map(|v| v.trim().to_string())
+}
+
 fn only_phase2(phase: u8) -> Result<()> {
     check_phase(phase)?;
     if phase == PHASE_1 {
@@ -109,6 +118,40 @@ impl Store {
             [&interview_id],
             |r| r.get(0),
         )?;
+        // The human reference is frozen first: its row and its audit event
+        // come before the prompt of the batch in the chain, so the log shows
+        // that the prompt was generated after the candidate's coding was
+        // fixed.
+        let first = &parts[0];
+        tx.execute(
+            "INSERT INTO human_snapshots (interview_id, batch_id, phase, segmentation_hash, codebook_hash,
+               codings, sha256, created_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+            params![
+                interview_id,
+                batch_id,
+                PHASE_2,
+                first.segmentation_hash,
+                first.codebook_hash,
+                codings_json,
+                snapshot_sha,
+                now()
+            ],
+        )?;
+        append_event(
+            &tx,
+            actor,
+            "human_snapshot.take",
+            Some(&interview_id),
+            Some(&format!("batch {batch_id}")),
+            json!({
+                "batch_id": batch_id,
+                "sha256": snapshot_sha,
+                "n_units": batch_units.len(),
+                "segmentation_hash": first.segmentation_hash,
+                "codebook_hash": first.codebook_hash,
+            }),
+        )?;
         let mut out = Vec::new();
         for p in parts {
             let mut p = p.clone();
@@ -150,40 +193,13 @@ impl Store {
                     "prompt_version": p.prompt_version,
                     "n_units": p.unit_ids.len(),
                     "codes": p.codes,
+                    "human_snapshot_sha256": snapshot_sha,
+                    "configuration_digest": meta_line(&p.text, "configuration_digest"),
+                    "pseudonymisation_digest": meta_line(&p.text, "pseudonymisation_digest"),
                 }),
             )?;
             out.push(p);
         }
-        let first = &out[0];
-        tx.execute(
-            "INSERT INTO human_snapshots (interview_id, batch_id, phase, segmentation_hash, codebook_hash,
-               codings, sha256, created_at)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
-            params![
-                interview_id,
-                batch_id,
-                PHASE_2,
-                first.segmentation_hash,
-                first.codebook_hash,
-                codings_json,
-                snapshot_sha,
-                now()
-            ],
-        )?;
-        append_event(
-            &tx,
-            actor,
-            "human_snapshot.take",
-            Some(&interview_id),
-            Some(&format!("batch {batch_id}")),
-            json!({
-                "batch_id": batch_id,
-                "sha256": snapshot_sha,
-                "n_units": batch_units.len(),
-                "segmentation_hash": first.segmentation_hash,
-                "codebook_hash": first.codebook_hash,
-            }),
-        )?;
         tx.commit()?;
         Ok(out)
     }
@@ -557,6 +573,14 @@ impl Store {
                 "n_units": parsed.codings.len(),
                 "segmentation_hash": parsed.segmentation_hash,
             }),
+        )?;
+        self.record_candidates_in(
+            &tx,
+            &interview_id,
+            run_id,
+            parsed.part,
+            &parsed.candidate_concepts,
+            actor,
         )?;
         // Complete? Then draw the agreement sample.
         let run = self.run_with(&tx, run_id)?;

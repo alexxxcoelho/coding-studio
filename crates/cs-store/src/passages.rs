@@ -428,6 +428,7 @@ impl Store {
                 "reason": reason.trim(),
             }),
         )?;
+        self.sync_unit_from_passages_in(&tx, &p.interview_id, &p.unit_id, actor)?;
         tx.commit()?;
         self.passage(passage_id)
     }
@@ -458,6 +459,7 @@ impl Store {
                 "reason": reason.trim(),
             }),
         )?;
+        self.sync_unit_from_passages_in(&tx, &p.interview_id, &p.unit_id, actor)?;
         tx.commit()?;
         Ok(())
     }
@@ -668,6 +670,7 @@ impl Store {
                 )?;
             }
         }
+        self.sync_unit_from_passages_in(conn, &interview_id, &unit_id, actor)?;
         Ok(())
     }
 }

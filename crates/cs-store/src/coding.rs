@@ -49,7 +49,7 @@ fn write_coding(
         "INSERT INTO human_codings (interview_id, phase, unit_id, codes, subcode, modifier, ev_level,
            provenance, memo, excerpt, revised_after_ai, updated_at)
          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)
-         ON CONFLICT(interview_id, phase, unit_id) DO UPDATE SET codes = excluded.codes,
+         ON CONFLICT(interview_id, phase, unit_id) DO UPDATE SET codes = excluded.codes, source = NULL,
            subcode = excluded.subcode, modifier = excluded.modifier, ev_level = excluded.ev_level,
            provenance = excluded.provenance, memo = excluded.memo, excerpt = excluded.excerpt,
            revised_after_ai = excluded.revised_after_ai, updated_at = excluded.updated_at",
@@ -165,7 +165,7 @@ impl Store {
     }
 
     /// Whether an AI answer covering the unit has been imported.
-    fn ai_covered(&self, interview_id: &str, unit_id: &str) -> Result<bool> {
+    pub(crate) fn ai_covered(&self, interview_id: &str, unit_id: &str) -> Result<bool> {
         let n: i64 = self.conn.query_row(
             "SELECT COUNT(*) FROM ai_outputs o JOIN ai_runs r USING (run_id)
              WHERE r.interview_id = ?1 AND instr(o.parsed, ?2) > 0",

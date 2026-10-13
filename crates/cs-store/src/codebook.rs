@@ -750,7 +750,29 @@ impl Store {
             "UPDATE codes SET merged_into = ?2, active = 0, local = 1, version = version + 1 WHERE code = ?1",
             params![from, into],
         )?;
+        let id_of = |token: &str| -> Result<String> {
+            Ok(
+                tx.query_row("SELECT code_id FROM codes WHERE code = ?1", [token], |r| {
+                    r.get::<_, String>(0)
+                })?,
+            )
+        };
+        let (dst_id, src_id) = (id_of(into)?, id_of(from)?);
+        // The units whose passages carried the merged code, read before the
+        // merge moves the codings.
+        let mut harmonise = self.units_of_code_passages_in(&tx, &src_id)?;
         let (moved, dedup) = self.merge_identity(&tx, from, into, actor)?;
+        for (iid, h) in &codings {
+            harmonise.insert((iid.clone(), h.unit_id.clone()));
+        }
+        self.open_harmonisation_in(
+            &tx,
+            &dst_id,
+            "merge",
+            &format!("{from} merged into {into}"),
+            &harmonise,
+            actor,
+        )?;
         crate::codetree::bump_revision(&tx, actor, "merge", Some(from))?;
         let outcome = MergeOutcome {
             rewritten_codings: codings.len(),

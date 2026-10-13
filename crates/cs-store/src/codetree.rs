@@ -634,6 +634,18 @@ impl Store {
                 "alias_added": new_alias,
             }),
         )?;
+        let redefined = after.definition != before.definition
+            || after.includes != before.includes
+            || after.excludes != before.excludes;
+        if redefined {
+            self.open_harmonisation_for_code_in(
+                &tx,
+                &row.code_id,
+                "redefine",
+                "definition, includes or excludes changed",
+                actor,
+            )?;
+        }
         tx.commit()?;
         self.code_node(&row.code_id)
     }
@@ -854,6 +866,7 @@ impl Store {
             v
         };
         let (mut moved, mut dedup) = (0usize, 0usize);
+        let touched: Vec<String> = moving.iter().map(|(_, p)| p.clone()).collect();
         for (coding_id, passage_id) in moving {
             let has_target: i64 = conn.query_row(
                 "SELECT COUNT(*) FROM passage_codings
@@ -875,6 +888,9 @@ impl Store {
                 )?;
                 moved += 1;
             }
+        }
+        for passage_id in touched {
+            self.sync_passage_unit_in(conn, &passage_id, actor)?;
         }
         Ok((moved, dedup))
     }
@@ -1164,6 +1180,19 @@ impl Store {
     /// Creates a code in the codebook without any passage. The name is the
     /// given name; the stable id is the only key.
     pub fn create_code_v1(&self, req: &NewCode, actor: &str) -> Result<CodeNode> {
+        let tx = self.conn.unchecked_transaction()?;
+        let code_id = self.create_code_v1_in(&tx, req, actor)?;
+        tx.commit()?;
+        self.code_node(&code_id)
+    }
+
+    /// [`Self::create_code_v1`] inside the caller's transaction; returns the id.
+    pub(crate) fn create_code_v1_in(
+        &self,
+        tx: &Connection,
+        req: &NewCode,
+        actor: &str,
+    ) -> Result<String> {
         let (name, definition, parent_id, questions) = self.validate_new_code(
             &req.name,
             &req.definition,
@@ -1171,8 +1200,7 @@ impl Store {
             &req.research_questions,
         )?;
         let memo = req.memo.trim().to_string();
-        let tx = self.conn.unchecked_transaction()?;
-        let code_id = Self::next_code_id(&tx)?;
+        let code_id = Self::next_code_id(tx)?;
         let ord = tx
             .query_row(
                 "SELECT COALESCE(MAX(ord), 0) FROM codes WHERE local = 1",
@@ -1206,9 +1234,9 @@ impl Store {
                 params![code_id, memo, now(), actor],
             )?;
         }
-        let rev = bump_revision(&tx, actor, "create", Some(&code_id))?;
+        let rev = bump_revision(tx, actor, "create", Some(&code_id))?;
         append_event(
-            &tx,
+            tx,
             actor,
             "codebook.code.create",
             None,
@@ -1225,8 +1253,16 @@ impl Store {
                 "codebook_version": rev,
             }),
         )?;
-        tx.commit()?;
-        self.code_node(&code_id)
+        if let Some(parent) = parent_id.as_deref() {
+            self.open_harmonisation_for_code_in(
+                tx,
+                parent,
+                "new_subcode",
+                &format!("new sub-code {name}"),
+                actor,
+            )?;
+        }
+        Ok(code_id)
     }
 
     /// Sets the memo of a code. Each change is a new version in the history;
@@ -1391,6 +1427,9 @@ impl Store {
                 )?;
                 passage_deleted = true;
             }
+        }
+        if !passage_id.is_empty() {
+            self.sync_passage_unit_in(&tx, &passage_id, actor)?;
         }
         if delete_code {
             tx.execute("DELETE FROM code_aliases WHERE code_id = ?1", [&code_id])?;

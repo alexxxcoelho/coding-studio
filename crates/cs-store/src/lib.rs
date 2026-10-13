@@ -26,11 +26,13 @@ mod final_audit;
 mod lexicon;
 mod library;
 mod links;
+mod lot4;
 mod matrix;
 mod memos;
 mod passages;
 mod project;
 mod review;
+mod review_schema;
 mod saturation;
 mod simple;
 mod study_config;
@@ -51,6 +53,10 @@ pub use library::{
     MARK_TO_REVIEW,
 };
 pub use links::{LinkView, PassageBrief};
+pub use lot4::{
+    ConceptCandidateView, ConceptDecisionRequest, ConceptDecisionView, CorpusReviewState,
+    HarmonisationCode, HarmonisationView, PseudonymUsage, ReviewStateView, SOURCE_PASSAGES,
+};
 pub use matrix::{
     CellDetail, CellPassage, CellPatch, Matrix, MatrixAxis, MatrixCell, MatrixConfig, MatrixEntry,
     MatrixFilter, MatrixOptions, MatrixViewRecord,
@@ -93,8 +99,11 @@ pub const SCHEMA: &str = include_str!("schema.sql");
 /// reserved for the lexical and review lots. Version 6 adds the tables of
 /// lot 5 (Analyse and Write) and the columns of the API gaps; its migration
 /// (`analysis_schema::migrate`) is idempotent and runs on every open, so the
-/// result does not depend on the order the lots are merged in.
-pub const SCHEMA_VERSION: i64 = 6;
+/// result does not depend on the order the lots are merged in. Version 7 adds
+/// the tables of lot 4 (Review) and `human_codings.source`; its migration
+/// (`review_schema::migrate`) is idempotent and also runs on every open, for
+/// any version below 7.
+pub const SCHEMA_VERSION: i64 = 7;
 
 /// Oldest schema version that is migrated in place.
 const MIN_SCHEMA_VERSION: i64 = 3;
@@ -329,6 +338,7 @@ impl Store {
         }
         conn.execute_batch(SCHEMA)?;
         analysis_schema::migrate(&conn)?;
+        review_schema::migrate(&conn)?;
         // Databases made before providers existed lack the column: added in
         // place, so that their content is kept.
         let has_provider: bool = conn
