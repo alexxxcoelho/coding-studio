@@ -48,13 +48,17 @@ export function PassageLexicon({ passageId, onUseLabel }: { passageId: string | 
       ) : (
         <div className="r8">
           {d.keyphrases.slice(0, MAX_TAGS).map((k) => (
-            <span key={k.phrase} className="tag" title={`Score YAKE ${k.score.toLocaleString("fr-CH", { maximumFractionDigits: 4 })} (plus bas = plus saillant)`}>
+            <span key={k.phrase} className="tag" data-no-i18n title={`Score YAKE ${k.score.toLocaleString("fr-CH", { maximumFractionDigits: 4 })} (plus bas = plus saillant)`}>
               {k.phrase}
             </span>
           ))}
         </div>
       )}
-      {d.stems.length > 0 && <div className="small l2">Racines : {d.stems.map((s) => s.stem).join(", ")}</div>}
+      {d.stems.length > 0 && (
+        <div className="small l2">
+          Racines : <span data-no-i18n>{d.stems.map((s) => s.stem).join(", ")}</span>
+        </div>
+      )}
       {onUseLabel && d.label && (
         <Button type="button" variant="outline" onClick={() => onUseLabel(d.label)}>
           Utiliser « {d.label} » comme libellé provisoire
@@ -120,8 +124,12 @@ function SimilarCard({ item }: { item: SimilarItem }) {
           {scoreText(item.score)}
         </span>
       </span>
-      <span>« {text} »</span>
-      {shared && <span className="small l2">Mots communs : {shared}</span>}
+      <span data-no-i18n>« {text} »</span>
+      {shared && (
+        <span className="small l2">
+          Mots communs : <span data-no-i18n>{shared}</span>
+        </span>
+      )}
       {item.coded_with.length > 0 && (
         <span className="r8">
           {item.coded_with.map((c) => (

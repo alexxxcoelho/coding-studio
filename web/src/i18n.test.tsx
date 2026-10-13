@@ -77,6 +77,7 @@ beforeEach(() => {
   mockApi()
     .on("GET", /^\/api\/[a-z-]+(\?.*)?$/, { body: [] })
     .on("GET", "/api/config", { body: STUDY })
+    .on("GET", "/api/pseudonymisation", { body: { enabled: true, digest: "d".repeat(64), categories: ["person"], n_list_entries: 1, entries: [{ kind: "person", original: "Anna", pseudonym: "Personne 1" }], free_text_covered: false, note: "Le texte libre n'est pas couvert." } })
     .on("GET", "/api/project-config", { body: PROJECT })
     .on("GET", "/api/state", { body: { native_dialogs: false, codebook_size: 0 } })
 })

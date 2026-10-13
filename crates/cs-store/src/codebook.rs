@@ -769,7 +769,7 @@ impl Store {
             &tx,
             &dst_id,
             "merge",
-            &format!("{from} merged into {into}"),
+            &format!("{from} fusionné dans {into}"),
             &harmonise,
             actor,
         )?;

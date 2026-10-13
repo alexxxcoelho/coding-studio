@@ -549,14 +549,14 @@ fn a3_merge_keeps_every_source_and_deduplicates_identical_passages() {
 }
 
 #[test]
-fn a_changed_unit_text_flags_the_passage_stale_and_never_moves_it() {
+fn a_changed_unit_text_flags_a_touched_passage_stale_and_never_moves_it() {
     let (s, _d) = ready();
     let (p, _) = s.code_span(&span(U2, 4, 8), "TECH-ADV", "", ACTOR).unwrap();
     assert!(!s.passage(&p.passage_id).unwrap().stale);
     s.correct_unit(
         ID,
         U2,
-        "Then the tags paid back within a year.",
+        "The tugs paid back within a year.",
         SpeakerRole::Respondent,
         "mot manquant",
         ACTOR,

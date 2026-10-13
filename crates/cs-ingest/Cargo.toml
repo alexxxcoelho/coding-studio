@@ -7,6 +7,7 @@ license.workspace = true
 [dependencies]
 cs-model.workspace = true
 anyhow.workspace = true
+serde.workspace = true
 regex.workspace = true
 walkdir.workspace = true
 chrono.workspace = true

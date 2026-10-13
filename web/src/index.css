@@ -323,7 +323,7 @@
 
   /* Unified toolbar */
   .tb { min-height: 52px; display: flex; align-items: center; gap: 10px; padding: 4px 12px 4px 18px; flex-wrap: wrap; }
-  .ttl { display: flex; flex-direction: column; line-height: 1.2; margin-right: auto; min-width: 0; }
+  .ttl { display: flex; flex-direction: column; line-height: 1.2; margin-right: auto; flex: 1 1 0; min-width: 140px; }
     .ttl span { font-size: 11px; color: var(--label2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 46ch; }
   .cap {
     display: inline-flex; align-items: center; background: var(--glass); border: .5px solid var(--glass-edge); border-radius: 999px;
@@ -438,6 +438,7 @@
   .mk { background: color-mix(in srgb, var(--k) 22%, transparent); border-bottom: 2px solid var(--k); padding: 1px 0; border-radius: 2px 2px 0 0; cursor: pointer; }
   .hl { background: color-mix(in srgb, var(--yellow) 45%, transparent); border-radius: 2px; padding: 1px 0; cursor: pointer; }
   .dark .hl { background: color-mix(in srgb, var(--yellow) 28%, transparent); }
+  mark.hl { color: inherit; }
   .hl.cur, .mk.cur { box-shadow: 0 0 0 1.5px var(--orange); }
   .seltext { background: color-mix(in srgb, var(--accent-c) 32%, transparent); border-radius: 2px; }
   .tag { background: var(--fill); }

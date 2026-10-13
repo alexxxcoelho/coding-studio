@@ -463,7 +463,7 @@ async fn a_corrected_unit_flags_its_passages_stale_without_moving_them() {
         &ctx.app,
         "POST",
         &format!("/api/interviews/INT-01/units/{unit}/corrections"),
-        Some(json!({ "text": "Well, I run the logistics of a retailer.", "role": "respondent", "reason": "reécoute" })),
+        Some(json!({ "text": "Well, I run the shipping of a retailer.", "role": "respondent", "reason": "reécoute" })),
     )
     .await;
     let p = ok(&ctx.app, "GET", &format!("/api/passages/{pid}"), None).await;

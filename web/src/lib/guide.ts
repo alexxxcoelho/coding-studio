@@ -45,6 +45,7 @@ export function screenForRoute(route: Route): string {
     case "interview":
       if (route.tab === "ai") return "revoir-ia"
       if (route.tab === "review") return "revoir-decisions"
+      if (route.tab === "harmonise") return "revoir-decisions"
       if (route.tab === "cases") return "analyser"
       if (route.tab === "audit") return "exporter"
       return "coder"

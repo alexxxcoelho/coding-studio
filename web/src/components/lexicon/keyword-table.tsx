@@ -107,9 +107,11 @@ function KeywordRowView({ row, checked, compact, onToggle }: { row: KeywordRow; 
   return (
     <tr data-stem={row.stem}>
       <td className="c">
-        <input type="checkbox" checked={checked} onChange={onToggle} aria-label={mainForm(row)} style={{ accentColor: "var(--accent-fill)" }} />
+        <input type="checkbox" checked={checked} onChange={onToggle} aria-label={mainForm(row)} data-no-i18n style={{ accentColor: "var(--accent-fill)" }} />
       </td>
-      <td title={`Racine : ${row.stem}`}>{termText(row)}</td>
+      <td title={`Racine : ${row.stem}`} data-no-i18n>
+        {termText(row)}
+      </td>
       <td className="n" style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{row.n_passages}</td>
       {!compact && (
         <td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>

@@ -6,6 +6,7 @@ import { plural } from "./format"
 import { sameSet } from "./codes"
 import type { KeyLike } from "./coder-keys"
 import type { AiRun, ArbitrationChoice, PromptPart, ReviewItem, Unit, ValidationIssue } from "./types"
+import type { ReviewState } from "./review-api"
 
 // ---------------------------------------------------------------- decisions
 
@@ -221,6 +222,17 @@ export function reviewStatusLabel(runs: AiRun[], decisions: { decided: number; t
   if (!runs.some((r) => r.complete) || !decisions) return "revue IA en attente"
   if (decisions.total === 0) return "revue IA faite, aucun désaccord"
   return `revue IA faite, ${decisions.decided} sur ${decisions.total} ${decisions.total < 2 ? "décidée" : "décidées"}`
+}
+
+/** The same sentence from the review state the server computes: "pas de revue", "revue IA en attente",
+ * "revue IA en cours, 2 sur 3 décidées", "revue IA faite, 3 sur 3 décidées". The counts of concepts to sort
+ * and of units to harmonise are in the badges of the toolbar, not in this line. */
+export function reviewStateLabel(s: ReviewState): string {
+  if (s.state === "not_done") return "pas de revue"
+  if (s.runs.length === 0 && s.n_covered === 0) return "revue IA en attente"
+  const head = s.state === "complete" ? "revue IA faite" : "revue IA en cours"
+  if (s.n_disagreements === 0) return `${head}, aucun désaccord`
+  return `${head}, ${s.n_decided} sur ${s.n_disagreements} ${s.n_disagreements < 2 ? "décidée" : "décidées"}`
 }
 
 /** Parts of the latest prompt batch (each generation is a new batch). */

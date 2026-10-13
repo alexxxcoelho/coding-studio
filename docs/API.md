@@ -374,3 +374,59 @@ The cross-case package and the write-up package (`POST /api/writing/export`, dir
 - Framework cells use the client shape `{explains, note}`.
 - The passage origin list is this server's reading of the guide.
 - Decisions still need an interview.
+
+## V2 transcripts and audio
+
+Server side of F-24 (versioned transcripts, projection of passages) and F-62 (audio linked to the transcript). Rules in `docs/CONTRACTS.md`, section 15. Routes in `crates/cs-app/src/v2_transcripts.rs` and `v2_audio.rs`, logic in `crates/cs-store/src/transcripts.rs`, `projection.rs` and `audio.rs`. Errors: 400 `validation`, 404 not found, 409 `guard`. Every write is one transaction with its audit event.
+
+### Transcript versions
+
+A version is one state of the units of an interview. The first segmentation is version 1. A new segmentation (a rescan with a modified file, then `POST /api/interviews/{id}/segment`) and each unit correction (`POST .../units/{unit}/corrections`) append a version, and project the passages from the previous version onto it in the same transaction. An identical segmentation adds nothing. A database made before versioning gets a `baseline` version when its first change arrives.
+
+| Method | Path | Body | Answer |
+|---|---|---|---|
+| GET | `/api/interviews/{id}/transcript/versions` | | `{interview_id, current, versions: [{version, cause: baseline\|segmentation\|correction, text_sha256, n_units, target, reason, created_at, created_by, reanchored, flagged}]}`. `target` is the unit of a correction or the source file of a segmentation; `reanchored` and `flagged` count what the projection onto this version did |
+| GET | `/api/interviews/{id}/transcript/versions/{n}` | | `{interview_id, version, units: [Unit]}`, the units as they read in that version (404 for an unknown version) |
+
+### Review of passages
+
+| Method | Path | Body | Answer |
+|---|---|---|---|
+| GET | `/api/transcript/review?interview_id=&status=` | | `{interview_id, status, open, items: [ProjectionItem]}`. `status` is `needs_review` (default), `reanchored`, `accepted`, `adjusted`, `detached`, `superseded` or `all` (400 otherwise). `open` counts the items still to review in the answer |
+| GET | `/api/interviews/{id}/transcript/review?status=` | | same, for one interview |
+| GET | `/api/transcript/review/{pid}` | | one `ProjectionItem` (`pid` is the `projection_id`) |
+| POST | `/api/transcript/review/{pid}/accept` | `{note?}` | the item, settled. 400 when there is no proposed span |
+| POST | `/api/transcript/review/{pid}/adjust` | `{unit_id?, start, end, offset_unit?: scalar\|utf16, note?}` | the item, settled. The span is on the current text of `unit_id` (default: the passage's unit). 400 for an empty, reversed or outside span, an interviewer unit, or a span another passage already covers |
+| POST | `/api/transcript/review/{pid}/detach` | `{note?}` | the item, settled. The passage leaves every list and count (deleted logically); its text, codes and old reading stay in the item and the audit |
+
+An item already settled answers 409 to a new decision.
+
+`ProjectionItem`: `{projection_id, interview_id, passage_id, status, method: diff\|moved_unit\|search, reason, from_version, to_version, old, proposed, final, current_unit_text, codes: [{code_id, code_name}], created_at, resolved_at, resolved_by, resolution_note}`. `old`, `proposed` and `final` are `{unit_id, start, end, start_utf16, end_utf16, text, unit_text}`: the span as it read in `from_version`, the span the diff proposes in `to_version` (null when nothing of the passage is left), and the span finally taken. `unit_text` is the whole text of that unit in that version, to show the two readings side by side. `reason` is `text_changed`, `unit_moved` (the exact words occur once in another unit), `unit_removed` (no unit holds them) or `unit_became_interviewer`; it is empty for a passage re-anchored on its own.
+
+A passage that needs review stays flagged `stale` with its old offsets until the decision. After `accept` or `adjust` it is re-anchored (`stale` false, new unit, offsets, text, `anchor_digest`) and the unit-level coding of the units involved is synchronised from the passages as usual.
+
+Audit events: `transcript.version`, `passage.reanchor` (automatic, accepted or adjusted, with before and after), `passage.review_flag`, `passage.detach`, `transcript.projection.resolve`.
+
+### Audio
+
+Recordings are the `m4a`, `mp3` and `wav` files of the interview folder, sub-folders included. They are read from the folder at each call (the scan inventory does not list them). No transcription.
+
+| Method | Path | Body | Answer |
+|---|---|---|---|
+| GET | `/api/interviews/{id}/audio` | | the player's one call: `{interview_id, has_audio, files: [{rel_path, size, mime, url}], offset: {offset_seconds, note, set, updated_at, updated_by}, timed_units, units: [{unit_id, seq, role, timestamp, start_seconds, audio_seconds, end_seconds}], warnings}` |
+| GET | `/api/interviews/{id}/audio/file?path=<rel_path>` | | the recording, with `Range` support. Without `path` the first recording. `url` in the map is this route with the path encoded |
+| PUT | `/api/interviews/{id}/audio/offset` | `{offset_seconds, note?}` | the stored offset. 400 for a value that is not a finite number within one day (86 400 s); milliseconds are the finest grain. A repeated value writes nothing. Audit `audio.offset` with before and after |
+
+Units: `start_seconds` is the transcript timestamp read as seconds (`h:mm:ss`, `mm:ss`, a decimal part after `.` or `,`), `null` when the stamp is not a time (`--:--`, the `P01` stamps of written responses). `audio_seconds` is `start_seconds + offset_seconds`, never below 0, and is where the player seeks. `end_seconds` is the `audio_seconds` of the next timed unit (null for the last), to highlight the current unit while playing. Interviewer units are listed too. The offset is one value per interview. `warnings` says when there is no audio file, several files (the offset applies to the interview, not to a file), units without a time, or timestamps that go backwards.
+
+`GET .../audio/file`:
+
+- 200 with `Content-Type` (`audio/mp4`, `audio/mpeg`, `audio/wav`), `Content-Length` and `Accept-Ranges: bytes`.
+- A `Range: bytes=a-b`, `a-` or `-n` gives 206 with `Content-Range: bytes a-b/total` and only those bytes. Only the first range of a list is served; a malformed range is ignored (200, whole file). A range past the end gives 416 with `Content-Range: bytes */total`. HEAD answers the headers without a body.
+- Only a file that appears in the audio map is served. A name with `..`, a backslash, a leading `/` or an empty name is 400; a name that is not an audio file of this interview (a transcript, another interview's file, a missing file) is 404; a link is never followed, so a link leading out of the folder is neither listed nor served; an interview folder outside the library folder is 400.
+
+For the player: `GET /api/interviews/{id}/audio` once, set `<audio src={files[0].url}>`, seek to `units[i].audio_seconds` on click, find the current unit by comparing `currentTime` with `audio_seconds` and `end_seconds`, and send `PUT .../audio/offset` when the researcher corrects the shift (then add the new offset to every `start_seconds`, or call the map again).
+
+### Exports
+
+`transcript_versions.json` in the interview and cross-case packages (versions, and every projection with its old, proposed and final span and how it was settled), a `transcript_versions` part in `state.json`, and a last column `transcript_version` in `passages.csv`.

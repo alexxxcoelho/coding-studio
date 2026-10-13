@@ -27,7 +27,7 @@ export function InterviewPage({ id, tab, phase, unit = null }: { id: string; tab
   // Coder, Surlignages and Revoir are the screens of the single flow; the other tabs keep the earlier chrome until their lot.
   if (tab === "coding") return <CoderPage id={id} unit={unit} />
   if (tab === "highlights") return <HighlightsPage id={id} />
-  if (tab === "ai" || tab === "review") return <RevoirPage id={id} part={tab} />
+  if (tab === "ai" || tab === "review" || tab === "harmonise") return <RevoirPage id={id} part={tab} />
   return <OtherTabs id={id} tab={tab} phase={phase} />
 }
 

@@ -138,6 +138,64 @@ def _first_row(page: Page):
         page.wait_for_timeout(300)
 
 
+def _lex_tab(label: str):
+    def act(page: Page):
+        page.get_by_role("tab", name=label).click()
+        _settle(page)
+    return act
+
+
+def _lex_near(page: Page):
+    page.get_by_role("tab", name="Passages proches").click()
+    page.get_by_test_id("similar-passages").wait_for(timeout=8000)
+    _settle(page)
+
+
+def _lex_kwic(page: Page):
+    page.get_by_role("tab", name="Recherche en contexte").click()
+    page.get_by_label("Mot ou expression à chercher").fill("intégration")
+    page.get_by_role("button", name="Chercher").click()
+    page.get_by_role("list", name="Occurrences").wait_for(timeout=8000)
+    _settle(page)
+
+
+def _lex_frequency(page: Page):
+    page.get_by_role("tab", name="Fréquences par attribut").click()
+    page.get_by_label("Attribut", exact=True).select_option(label="Secteur")
+    page.get_by_label("Mots à compter").fill("intégration, pilote")
+    page.get_by_role("button", name="Compter").click()
+    page.get_by_role("table", name="Fréquence des mots par valeur").wait_for(timeout=8000)
+    _settle(page)
+
+
+def _lex_create_code(page: Page):
+    table = page.get_by_test_id("keyword-table")
+    table.locator("tbody tr").first.get_by_role("checkbox").check()
+    page.get_by_role("button", name=re.compile(r"^Créer un code")).click()
+    page.get_by_role("dialog").wait_for()
+    page.wait_for_timeout(300)
+
+
+def _review_concept(page: Page):
+    page.get_by_role("complementary", name="File d'arbitrage").get_by_role("button", name=re.compile("Départ de la personne")).click()
+    page.get_by_role("article", name=re.compile("^Concept")).wait_for()
+    _settle(page)
+
+
+def _harmonise_done(page: Page):
+    btn = page.get_by_role("button", name="Confirmer le codage")
+    if btn.count():  # a second run on the same data finds the unit already treated
+        btn.first.click()
+        page.wait_for_timeout(600)
+    page.get_by_role("button", name="Toutes").click()
+    _settle(page)
+
+
+def _pseudonymisation_section(page: Page):
+    page.get_by_role("region", name="Pseudonymisation avant envoi").scroll_into_view_if_needed()
+    page.wait_for_timeout(300)
+
+
 ROUTES: list[dict] = [
     {"name": "library", "hash": "/interviews"},
     {"name": "library-fiche", "hash": "/interviews", "act": _first_row},
@@ -151,8 +209,17 @@ ROUTES: list[dict] = [
     {"name": "interview-verification", "hash": f"/interviews/{INTERVIEW}/verification"},
     {"name": "interview-audit", "hash": f"/interviews/{INTERVIEW}/audit"},
     {"name": "coder-selection-menu", "hash": f"/interviews/{INTERVIEW}/coding?phase=2", "act": _selection_menu},
+    {"name": "interview-harmonise", "hash": f"/interviews/{INTERVIEW}/harmonise"},
+    {"name": "interview-harmonise-done", "hash": f"/interviews/{INTERVIEW}/harmonise", "act": _harmonise_done},
+    {"name": "interview-review-concept", "hash": f"/interviews/{INTERVIEW}/review", "act": _review_concept},
+    {"name": "lexique", "hash": "/lexique"},
+    {"name": "lexique-create-code", "hash": "/lexique", "act": _lex_create_code},
+    {"name": "lexique-near", "hash": "/lexique", "act": _lex_near},
+    {"name": "lexique-kwic", "hash": "/lexique", "act": _lex_kwic},
+    {"name": "lexique-frequency", "hash": "/lexique", "act": _lex_frequency},
     {"name": "codebook", "hash": "/codebook"},
     {"name": "settings-study", "hash": "/settings"},
+    {"name": "settings-pseudonymisation", "hash": "/settings", "act": _pseudonymisation_section},
     {"name": "guide", "hash": "/guide"},
     {"name": "audit", "hash": "/audit"},
     {"name": "saturation", "hash": "/saturation"},
