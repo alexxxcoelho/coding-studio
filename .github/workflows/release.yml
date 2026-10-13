@@ -1,5 +1,7 @@
-# Release: builds the desktop app and attaches it to a GitHub Release for a tag
-# v*. Runs on a tag push, or on workflow_dispatch with the tag name as input.
+# Release: builds the desktop app and attaches it to a GitHub Release.
+# Started by hand only (Actions > Release > Run workflow). The version is read
+# from Cargo.toml and crates/cs-desktop/tauri.conf.json (both must agree); the
+# release and its tag v<version> are created on the commit the run starts from.
 # Action versions are pinned to commit SHAs, as in ci.yml; the tag they came
 # from is in the comment.
 #
@@ -9,20 +11,22 @@
 name: Release
 
 on:
-  push:
-    tags: ["v*"]
   workflow_dispatch:
     inputs:
-      tag:
-        description: "Existing tag to build and attach to its release, for example v0.1.0"
-        required: true
-        type: string
+      prerelease:
+        description: "Mark the release as a pre-release"
+        type: boolean
+        default: false
+      rebuild:
+        description: "If the release of this version already exists, rebuild and replace its files"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
 
 concurrency:
-  group: release-${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+  group: release-${{ github.sha }}
   cancel-in-progress: false
 
 jobs:
@@ -34,8 +38,9 @@ jobs:
     timeout-minutes: 10
     permissions:
       contents: write
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
     env:
-      TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
       GH_TOKEN: ${{ github.token }}
       GH_REPO: ${{ github.repository }}
       APPLE_SIGNED: ${{ secrets.APPLE_CERTIFICATE != '' && secrets.APPLE_CERTIFICATE_PASSWORD != '' && secrets.APPLE_SIGNING_IDENTITY != '' && secrets.APPLE_ID != '' && secrets.APPLE_PASSWORD != '' && secrets.APPLE_TEAM_ID != '' }}
@@ -43,22 +48,31 @@ jobs:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
           persist-credentials: false
-          ref: refs/tags/${{ env.TAG }}
 
-      - name: Tag matches the version in the tree
+      - name: Version of the tree
+        id: version
         run: |
           cargo_version=$(sed -n 's/^version = "\(.*\)"$/\1/p' Cargo.toml | head -n 1)
           app_version=$(jq -r '.version' crates/cs-desktop/tauri.conf.json)
-          if [ "v$cargo_version" != "$TAG" ] || [ "v$app_version" != "$TAG" ]; then
-            echo "::error::Tag $TAG does not match Cargo.toml ($cargo_version) or crates/cs-desktop/tauri.conf.json ($app_version). Bump both, commit, then tag."
+          if [ "$cargo_version" != "$app_version" ]; then
+            echo "::error::Cargo.toml ($cargo_version) and crates/cs-desktop/tauri.conf.json ($app_version) disagree. Bump both, commit, then run again."
             exit 1
           fi
+          echo "tag=v$cargo_version" >> "$GITHUB_OUTPUT"
+          echo "TAG=v$cargo_version" >> "$GITHUB_ENV"
 
       - name: Create the release
+        env:
+          PRERELEASE: ${{ inputs.prerelease }}
+          REBUILD: ${{ inputs.rebuild }}
         run: |
           if gh release view "$TAG" >/dev/null 2>&1; then
-            echo "Release $TAG already exists; build jobs replace its files."
-            exit 0
+            if [ "$REBUILD" = "true" ]; then
+              echo "Release $TAG exists; build jobs replace its files."
+              exit 0
+            fi
+            echo "::error::Release $TAG already exists. Bump the version, or run again with rebuild checked."
+            exit 1
           fi
           notes="$RUNNER_TEMP/notes.md"
           {
@@ -85,7 +99,9 @@ jobs:
           Changes are listed in CHANGELOG.md.
           EOF
           } > "$notes"
-          gh release create "$TAG" --verify-tag --title "Coding Studio $TAG" --notes-file "$notes"
+          pre=""
+          if [ "$PRERELEASE" = "true" ]; then pre="--prerelease"; fi
+          gh release create "$TAG" --target "$GITHUB_SHA" $pre --title "Coding Studio $TAG" --notes-file "$notes"
 
   macos:
     name: macOS (${{ matrix.target }})
@@ -99,7 +115,7 @@ jobs:
       matrix:
         target: [aarch64-apple-darwin, x86_64-apple-darwin]
     env:
-      TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+      TAG: ${{ needs.prepare.outputs.tag }}
       GH_TOKEN: ${{ github.token }}
       GH_REPO: ${{ github.repository }}
       APPLE_SIGNED: ${{ secrets.APPLE_CERTIFICATE != '' && secrets.APPLE_CERTIFICATE_PASSWORD != '' && secrets.APPLE_SIGNING_IDENTITY != '' && secrets.APPLE_ID != '' && secrets.APPLE_PASSWORD != '' && secrets.APPLE_TEAM_ID != '' }}
@@ -107,7 +123,6 @@ jobs:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
           persist-credentials: false
-          ref: refs/tags/${{ env.TAG }}
 
       - name: Rust stable and the target
         run: |
@@ -198,14 +213,13 @@ jobs:
     permissions:
       contents: write
     env:
-      TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+      TAG: ${{ needs.prepare.outputs.tag }}
       GH_TOKEN: ${{ github.token }}
       GH_REPO: ${{ github.repository }}
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
           persist-credentials: false
-          ref: refs/tags/${{ env.TAG }}
 
       - name: GTK and WebKit libraries (Tauri prerequisites)
         run: |
@@ -282,14 +296,13 @@ jobs:
     permissions:
       contents: write
     env:
-      TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+      TAG: ${{ needs.prepare.outputs.tag }}
       GH_TOKEN: ${{ github.token }}
       GH_REPO: ${{ github.repository }}
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
           persist-credentials: false
-          ref: refs/tags/${{ env.TAG }}
 
       - name: Rust stable
         run: |

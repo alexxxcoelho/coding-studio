@@ -1,8 +1,8 @@
 # Releasing
 
-A release is a version number in the tree, an annotated tag on the commit that passed CI, and the release workflow (`.github/workflows/release.yml`) that builds the desktop app and attaches it to a GitHub Release.
+A release is a version number in the tree and a run of the release workflow, started by hand, (`.github/workflows/release.yml`) that builds the desktop app and attaches it to a GitHub Release.
 
-## 1. Before tagging
+## 1. Before releasing
 
 1. Check that `main` is green in CI (`.github/workflows/ci.yml`), including the web job.
 2. Choose the version (Semantic Versioning) and set it in both places:
@@ -11,16 +11,11 @@ A release is a version number in the tree, an annotated tag on the commit that p
 3. Move the `Unreleased` section of `CHANGELOG.md` under a new heading `## [X.Y.Z] - YYYY-MM-DD`, add a fresh empty `Unreleased` section above it, and update the comparison links at the bottom if any.
 4. Commit these changes on `main` and wait for CI to pass on that commit.
 
-## 2. Tag and push
+## 2. Run the release workflow
 
-```bash
-git tag -a vX.Y.Z -m "Coding Studio X.Y.Z"
-git push origin vX.Y.Z
-```
+There is no tag to push. On GitHub, open Actions, then Release, then "Run workflow", choose the branch (main) and start it. From a terminal: `gh workflow run release.yml` (add `-f prerelease=true` for a pre-release).
 
-Pushing the tag starts the release workflow. The `prepare` job stops with an error if the tag does not match both version fields, so a tag cannot point at a tree with the wrong version.
-
-To rebuild a release without a new tag, run the workflow by hand (Actions, Release, Run workflow) and give the existing tag name, for example `vX.Y.Z`. The tag must already be on the remote.
+The `prepare` job reads the version from `Cargo.toml` and `crates/cs-desktop/tauri.conf.json` (both must agree), then creates the release and its tag `vX.Y.Z` on the commit the run started from. If that release already exists, the run stops; to rebuild it and replace its files, run again with "rebuild" checked (`-f rebuild=true`).
 
 ## 3. What the workflow produces
 
