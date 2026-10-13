@@ -21,7 +21,10 @@ pub(crate) fn routes() -> Router<AppState> {
         .route("/api/codes/search", get(search_codes))
         .route("/api/search/text", get(search_text))
         .route("/api/codes/cooccurrence", get(cooccurrence))
-        .route("/api/codes/cooccurrence/passages", get(cooccurrence_passages))
+        .route(
+            "/api/codes/cooccurrence/passages",
+            get(cooccurrence_passages),
+        )
         .route("/api/codes/{id}/stats", get(code_stats))
         .route("/api/codes/{id}/split", post(split_code))
         .route(
@@ -67,7 +70,9 @@ async fn split_worklist(
     UrlPath(op_id): UrlPath<i64>,
     Query(q): Query<WorklistQuery>,
 ) -> ApiResult {
-    Ok(Json(json!(st.store().split_worklist(op_id, q.status.as_deref())?)))
+    Ok(Json(json!(st
+        .store()
+        .split_worklist(op_id, q.status.as_deref())?)))
 }
 
 #[derive(Deserialize)]
@@ -82,7 +87,11 @@ async fn split_decide(
     UrlPath(op_id): UrlPath<i64>,
     Json(body): Json<DecideBody>,
 ) -> ApiResult {
-    Ok(Json(json!(st.store().split_decide(op_id, &body.decisions, &st.actor)?)))
+    Ok(Json(json!(st.store().split_decide(
+        op_id,
+        &body.decisions,
+        &st.actor
+    )?)))
 }
 
 #[derive(Deserialize, Default)]
@@ -92,7 +101,9 @@ struct OpsQuery {
 }
 
 async fn code_ops(State(st): State<AppState>, Query(q): Query<OpsQuery>) -> ApiResult {
-    Ok(Json(json!({"operations": st.store().code_ops(q.code.as_deref())?})))
+    Ok(Json(
+        json!({"operations": st.store().code_ops(q.code.as_deref())?}),
+    ))
 }
 
 #[derive(Deserialize, Default)]
@@ -108,7 +119,9 @@ async fn undo_op(
 ) -> ApiResult {
     let store = st.store();
     let report = store.undo_code_op(op_id, &body.rationale, &st.actor)?;
-    Ok(Json(json!({"report": report, "codebook": store.codebook()?})))
+    Ok(Json(
+        json!({"report": report, "codebook": store.codebook()?}),
+    ))
 }
 
 fn invalid(msg: impl Into<String>) -> anyhow::Error {
@@ -197,7 +210,9 @@ async fn search_text(State(st): State<AppState>, Query(q): Query<TextQuery>) -> 
     let mode = match q.mode.as_deref() {
         None | Some("") | Some("all_words") => SearchMode::AllWords,
         Some("phrase") => SearchMode::Phrase,
-        Some(other) => return Err(invalid(format!("mode is all_words or phrase, not {other}")).into()),
+        Some(other) => {
+            return Err(invalid(format!("mode is all_words or phrase, not {other}")).into())
+        }
     };
     let req = SearchRequest {
         q: q.q,
@@ -286,10 +301,7 @@ async fn cooccurrence(State(st): State<AppState>, Query(q): Query<CoQuery>) -> A
 }
 
 /// Drill-down to the passage pairs behind a cell: `a` and `b` are codes.
-async fn cooccurrence_passages(
-    State(st): State<AppState>,
-    Query(q): Query<CoQuery>,
-) -> ApiResult {
+async fn cooccurrence_passages(State(st): State<AppState>, Query(q): Query<CoQuery>) -> ApiResult {
     let (Some(a), Some(b)) = (q.a.as_deref(), q.b.as_deref()) else {
         return Err(invalid("give the two codes of the cell: a and b").into());
     };

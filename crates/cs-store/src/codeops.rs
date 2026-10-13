@@ -226,7 +226,8 @@ impl Store {
         let (from_token, from_name, from_parent, from_active) = row(from_id)?;
         let (into_token, _, into_parent, _) = row(into_id)?;
         let children: Vec<String> = {
-            let mut st = tx.prepare("SELECT code_id FROM codes WHERE parent_id = ?1 ORDER BY ord")?;
+            let mut st =
+                tx.prepare("SELECT code_id FROM codes WHERE parent_id = ?1 ORDER BY ord")?;
             let v = st
                 .query_map([from_id], |r| r.get(0))?
                 .collect::<rusqlite::Result<_>>()?;
@@ -241,13 +242,11 @@ impl Store {
                 .collect::<rusqlite::Result<_>>()?;
             v
         };
-        let name_alias_inserted = tx
-            .query_row(
-                "SELECT COUNT(*) FROM code_aliases WHERE alias = ?1",
-                [&from_name],
-                |r| r.get::<_, i64>(0),
-            )?
-            == 0;
+        let name_alias_inserted = tx.query_row(
+            "SELECT COUNT(*) FROM code_aliases WHERE alias = ?1",
+            [&from_name],
+            |r| r.get::<_, i64>(0),
+        )? == 0;
         let mut moved = Vec::new();
         let mut dedup = Vec::new();
         let mut st = tx.prepare(
@@ -379,7 +378,9 @@ impl Store {
         };
         let names: BTreeMap<String, String> = crate::codetree::code_names(&self.conn)?;
         let ids: Vec<i64> = {
-            let mut st = self.conn.prepare("SELECT op_id FROM code_ops ORDER BY op_id")?;
+            let mut st = self
+                .conn
+                .prepare("SELECT op_id FROM code_ops ORDER BY op_id")?;
             let v = st
                 .query_map([], |r| r.get(0))?
                 .collect::<rusqlite::Result<_>>()?;
@@ -425,10 +426,14 @@ impl Store {
     /// Stable id of a code given by id, name, alias or token, merges not
     /// followed (the journal is about the code itself).
     fn resolve_code_exact(&self, key: &str) -> Result<String> {
-        Ok(self.code_node(&self.resolve_code(key).map(|r| r.code_id).or_else(|_| {
-            self.code_node(key).map(|n| n.code_id)
-        })?)?
-        .code_id)
+        Ok(self
+            .code_node(
+                &self
+                    .resolve_code(key)
+                    .map(|r| r.code_id)
+                    .or_else(|_| self.code_node(key).map(|n| n.code_id))?,
+            )?
+            .code_id)
     }
 
     // --------------------------------------------------------------- split
@@ -455,7 +460,10 @@ impl Store {
         let mut seen = BTreeSet::new();
         for p in &req.parts {
             if !seen.insert(p.name.trim().to_lowercase()) {
-                return Err(validation(format!("the name {} is given twice", p.name.trim())));
+                return Err(validation(format!(
+                    "the name {} is given twice",
+                    p.name.trim()
+                )));
             }
         }
         let tx = self.conn.unchecked_transaction()?;
@@ -491,7 +499,8 @@ impl Store {
                 .collect::<rusqlite::Result<_>>()?;
             v
         };
-        let payload = json!({"original_id": node.code_id, "new_ids": new_ids, "passages": passages});
+        let payload =
+            json!({"original_id": node.code_id, "new_ids": new_ids, "passages": passages});
         tx.execute(
             "INSERT INTO code_ops (kind, code_id, other_ids, rationale, payload, created_at, created_by)
              VALUES ('split', ?1, ?2, ?3, ?4, ?5, ?6)",
@@ -530,7 +539,10 @@ impl Store {
             .map(|a| {
                 a.iter()
                     .filter_map(|p| {
-                        Some((p["coding_id"].as_i64()?, p["passage_id"].as_str()?.to_string()))
+                        Some((
+                            p["coding_id"].as_i64()?,
+                            p["passage_id"].as_str()?.to_string(),
+                        ))
                     })
                     .collect()
             })
@@ -543,8 +555,20 @@ impl Store {
     fn latest_decisions(
         &self,
         op_id: i64,
-    ) -> Result<BTreeMap<String, (String, Vec<String>, Vec<i64>, Option<i64>, String, String, String)>>
-    {
+    ) -> Result<
+        BTreeMap<
+            String,
+            (
+                String,
+                Vec<String>,
+                Vec<i64>,
+                Option<i64>,
+                String,
+                String,
+                String,
+            ),
+        >,
+    > {
         let mut st = self.conn.prepare(
             "SELECT passage_id, action, target_ids, coding_ids, original_coding_id, note, decided_at, decided_by
              FROM split_decisions WHERE op_id = ?1
@@ -585,7 +609,9 @@ impl Store {
                 "SELECT passage_id, COUNT(*) FROM split_decisions WHERE op_id = ?1 GROUP BY passage_id",
             )?;
             let v = st
-                .query_map([op_id], |r| Ok((r.get::<_, String>(0)?, r.get::<_, i64>(1)? as usize)))?
+                .query_map([op_id], |r| {
+                    Ok((r.get::<_, String>(0)?, r.get::<_, i64>(1)? as usize))
+                })?
                 .collect::<rusqlite::Result<_>>()?;
             v
         };
@@ -662,7 +688,10 @@ impl Store {
         let mut plan = Vec::new();
         for d in decisions {
             if !seen.insert(d.passage_id.clone()) {
-                return Err(validation(format!("passage {} is decided twice", d.passage_id)));
+                return Err(validation(format!(
+                    "passage {} is decided twice",
+                    d.passage_id
+                )));
             }
             let Some(orig_coding) = listed.get(d.passage_id.as_str()) else {
                 return Err(validation(format!(
@@ -684,7 +713,9 @@ impl Store {
                     }
                 }
                 other => {
-                    return Err(validation(format!("action is assign or leave, not {other}")))
+                    return Err(validation(format!(
+                        "action is assign or leave, not {other}"
+                    )))
                 }
             }
             let mut targets = Vec::new();
@@ -707,7 +738,14 @@ impl Store {
         for (d, targets, orig_coding) in &plan {
             if let Some((a, _, coding_ids, orig, ..)) = latest.get(&d.passage_id) {
                 if a == "assign" {
-                    self.revert_assignment(&tx, &d.passage_id, coding_ids, *orig, "split revised", actor)?;
+                    self.revert_assignment(
+                        &tx,
+                        &d.passage_id,
+                        coding_ids,
+                        *orig,
+                        "split revised",
+                        actor,
+                    )?;
                 }
             }
             let mut created = Vec::new();
@@ -815,7 +853,8 @@ impl Store {
         let mine: BTreeSet<&String> = std::iter::once(&code_id).chain(others.iter()).collect();
         for later in self.code_ops(None)?.into_iter().filter(|o| o.op_id > op_id) {
             if later.undone.is_none()
-                && (mine.contains(&later.code_id) || later.other_ids.iter().any(|i| mine.contains(i)))
+                && (mine.contains(&later.code_id)
+                    || later.other_ids.iter().any(|i| mine.contains(i)))
             {
                 return Err(guard_err(format!(
                     "operation {} came after and touches the same codes: undo it first",
@@ -842,7 +881,13 @@ impl Store {
         tx.execute(
             "INSERT INTO code_op_undos (op_id, rationale, payload, created_at, created_by)
              VALUES (?1, ?2, ?3, ?4, ?5)",
-            params![op_id, rationale, serde_json::to_string(&rep.skipped)?, now(), actor],
+            params![
+                op_id,
+                rationale,
+                serde_json::to_string(&rep.skipped)?,
+                now(),
+                actor
+            ],
         )?;
         bump_revision(&tx, actor, &format!("undo_{kind}"), Some(&code_id))?;
         append_event(
@@ -875,11 +920,21 @@ impl Store {
         rep: &mut UndoReport,
     ) -> Result<()> {
         let ts = now();
-        let token: String = tx.query_row("SELECT code FROM codes WHERE code_id = ?1", [original], |r| r.get(0))?;
+        let token: String = tx.query_row(
+            "SELECT code FROM codes WHERE code_id = ?1",
+            [original],
+            |r| r.get(0),
+        )?;
         for (pid, (action, _, coding_ids, orig, ..)) in self.latest_decisions(op_id)? {
             if action == "assign" {
-                rep.codings_removed +=
-                    self.revert_assignment(tx, &pid, coding_ids.as_slice(), orig, "split undone", actor)?;
+                rep.codings_removed += self.revert_assignment(
+                    tx,
+                    &pid,
+                    coding_ids.as_slice(),
+                    orig,
+                    "split undone",
+                    actor,
+                )?;
                 if orig.is_some() {
                     rep.codings_restored += 1;
                 }
@@ -908,7 +963,10 @@ impl Store {
                         params![cid, ts, actor],
                     )?;
                 } else {
-                    tx.execute("UPDATE passage_codings SET code_id = ?2 WHERE coding_id = ?1", params![cid, original])?;
+                    tx.execute(
+                        "UPDATE passage_codings SET code_id = ?2 WHERE coding_id = ?1",
+                        params![cid, original],
+                    )?;
                     rep.codings_moved_back += 1;
                 }
                 self.sync_passage_unit_in(tx, &pid, actor)?;
@@ -933,16 +991,28 @@ impl Store {
         let s = |k: &str| p[k].as_str().unwrap_or_default().to_string();
         let (from_id, into_id, into_token) = (s("from_id"), s("into_id"), s("into_token"));
         let current: Option<String> = tx
-            .query_row("SELECT merged_into FROM codes WHERE code_id = ?1", [&from_id], |r| r.get(0))
+            .query_row(
+                "SELECT merged_into FROM codes WHERE code_id = ?1",
+                [&from_id],
+                |r| r.get(0),
+            )
             .map_err(|_| not_found(format!("code {from_id}")))?;
         if current.as_deref() != Some(into_token.as_str()) {
             return Err(guard_err("the code is no longer merged into that target"));
         }
         let ids = |k: &str| -> Vec<i64> {
-            p[k].as_array().map(|a| a.iter().filter_map(Value::as_i64).collect()).unwrap_or_default()
+            p[k].as_array()
+                .map(|a| a.iter().filter_map(Value::as_i64).collect())
+                .unwrap_or_default()
         };
         let strs = |v: &Value| -> Vec<String> {
-            v.as_array().map(|a| a.iter().filter_map(|x| x.as_str().map(str::to_string)).collect()).unwrap_or_default()
+            v.as_array()
+                .map(|a| {
+                    a.iter()
+                        .filter_map(|x| x.as_str().map(str::to_string))
+                        .collect()
+                })
+                .unwrap_or_default()
         };
         let ts = now();
         // The code itself and its place in the tree.
@@ -953,7 +1023,10 @@ impl Store {
         )?;
         // The target sat under the merged code: put it back.
         if p["into_parent"].as_str() == Some(from_id.as_str()) {
-            tx.execute("UPDATE codes SET parent_id = ?2 WHERE code_id = ?1", params![into_id, from_id])?;
+            tx.execute(
+                "UPDATE codes SET parent_id = ?2 WHERE code_id = ?1",
+                params![into_id, from_id],
+            )?;
         }
         for child in strs(&p["children"]) {
             tx.execute(
@@ -963,7 +1036,10 @@ impl Store {
         }
         // Aliases.
         for a in p["aliases"].as_array().into_iter().flatten() {
-            let (alias, reason) = (a[0].as_str().unwrap_or_default(), a[1].as_str().unwrap_or_default());
+            let (alias, reason) = (
+                a[0].as_str().unwrap_or_default(),
+                a[1].as_str().unwrap_or_default(),
+            );
             tx.execute(
                 "UPDATE code_aliases SET code_id = ?2, reason = ?3 WHERE alias = ?1 AND code_id = ?4",
                 params![alias, from_id, reason, into_id],
@@ -993,14 +1069,21 @@ impl Store {
                         |r| r.get(0),
                     )?;
                     if has > 0 {
-                        rep.skipped.push(format!("coding {cid}: the passage already carries the code again"));
+                        rep.skipped.push(format!(
+                            "coding {cid}: the passage already carries the code again"
+                        ));
                     } else {
-                        tx.execute("UPDATE passage_codings SET code_id = ?2 WHERE coding_id = ?1", params![cid, from_id])?;
+                        tx.execute(
+                            "UPDATE passage_codings SET code_id = ?2 WHERE coding_id = ?1",
+                            params![cid, from_id],
+                        )?;
                         rep.codings_restored += 1;
                         touched.insert(pid);
                     }
                 }
-                _ => rep.skipped.push(format!("coding {cid} changed since the merge")),
+                _ => rep
+                    .skipped
+                    .push(format!("coding {cid} changed since the merge")),
             }
         }
         for cid in ids("dedup") {
@@ -1013,11 +1096,16 @@ impl Store {
             )?;
             if n > 0 {
                 rep.codings_restored += 1;
-                if let Ok(pid) = tx.query_row("SELECT passage_id FROM passage_codings WHERE coding_id = ?1", [cid], |r| r.get::<_, String>(0)) {
+                if let Ok(pid) = tx.query_row(
+                    "SELECT passage_id FROM passage_codings WHERE coding_id = ?1",
+                    [cid],
+                    |r| r.get::<_, String>(0),
+                ) {
                     touched.insert(pid);
                 }
             } else {
-                rep.skipped.push(format!("coding {cid} changed since the merge"));
+                rep.skipped
+                    .push(format!("coding {cid} changed since the merge"));
             }
         }
         for pid in &touched {
@@ -1026,7 +1114,10 @@ impl Store {
         // Unit codings of the candidate (phase 2).
         let (from_token, into_tok) = (s("from_token"), s("into_token"));
         for u in p["unit_codings"].as_array().into_iter().flatten() {
-            let (iv, unit) = (u["interview_id"].as_str().unwrap_or_default(), u["unit_id"].as_str().unwrap_or_default());
+            let (iv, unit) = (
+                u["interview_id"].as_str().unwrap_or_default(),
+                u["unit_id"].as_str().unwrap_or_default(),
+            );
             let before = strs(&u["before"]);
             let after = strs(&u["after"]);
             let cur: Option<String> = tx
@@ -1036,7 +1127,11 @@ impl Store {
                     |r| r.get(0),
                 )
                 .ok();
-            let cur_codes: Vec<String> = cur.as_deref().map(from_json).transpose()?.unwrap_or_default();
+            let cur_codes: Vec<String> = cur
+                .as_deref()
+                .map(from_json)
+                .transpose()?
+                .unwrap_or_default();
             let mut a: Vec<String> = after.clone();
             a.sort();
             let mut c = cur_codes.clone();
@@ -1048,13 +1143,18 @@ impl Store {
                 )?;
                 rep.unit_codings_restored += 1;
             } else {
-                rep.skipped.push(format!("unit {unit}: coding changed since the merge ({from_token} / {into_tok})"));
+                rep.skipped.push(format!(
+                    "unit {unit}: coding changed since the merge ({from_token} / {into_tok})"
+                ));
             }
         }
         // Review decisions: a new decision with the earlier codes, when the
         // current one is still the one the merge wrote.
         for d in p["decisions"].as_array().into_iter().flatten() {
-            let (iv, unit) = (d["interview_id"].as_str().unwrap_or_default(), d["unit_id"].as_str().unwrap_or_default());
+            let (iv, unit) = (
+                d["interview_id"].as_str().unwrap_or_default(),
+                d["unit_id"].as_str().unwrap_or_default(),
+            );
             let before = strs(&d["before"]);
             let after = strs(&d["after"]);
             let cur: Option<String> = tx
@@ -1064,7 +1164,11 @@ impl Store {
                     |r| r.get(0),
                 )
                 .ok();
-            let mut cur_codes: Vec<String> = cur.as_deref().map(from_json).transpose()?.unwrap_or_default();
+            let mut cur_codes: Vec<String> = cur
+                .as_deref()
+                .map(from_json)
+                .transpose()?
+                .unwrap_or_default();
             cur_codes.sort();
             let mut a = after.clone();
             a.sort();
@@ -1082,7 +1186,9 @@ impl Store {
                 )?;
                 rep.decisions_restored += 1;
             } else {
-                rep.skipped.push(format!("unit {unit}: review decision changed since the merge"));
+                rep.skipped.push(format!(
+                    "unit {unit}: review decision changed since the merge"
+                ));
             }
         }
         Ok(())

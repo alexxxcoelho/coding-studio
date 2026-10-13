@@ -37,7 +37,9 @@ impl Relation {
     fn holds(self, p: &P, q: &P) -> bool {
         match self {
             Relation::SamePassage => p.passage_id == q.passage_id,
-            Relation::Overlap => p.passage_id == q.passage_id || (p.start < q.end && q.start < p.end),
+            Relation::Overlap => {
+                p.passage_id == q.passage_id || (p.start < q.end && q.start < p.end)
+            }
             Relation::SameUnit => true,
         }
     }
@@ -352,12 +354,19 @@ impl Store {
                 keys.sort_by_key(|k| {
                     (
                         k.is_empty(),
-                        def.choices.iter().position(|c| c == k).unwrap_or(usize::MAX),
+                        def.choices
+                            .iter()
+                            .position(|c| c == k)
+                            .unwrap_or(usize::MAX),
                         k.clone(),
                     )
                 });
                 for k in keys {
-                    let label = if k.is_empty() { "(no value)".into() } else { k.clone() };
+                    let label = if k.is_empty() {
+                        "(no value)".into()
+                    } else {
+                        k.clone()
+                    };
                     let v = by.remove(&k).unwrap_or_default();
                     groups.push((k, label, v));
                 }
@@ -390,8 +399,14 @@ impl Store {
                     .push(p);
             }
             type Key<'a> = (&'a str, &'a str);
-            let mut cells: BTreeMap<Key, (BTreeSet<(&str, &str)>, BTreeSet<&str>, BTreeSet<(&str, &str)>)> =
-                BTreeMap::new();
+            let mut cells: BTreeMap<
+                Key,
+                (
+                    BTreeSet<(&str, &str)>,
+                    BTreeSet<&str>,
+                    BTreeSet<(&str, &str)>,
+                ),
+            > = BTreeMap::new();
             for (unit, list) in &by_unit {
                 for p in list {
                     for q in list {
@@ -400,9 +415,7 @@ impl Store {
                         }
                         for a in p.codes.iter().filter(|c| keep.contains(c.as_str())) {
                             for b in q.codes.iter().filter(|c| keep.contains(c.as_str())) {
-                                if order[a.as_str()] >= order[b.as_str()]
-                                    || is_structural(a, b)
-                                {
+                                if order[a.as_str()] >= order[b.as_str()] || is_structural(a, b) {
                                     continue;
                                 }
                                 let e = cells.entry((a.as_str(), b.as_str())).or_default();
@@ -427,7 +440,11 @@ impl Store {
                         units: u.len(),
                         interviews: i.len(),
                         passage_pairs: pairs.len(),
-                        jaccard: if either == 0 { 0.0 } else { u.len() as f64 / either as f64 },
+                        jaccard: if either == 0 {
+                            0.0
+                        } else {
+                            u.len() as f64 / either as f64
+                        },
                     }
                 })
                 .collect();
@@ -486,12 +503,7 @@ impl Store {
     /// The passages that make the cell `(a, b)`: for each turn, the pairs of
     /// passages (the first carries `a`, the second `b`) that stand in the
     /// relation. `req.group_by` is ignored; `req.interviews` restricts.
-    pub fn cooccurrence_passages(
-        &self,
-        a: &str,
-        b: &str,
-        req: &CoRequest,
-    ) -> Result<Vec<CoItem>> {
+    pub fn cooccurrence_passages(&self, a: &str, b: &str, req: &CoRequest) -> Result<Vec<CoItem>> {
         let a = self.resolve_code(a)?;
         let b = self.resolve_code(b)?;
         if a.system || b.system {
@@ -552,8 +564,20 @@ impl Store {
                 continue;
             }
             pairs.sort_by(|x, y| {
-                (x.a.start, x.a.end, &x.a.passage_id, x.b.start, &x.b.passage_id)
-                    .cmp(&(y.a.start, y.a.end, &y.a.passage_id, y.b.start, &y.b.passage_id))
+                (
+                    x.a.start,
+                    x.a.end,
+                    &x.a.passage_id,
+                    x.b.start,
+                    &x.b.passage_id,
+                )
+                    .cmp(&(
+                        y.a.start,
+                        y.a.end,
+                        &y.a.passage_id,
+                        y.b.start,
+                        &y.b.passage_id,
+                    ))
             });
             let unit = self.current_unit(&iv, &unit_id)?;
             items.push(CoItem {

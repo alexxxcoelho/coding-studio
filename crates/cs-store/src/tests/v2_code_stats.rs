@@ -80,7 +80,10 @@ fn the_figures_are_in_the_code_nodes() {
     assert_eq!((c.passages, c.interviews, c.cases), (2, 1, 2));
     assert_eq!(c.attribute_values["sector"], 1);
     let c = &node(&a).counts;
-    assert_eq!((c.passages_rollup, c.interviews_rollup, c.cases_rollup), (4, 3, 2));
+    assert_eq!(
+        (c.passages_rollup, c.interviews_rollup, c.cases_rollup),
+        (4, 3, 2)
+    );
     assert_eq!(c.attribute_values_rollup["sector"], 2);
     // The reserved code is counted nowhere.
     let later = nodes.iter().find(|n| n.system).unwrap();

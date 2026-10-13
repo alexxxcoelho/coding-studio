@@ -1543,8 +1543,8 @@ mod study_config_v5;
 mod verification_v4;
 
 // V2 (codes and search).
-mod v2_code_search;
 mod v2_code_ops;
+mod v2_code_search;
 mod v2_code_stats;
 mod v2_common;
 mod v2_cooccurrence;

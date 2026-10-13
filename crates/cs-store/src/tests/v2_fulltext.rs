@@ -23,8 +23,15 @@ fn fixture() -> (Store, TempDir) {
         ],
     );
     // R1 is the interviewer's.
-    s.correct_unit(R, R1, "Why did you stop?", SpeakerRole::Interviewer, "speaker", ACTOR)
-        .unwrap();
+    s.correct_unit(
+        R,
+        R1,
+        "Why did you stop?",
+        SpeakerRole::Interviewer,
+        "speaker",
+        ACTOR,
+    )
+    .unwrap();
     add_interview(
         &s,
         F,
@@ -91,7 +98,10 @@ fn matches_are_positions_in_the_original_text_in_scalars_and_utf16() {
     assert_eq!(hit.unit_id, F1);
     assert_eq!(hit.matches.len(), 2);
     for m in &hit.matches {
-        assert_eq!(slice_scalars(&hit.text, m.start, m.end).unwrap(), "formation");
+        assert_eq!(
+            slice_scalars(&hit.text, m.start, m.end).unwrap(),
+            "formation"
+        );
         assert_eq!(m.start_utf16, scalar_to_utf16(&hit.text, m.start).unwrap());
         assert_eq!(m.end_utf16, scalar_to_utf16(&hit.text, m.end).unwrap());
     }
@@ -109,7 +119,10 @@ fn matches_are_positions_in_the_original_text_in_scalars_and_utf16() {
     // The excerpt carries the highlights relative to itself.
     let e = &r.items[0].excerpt;
     let h = &e.highlights[0];
-    assert_eq!(slice_scalars(&e.text, h.start, h.end).unwrap(), "des étiquettes");
+    assert_eq!(
+        slice_scalars(&e.text, h.start, h.end).unwrap(),
+        "des étiquettes"
+    );
 }
 
 #[test]
@@ -137,7 +150,10 @@ fn filters_by_interview_and_by_attribute_value() {
     assert_eq!(units(&s.search_text(&q).unwrap()), ["RET-22-U002"]);
     let mut q = req("pilot");
     q.attribute = Some("sector".into());
-    assert!(s.search_text(&q).is_err(), "attribute and value go together");
+    assert!(
+        s.search_text(&q).is_err(),
+        "attribute and value go together"
+    );
     let mut q = req("pilot");
     q.interviews = vec!["NOPE".into()];
     assert!(s.search_text(&q).is_err());
@@ -186,7 +202,11 @@ fn coded_and_not_coded_look_at_the_passages_that_cover_the_match() {
     assert_eq!(r.items[1].uncovered_matches, 1);
     q.coded = Some(false);
     let r = s.search_text(&q).unwrap();
-    assert_eq!(units(&r), ["RET-22-U002"], "a not-coded match remains there");
+    assert_eq!(
+        units(&r),
+        ["RET-22-U002"],
+        "a not-coded match remains there"
+    );
     // A code filter, with its descendants.
     let child = code(&s, "Sous-pilote", Some(&a));
     pcode(&s, ID, U1, Some((0, 2)), &[&child]);
@@ -195,7 +215,11 @@ fn coded_and_not_coded_look_at_the_passages_that_cover_the_match() {
     assert_eq!(units(&s.search_text(&q).unwrap()), [U1]);
     let mut q = req("so");
     q.code = Some(a.clone());
-    assert_eq!(units(&s.search_text(&q).unwrap()), [U1], "child code counts");
+    assert_eq!(
+        units(&s.search_text(&q).unwrap()),
+        [U1],
+        "child code counts"
+    );
     q.descendants = false;
     assert!(s.search_text(&q).unwrap().items.is_empty());
 }
@@ -204,8 +228,15 @@ fn coded_and_not_coded_look_at_the_passages_that_cover_the_match() {
 fn the_index_follows_the_transcript() {
     let (s, _d) = fixture();
     assert!(s.search_text(&req("zebra")).unwrap().items.is_empty());
-    s.correct_unit(ID, U2, "A zebra crossed the road.", SpeakerRole::Respondent, "fix", ACTOR)
-        .unwrap();
+    s.correct_unit(
+        ID,
+        U2,
+        "A zebra crossed the road.",
+        SpeakerRole::Respondent,
+        "fix",
+        ACTOR,
+    )
+    .unwrap();
     assert_eq!(units(&s.search_text(&req("zebra")).unwrap()), [U2]);
     // The old text is gone.
     assert!(s.search_text(&req("tags")).unwrap().items.is_empty());

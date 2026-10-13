@@ -64,7 +64,10 @@ async fn f45_stats_are_in_api_codes_and_on_the_per_code_route() {
     let sector = &st["own"]["attributes"][0];
     assert_eq!(sector["attribute_id"], "sector");
     assert_eq!(sector["distinct_values"], 2);
-    assert_eq!(sector["values"][0], json!({"value": "privé", "interviews": 1}));
+    assert_eq!(
+        sector["values"][0],
+        json!({"value": "privé", "interviews": 1})
+    );
 
     let st = ok(
         &ctx.app,
@@ -125,7 +128,13 @@ async fn f41_code_search_finds_names_aliases_and_definitions() {
     assert_eq!(r["total"], 5);
     let r = ok(&ctx.app, "GET", "/api/codes/search?limit=2", None).await;
     assert_eq!(r["items"].as_array().unwrap().len(), 2);
-    let r = ok(&ctx.app, "GET", "/api/codes/search?q=plus&include_system=true", None).await;
+    let r = ok(
+        &ctx.app,
+        "GET",
+        "/api/codes/search?q=plus&include_system=true",
+        None,
+    )
+    .await;
     assert_eq!(r["items"][0]["system"], true);
 }
 
@@ -145,26 +154,67 @@ async fn f55_full_text_search_with_filters_and_highlights() {
         .as_array()
         .unwrap()
         .iter()
-        .map(|i| (i["interview_id"].as_str().unwrap(), i["mentioned"].as_bool().unwrap()))
+        .map(|i| {
+            (
+                i["interview_id"].as_str().unwrap(),
+                i["mentioned"].as_bool().unwrap(),
+            )
+        })
         .collect();
     assert_eq!(mentioned, [("INT-01", false), ("INT-02", true)]);
     // Phrase, attribute filter, coded filter.
-    let r = ok(&ctx.app, "GET", "/api/search/text?q=le%20r%C3%A9seau&mode=phrase", None).await;
+    let r = ok(
+        &ctx.app,
+        "GET",
+        "/api/search/text?q=le%20r%C3%A9seau&mode=phrase",
+        None,
+    )
+    .await;
     assert_eq!(r["total_units"], 1);
-    let r = ok(&ctx.app, "GET", "/api/search/text?q=reseau%20le&mode=phrase", None).await;
+    let r = ok(
+        &ctx.app,
+        "GET",
+        "/api/search/text?q=reseau%20le&mode=phrase",
+        None,
+    )
+    .await;
     assert_eq!(r["total_units"], 0);
-    let r = ok(&ctx.app, "GET", "/api/search/text?q=tags&attribute=sector&value=public", None).await;
+    let r = ok(
+        &ctx.app,
+        "GET",
+        "/api/search/text?q=tags&attribute=sector&value=public",
+        None,
+    )
+    .await;
     assert_eq!(r["total_units"], 2);
-    let r = ok(&ctx.app, "GET", "/api/search/text?q=tags&attribute=sector&value=priv%C3%A9", None).await;
+    let r = ok(
+        &ctx.app,
+        "GET",
+        "/api/search/text?q=tags&attribute=sector&value=priv%C3%A9",
+        None,
+    )
+    .await;
     assert_eq!(r["total_units"], 0);
     let r = ok(&ctx.app, "GET", "/api/search/text?q=tags&coded=true", None).await;
     assert_eq!(r["total_units"], 0);
     // Interviewer turns need the flag.
     let r = ok(&ctx.app, "GET", "/api/search/text?q=thank", None).await;
     assert_eq!(r["total_units"], 0);
-    let r = ok(&ctx.app, "GET", "/api/search/text?q=thank&include_interviewer=true", None).await;
+    let r = ok(
+        &ctx.app,
+        "GET",
+        "/api/search/text?q=thank&include_interviewer=true",
+        None,
+    )
+    .await;
     assert_eq!(r["items"][0]["role"], "interviewer");
-    let r = ok(&ctx.app, "GET", "/api/search/text?q=livres&interviews=INT-01", None).await;
+    let r = ok(
+        &ctx.app,
+        "GET",
+        "/api/search/text?q=livres&interviews=INT-01",
+        None,
+    )
+    .await;
     assert_eq!(r["total_units"], 0);
     // Bad requests.
     for uri in [
@@ -174,7 +224,10 @@ async fn f55_full_text_search_with_filters_and_highlights() {
         "/api/search/text?q=a&interviews=NOPE",
     ] {
         let (s, _) = call(&ctx.app, "GET", uri, None).await;
-        assert!(s == StatusCode::BAD_REQUEST || s == StatusCode::NOT_FOUND, "{uri}: {s}");
+        assert!(
+            s == StatusCode::BAD_REQUEST || s == StatusCode::NOT_FOUND,
+            "{uri}: {s}"
+        );
     }
 }
 
@@ -187,20 +240,44 @@ async fn f56_cooccurrence_matrix_and_drill_down() {
     let skills = code_id(&ctx.app, "ORG-SKILLS").await;
     let u = unit_ids(&ctx.app, "INT-01").await;
     let p1 = passage(&ctx, "INT-01", 1, &adv).await;
-    ok(&ctx.app, "POST", &format!("/api/passages/{p1}/codings"), Some(json!({"code": cost}))).await;
+    ok(
+        &ctx.app,
+        "POST",
+        &format!("/api/passages/{p1}/codings"),
+        Some(json!({"code": cost})),
+    )
+    .await;
     passage(&ctx, "INT-01", 3, &adv).await;
     passage(&ctx, "INT-01", 3, &skills).await;
     passage(&ctx, "INT-02", 1, &adv).await;
     let _ = u;
 
-    let m = ok(&ctx.app, "GET", "/api/codes/cooccurrence?relation=same_passage", None).await;
+    let m = ok(
+        &ctx.app,
+        "GET",
+        "/api/codes/cooccurrence?relation=same_passage",
+        None,
+    )
+    .await;
     let cells = m["groups"][0]["cells"].as_array().unwrap();
     assert_eq!(cells.len(), 2);
     assert_eq!(cells[0]["units"], 1);
     assert!(m["note"].as_str().unwrap().contains("not causation"));
-    let m = ok(&ctx.app, "GET", "/api/codes/cooccurrence?relation=same_unit&group_by=interview", None).await;
+    let m = ok(
+        &ctx.app,
+        "GET",
+        "/api/codes/cooccurrence?relation=same_unit&group_by=interview",
+        None,
+    )
+    .await;
     assert_eq!(m["groups"].as_array().unwrap().len(), 2);
-    let m = ok(&ctx.app, "GET", "/api/codes/cooccurrence?group_by=attribute&attribute=sector", None).await;
+    let m = ok(
+        &ctx.app,
+        "GET",
+        "/api/codes/cooccurrence?group_by=attribute&attribute=sector",
+        None,
+    )
+    .await;
     assert_eq!(m["groups"][0]["key"], "public");
     let d = ok(
         &ctx.app,
@@ -218,7 +295,10 @@ async fn f56_cooccurrence_matrix_and_drill_down() {
         "/api/codes/cooccurrence?codes=NOPE",
     ] {
         let (s, _) = call(&ctx.app, "GET", uri, None).await;
-        assert!(s == StatusCode::BAD_REQUEST || s == StatusCode::NOT_FOUND, "{uri}: {s}");
+        assert!(
+            s == StatusCode::BAD_REQUEST || s == StatusCode::NOT_FOUND,
+            "{uri}: {s}"
+        );
     }
 }
 
@@ -250,9 +330,21 @@ async fn f39_split_worklist_decisions_journal_and_undo() {
         .map(|c| c["code_id"].as_str().unwrap().to_string())
         .collect();
 
-    let wl = ok(&ctx.app, "GET", &format!("/api/splits/{op}/worklist?status=pending"), None).await;
+    let wl = ok(
+        &ctx.app,
+        "GET",
+        &format!("/api/splits/{op}/worklist?status=pending"),
+        None,
+    )
+    .await;
     assert_eq!(wl["items"].as_array().unwrap().len(), 2);
-    let (s, _) = call(&ctx.app, "GET", &format!("/api/splits/{op}/worklist?status=bogus"), None).await;
+    let (s, _) = call(
+        &ctx.app,
+        "GET",
+        &format!("/api/splits/{op}/worklist?status=bogus"),
+        None,
+    )
+    .await;
     assert_eq!(s, StatusCode::BAD_REQUEST);
 
     let wl = ok(
@@ -265,17 +357,42 @@ async fn f39_split_worklist_decisions_journal_and_undo() {
         ]})),
     )
     .await;
-    assert_eq!((wl["assigned"].as_i64(), wl["left"].as_i64(), wl["pending"].as_i64()), (Some(1), Some(1), Some(0)));
+    assert_eq!(
+        (
+            wl["assigned"].as_i64(),
+            wl["left"].as_i64(),
+            wl["pending"].as_i64()
+        ),
+        (Some(1), Some(1), Some(0))
+    );
 
     let ops = ok(&ctx.app, "GET", &format!("/api/code-ops?code={adv}"), None).await;
     assert_eq!(ops["operations"][0]["kind"], "split");
     assert!(ops["operations"][0]["undone"].is_null());
 
-    let (s, _) = call(&ctx.app, "POST", &format!("/api/code-ops/{op}/undo"), Some(json!({"rationale": ""}))).await;
+    let (s, _) = call(
+        &ctx.app,
+        "POST",
+        &format!("/api/code-ops/{op}/undo"),
+        Some(json!({"rationale": ""})),
+    )
+    .await;
     assert_eq!(s, StatusCode::BAD_REQUEST);
-    let undo = ok(&ctx.app, "POST", &format!("/api/code-ops/{op}/undo"), Some(json!({"rationale": "erreur"}))).await;
+    let undo = ok(
+        &ctx.app,
+        "POST",
+        &format!("/api/code-ops/{op}/undo"),
+        Some(json!({"rationale": "erreur"})),
+    )
+    .await;
     assert_eq!(undo["report"]["kind"], "split");
-    let (s, _) = call(&ctx.app, "POST", &format!("/api/code-ops/{op}/undo"), Some(json!({"rationale": "encore"}))).await;
+    let (s, _) = call(
+        &ctx.app,
+        "POST",
+        &format!("/api/code-ops/{op}/undo"),
+        Some(json!({"rationale": "encore"})),
+    )
+    .await;
     assert_eq!(s, StatusCode::CONFLICT);
     let ops = ok(&ctx.app, "GET", "/api/code-ops", None).await;
     assert_eq!(ops["operations"][0]["undone"]["rationale"], "erreur");
@@ -287,11 +404,23 @@ async fn f39_a_merge_is_journaled_and_can_be_undone_through_the_api() {
     let adv = code_id(&ctx.app, "TECH-ADV").await;
     let cost = code_id(&ctx.app, "TECH-COST").await;
     passage(&ctx, "INT-01", 1, &adv).await;
-    ok(&ctx.app, "POST", &format!("/api/codes/{adv}/merge"), Some(json!({"into": cost, "rationale": "doublon"}))).await;
+    ok(
+        &ctx.app,
+        "POST",
+        &format!("/api/codes/{adv}/merge"),
+        Some(json!({"into": cost, "rationale": "doublon"})),
+    )
+    .await;
     let ops = ok(&ctx.app, "GET", "/api/code-ops", None).await;
     let op = ops["operations"][0]["op_id"].as_i64().unwrap();
     assert_eq!(ops["operations"][0]["kind"], "merge");
-    let undo = ok(&ctx.app, "POST", &format!("/api/code-ops/{op}/undo"), Some(json!({"rationale": "non"}))).await;
+    let undo = ok(
+        &ctx.app,
+        "POST",
+        &format!("/api/code-ops/{op}/undo"),
+        Some(json!({"rationale": "non"})),
+    )
+    .await;
     assert_eq!(undo["report"]["kind"], "merge");
     let (s, _) = call(&ctx.app, "GET", "/api/splits/999/worklist", None).await;
     assert_eq!(s, StatusCode::NOT_FOUND);
@@ -303,7 +432,13 @@ async fn f56_co_occurrence_csv_is_exported_and_in_the_manifest() {
     let adv = code_id(&ctx.app, "TECH-ADV").await;
     let cost = code_id(&ctx.app, "TECH-COST").await;
     let p1 = passage(&ctx, "INT-01", 1, &adv).await;
-    ok(&ctx.app, "POST", &format!("/api/passages/{p1}/codings"), Some(json!({"code": cost}))).await;
+    ok(
+        &ctx.app,
+        "POST",
+        &format!("/api/passages/{p1}/codings"),
+        Some(json!({"code": cost})),
+    )
+    .await;
     for (uri, key) in [
         ("/api/interviews/INT-01/export", "dir"),
         ("/api/export/cross-case", "folder"),
@@ -320,10 +455,14 @@ async fn f56_co_occurrence_csv_is_exported_and_in_the_manifest() {
             .lines()
             .find(|l| l.starts_with("same_passage,all,pair,"))
             .unwrap_or_else(|| panic!("no pair row: {csv}"));
-        assert!(pair.contains(&adv) && pair.contains(&cost) && pair.ends_with(",1,1,1,1.0000"), "{pair}");
+        assert!(
+            pair.contains(&adv) && pair.contains(&cost) && pair.ends_with(",1,1,1,1.0000"),
+            "{pair}"
+        );
         assert!(csv.lines().any(|l| l.starts_with("same_unit,all,single,")));
         let manifest: Value =
-            serde_json::from_str(&std::fs::read_to_string(dir.join("manifest.json")).unwrap()).unwrap();
+            serde_json::from_str(&std::fs::read_to_string(dir.join("manifest.json")).unwrap())
+                .unwrap();
         assert!(manifest["files"]
             .as_array()
             .unwrap()

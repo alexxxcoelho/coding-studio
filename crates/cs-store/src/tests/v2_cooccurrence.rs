@@ -36,7 +36,15 @@ fn fixture() -> Fx {
         pcode(&s, R, R2, Some((0, 5)), &[&a]),
         pcode(&s, R, R2, Some((10, 20)), &[&b]),
     ];
-    Fx { s, _d: d, a, b, c, parent, p }
+    Fx {
+        s,
+        _d: d,
+        a,
+        b,
+        c,
+        parent,
+        p,
+    }
 }
 
 fn req(rel: Relation) -> CoRequest {
@@ -115,7 +123,11 @@ fn groups_by_interview_and_by_attribute_value() {
     r.attribute = Some("sector".into());
     let m = f.s.cooccurrence(&r).unwrap();
     let keys: Vec<&str> = m.groups.iter().map(|g| g.key.as_str()).collect();
-    assert_eq!(keys, ["public", "privé"], "values in the order of the choices");
+    assert_eq!(
+        keys,
+        ["public", "privé"],
+        "values in the order of the choices"
+    );
     assert_eq!(m.groups[0].interviews, 1);
 
     r.attribute = None;
@@ -175,10 +187,9 @@ fn the_reserved_code_and_deleted_passages_are_left_out() {
 #[test]
 fn drill_down_lists_the_passage_pairs() {
     let f = fixture();
-    let items = f
-        .s
-        .cooccurrence_passages(&f.a, &f.b, &req(Relation::Overlap))
-        .unwrap();
+    let items =
+        f.s.cooccurrence_passages(&f.a, &f.b, &req(Relation::Overlap))
+            .unwrap();
     assert_eq!(items.len(), 2);
     assert_eq!(items[0].unit_id, U2);
     assert_eq!(items[0].pairs[0].a.passage_id, f.p[0]);
@@ -194,10 +205,9 @@ fn drill_down_lists_the_passage_pairs() {
     assert!(u3.text.starts_with("Our staff"));
     // The same drill-down in the other direction gives the same pairs, with
     // the sides swapped.
-    let rev = f
-        .s
-        .cooccurrence_passages(&f.b, &f.a, &req(Relation::Overlap))
-        .unwrap();
+    let rev =
+        f.s.cooccurrence_passages(&f.b, &f.a, &req(Relation::Overlap))
+            .unwrap();
     assert_eq!(rev[1].pairs[0].a.passage_id, f.p[2]);
     // Restricted to one interview.
     let mut r = req(Relation::SameUnit);

@@ -111,7 +111,10 @@ impl StatCtx {
     }
 
     /// Only the figures of [`CodeCounts`] for one scope.
-    fn figures(&self, refs: &BTreeSet<&PassageRef>) -> (usize, usize, usize, BTreeMap<String, usize>) {
+    fn figures(
+        &self,
+        refs: &BTreeSet<&PassageRef>,
+    ) -> (usize, usize, usize, BTreeMap<String, usize>) {
         let b = self.block(refs);
         (
             b.passages,
@@ -149,7 +152,9 @@ pub(crate) fn own_refs(
         if interviews.is_some_and(|set| !set.contains(&interview)) {
             continue;
         }
-        own.entry(code).or_default().insert((passage, interview, unit));
+        own.entry(code)
+            .or_default()
+            .insert((passage, interview, unit));
     }
     Ok(own)
 }
@@ -194,7 +199,8 @@ impl Store {
         let empty = BTreeSet::new();
         let mut out = BTreeMap::new();
         for n in nodes {
-            let direct: BTreeSet<&PassageRef> = own.get(&n.code_id).unwrap_or(&empty).iter().collect();
+            let direct: BTreeSet<&PassageRef> =
+                own.get(&n.code_id).unwrap_or(&empty).iter().collect();
             let mut all: BTreeSet<&PassageRef> = BTreeSet::new();
             for id in subtree(&n.code_id, &children) {
                 if let Some(set) = own.get(id) {
@@ -242,7 +248,8 @@ impl Store {
         let ctx = StatCtx::load(self)?;
         let children = children_of(&nodes);
         let empty = BTreeSet::new();
-        let direct: BTreeSet<&PassageRef> = own.get(&node.code_id).unwrap_or(&empty).iter().collect();
+        let direct: BTreeSet<&PassageRef> =
+            own.get(&node.code_id).unwrap_or(&empty).iter().collect();
         let mut all: BTreeSet<&PassageRef> = BTreeSet::new();
         for id in subtree(&node.code_id, &children) {
             if let Some(set) = own.get(id) {

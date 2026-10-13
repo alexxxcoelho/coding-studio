@@ -7,10 +7,22 @@ use crate::codesearch::CodeSearchOptions;
 
 fn fixture() -> (Store, TempDir, String, String, String) {
     let (s, d) = ready();
-    let eco = code_def(&s, "Économie circulaire", "Réutilisation des étiquettes en fin de vie.");
+    let eco = code_def(
+        &s,
+        "Économie circulaire",
+        "Réutilisation des étiquettes en fin de vie.",
+    );
     s.add_alias(&eco, "Circular economy", ACTOR).unwrap();
-    let cost = code_def(&s, "Coût des puces", "Investissement initial et prix unitaire par étiquette.");
-    let skills = code_def(&s, "Compétences", "Savoir-faire internes, formation du personnel.");
+    let cost = code_def(
+        &s,
+        "Coût des puces",
+        "Investissement initial et prix unitaire par étiquette.",
+    );
+    let skills = code_def(
+        &s,
+        "Compétences",
+        "Savoir-faire internes, formation du personnel.",
+    );
     (s, d, eco, cost, skills)
 }
 
@@ -30,7 +42,10 @@ fn a_name_prefix_matches_without_accents_or_case() {
         assert_eq!(ids(&r)[0], eco, "{q}");
         assert_eq!(r.items[0].matched.field, "name");
     }
-    assert!(search(&s, "conomie").items.is_empty(), "a prefix, not a substring");
+    assert!(
+        search(&s, "conomie").items.is_empty(),
+        "a prefix, not a substring"
+    );
 }
 
 #[test]

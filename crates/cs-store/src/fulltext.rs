@@ -279,7 +279,10 @@ impl Store {
             }
             let mut units: Vec<_> = self.current_units(&iv)?.into_values().collect();
             units.sort_by_key(|u| u.seq);
-            by_interview.insert(iv.clone(), units.iter().map(|u| index_unit(&iv, u)).collect());
+            by_interview.insert(
+                iv.clone(),
+                units.iter().map(|u| index_unit(&iv, u)).collect(),
+            );
         }
         let idx = Arc::new(FtIndex { by_interview });
         let mut cache = self.ft_cache.lock().unwrap_or_else(|e| e.into_inner());
@@ -549,7 +552,9 @@ fn excerpt(text: &str, spans: &[(usize, usize)], context: usize) -> Excerpt {
     let (first_s, first_e) = spans[0];
     let start = first_s.saturating_sub(context);
     let end = (first_e + context).min(len);
-    let window = slice_scalars(text, start, end).unwrap_or_default().to_string();
+    let window = slice_scalars(text, start, end)
+        .unwrap_or_default()
+        .to_string();
     let highlights = spans
         .iter()
         .filter(|(s, e)| *s >= start && *e <= end)

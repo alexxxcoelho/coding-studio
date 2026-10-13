@@ -58,7 +58,9 @@ fn fixture() -> (Store, TempDir, String, Vec<String>) {
 #[test]
 fn a_split_creates_the_new_codes_and_a_worklist_of_every_passage() {
     let (s, _d, big, ps) = fixture();
-    let out = s.split_code(&big, &split_req(&["Left", "Right"]), ACTOR).unwrap();
+    let out = s
+        .split_code(&big, &split_req(&["Left", "Right"]), ACTOR)
+        .unwrap();
     assert_eq!(out.new_codes.len(), 2);
     assert_eq!(out.worklist.total, 3);
     assert_eq!(out.worklist.pending, 3);
@@ -70,29 +72,46 @@ fn a_split_creates_the_new_codes_and_a_worklist_of_every_passage() {
     assert_eq!(wl.original.code_id, big);
     assert!(wl.items[0].passage.text.len() > 3);
     // New codes are children of the original's parent (none here) and active.
-    assert!(out.new_codes.iter().all(|c| c.active && c.parent_id.is_none()));
+    assert!(out
+        .new_codes
+        .iter()
+        .all(|c| c.active && c.parent_id.is_none()));
 }
 
 #[test]
 fn a_split_needs_two_distinct_parts_and_a_rationale() {
     let (s, _d, big, _) = fixture();
     assert!(s.split_code(&big, &split_req(&["Only"]), ACTOR).is_err());
-    assert!(s.split_code(&big, &split_req(&["Same", "same"]), ACTOR).is_err());
-    assert!(s.split_code(&big, &split_req(&["Big", "Other"]), ACTOR).is_err());
+    assert!(s
+        .split_code(&big, &split_req(&["Same", "same"]), ACTOR)
+        .is_err());
+    assert!(s
+        .split_code(&big, &split_req(&["Big", "Other"]), ACTOR)
+        .is_err());
     let mut r = split_req(&["A1", "A2"]);
     r.rationale = " ".into();
     assert!(s.split_code(&big, &r, ACTOR).is_err());
-    assert!(s.split_code("LATER", &split_req(&["A1", "A2"]), ACTOR).is_err());
+    assert!(s
+        .split_code("LATER", &split_req(&["A1", "A2"]), ACTOR)
+        .is_err());
     // Nothing was created by the refusals.
-    assert_eq!(s.code_nodes().unwrap().iter().filter(|n| !n.system).count() >= 1, true);
+    assert_eq!(
+        s.code_nodes().unwrap().iter().filter(|n| !n.system).count() >= 1,
+        true
+    );
     assert!(s.code_nodes().unwrap().iter().all(|n| n.name != "A1"));
 }
 
 #[test]
 fn decisions_assign_one_or_several_new_codes_or_leave_the_passage() {
     let (s, _d, big, ps) = fixture();
-    let out = s.split_code(&big, &split_req(&["Left", "Right"]), ACTOR).unwrap();
-    let (l, r) = (out.new_codes[0].code_id.clone(), out.new_codes[1].code_id.clone());
+    let out = s
+        .split_code(&big, &split_req(&["Left", "Right"]), ACTOR)
+        .unwrap();
+    let (l, r) = (
+        out.new_codes[0].code_id.clone(),
+        out.new_codes[1].code_id.clone(),
+    );
     let wl = s
         .split_decide(
             out.op_id,
@@ -113,13 +132,22 @@ fn decisions_assign_one_or_several_new_codes_or_leave_the_passage() {
     assert_eq!(codes_of(&s, &ps[2]), [big.clone()]);
     // Counts follow.
     let nodes = s.code_nodes().unwrap();
-    let n = |id: &str| nodes.iter().find(|x| x.code_id == id).unwrap().counts.passages;
+    let n = |id: &str| {
+        nodes
+            .iter()
+            .find(|x| x.code_id == id)
+            .unwrap()
+            .counts
+            .passages
+    };
     assert_eq!((n(&big), n(&l), n(&r)), (1, 2, 1));
 
     // A decision can be revised; the earlier one stays on record.
-    s.split_decide(out.op_id, &[dec(&ps[0], "assign", &[&r])], ACTOR).unwrap();
+    s.split_decide(out.op_id, &[dec(&ps[0], "assign", &[&r])], ACTOR)
+        .unwrap();
     assert_eq!(codes_of(&s, &ps[0]), [r.clone()]);
-    s.split_decide(out.op_id, &[dec(&ps[0], "leave", &[])], ACTOR).unwrap();
+    s.split_decide(out.op_id, &[dec(&ps[0], "leave", &[])], ACTOR)
+        .unwrap();
     assert_eq!(codes_of(&s, &ps[0]), [big.clone()]);
     let rows: i64 = s
         .connection()
@@ -133,11 +161,16 @@ fn decisions_assign_one_or_several_new_codes_or_leave_the_passage() {
 #[test]
 fn bad_decisions_are_refused_as_a_whole() {
     let (s, _d, big, ps) = fixture();
-    let out = s.split_code(&big, &split_req(&["Left", "Right"]), ACTOR).unwrap();
+    let out = s
+        .split_code(&big, &split_req(&["Left", "Right"]), ACTOR)
+        .unwrap();
     let l = out.new_codes[0].code_id.clone();
     let other = code(&s, "Elsewhere", None);
     for bad in [
-        vec![dec(&ps[0], "assign", &[&l]), dec(&ps[1], "assign", &[&other])],
+        vec![
+            dec(&ps[0], "assign", &[&l]),
+            dec(&ps[1], "assign", &[&other]),
+        ],
         vec![dec(&ps[0], "assign", &[])],
         vec![dec(&ps[0], "leave", &[&l])],
         vec![dec(&ps[0], "move", &[&l])],
@@ -152,11 +185,19 @@ fn bad_decisions_are_refused_as_a_whole() {
 #[test]
 fn undo_of_a_split_restores_the_original_coding_and_retires_the_new_codes() {
     let (s, _d, big, ps) = fixture();
-    let out = s.split_code(&big, &split_req(&["Left", "Right"]), ACTOR).unwrap();
-    let (l, r) = (out.new_codes[0].code_id.clone(), out.new_codes[1].code_id.clone());
+    let out = s
+        .split_code(&big, &split_req(&["Left", "Right"]), ACTOR)
+        .unwrap();
+    let (l, r) = (
+        out.new_codes[0].code_id.clone(),
+        out.new_codes[1].code_id.clone(),
+    );
     s.split_decide(
         out.op_id,
-        &[dec(&ps[0], "assign", &[&l]), dec(&ps[1], "assign", &[&l, &r])],
+        &[
+            dec(&ps[0], "assign", &[&l]),
+            dec(&ps[1], "assign", &[&l, &r]),
+        ],
         ACTOR,
     )
     .unwrap();
@@ -175,8 +216,13 @@ fn undo_of_a_split_restores_the_original_coding_and_retires_the_new_codes() {
         assert_eq!(n.counts.passages, 0);
     }
     // The names are free again, ids are never reused.
-    let again = s.split_code(&big, &split_req(&["Left", "Right"]), ACTOR).unwrap();
-    assert!(again.new_codes.iter().all(|c| c.code_id != l && c.code_id != r));
+    let again = s
+        .split_code(&big, &split_req(&["Left", "Right"]), ACTOR)
+        .unwrap();
+    assert!(again
+        .new_codes
+        .iter()
+        .all(|c| c.code_id != l && c.code_id != r));
     // Undone once only.
     assert!(s.undo_code_op(out.op_id, "again", ACTOR).is_err());
     // The journal keeps both operations and says which one was undone.
@@ -209,7 +255,10 @@ fn undo_of_a_merge_gives_back_codings_aliases_children_and_the_code() {
     assert_eq!(codes_of(&s, &p1), [b.clone()]);
     assert_eq!(codes_of(&s, &p2), [b.clone()]);
     assert_eq!(s.resolve_code("Alfa").unwrap().code_id, b);
-    assert_eq!(s.code_node(&child).unwrap().parent_id.as_deref(), Some(b.as_str()));
+    assert_eq!(
+        s.code_node(&child).unwrap().parent_id.as_deref(),
+        Some(b.as_str())
+    );
 
     let ops = s.code_ops(Some(&a)).unwrap();
     assert_eq!(ops.len(), 1);
@@ -224,7 +273,10 @@ fn undo_of_a_merge_gives_back_codings_aliases_children_and_the_code() {
     let node = s.code_node(&a).unwrap();
     assert!(node.active);
     assert!(node.merged_into.is_none());
-    assert_eq!(s.code_node(&child).unwrap().parent_id.as_deref(), Some(a.as_str()));
+    assert_eq!(
+        s.code_node(&child).unwrap().parent_id.as_deref(),
+        Some(a.as_str())
+    );
     assert_eq!(s.resolve_code("Alfa").unwrap().code_id, a);
     assert_eq!(s.resolve_code("Alpha").unwrap().code_id, a);
     assert!(s.undo_code_op(ops[0].op_id, "twice", ACTOR).is_err());
@@ -268,7 +320,10 @@ fn an_undo_must_come_after_the_later_operations_on_the_same_codes() {
     s.merge_code(&b, &c, "two", ACTOR).unwrap();
     let ops = s.code_ops(None).unwrap();
     let err = s.undo_code_op(ops[0].op_id, "first", ACTOR).unwrap_err();
-    assert!(matches!(err.downcast_ref::<CsError>(), Some(CsError::Guard(_))));
+    assert!(matches!(
+        err.downcast_ref::<CsError>(),
+        Some(CsError::Guard(_))
+    ));
     s.undo_code_op(ops[1].op_id, "second", ACTOR).unwrap();
     s.undo_code_op(ops[0].op_id, "first", ACTOR).unwrap();
     assert!(s.code_node(&a).unwrap().active);
@@ -285,9 +340,15 @@ fn a_merge_made_before_the_journal_cannot_be_undone() {
 #[test]
 fn the_journal_is_append_only() {
     let (s, _d, big, _) = fixture();
-    let out = s.split_code(&big, &split_req(&["Left", "Right"]), ACTOR).unwrap();
-    s.split_decide(out.op_id, &[dec(&out_first(&s, out.op_id), "leave", &[])], ACTOR)
+    let out = s
+        .split_code(&big, &split_req(&["Left", "Right"]), ACTOR)
         .unwrap();
+    s.split_decide(
+        out.op_id,
+        &[dec(&out_first(&s, out.op_id), "leave", &[])],
+        ACTOR,
+    )
+    .unwrap();
     s.undo_code_op(out.op_id, "x", ACTOR).unwrap();
     for sql in [
         "UPDATE code_ops SET rationale = 'y'",

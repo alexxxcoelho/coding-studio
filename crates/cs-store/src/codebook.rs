@@ -723,9 +723,11 @@ impl Store {
         let tx = self.conn.unchecked_transaction()?;
         let journal_before = {
             let id_of = |token: &str| -> Result<String> {
-                Ok(tx.query_row("SELECT code_id FROM codes WHERE code = ?1", [token], |r| {
-                    r.get::<_, String>(0)
-                })?)
+                Ok(
+                    tx.query_row("SELECT code_id FROM codes WHERE code = ?1", [token], |r| {
+                        r.get::<_, String>(0)
+                    })?,
+                )
             };
             self.merge_before(&tx, &id_of(from)?, &id_of(into)?)?
         };

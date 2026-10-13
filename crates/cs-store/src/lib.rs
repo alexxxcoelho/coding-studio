@@ -23,10 +23,10 @@ mod claims;
 mod codebook;
 mod codeops;
 mod codesearch;
-mod cooccurrence;
 mod codestats;
 mod codetree;
 mod coding;
+mod cooccurrence;
 mod final_audit;
 mod fulltext;
 mod lexicon;
@@ -52,12 +52,8 @@ mod writing;
 pub use audio::{AudioOffset, MAX_AUDIO_OFFSET};
 pub use codebook::{CodePatch, ImportReport, MergeOutcome};
 pub use codeops::{
-    OpView, SplitDecision, SplitItem, SplitOutcome, SplitPart, SplitRequest, SplitWorklist, UndoReport,
-    UndoView,
-};
-pub use cooccurrence::{
-    CoCell, CoCode, CoDiagonal, CoGroup, CoItem, CoMatrix, CoOverlap, CoPair, CoPassage, CoRequest,
-    Relation,
+    OpView, SplitDecision, SplitItem, SplitOutcome, SplitPart, SplitRequest, SplitWorklist,
+    UndoReport, UndoView,
 };
 pub use codesearch::{CodeHit, CodeMatch, CodeSearch, CodeSearchOptions};
 pub use codetree::{
@@ -65,11 +61,15 @@ pub use codetree::{
     UndoCreateOutcome,
 };
 pub use coding::ResolveRequest;
+pub use cooccurrence::{
+    CoCell, CoCode, CoDiagonal, CoGroup, CoItem, CoMatrix, CoOverlap, CoPair, CoPassage, CoRequest,
+    Relation,
+};
+pub use final_audit::{AuditChainLink, AuditClaim, AuditGap, FinalAudit};
 pub use fulltext::{
     Excerpt, Highlight, Hit as TextHit, InterviewHits, Neighbour, SearchMode, SearchRequest,
     SearchResult, Span,
 };
-pub use final_audit::{AuditChainLink, AuditClaim, AuditGap, FinalAudit};
 pub use lexicon::{CodeRef, LexiconConfig, SimilarItem, SimilarOptions, LEXICON_CONFIG_KEY};
 pub use library::{
     LibraryProgress, LibraryReview, LibraryRow, LibraryTotals, PassageQualify, UnitMark,
