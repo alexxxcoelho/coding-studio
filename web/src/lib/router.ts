@@ -5,8 +5,8 @@
 import { useSyncExternalStore } from "react"
 import type { Phase } from "./types"
 
-export type Tab = "sources" | "coding" | "ai" | "review" | "cases" | "verification" | "audit"
-export const TABS: Tab[] = ["sources", "coding", "ai", "review", "cases", "verification", "audit"]
+export type Tab = "sources" | "coding" | "highlights" | "ai" | "review" | "cases" | "verification" | "audit"
+export const TABS: Tab[] = ["sources", "coding", "highlights", "ai", "review", "cases", "verification", "audit"]
 
 /** Tabs that exist in phase 2 only (the AI challenges the detailed codes). */
 export const PHASE2_ONLY: Tab[] = ["ai", "review"]

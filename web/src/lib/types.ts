@@ -760,3 +760,260 @@ export interface OAuthStatus {
   profile: { id: string; email: string } | null
   error: string | null
 }
+
+// ------------------------------------------------ V1 lots 1 and 2 (docs/API.md)
+
+/** A code applied to a passage. `system` is true for the reserved "Plus tard". */
+export interface PassageCoding {
+  coding_id: number
+  code_id: string
+  code_name: string
+  system: boolean
+  note: string
+  created_at: string
+  created_by: string
+}
+
+/** A selected part of a unit. Offsets count Unicode characters; the `_utf16` forms are those of a browser selection. */
+export interface Passage {
+  passage_id: string
+  interview_id: string
+  unit_id: string
+  start: number
+  end: number
+  start_utf16?: number
+  end_utf16?: number
+  text: string
+  whole_unit: boolean
+  segmentation_hash: string
+  anchor_digest: string
+  created_at: string
+  created_by: string
+  kind: "highlight" | "coded"
+  stale: boolean
+  stale_reason?: string
+  before: string
+  after: string
+  codings: PassageCoding[]
+}
+
+export interface PassageCreateAnswer {
+  passage: Passage
+  created: boolean
+}
+
+export interface CodeAlias {
+  alias: string
+  reason: string
+  created_at: string
+}
+
+export interface CodeCounts {
+  passages: number
+  interviews: number
+  passages_rollup: number
+  interviews_rollup: number
+}
+
+/** A code of the tree. `code_id` is stable; `token` is the legacy upper-case handle. */
+export interface CodeNode {
+  code_id: string
+  token: string
+  name: string
+  label: string
+  definition: string
+  includes: string
+  excludes: string
+  parent_id: string | null
+  origin: string
+  toe: string | null
+  research_questions: string[]
+  active: boolean
+  system: boolean
+  in_prompt: boolean
+  merged_into: string | null
+  version: number
+  example: string | null
+  reason: string | null
+  origin_passage_id: string | null
+  example_passage_id: string | null
+  created_at: string | null
+  aliases: CodeAlias[]
+  counts: CodeCounts
+}
+
+export interface CodeTreeAnswer {
+  codebook_version: number
+  filter?: unknown
+  codes: CodeNode[]
+}
+
+export interface CodeEditV1 {
+  name?: string
+  label?: string
+  definition?: string
+  includes?: string
+  excludes?: string
+  research_questions?: string[]
+  example?: string | null
+  reason?: string | null
+}
+
+export interface MergeAnswerV1 {
+  outcome: { moved_passage_codings: number; deduplicated_passage_codings: number }
+  merged: string
+  code: CodeNode
+}
+
+export interface FromPassageBody {
+  name: string
+  definition: string
+  includes?: string
+  excludes?: string
+  parent_id?: string | null
+  passage_id?: string
+  passage?: { interview_id: string; unit_id: string; start?: number; end?: number; offset_unit?: "utf16" | "scalar" }
+}
+
+export interface PassageContext {
+  passage: Passage
+  speaker: string
+  previous: { unit_id: string; speaker: string; text: string } | null
+  next: { unit_id: string; speaker: string; text: string } | null
+  other_codes: string[]
+}
+
+export interface CodebookRevision {
+  rev: number
+  ts: string
+  actor: string
+  reason: string
+  target: string
+}
+
+export type AttributeKind = "text" | "choice" | "number" | "date"
+
+export interface AttributeDef {
+  id: string
+  label: string
+  kind: AttributeKind
+  choices: string[]
+  shared_with_model: boolean
+}
+
+export interface MemoQuestionDef {
+  id: string
+  text: string
+}
+
+export interface MemoTemplate {
+  id: string
+  name: string
+  default: boolean
+  version: number
+  questions: MemoQuestionDef[]
+}
+
+export interface ListItem {
+  id: string
+  label: string
+}
+
+export interface FrameworkDimension {
+  id: string
+  label: string
+  definition: string
+}
+
+export interface Framework {
+  preset: "toe" | "tam_utaut" | "custom"
+  dimensions: FrameworkDimension[]
+}
+
+export interface ProjectConfig {
+  attributes: AttributeDef[]
+  memo_templates: MemoTemplate[]
+  checklist: ListItem[]
+  theme_checks: ListItem[]
+  evidence_natures: ListItem[]
+  link_types: ListItem[]
+  matrix_dimensions: ListItem[]
+  interpretive_framework: Framework | null
+  memo_history?: unknown[]
+}
+
+export interface ProjectPresets {
+  frameworks: { toe: Framework; tam_utaut: Framework }
+  defaults: Partial<ProjectConfig>
+}
+
+export interface InterviewAttributes {
+  interview_id: string
+  definitions: AttributeDef[]
+  values: Record<string, string>
+}
+
+export interface MemoAnswerV1 {
+  text: string
+  at: string
+}
+
+export interface MemoQuestionView {
+  id: string
+  text: string
+  source: "template" | "added"
+  reworded: boolean
+  answer: MemoAnswerV1 | null
+}
+
+export interface MemoOverrides {
+  added: { id?: string; text: string }[]
+  removed: string[]
+  reworded: Record<string, string>
+}
+
+export interface MemoView {
+  interview_id: string
+  template_id: string
+  template_name: string
+  template_version: number
+  current_version: number
+  outdated: boolean
+  questions: MemoQuestionView[]
+  removed: MemoQuestionView[]
+  orphan_answers: Record<string, MemoAnswerV1>
+  overrides: MemoOverrides
+  saved: boolean
+}
+
+export interface ChecklistItemView {
+  id: string
+  label: string
+  checked: boolean
+  checked_at: string | null
+}
+
+export interface ChecklistView {
+  interview_id: string
+  items: ChecklistItemView[]
+  note: string
+  complete: boolean
+}
+
+export interface TemplateChange {
+  part: string
+  action: string
+  detail: string
+}
+
+export interface TemplateReport {
+  dry_run: boolean
+  applied: boolean
+  changes: TemplateChange[]
+  problems: string[]
+}
+
+export interface LaterAnswer {
+  summary: { interview_id: string; n: number }[]
+  items: Passage[]
+}

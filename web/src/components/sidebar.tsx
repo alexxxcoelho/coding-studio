@@ -95,7 +95,7 @@ export function Sidebar({
       </NavItem>
       {openIds.map((id) => (
         <div key={id} className="group/open relative">
-          <NavItem href={interviewHref(id)} on={current === id} sub count={progress(byId.get(id))} icon={<span className="dot" style={{ background: current === id ? "var(--accent-c)" : "var(--label3)", width: 8, height: 8, borderRadius: "50%", display: "inline-block", flex: "none" }} />}>
+          <NavItem href={interviewHref(id, "coding")} on={current === id} sub count={progress(byId.get(id))} icon={<span className="dot" style={{ background: current === id ? "var(--accent-c)" : "var(--label3)", width: 8, height: 8, borderRadius: "50%", display: "inline-block", flex: "none" }} />}>
             {id}
           </NavItem>
           <button

@@ -77,7 +77,7 @@ describe("sidebar", () => {
     shell("#/interviews/ECO-07/coding")
     const item = await within(nav()).findByRole("link", { name: /^ECO-07/ })
     expect(item).toHaveAttribute("aria-current", "page")
-    expect(item).toHaveAttribute("href", "#/interviews/ECO-07/sources")
+    expect(item).toHaveAttribute("href", "#/interviews/ECO-07/coding")
     expect(within(nav()).getByRole("link", { name: /^Bibliothèque/ })).not.toHaveAttribute("aria-current")
     expect(await within(nav()).findByText("5/12")).toBeInTheDocument()
   })
