@@ -3,7 +3,7 @@
 // has an audio file.
 
 import { useState } from "react"
-import { Pause, Play } from "lucide-react"
+import { Pause, Play, SlidersHorizontal } from "lucide-react"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
@@ -36,7 +36,7 @@ export function AudioCapsule() {
       </button>
       <span className="ci mono" aria-label="Position" style={{ cursor: "default" }}>
         {clock(audio.time)}
-        {audio.duration !== null && ` / ${clock(audio.duration)}`}
+        {audio.duration !== null && <span className="hide-narrow">{` / ${clock(audio.duration)}`}</span>}
       </span>
       <button type="button" className="ci" onClick={audio.cycleRate} aria-label={`Vitesse ${audio.rate}x, changer`} title="Changer la vitesse">
         {audio.rate}x
@@ -49,8 +49,8 @@ export function AudioCapsule() {
         }}
       >
         <PopoverTrigger asChild>
-          <button type="button" className="ci" title="Décalage entre l'audio et le texte">
-            Décalage
+          <button type="button" className="ci" aria-label="Décalage" title="Décalage entre l'audio et le texte">
+            <SlidersHorizontal size={13} aria-hidden="true" />
           </button>
         </PopoverTrigger>
         <PopoverContent align="end" className="w-72" aria-label="Décalage de l'audio">

@@ -40,6 +40,8 @@ python3 web/e2e/seed.py http://127.0.0.1:7979          # sur une base vide
 cd web && PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers python3 e2e/flow.py --base http://127.0.0.1:7979 --out /tmp/cs-flow
 ```
 
+Le parcours couvre aussi les écrans V2 : scinder un code, décider au clavier et annuler depuis le journal, Recherche (filtre non codé, coder la sélection), co-occurrence et passages d'une cellule, correction d'un tour et revue des passages déplacés, lecteur audio de INT-02 (un enregistrement WAV de 80 Ko est versionné dans `examples/library/INT-02_Exemple_Mediatheque/audio.wav`), origines et rôles issus des listes de l'étude. `seed.py` laisse une scission à moitié décidée et un passage à revoir.
+
 Sans recompiler Rust, on peut contrôler les sources : lancer `CS_API=http://127.0.0.1:7979 pnpm dev` (Vite sur 5199, `/api` relayé vers le binaire) et passer `--base http://127.0.0.1:5199`.
 
 Options : `--only coder-selection-menu,codebook` (voir `--list`), `--viewports 1024x700`, `--combos light/light,dark/system` (système/choix de l'application). Une exécution complète (26 écrans x 12) dure une vingtaine de minutes ; `--combos light/light,dark/dark` en divise le temps par trois.

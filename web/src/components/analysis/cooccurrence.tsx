@@ -212,7 +212,11 @@ export function CooccurrenceTab() {
           </table>
         </div>
       )}
-      {data?.note && <p className="small l2" style={{ margin: 0 }}>{data.note}</p>}
+      {data && (
+        <p className="small l2" style={{ margin: 0 }}>
+          La co-occurrence décrit comment le codage se recoupe dans les entretiens. Elle n'indique ni une cause ni une fréquence. Les tours, les entretiens et les paires de passages sont comptés à part.
+        </p>
+      )}
 
       {drill && (
         <section className="grp" style={{ padding: 12, display: "flex", flexDirection: "column", gap: 8 }} aria-label="Passages de la cellule">

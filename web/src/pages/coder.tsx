@@ -18,6 +18,7 @@ import { EmptyState, PageTitle } from "@/components/bits"
 import { SearchIcon } from "@/components/icons"
 import { AudioCapsule } from "@/components/coder/audio-capsule"
 import { AudioProvider } from "@/lib/audio-player"
+import { CorrectTextDialog } from "@/components/coder/correct-text"
 import { ReviewDialog } from "@/components/coder/review-dialog"
 import { useReviewCounts } from "@/lib/transcript-review"
 import { ToolbarActions } from "@/components/toolbar"
@@ -97,6 +98,7 @@ export function CoderPage({ id, unit: askedUnit = null }: { id: string; unit?: s
   const actions = useCodingActions(id, undo)
 
   const [reviewOpen, setReviewOpen] = useState(false)
+  const [correctOpen, setCorrectOpen] = useState(false)
   const nReview = useReviewCounts().get(id) ?? 0
   const [filter, setFilter] = useState<CoderFilter>("all")
   const [search, setSearch] = useState("")
@@ -504,6 +506,9 @@ export function CoderPage({ id, unit: askedUnit = null }: { id: string; unit?: s
                 }}
               />
               <div className="insp-in" style={{ marginTop: "auto" }}>
+                <Button variant="outline" style={{ width: "100%" }} disabled={!current} onClick={() => setCorrectOpen(true)}>
+                  Corriger le texte de cette unité…
+                </Button>
                 <Button variant="outline" style={{ width: "100%" }} onClick={openNewCode} disabled={!current || !isCodable(current)}>
                   {range ? "Nouveau code depuis la sélection…" : "Nouveau code depuis cette unité…"}
                 </Button>
@@ -560,6 +565,7 @@ export function CoderPage({ id, unit: askedUnit = null }: { id: string; unit?: s
         <span style={{ marginLeft: "auto" }}>Sans sélection, le code couvre le tour entier</span>
       </div>
 
+      <CorrectTextDialog interviewId={id} unit={current ?? null} open={correctOpen} onClose={() => setCorrectOpen(false)} onReview={() => setReviewOpen(true)} />
       <ReviewDialog interviewId={id} open={reviewOpen} onClose={() => setReviewOpen(false)} />
       <NewCodeDialog interviewId={id} target={newCode} codes={codes} undo={undo} onClose={() => setNewCode(null)} />
     </AudioProvider>

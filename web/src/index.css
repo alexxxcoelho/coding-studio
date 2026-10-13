@@ -617,3 +617,7 @@ html[data-vibrancy="on"] .sb { background: color-mix(in srgb, var(--sb) 55%, tra
   .u .meta .ts:focus-visible { outline: 2px solid var(--accent-c); outline-offset: 1px; }
   .u.hear { background: color-mix(in srgb, var(--accent-c) 14%, transparent); box-shadow: inset 3px 0 0 var(--accent-c); }
 }
+
+@media (max-width: 1100px) {
+  .hide-narrow { display: none; }
+}
