@@ -258,6 +258,7 @@ impl Store {
         }
         let created_at = now();
         let tx = self.conn.unchecked_transaction()?;
+        self.ensure_baseline_in(&tx, interview_id, actor)?;
         tx.execute(
             "INSERT INTO unit_corrections (interview_id, unit_id, text, role, reason, created_at, created_by)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
@@ -284,6 +285,14 @@ impl Store {
                 "after": {"text": text, "role": enum_str(&role)},
                 "reason": reason,
             }),
+        )?;
+        self.version_after_change_in(
+            &tx,
+            interview_id,
+            "correction",
+            Some(unit_id),
+            Some(reason),
+            actor,
         )?;
         tx.commit()?;
         Ok(UnitCorrection {

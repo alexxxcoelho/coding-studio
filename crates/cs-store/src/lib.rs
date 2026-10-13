@@ -38,6 +38,7 @@ mod saturation;
 mod simple;
 mod study_config;
 mod themes;
+mod transcripts;
 mod verification;
 mod writing;
 
@@ -69,6 +70,9 @@ pub use project::{
 };
 pub use review::{Review, ReviewEntry};
 pub use simple::SimpleProgress;
+pub use transcripts::{
+    ProjectionItem, Resolution, ReviewCode, ReviewFilter, SpanView, TranscriptVersion,
+};
 pub use themes::{
     NewTheme, ThemeCheckView, ThemeCodeView, ThemeCounts, ThemeHistoryEntry, ThemePassageView,
     ThemePatch, ThemeView,
@@ -340,6 +344,7 @@ impl Store {
         conn.execute_batch(SCHEMA)?;
         analysis_schema::migrate(&conn)?;
         review_schema::migrate(&conn)?;
+        transcripts::migrate(&conn)?;
         // Databases made before providers existed lack the column: added in
         // place, so that their content is kept.
         let has_provider: bool = conn
@@ -749,6 +754,7 @@ impl Store {
         }
         let categories = self.study_config()?.effective_categories();
         let tx = self.conn.unchecked_transaction()?;
+        self.ensure_baseline_in(&tx, id, actor)?;
         tx.execute(
             "INSERT INTO segmentations (interview_id, source_rel_path, source_sha256, rule, hash, warnings, saved_at)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
@@ -790,6 +796,14 @@ impl Store {
                 "n_warnings": seg.warnings.len(),
                 "warnings": seg.warnings,
             }),
+        )?;
+        self.version_after_change_in(
+            &tx,
+            id,
+            "segmentation",
+            Some(&seg.source_rel_path),
+            None,
+            actor,
         )?;
         if filled.n_filled > 0 {
             append_event(
