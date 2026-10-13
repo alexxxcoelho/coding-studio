@@ -1,3 +1,4 @@
+import type { ReviewState } from "./review-api"
 import { describe, expect, it } from "vitest"
 
 import {
@@ -8,6 +9,7 @@ import {
   draftFromDecision,
   draftProblem,
   filterQueue,
+  reviewStateLabel,
   finalCodesOf,
   issueLines,
   latestSet,
@@ -358,5 +360,30 @@ describe("latest prompt batch", () => {
   })
   it("is empty without a prompt", () => {
     expect(latestSet([])).toEqual([])
+  })
+})
+
+describe("reviewStateLabel", () => {
+  const state = (over: Partial<ReviewState> = {}): ReviewState => ({
+    interview_id: "X", state: "not_done", n_relevant: 14, n_covered: 0, coverage: 0, runs: [], n_batches: 0, n_disagreements: 0, n_decided: 0,
+    n_sample: 0, n_sample_reviewed: 0, n_candidates: 0, n_candidates_decided: 0, harmonisation_open: 0, harmonisation_done: 0, declaration: "", ...over,
+  })
+  it("says there is no review", () => {
+    expect(reviewStateLabel(state())).toBe("pas de revue")
+  })
+  it("waits for the answer once the prompt is generated", () => {
+    expect(reviewStateLabel(state({ state: "in_progress", n_batches: 1 }))).toBe("revue IA en attente")
+  })
+  it("counts the decided disagreements and the concepts left to sort", () => {
+    expect(reviewStateLabel(state({ state: "in_progress", runs: ["run-a"], n_covered: 14, n_disagreements: 3, n_decided: 1, n_candidates: 2, n_candidates_decided: 1 }))).toBe(
+      "revue IA en cours, 1 sur 3 désaccords décidés, 1 concept à trier",
+    )
+  })
+  it("says the review is done, with or without disagreements", () => {
+    expect(reviewStateLabel(state({ state: "complete", runs: ["run-a"], n_covered: 14, n_disagreements: 3, n_decided: 3 }))).toBe("revue IA faite, 3 sur 3 désaccords décidés")
+    expect(reviewStateLabel(state({ state: "complete", runs: ["run-a"], n_covered: 14 }))).toBe("revue IA faite, aucun désaccord")
+  })
+  it("adds the units left to harmonise whatever the state", () => {
+    expect(reviewStateLabel(state({ harmonisation_open: 2 }))).toBe("pas de revue, 2 unités à harmoniser")
   })
 })

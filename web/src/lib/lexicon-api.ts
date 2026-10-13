@@ -64,7 +64,9 @@ export interface SimilarItem {
 }
 
 export interface SimilarAnswer {
-  passage_id: string
+  /** Passage route only; the unit route answers `unit_id`. */
+  passage_id?: string
+  unit_id?: string
   items: SimilarItem[]
   note: string
 }
@@ -149,6 +151,8 @@ export interface LexiconStatus {
   languages: LexLanguage[]
   index: { n_interviews: number; n_units: number; n_respondent_units: number; n_words: number; n_stems: number }
   fingerprint: string
+  /** What the indexing does, in words; "ai" is always false. */
+  method: { ai: boolean; keyphrases: string; similarity: string; stems: string; tokens: string }
   note: string
 }
 
@@ -170,16 +174,25 @@ function filterParams(f: LexFilter | undefined) {
 
 export const lexiconApi = {
   config: () => request<LexiconConfig>("GET", "/api/lexicon/config"),
+  /** Stores the project language and the language of single interviews. 400 for an unknown language or interview. */
+  setConfig: (body: { language: LexLanguage; interview_languages?: Record<string, LexLanguage> }) => request<LexiconConfig>("PUT", "/api/lexicon/config", body),
   status: () => request<LexiconStatus>("GET", "/api/lexicon/status"),
 
   /** Keyphrases, stems and provisional label of a passage. */
   passage: (pid: string) => request<PassageLexical>("GET", `/api/passages/${enc(pid)}/lexical`),
 
   /** Units close to a passage, with the codes they already carry. */
-  similar: (pid: string, opts: LexFilter & { k?: number; minScore?: number; withoutCode?: string } = {}) =>
+  similar: (pid: string, opts: LexFilter & { k?: number; minScore?: number; withoutCode?: string; includeOwnUnit?: boolean } = {}) =>
     request<SimilarAnswer>(
       "GET",
-      `/api/passages/${enc(pid)}/similar${query({ k: opts.k, min_score: opts.minScore, without_code: opts.withoutCode, ...filterParams(opts) })}`,
+      `/api/passages/${enc(pid)}/similar${query({ k: opts.k, min_score: opts.minScore, without_code: opts.withoutCode, include_own_unit: opts.includeOwnUnit, ...filterParams(opts) })}`,
+    ),
+
+  /** Respondent units close to a unit (the same answer as for a passage). */
+  unitSimilar: (interviewId: string, unitId: string, opts: LexFilter & { k?: number; minScore?: number; withoutCode?: string; includeOwnUnit?: boolean } = {}) =>
+    request<SimilarAnswer>(
+      "GET",
+      `/api/interviews/${enc(interviewId)}/units/${enc(unitId)}/similar${query({ k: opts.k, min_score: opts.minScore, without_code: opts.withoutCode, include_own_unit: opts.includeOwnUnit, ...filterParams(opts) })}`,
     ),
 
   /** Keyword table across the highlights (default) or all the passages. */

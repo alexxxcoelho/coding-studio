@@ -18,6 +18,8 @@ import {
   StudyIcon,
 } from "@/components/icons"
 import { api } from "@/lib/api"
+import { keys } from "@/lib/hooks"
+import { reviewApi } from "@/lib/review-api"
 import { isMac, navKeyFor } from "@/lib/nav"
 import { openInterviews } from "@/lib/open-interviews"
 import { interviewHref, type Route } from "@/lib/router"
@@ -58,6 +60,27 @@ function ChainNote() {
     >
       {data.ok ? <ShieldCheck className="size-3.5" aria-hidden /> : <ShieldAlert className="size-3.5" aria-hidden />}
       {data.ok ? `Journal intact, ${data.n_events} événements` : `Journal rompu à l'événement ${data.first_bad_seq}`}
+    </a>
+  )
+}
+
+/** The state of the pseudonymisation of what is sent to a model, as the server holds it. */
+function PseudoNote() {
+  const { data } = useQuery({ queryKey: keys.projectPseudonymisation, queryFn: reviewApi.projectPseudonymisation })
+  if (!data) return null
+  return (
+    <a
+      href="#/settings"
+      className="sb-note no-underline"
+      style={{ color: "var(--label2)" }}
+      title={
+        data.enabled
+          ? `${data.n_list_entries} nom${data.n_list_entries > 1 ? "s" : ""} remplacé${data.n_list_entries > 1 ? "s" : ""} avant tout envoi à un modèle. Le texte libre n'est pas couvert. Les textes ne quittent jamais la machine sans un geste explicite.`
+          : "Les noms partent tels quels dans un prompt. Les textes ne quittent jamais la machine sans un geste explicite. Activez la pseudonymisation dans les paramètres de l'étude."
+      }
+    >
+      <ShieldIcon size={14} />
+      {data.enabled ? "Pseudonymisation active" : "Pseudonymisation inactive"}
     </a>
   )
 }
@@ -136,13 +159,7 @@ export function Sidebar({
       </NavItem>
 
       <div className="mt-auto flex flex-col gap-px pt-2">
-        <div
-          className="sb-note"
-          title="Les textes ne quittent jamais la machine sans un geste explicite. Le remplacement des noms avant envoi arrive avec la revue (F-12)."
-        >
-          <ShieldIcon size={14} />
-          Pseudonymisation inactive
-        </div>
+        <PseudoNote />
         <ChainNote />
         <button type="button" className="it" onClick={onOpenSettings} aria-label="Réglages">
           <GearIcon />

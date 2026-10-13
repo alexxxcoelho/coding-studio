@@ -24,6 +24,13 @@ export const keys = {
   attributes: (id: string) => ["attributes", id] as const,
   libraryProgress: ["library-progress"] as const,
   marks: (id: string) => ["marks", id] as const,
+  /** Review state of an interview, and of the corpus (the library pipeline). */
+  reviewState: (id: string) => ["review-state", id] as const,
+  corpusReviewState: ["corpus-review-state"] as const,
+  /** Harmonisation worklist of an interview, and of the project. */
+  harmonisation: (id: string) => ["harmonisation", id] as const,
+  /** The pseudonymisation list of the project (the switch, the entries, the digest). */
+  projectPseudonymisation: ["project-pseudonymisation"] as const,
 }
 
 export const useCodes = () => useQuery({ queryKey: keys.codes, queryFn: api.codes })
@@ -45,6 +52,17 @@ export function invalidatePassages(qc: QueryClient, id: string): Promise<unknown
     qc.invalidateQueries({ queryKey: ["later"] }),
     qc.invalidateQueries({ queryKey: keys.libraryProgress }),
     qc.invalidateQueries({ queryKey: keys.marks(id) }),
+    qc.invalidateQueries({ queryKey: keys.reviewState(id) }),
+    qc.invalidateQueries({ queryKey: keys.corpusReviewState }),
+  ])
+}
+
+/** After a change of the codebook (merge, redefinition, new sub-code): the worklist of units to reread and the review state follow. */
+export function invalidateHarmonisation(qc: QueryClient): Promise<unknown> {
+  return Promise.all([
+    qc.invalidateQueries({ queryKey: ["harmonisation"] }),
+    qc.invalidateQueries({ queryKey: ["review-state"] }),
+    qc.invalidateQueries({ queryKey: keys.corpusReviewState }),
   ])
 }
 

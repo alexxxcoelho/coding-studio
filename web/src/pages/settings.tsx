@@ -7,6 +7,7 @@
 
 import { PageTitle, Section } from "@/components/bits"
 import { CodebookImportSection } from "@/components/settings/codebook-import"
+import { PseudonymisationSection } from "@/components/settings/pseudonymisation"
 import { ProjectListsSection } from "@/components/settings/project-lists"
 import { ProjectTemplateButtons } from "@/components/settings/project-template"
 import { ResearchQuestionsEditor } from "@/components/settings/research-questions"
@@ -34,6 +35,7 @@ export function SettingsPage() {
       <Section title="Modèles et listes de l'étude">
         <ProjectListsSection />
       </Section>
+      <PseudonymisationSection />
       <CodebookImportSection />
       <Section title="Exports et vérification" aside="ces vues sont des sorties, pas des étapes">
         <ul className="m-0 flex list-none flex-col gap-2 p-0">

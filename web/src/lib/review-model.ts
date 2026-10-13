@@ -6,6 +6,7 @@ import { plural } from "./format"
 import { sameSet } from "./codes"
 import type { KeyLike } from "./coder-keys"
 import type { AiRun, ArbitrationChoice, PromptPart, ReviewItem, Unit, ValidationIssue } from "./types"
+import type { ReviewState } from "./review-api"
 
 // ---------------------------------------------------------------- decisions
 
@@ -221,6 +222,24 @@ export function reviewStatusLabel(runs: AiRun[], decisions: { decided: number; t
   if (!runs.some((r) => r.complete) || !decisions) return "revue IA en attente"
   if (decisions.total === 0) return "revue IA faite, aucun désaccord"
   return `revue IA faite, ${decisions.decided} sur ${decisions.total} ${decisions.total < 2 ? "décidée" : "décidées"}`
+}
+
+/** The same sentence from the review state the server computes: "pas de revue", "revue IA en attente",
+ * "revue IA en cours, 2 sur 3 désaccords décidés", "revue IA faite, 3 sur 3 désaccords décidés". The units
+ * left to harmonise are added at the end, whatever the state. */
+export function reviewStateLabel(s: ReviewState): string {
+  const parts: string[] = []
+  if (s.state === "not_done") parts.push("pas de revue")
+  else if (s.runs.length === 0 && s.n_covered === 0) parts.push("revue IA en attente")
+  else {
+    const head = s.state === "complete" ? "revue IA faite" : "revue IA en cours"
+    if (s.n_disagreements === 0) parts.push(`${head}, aucun désaccord`)
+    else parts.push(`${head}, ${s.n_decided} sur ${s.n_disagreements} ${s.n_disagreements < 2 ? "désaccord décidé" : "désaccords décidés"}`)
+    const left = s.n_candidates - s.n_candidates_decided
+    if (left > 0) parts.push(`${plural(left, "concept")} à trier`)
+  }
+  if (s.harmonisation_open > 0) parts.push(`${plural(s.harmonisation_open, "unité")} à harmoniser`)
+  return parts.join(", ")
 }
 
 /** Parts of the latest prompt batch (each generation is a new batch). */

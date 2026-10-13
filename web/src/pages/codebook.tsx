@@ -19,7 +19,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { analysisApi } from "@/lib/analysis-api"
 import { ApiError, api } from "@/lib/api"
 import { buildRows, codeColor, descendantIds, filterRows, LATER_ID, possibleParents, wouldCycle } from "@/lib/code-tree"
-import { keys, useCodes } from "@/lib/hooks"
+import { invalidateHarmonisation, keys, useCodes } from "@/lib/hooks"
 import { reportError } from "@/lib/notify"
 import { cn } from "@/lib/utils"
 import type { CodeNode } from "@/lib/types"
@@ -34,6 +34,7 @@ function useInvalidateCodes() {
       qc.invalidateQueries({ queryKey: ["codebook"] }),
       qc.invalidateQueries({ queryKey: ["chain"] }),
       qc.invalidateQueries({ queryKey: ["state"] }),
+      invalidateHarmonisation(qc),
     ])
 }
 

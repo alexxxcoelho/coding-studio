@@ -170,17 +170,30 @@ describe("Revue IA, generate the prompt", () => {
   })
 })
 
+const PSEUDO = (over: Record<string, unknown> = {}) => ({
+  enabled: true,
+  digest: "d".repeat(64),
+  categories: ["person"],
+  n_list_entries: 2,
+  entries: [{ kind: "person", original: "Anna Keller", pseudonym: "Personne 1", count: 3 }],
+  free_text_covered: false,
+  note: "La liste ne couvre pas le texte libre.",
+  ...over,
+})
+
 describe("Revue IA, pseudonymisation", () => {
-  it("is hidden when the server has no such route", async () => {
+  it("says that the pseudonymisation is inactive", async () => {
+    mock.on("GET", `${I}/pseudonymisation`, { body: PSEUDO({ enabled: false, entries: [] }) })
     renderWithClient(<RevoirPage id={ID} part="ai" />)
-    await screen.findByRole("button", { name: "Copier la partie 1 sur 2" })
-    expect(screen.queryByText(/Pseudonymisation/)).toBeNull()
+    expect(await screen.findByText(/Pseudonymisation inactive : les noms partent tels quels/)).toBeInTheDocument()
   })
 
-  it("lists the replaced names when the route exists", async () => {
-    mock.on("GET", `${I}/pseudonymisation`, { body: { entries: [{ kind: "person", original: "Anna Keller", pseudonym: "Personne 1" }] } })
+  it("lists the replaced names with their number of replacements", async () => {
+    mock.on("GET", `${I}/pseudonymisation`, { body: PSEUDO() })
     renderWithClient(<RevoirPage id={ID} part="ai" />)
-    expect(await screen.findByText(/1 nom remplacé avant envoi/)).toBeInTheDocument()
+    expect(await screen.findByText(/Pseudonymisation active : 1 nom remplacé avant envoi/)).toBeInTheDocument()
+    expect(screen.getByText(/3 remplacements/)).toBeInTheDocument()
+    expect(screen.getByText(/La liste ne couvre pas le texte libre/)).toBeInTheDocument()
   })
 })
 
@@ -461,8 +474,19 @@ describe("Décisions", () => {
 })
 
 describe("Décisions, candidate concepts", () => {
-  const CAND = { candidate_id: "c1", label: "Formation interne", description: "après le départ de l'intégrateur", run_label: "R1", unit_ids: [`${ID}-U002`], decision: null }
+  const CAND = {
+    candidate_id: "c1",
+    interview_id: ID,
+    label: "Formation interne",
+    description: "après le départ de l'intégrateur",
+    run_label: "R1",
+    unit_ids: [`${ID}-U002`],
+    evidence: [{ unit_id: `${ID}-U002`, quote: "numéro" }],
+    decision: null,
+    history: [],
+  }
   beforeEach(() => {
+    mock.on("GET", `${I}/concept-candidates`, { body: [] })
     runs = [run()]
     review = reviewAnswer([item(2)])
     mock.on("GET", "/api/codes", {
@@ -470,7 +494,7 @@ describe("Décisions, candidate concepts", () => {
     })
   })
 
-  it("hides the concepts when the server does not know them", async () => {
+  it("shows no section when the model proposed nothing", async () => {
     renderWithClient(<RevoirPage id={ID} part="review" />)
     await screen.findByRole("article", { name: "Unité U002" })
     expect(screen.queryByText("Concepts hors codebook")).toBeNull()
@@ -482,7 +506,8 @@ describe("Décisions, candidate concepts", () => {
     fireEvent.click(await screen.findByRole("button", { name: /Formation interne/ }))
     const c = within(await screen.findByRole("article", { name: "Concept Formation interne" }))
     expect(c.getByText(/Jamais appliqué sans décision motivée/)).toBeInTheDocument()
-    expect(c.getByText("Réponse numéro 2")).toBeInTheDocument()
+    expect(c.getByText("Réponse", { exact: false })).toBeInTheDocument()
+    expect(c.getByText("numéro").tagName).toBe("MARK")
   })
 
   async function open() {
@@ -530,9 +555,11 @@ describe("Décisions, candidate concepts", () => {
     expect(mock.to("PUT", `${I}/concept-candidates/c1`)[0].body).toEqual({ action: "map", code_id: "SKILLS", rationale: "même idée" })
   })
 
+  const DECIDED = { action: "reject", code_id: null, rationale: "hors sujet", decided_at: "2026-10-13T10:00:00Z", decided_by: "alex" }
+
   it("shows a treated concept with its dated reason", async () => {
     mock.on("GET", `${I}/concept-candidates`, {
-      body: [{ ...CAND, decision: { action: "reject", code_id: null, rationale: "hors sujet", decided_at: "2026-10-13T10:00:00Z" } }],
+      body: [{ ...CAND, decision: DECIDED, history: [DECIDED] }],
     })
     renderWithClient(<RevoirPage id={ID} part="review" />)
     fireEvent.click(await screen.findByRole("button", { name: /Formation interne/ }))

@@ -104,6 +104,12 @@
   border: 0.5px solid var(--sep);
   white-space: pre-wrap;
 }
+.rv-quote mark {
+  background: var(--warn-soft);
+  color: inherit;
+  border-radius: 3px;
+  padding: 0 2px;
+}
 .rv-cmp td.c,
 .rv-cmp th.c {
   text-align: center;
