@@ -128,4 +128,4 @@ crates/
   cs-desktop Tauri 2 window around cs-app, native dialogs, Database menu
 ```
 
-The JSON API is documented by the routes in `crates/cs-app/src/lib.rs`. The method, written for the thesis, is in `docs/METHOD.md`.
+The JSON API is documented by the routes in `crates/cs-app/src/lib.rs`. The method, written for the thesis, is in `docs/METHOD.md`; the data and export contracts binding the tool, the manuscript and the application dossier are in `docs/CONTRACTS.md`.
