@@ -950,6 +950,7 @@ dependencies = [
  "pdf-extract",
  "quick-xml",
  "regex",
+ "serde",
  "tempfile",
  "walkdir",
  "zip",
