@@ -200,7 +200,7 @@ fn group_name(raw: &str) -> Result<String> {
 }
 
 impl Store {
-    fn next_counter(&self, conn: &Connection, name: &str) -> Result<i64> {
+    pub(crate) fn next_counter(&self, conn: &Connection, name: &str) -> Result<i64> {
         conn.execute(
             "INSERT OR IGNORE INTO person_counters (name, value) VALUES (?1, 0)",
             [name],
@@ -216,7 +216,7 @@ impl Store {
         )?)
     }
 
-    fn language(&self) -> String {
+    pub(crate) fn language(&self) -> String {
         self.lexicon_config()
             .map(|c| c.language)
             .unwrap_or_else(|_| "fr".into())
@@ -391,7 +391,7 @@ impl Store {
         Ok(())
     }
 
-    fn check_patch(
+    pub(crate) fn check_patch(
         &self,
         base: &Person,
         patch: &PersonPatch,
@@ -472,7 +472,7 @@ impl Store {
         Ok(p)
     }
 
-    fn require_group(&self, groups: &[PersonGroup], id: &str) -> Result<()> {
+    pub(crate) fn require_group(&self, groups: &[PersonGroup], id: &str) -> Result<()> {
         if groups.iter().any(|g| g.group_id == id) {
             Ok(())
         } else {
@@ -527,36 +527,7 @@ impl Store {
         let mut all = self.all_persons_on(&tx)?;
         all.push(p.clone());
         self.check_register(&all, &manual)?;
-        tx.execute(
-            &format!(
-                "INSERT INTO persons ({PERSON_COLS}) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17)"
-            ),
-            params![
-                p.person_id,
-                p.kind,
-                p.name,
-                p.organisation,
-                p.function,
-                p.email,
-                p.phone,
-                p.notes,
-                p.consent_status,
-                p.consent_date,
-                p.consent_document,
-                i64::from(p.anonymise),
-                p.pseudonym,
-                to_json(&p.aliases),
-                to_json(&p.attributes),
-                p.created_at,
-                p.updated_at,
-            ],
-        )?;
-        for g in &p.group_ids {
-            tx.execute(
-                "INSERT INTO person_group_members (person_id, group_id) VALUES (?1, ?2)",
-                params![p.person_id, g],
-            )?;
-        }
+        insert_person_row(&tx, &p)?;
         let digest_after = effective_from(&all, &manual).config.digest();
         append_event(
             &tx,
@@ -614,37 +585,7 @@ impl Store {
         let digest_before = effective_from(&all, &manual).config.digest();
         all[idx] = p.clone();
         self.check_register(&all, &manual)?;
-        tx.execute(
-            "UPDATE persons SET name=?2, organisation=?3, person_function=?4, email=?5, phone=?6,
-               notes=?7, consent_status=?8, consent_date=?9, consent_document=?10, anonymise=?11,
-               pseudonym=?12, aliases=?13, attributes=?14, updated_at=?15 WHERE person_id=?1",
-            params![
-                p.person_id,
-                p.name,
-                p.organisation,
-                p.function,
-                p.email,
-                p.phone,
-                p.notes,
-                p.consent_status,
-                p.consent_date,
-                p.consent_document,
-                i64::from(p.anonymise),
-                p.pseudonym,
-                to_json(&p.aliases),
-                to_json(&p.attributes),
-                p.updated_at,
-            ],
-        )?;
-        if p.group_ids != before.group_ids {
-            tx.execute("DELETE FROM person_group_members WHERE person_id = ?1", [id])?;
-            for g in &p.group_ids {
-                tx.execute(
-                    "INSERT INTO person_group_members (person_id, group_id) VALUES (?1, ?2)",
-                    params![id, g],
-                )?;
-            }
-        }
+        update_person_row(&tx, &p, &before)?;
         let mut changed: Vec<&str> = Vec::new();
         macro_rules! diff {
             ($($f:ident),*) => { $( if p.$f != before.$f { changed.push(stringify!($f)); } )* };
@@ -1263,7 +1204,81 @@ impl Store {
     }
 }
 
-fn dedup(ids: &[String]) -> Vec<String> {
+/// Writes a new record and its group memberships.
+pub(crate) fn insert_person_row(conn: &Connection, p: &Person) -> Result<()> {
+    conn.execute(
+        &format!(
+            "INSERT INTO persons ({PERSON_COLS}) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17)"
+        ),
+        params![
+            p.person_id,
+            p.kind,
+            p.name,
+            p.organisation,
+            p.function,
+            p.email,
+            p.phone,
+            p.notes,
+            p.consent_status,
+            p.consent_date,
+            p.consent_document,
+            i64::from(p.anonymise),
+            p.pseudonym,
+            to_json(&p.aliases),
+            to_json(&p.attributes),
+            p.created_at,
+            p.updated_at,
+        ],
+    )?;
+    for g in &p.group_ids {
+        conn.execute(
+            "INSERT INTO person_group_members (person_id, group_id) VALUES (?1, ?2)",
+            params![p.person_id, g],
+        )?;
+    }
+    Ok(())
+}
+
+/// Writes the changes of a record; the memberships only when they changed.
+pub(crate) fn update_person_row(conn: &Connection, p: &Person, before: &Person) -> Result<()> {
+    conn.execute(
+        "UPDATE persons SET name=?2, organisation=?3, person_function=?4, email=?5, phone=?6,
+           notes=?7, consent_status=?8, consent_date=?9, consent_document=?10, anonymise=?11,
+           pseudonym=?12, aliases=?13, attributes=?14, updated_at=?15 WHERE person_id=?1",
+        params![
+            p.person_id,
+            p.name,
+            p.organisation,
+            p.function,
+            p.email,
+            p.phone,
+            p.notes,
+            p.consent_status,
+            p.consent_date,
+            p.consent_document,
+            i64::from(p.anonymise),
+            p.pseudonym,
+            to_json(&p.aliases),
+            to_json(&p.attributes),
+            p.updated_at,
+        ],
+    )?;
+    if p.group_ids != before.group_ids {
+        conn.execute(
+            "DELETE FROM person_group_members WHERE person_id = ?1",
+            [&p.person_id],
+        )?;
+        for g in &p.group_ids {
+            conn.execute(
+                "INSERT INTO person_group_members (person_id, group_id) VALUES (?1, ?2)",
+                params![p.person_id, g],
+            )?;
+        }
+    }
+    Ok(())
+}
+
+pub(crate) fn dedup(ids: &[String]) -> Vec<String> {
     let mut v: Vec<String> = Vec::new();
     for i in ids {
         if !v.contains(i) {

@@ -37,6 +37,7 @@ mod matrix;
 mod memos;
 mod passages;
 mod persons;
+mod persons_import;
 mod project;
 mod projection;
 mod review;
@@ -86,6 +87,7 @@ pub use matrix::{
     MatrixFilter, MatrixOptions, MatrixViewRecord,
 };
 pub use passages::{NewPassage, PassageFilter};
+pub use persons_import::{PersonsImportProblem, PersonsImportReport, PersonsImportRow};
 pub use persons::{
     group_path, EffectivePseudonyms, GroupPatch, GroupRef, GroupTree, InterviewPerson,
     PersonDetail, PersonFilter, PersonInterview, PersonRow,
