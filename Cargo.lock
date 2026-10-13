@@ -831,6 +831,7 @@ dependencies = [
  "cs-ai",
  "cs-ingest",
  "cs-model",
+ "cs-qdpx",
  "cs-store",
  "hex",
  "http-body-util",

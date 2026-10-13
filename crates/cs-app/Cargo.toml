@@ -13,6 +13,7 @@ cs-model.workspace = true
 cs-ingest.workspace = true
 cs-store.workspace = true
 cs-ai.workspace = true
+cs-qdpx.workspace = true
 anyhow.workspace = true
 serde.workspace = true
 serde_json.workspace = true
