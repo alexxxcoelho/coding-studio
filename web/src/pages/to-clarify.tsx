@@ -146,14 +146,14 @@ function GroupCard({ group, codes, questions }: { group: LabelGroup; codes: Code
         </Button>
       </header>
       <ul className="flex flex-col border-t">
-        {group.items.map((t) => (
-          <li key={t.id} className="grid gap-x-3 gap-y-0.5 border-b px-4 py-2 last:border-b-0 md:grid-cols-[8rem_1fr]">
-            <a href={unitHref(t.unit_id)} className="ident text-xs hover:underline">
-              {t.unit_id}
+        {group.items.map((tt) => (
+          <li key={tt.id} className="grid gap-x-3 gap-y-0.5 border-b px-4 py-2 last:border-b-0 md:grid-cols-[8rem_1fr]">
+            <a href={unitHref(tt.unit_id)} className="ident text-xs hover:underline">
+              {tt.unit_id}
             </a>
             <div className="min-w-0">
-              {t.unit_text && <p className="verbatim line-clamp-2 text-sm">{t.unit_text}</p>}
-              {t.note && <p className="text-muted-foreground text-xs">Note : {t.note}</p>}
+              {tt.unit_text && <p className="verbatim line-clamp-2 text-sm">{tt.unit_text}</p>}
+              {tt.note && <p className="text-muted-foreground text-xs">Note : {tt.note}</p>}
             </div>
           </li>
         ))}
@@ -172,8 +172,8 @@ export function ToClarifyPage() {
   const book = useQuery({ queryKey: ["codebook"], queryFn: api.codebook })
   const questions = useQuery({ queryKey: ["questions"], queryFn: api.questions })
 
-  const open = useMemo(() => groupByLabel((items.data ?? []).filter((t) => !t.resolved)), [items.data])
-  const resolved = useMemo(() => (items.data ?? []).filter((t) => t.resolved).sort((a, b) => (b.resolved!.at ?? "").localeCompare(a.resolved!.at ?? "")), [items.data])
+  const open = useMemo(() => groupByLabel((items.data ?? []).filter((tt) => !tt.resolved)), [items.data])
+  const resolved = useMemo(() => (items.data ?? []).filter((tt) => tt.resolved).sort((a, b) => (b.resolved!.at ?? "").localeCompare(a.resolved!.at ?? "")), [items.data])
   const codes = phase2Codes(book.data?.codes ?? [])
 
   return (
@@ -199,20 +199,20 @@ export function ToClarifyPage() {
       {resolved.length > 0 && (
         <Section title="Résolues" aside={plural(resolved.length, "étiquette")} className="mt-6">
           <ul className="flex flex-col gap-2">
-            {resolved.map((t) => (
-              <li key={t.id} className="flex flex-wrap items-center gap-2 text-sm">
-                <PendingChip label={t.label} className="opacity-60" />
+            {resolved.map((tt) => (
+              <li key={tt.id} className="flex flex-wrap items-center gap-2 text-sm">
+                <PendingChip label={tt.label} className="opacity-60" />
                 <span className="text-muted-foreground">vers</span>
-                <CodeChip code={t.resolved!.code} />
+                <CodeChip code={tt.resolved!.code} />
                 <Badge variant="outline" className={cn("text-xs")}>
-                  {t.resolved!.kind === "new_code" ? "nouveau code de terrain" : "rattachée"}
+                  {tt.resolved!.kind === "new_code" ? "nouveau code de terrain" : "rattachée"}
                 </Badge>
-                <a href={unitHref(t.unit_id)} className="ident text-xs hover:underline">
-                  {t.unit_id}
+                <a href={unitHref(tt.unit_id)} className="ident text-xs hover:underline">
+                  {tt.unit_id}
                 </a>
                 <span className="text-muted-foreground text-xs">
-                  {t.resolved!.by}, {dateTime(t.resolved!.at)}
-                  {t.resolved!.rationale ? `: ${t.resolved!.rationale}` : ""}
+                  {tt.resolved!.by}, {dateTime(tt.resolved!.at)}
+                  {tt.resolved!.rationale ? `: ${tt.resolved!.rationale}` : ""}
                 </span>
               </li>
             ))}

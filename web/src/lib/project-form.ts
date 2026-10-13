@@ -52,19 +52,19 @@ export function moveItem<T>(items: T[], from: number, to: number): T[] {
 
 export function memoTemplatesProblem(templates: MemoTemplate[]): string | null {
   if (templates.length === 0) return "Au moins un modèle de mémo est nécessaire"
-  if (templates.filter((t) => t.default).length !== 1) return "Un seul modèle doit être le modèle par défaut"
+  if (templates.filter((tt) => tt.default).length !== 1) return "Un seul modèle doit être le modèle par défaut"
   const ids = new Set<string>()
   const names = new Set<string>()
-  for (const t of templates) {
-    const name = t.name.trim()
+  for (const tt of templates) {
+    const name = tt.name.trim()
     if (!name) return "Un modèle de mémo n'a pas de nom"
-    if (!ID_PATTERN.test(t.id)) return `Identifiant invalide pour le modèle « ${name} »`
-    if (ids.has(t.id)) return `Identifiant de modèle en double (${t.id})`
+    if (!ID_PATTERN.test(tt.id)) return `Identifiant invalide pour le modèle « ${name} »`
+    if (ids.has(tt.id)) return `Identifiant de modèle en double (${tt.id})`
     if (names.has(name.toLowerCase())) return `Nom de modèle en double (${name})`
-    ids.add(t.id)
+    ids.add(tt.id)
     names.add(name.toLowerCase())
-    if (t.questions.length === 0) return `Le modèle « ${name} » n'a aucune question`
-    const q = listProblem(`Modèle « ${name} »`, t.questions.map((x) => ({ id: x.id, label: x.text })))
+    if (tt.questions.length === 0) return `Le modèle « ${name} » n'a aucune question`
+    const q = listProblem(`Modèle « ${name} »`, tt.questions.map((x) => ({ id: x.id, label: x.text })))
     if (q) return q
   }
   return null
@@ -75,26 +75,26 @@ export function newTemplate(templates: MemoTemplate[], name: string): MemoTempla
   if (!n) return templates
   return [
     ...templates,
-    { id: slugId(n, templates.map((t) => t.id)), name: n, default: false, version: 1, questions: [{ id: "q1", text: "" }] },
+    { id: slugId(n, templates.map((tt) => tt.id)), name: n, default: false, version: 1, questions: [{ id: "q1", text: "" }] },
   ]
 }
 
 export function setDefaultTemplate(templates: MemoTemplate[], id: string): MemoTemplate[] {
-  return templates.map((t) => ({ ...t, default: t.id === id }))
+  return templates.map((tt) => ({ ...tt, default: tt.id === id }))
 }
 
 /** Removes a template; the default cannot be removed (choose another default first). */
 export function removeTemplate(templates: MemoTemplate[], id: string): MemoTemplate[] {
-  const t = templates.find((x) => x.id === id)
-  if (!t || t.default) return templates
+  const tt = templates.find((x) => x.id === id)
+  if (!tt || tt.default) return templates
   return templates.filter((x) => x.id !== id)
 }
 
-export function addTemplateQuestion(t: MemoTemplate, text = ""): MemoTemplate {
-  const ids = t.questions.map((q) => q.id)
+export function addTemplateQuestion(tt: MemoTemplate, text = ""): MemoTemplate {
+  const ids = tt.questions.map((q) => q.id)
   const nums = ids.map((i) => /^q(\d+)$/.exec(i)?.[1]).filter((x): x is string => x !== undefined).map(Number)
   const n = Math.max(0, ...nums) + 1
-  return { ...t, questions: [...t.questions, { id: `q${n}`, text }] }
+  return { ...tt, questions: [...tt.questions, { id: `q${n}`, text }] }
 }
 
 // ----------------------------------------------------------------- framework

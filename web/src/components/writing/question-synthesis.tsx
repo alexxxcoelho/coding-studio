@@ -51,10 +51,10 @@ function SynthesisEditor({ synthesis }: { synthesis: QuestionSynthesis }) {
           <p className="text-muted-foreground text-sm">Aucun thème retenu ne répond encore à cette question : rattachez-la à un thème dans la fiche, dans Analyser.</p>
         ) : (
           <ul className="flex flex-col gap-2">
-            {synthesis.themes.map((t) => (
-              <li key={t.theme_id} className="grp p-2.5">
-                <div className="text-sm font-semibold">{t.title}</div>
-                <p className={cn("mt-1 text-sm leading-snug", !t.mini_synthesis && "text-muted-foreground")}>{t.mini_synthesis || "Mini-synthèse pas encore écrite."}</p>
+            {synthesis.themes.map((tt) => (
+              <li key={tt.theme_id} className="grp p-2.5">
+                <div className="text-sm font-semibold">{tt.title}</div>
+                <p className={cn("mt-1 text-sm leading-snug", !tt.mini_synthesis && "text-muted-foreground")}>{tt.mini_synthesis || "Mini-synthèse pas encore écrite."}</p>
               </li>
             ))}
           </ul>

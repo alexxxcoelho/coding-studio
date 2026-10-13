@@ -94,8 +94,8 @@ export function ProjectListsSection() {
   if (cfgQ.isLoading || !cfg) return cfgQ.error ? <Alerts messages={[cfgQ.error.message]} /> : <Skeleton className="h-40 w-full" />
 
   const choice = frameworkChoice(cfg.interpretive_framework)
-  const defaultTemplate = cfg.memo_templates.find((t) => t.default)
-  const memoNote = cfg.memo_templates.map((t) => `${t.name}, ${t.questions.length} question${t.questions.length > 1 ? "s" : ""}`).join(" · ")
+  const defaultTemplate = cfg.memo_templates.find((tt) => tt.default)
+  const memoNote = cfg.memo_templates.map((tt) => `${tt.name}, ${tt.questions.length} question${tt.questions.length > 1 ? "s" : ""}`).join(" · ")
   const attrNote = cfg.attributes.map((a) => `${a.label} (${kindLabel(a.kind)}${a.kind === "choice" && a.choices.length ? ` ${a.choices.join(", ")}` : ""})`).join(" · ")
 
   return (
@@ -148,7 +148,7 @@ export function ProjectListsSection() {
         {defaultTemplate && !dirty && <span className="small l2">Modèle de mémo par défaut : {defaultTemplate.name}</span>}
       </div>
 
-      <MemoDialog open={editor === "memo"} onClose={() => setEditor(null)} templates={cfg.memo_templates} onChange={(t) => edit({ memo_templates: t })} />
+      <MemoDialog open={editor === "memo"} onClose={() => setEditor(null)} templates={cfg.memo_templates} onChange={(tt) => edit({ memo_templates: tt })} />
       <AttributesDialog open={editor === "attributes"} onClose={() => setEditor(null)} attributes={cfg.attributes} onChange={(a) => edit({ attributes: a })} />
       <ListDialog
         open={editor === "dimensions"}
@@ -391,12 +391,12 @@ function MemoDialog({
   open: boolean
   onClose: () => void
   templates: MemoTemplate[]
-  onChange: (t: MemoTemplate[]) => void
+  onChange: (tt: MemoTemplate[]) => void
 }) {
   const [name, setName] = useState("")
   const [pickedId, setPicked] = useState<string | null>(null)
-  const current = useMemo(() => templates.find((t) => t.id === pickedId) ?? templates[0] ?? null, [templates, pickedId])
-  const patch = (t: MemoTemplate) => onChange(templates.map((x) => (x.id === t.id ? { ...t, version: x.version } : x)))
+  const current = useMemo(() => templates.find((tt) => tt.id === pickedId) ?? templates[0] ?? null, [templates, pickedId])
+  const patch = (tt: MemoTemplate) => onChange(templates.map((x) => (x.id === tt.id ? { ...tt, version: x.version } : x)))
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="sm:max-w-2xl">
@@ -408,10 +408,10 @@ function MemoDialog({
         </DialogHeader>
         <div className="r8">
           <NativeSelect aria-label="Modèle à modifier" style={{ width: 220 }} value={current?.id ?? ""} onChange={(e) => setPicked(e.target.value)}>
-            {templates.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.name}
-                {t.default ? " (par défaut)" : ""}
+            {templates.map((tt) => (
+              <option key={tt.id} value={tt.id}>
+                {tt.name}
+                {tt.default ? " (par défaut)" : ""}
               </option>
             ))}
           </NativeSelect>

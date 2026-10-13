@@ -112,9 +112,9 @@ export function attributeDefsProblem(defs: AttributeDef[]): string | null {
       if (d.choices.filter((c) => c.trim()).length === 0) return `« ${label} » est une liste : indiquez au moins une valeur`
       const seen = new Set<string>()
       for (const c of d.choices) {
-        const t = c.trim()
-        if (seen.has(t)) return `« ${label} » : valeur en double (${t})`
-        seen.add(t)
+        const tt = c.trim()
+        if (seen.has(tt)) return `« ${label} » : valeur en double (${tt})`
+        seen.add(tt)
       }
     } else if (d.choices.length > 0) {
       return `« ${label} » : seule une liste porte des valeurs`

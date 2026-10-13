@@ -26,9 +26,9 @@ export function ThemeList({
   const [adding, setAdding] = useState(false)
   const [title, setTitle] = useState("")
   const submit = () => {
-    const t = title.trim()
-    if (!t) return
-    onCreate(t)
+    const tt = title.trim()
+    if (!tt) return
+    onCreate(tt)
     setTitle("")
     setAdding(false)
   }
@@ -73,21 +73,21 @@ export function ThemeList({
         </p>
       )}
       <ul className="flex flex-col gap-0.5">
-        {themes.map((t) => {
-          const on = t.theme_id === selectedId
+        {themes.map((tt) => {
+          const on = tt.theme_id === selectedId
           return (
-            <li key={t.theme_id}>
+            <li key={tt.theme_id}>
               <button
                 type="button"
-                onClick={() => onSelect(t.theme_id)}
+                onClick={() => onSelect(tt.theme_id)}
                 aria-current={on ? "true" : undefined}
                 className={cn("flex w-full flex-col gap-1 rounded-lg px-2.5 py-2 text-left text-sm", on ? "bg-fill2" : "hover:bg-fill")}
               >
-                <span className="font-semibold">{t.title || "Thème sans titre"}</span>
+                <span className="font-semibold">{tt.title || "Thème sans titre"}</span>
                 <span className="text-muted-foreground flex flex-wrap items-center gap-x-2 text-[11.5px]">
-                  <span className="badge">{STATUS_LABEL[t.status]}</span>
-                  <span>{plural(t.codes_count, "code")}</span>
-                  <span>{plural(t.interviews_count, "entretien")}</span>
+                  <span className="badge">{STATUS_LABEL[tt.status]}</span>
+                  <span>{plural(tt.codes_count, "code")}</span>
+                  <span>{plural(tt.interviews_count, "entretien")}</span>
                 </span>
               </button>
             </li>
