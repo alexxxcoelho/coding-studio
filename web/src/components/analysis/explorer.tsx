@@ -11,6 +11,7 @@ import { NativeSelect } from "@/components/settings/fields"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { t } from "@/i18n"
+import { interviewAttributes } from "@/lib/attributes"
 import { api } from "@/lib/api"
 import { buildRows, isApplicable } from "@/lib/code-tree"
 import { useCodes } from "@/lib/hooks"
@@ -64,7 +65,7 @@ function PassagesByCode() {
 
 function CodesByAttribute({ project }: { project: ProjectConfig | undefined }) {
   const codesQ = useCodes()
-  const attributes = (project?.attributes ?? []).filter((a) => a.kind === "choice" && a.choices.length > 0)
+  const attributes = interviewAttributes(project?.attributes).filter((a) => a.kind === "choice" && a.choices.length > 0)
   const [attr, setAttr] = useState("")
   const def = attributes.find((a) => a.id === attr)
   const results = useQueries({

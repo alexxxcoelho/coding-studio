@@ -921,6 +921,8 @@ export interface AttributeDef {
   kind: AttributeKind
   choices: string[]
   shared_with_model: boolean
+  /** "person" for an attribute of the register; absent for an interview attribute. */
+  scope?: "interview" | "person"
 }
 
 export interface MemoQuestionDef {

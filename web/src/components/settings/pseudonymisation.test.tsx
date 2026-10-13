@@ -78,4 +78,36 @@ describe("Pseudonymisation section", () => {
     fireEvent.click(screen.getByRole("button", { name: "Enregistrer la liste" }))
     expect(await screen.findByRole("alert")).toHaveTextContent("duplicate name")
   })
+
+  it("lists the entries derived from the records apart, read-only, and sends only the manual ones", async () => {
+    mock.on("GET", "/api/pseudonymisation", {
+      body: view({
+        enabled: true,
+        enabled_manual: false,
+        n_manual_entries: 1,
+        n_person_entries: 2,
+        n_list_entries: 3,
+        shadowed_manual: [{ kind: "person", original: "Anna", pseudonym: "X", reason: "managed by P-0001" }],
+        entries: [
+          { kind: "person", original: "Anna Roth", pseudonym: "Répondant 01", source: "person", person_id: "P-0001" },
+          { kind: "person", original: "Anna", pseudonym: "Répondant 01", source: "person", person_id: "P-0001" },
+          { kind: "person", original: "Claire Vuilleumier", pseudonym: "Personne A", source: "manual", person_id: null },
+        ],
+      }),
+    })
+    mock.on("PUT", "/api/pseudonymisation", { body: view() })
+    renderWithClient(<PseudonymisationSection />)
+    const derived = await screen.findByRole("table", { name: "Noms issus des fiches de Personnes" })
+    expect(derived).toHaveTextContent("Anna Roth")
+    expect(screen.getAllByRole("link", { name: /Ouvrir la fiche P-0001/ })[0]).toHaveAttribute("href", "#/personnes/P-0001")
+    expect(screen.getByLabelText("Nom réel 1")).toHaveValue("Claire Vuilleumier")
+    expect(screen.queryByLabelText("Nom réel 2")).toBeNull()
+    expect(screen.getByText(/déjà géré par la fiche P-0001/)).toBeInTheDocument()
+    expect(screen.getByRole("switch", { name: /Remplacer les noms/ })).toHaveAttribute("aria-checked", "false")
+    expect(screen.getByText(/la liste reste active/)).toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText("Pseudonyme 1"), { target: { value: "Personne Z" } })
+    fireEvent.click(screen.getByRole("button", { name: "Enregistrer la liste" }))
+    await waitFor(() => expect(mock.to("PUT", "/api/pseudonymisation")).toHaveLength(1))
+    expect(mock.to("PUT", "/api/pseudonymisation")[0].body).toEqual({ entries: [{ kind: "person", original: "Claire Vuilleumier", pseudonym: "Personne Z" }] })
+  })
 })

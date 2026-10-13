@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
 import { t } from "@/i18n"
+import { interviewAttributes } from "@/lib/attributes"
 import { analysisApi, CELL_VALUES, type CellValue, type MatrixAxisEntry, type MatrixCell, type MatrixConfig, type MatrixView } from "@/lib/analysis-api"
 import { akeys, useMatrix } from "@/lib/analysis-hooks"
 import { axisOptions, axisToken, CELL_VALUE_LABEL, cellView, DEFAULT_MATRIX, matrixMax, parseAxisToken, validateMatrix } from "@/lib/matrix"
@@ -42,7 +43,7 @@ function MatrixControls({
   const views = useQuery({ queryKey: akeys.matrixViews, queryFn: analysisApi.matrixViews })
   const [naming, setNaming] = useState(false)
   const [name, setName] = useState("")
-  const attribute = project?.attributes.find((a) => a.id === config.filter?.attribute)
+  const attribute = interviewAttributes(project?.attributes).find((a) => a.id === config.filter?.attribute)
 
   const side = (label: string, key: "rows" | "cols") => (
     <label className="flex items-center gap-1.5 text-xs">
@@ -92,7 +93,7 @@ function MatrixControls({
             style={{ width: 150 }}
           >
             <option value="">{t("analysis.matrix_view.aucun_filtre")}</option>
-            {(project?.attributes ?? []).map((a) => (
+            {interviewAttributes(project?.attributes).map((a) => (
               <option key={a.id} value={a.id}>
                 {a.label}
               </option>

@@ -7,11 +7,13 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 
 import { Banner, EmptyState, PageTitle } from "@/components/bits"
+import { VerificationDialog } from "@/components/export/verification-dialog"
 import { Fiche } from "@/components/library/fiche"
 import { ImportDialog } from "@/components/library/import-dialog"
 import { RescanIcon } from "@/components/icons"
 import { Capsule, CapsuleItem, ToolbarActions, ToolbarSearch } from "@/components/toolbar"
 import { Button } from "@/components/ui/button"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Skeleton } from "@/components/ui/skeleton"
 import { t } from "@/i18n"
 import { api } from "@/lib/api"
@@ -56,6 +58,7 @@ export function LibraryPage() {
   const [search, setSearch] = useState("")
   const [picked, setPicked] = useState<string | null>(null)
   const [importOpen, setImportOpen] = useState(false)
+  const [verificationOpen, setVerificationOpen] = useState(false)
   // Fichier > Importer des transcriptions... of the desktop menu.
   useEffect(() => onMenuAction("import", () => setImportOpen(true)), [])
 
@@ -126,6 +129,17 @@ export function LibraryPage() {
           </CapsuleItem>
           <span className="vs" />
           <CapsuleItem onClick={() => setImportOpen(true)}>{t("library.importer_des_transcriptions")}</CapsuleItem>
+          <span className="vs" />
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <CapsuleItem aria-label={t("persons.export_menu")} aria-haspopup="menu">
+                {t("persons.export_menu")}
+              </CapsuleItem>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onSelect={() => setVerificationOpen(true)}>{t("persons.verification_action")}</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </Capsule>
         {ready > 0 && (
           <Button asChild size="lg">
@@ -269,6 +283,7 @@ export function LibraryPage() {
         )}
       </div>
       <ImportDialog open={importOpen} onOpenChange={setImportOpen} />
+      {verificationOpen && <VerificationDialog open onClose={() => setVerificationOpen(false)} initialIds={selectedId ? [selectedId] : []} />}
     </>
   )
 }

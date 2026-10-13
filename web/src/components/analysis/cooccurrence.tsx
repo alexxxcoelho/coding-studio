@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { EmptyState } from "@/components/bits"
 import { t } from "@/i18n"
+import { interviewAttributes } from "@/lib/attributes"
 import { useProjectConfig } from "@/lib/hooks"
 import { unitHref } from "@/lib/router"
 import { v2, type CoParams, type CoRelation } from "@/lib/v2-api"
@@ -33,7 +34,7 @@ interface Drill {
 
 export function CooccurrenceTab() {
   const cfg = useProjectConfig()
-  const attributes = cfg.data?.attributes ?? []
+  const attributes = interviewAttributes(cfg.data?.attributes)
   const [relation, setRelation] = useState<CoRelation>("same_passage")
   const [groupBy, setGroupBy] = useState<"" | "interview" | "attribute">("")
   const [attribute, setAttribute] = useState("")

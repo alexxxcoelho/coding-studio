@@ -11,6 +11,7 @@ import { ToClarifyPage } from "@/pages/to-clarify"
 import { InterviewPage } from "@/pages/interview"
 import { LexiquePage } from "@/pages/lexique"
 import { LibraryPage } from "@/pages/library"
+import { PersonsPage } from "@/pages/persons"
 import { SearchPage } from "@/pages/search"
 import { SaturationPage } from "@/pages/saturation"
 import { SettingsPage } from "@/pages/settings"
@@ -23,6 +24,7 @@ export default function App() {
       <AppShell route={route}>
         {route.page === "library" && <LibraryPage />}
         {route.page === "interview" && <InterviewPage key={route.id} id={route.id} tab={route.tab} phase={route.phase} unit={route.unit} />}
+        {route.page === "persons" && <PersonsPage key={route.id ?? ""} initialId={route.id} />}
         {route.page === "codebook" && <CodebookPage />}
         {route.page === "to-clarify" && <ToClarifyPage />}
         {route.page === "saturation" && <SaturationPage />}

@@ -15,7 +15,7 @@ import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
 import { t } from "@/i18n"
 import { ApiError, api } from "@/lib/api"
-import { attributeDefsProblem, cleanDef, slugId } from "@/lib/attributes"
+import { attributeDefsProblem, cleanDef, interviewAttributes, personAttributes, slugId } from "@/lib/attributes"
 import { keys } from "@/lib/hooks"
 import {
   addDimension,
@@ -60,7 +60,7 @@ const msg = (e: unknown) => {
   return e instanceof ApiError ? e.message : String(e)
 }
 
-type Editor = "memo" | "attributes" | "dimensions" | ListKey | null
+type Editor = "memo" | "attributes" | "person_attributes" | "dimensions" | ListKey | null
 
 export function ProjectListsSection() {
   const qc = useQueryClient()
@@ -97,13 +97,21 @@ export function ProjectListsSection() {
   const choice = frameworkChoice(cfg.interpretive_framework)
   const defaultTemplate = cfg.memo_templates.find((tt) => tt.default)
   const memoNote = cfg.memo_templates.map((tt) => t("common.name_n_questions", { n: tt.questions.length, name: tt.name })).join(" · ")
-  const attrNote = cfg.attributes.map((a) => `${a.label} (${kindLabel(a.kind)}${a.kind === "choice" && a.choices.length ? ` ${a.choices.join(", ")}` : ""})`).join(" · ")
+  const interviewAttrs = interviewAttributes(cfg.attributes)
+  const personAttrs = personAttributes(cfg.attributes)
+  const attrNote = interviewAttrs.map((a) => `${a.label} (${kindLabel(a.kind)}${a.kind === "choice" && a.choices.length ? ` ${a.choices.join(", ")}` : ""})`).join(" · ")
 
   return (
     <>
       <div className="grp" aria-label={t("common.modeles_et_listes_de_l")}>
         <Row title={t("settings.project_lists.modeles_de_memo_de_familiarisation")} note={memoNote || t("settings.project_lists.aucun_modele")} count={cfg.memo_templates.length} onEdit={() => setEditor("memo")} />
-        <Row title={t("settings.project_lists.attributs_d_entretien")} note={attrNote || t("settings.project_lists.aucun_attribut")} count={cfg.attributes.length} onEdit={() => setEditor("attributes")} />
+        <Row title={t("settings.project_lists.attributs_d_entretien")} note={attrNote || t("settings.project_lists.aucun_attribut")} count={interviewAttrs.length} onEdit={() => setEditor("attributes")} />
+        <Row
+          title={t("persons.person_attributes")}
+          note={personAttrs.map((a) => `${a.label} (${kindLabel(a.kind)})`).join(" · ") || t("persons.person_attributes_none")}
+          count={personAttrs.length}
+          onEdit={() => setEditor("person_attributes")}
+        />
         <label className="row">
           <span className="k">
             {t("settings.project_lists.cadre_d_interpretation")}
@@ -150,7 +158,8 @@ export function ProjectListsSection() {
       </div>
 
       <MemoDialog open={editor === "memo"} onClose={() => setEditor(null)} templates={cfg.memo_templates} onChange={(tt) => edit({ memo_templates: tt })} />
-      <AttributesDialog open={editor === "attributes"} onClose={() => setEditor(null)} attributes={cfg.attributes} onChange={(a) => edit({ attributes: a })} />
+      <AttributesDialog open={editor === "attributes"} onClose={() => setEditor(null)} scope="interview" attributes={cfg.attributes} onChange={(a) => edit({ attributes: a })} />
+      <AttributesDialog open={editor === "person_attributes"} onClose={() => setEditor(null)} scope="person" attributes={cfg.attributes} onChange={(a) => edit({ attributes: a })} />
       <ListDialog
         open={editor === "dimensions"}
         onClose={() => setEditor(null)}
@@ -309,23 +318,27 @@ function ListDialog({
 function AttributesDialog({
   open,
   onClose,
-  attributes,
+  scope,
+  attributes: all,
   onChange,
 }: {
   open: boolean
   onClose: () => void
+  /** Which attributes the dialog lists: those of the interviews or those of the register. */
+  scope: "interview" | "person"
   attributes: AttributeDef[]
   onChange: (a: AttributeDef[]) => void
 }) {
   const [label, setLabel] = useState("")
-  const set = (id: string, patch: Partial<AttributeDef>) => onChange(attributes.map((a) => (a.id === id ? { ...a, ...patch } : a)))
-  const problem = attributeDefsProblem(attributes)
+  const attributes = all.filter((a) => (a.scope === "person") === (scope === "person"))
+  const set = (id: string, patch: Partial<AttributeDef>) => onChange(all.map((a) => (a.id === id ? { ...a, ...patch } : a)))
+  const problem = attributeDefsProblem(all)
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle>{t("settings.project_lists.attributs_d_entretien")}</DialogTitle>
-          <DialogDescription>{t("settings.project_lists.ce_qu_on_note_sur")}</DialogDescription>
+          <DialogTitle>{scope === "person" ? t("persons.person_attributes") : t("settings.project_lists.attributs_d_entretien")}</DialogTitle>
+          <DialogDescription>{scope === "person" ? t("persons.person_attributes_help") : t("settings.project_lists.ce_qu_on_note_sur")}</DialogDescription>
         </DialogHeader>
         <div style={{ maxHeight: 360, overflow: "auto", display: "flex", flexDirection: "column", gap: 8 }}>
           {attributes.length === 0 && <p className="small l2">{t("settings.project_lists.aucun_attribut_2")}</p>}
@@ -352,7 +365,7 @@ function AttributesDialog({
                 <input type="checkbox" checked={a.shared_with_model} onChange={(e) => set(a.id, { shared_with_model: e.target.checked })} />
                 {t("settings.project_lists.envoye_au_modele")}
               </label>
-              <Button variant="outline" aria-label={t("settings.project_lists.retirer_l_attribut_label", { label: a.label })} onClick={() => onChange(attributes.filter((x) => x.id !== a.id))}>
+              <Button variant="outline" aria-label={t("settings.project_lists.retirer_l_attribut_label", { label: a.label })} onClick={() => onChange(all.filter((x) => x.id !== a.id))}>
                 {t("common.retirer")}
               </Button>
             </div>
@@ -363,7 +376,7 @@ function AttributesDialog({
           onSubmit={(e) => {
             e.preventDefault()
             if (!label.trim()) return
-            onChange([...attributes, { id: slugId(label, attributes.map((a) => a.id)), label: label.trim(), kind: "text", choices: [], shared_with_model: false }])
+            onChange([...all, { id: slugId(label, all.map((a) => a.id)), label: label.trim(), kind: "text", choices: [], shared_with_model: false, ...(scope === "person" ? { scope: "person" as const } : {}) }])
             setLabel("")
           }}
         >

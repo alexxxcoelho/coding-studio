@@ -60,11 +60,29 @@ export interface PseudonymEntry {
   pseudonym: string
   /** Replacements in an interview; absent on the list of the project. */
   count?: number
+  /** On the list of the project: "person" when derived from an anonymised record, "manual" when typed by hand. */
+  source?: "person" | "manual"
+  /** The record a derived entry comes from. */
+  person_id?: string | null
+}
+
+/** A manual entry left out because a record already replaces the same name. */
+export interface ShadowedEntry {
+  kind: PseudonymKind
+  original: string
+  pseudonym: string
+  reason: string
 }
 
 /** The pseudonymisation list: of the project, or of an interview (the names found in it). */
 export interface Pseudonymisation {
+  /** The list in force: the manual switch or any anonymised record. */
   enabled: boolean
+  /** The manual switch itself (absent on an older server). */
+  enabled_manual?: boolean
+  n_manual_entries?: number
+  n_person_entries?: number
+  shadowed_manual?: ShadowedEntry[]
   /** SHA-256 of the list, recorded with every prompt. */
   digest: string
   categories: string[]

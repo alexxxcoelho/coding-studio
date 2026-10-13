@@ -18,7 +18,8 @@ import { ApiError } from "@/lib/api"
 import { shortHash } from "@/lib/format"
 import { keys } from "@/lib/hooks"
 import { entriesProblem, sameEntries } from "@/lib/pseudonymisation"
-import { reviewApi, type Pseudonymisation, type PseudonymKind } from "@/lib/review-api"
+import { personHref } from "@/lib/router"
+import { reviewApi, type Pseudonymisation, type PseudonymEntry, type PseudonymKind, type ShadowedEntry } from "@/lib/review-api"
 
 interface Row {
   kind: PseudonymKind
@@ -39,7 +40,12 @@ export function PseudonymisationSection() {
 
 function Editor({ saved }: { saved: Pseudonymisation }) {
   const qc = useQueryClient()
-  const stored: Row[] = saved.entries.map((e) => ({ kind: e.kind, original: e.original, pseudonym: e.pseudonym }))
+  // The list in force has two parts: the entries derived from the anonymised records of Personnes
+  // (read-only here, edited in their fiche) and the entries typed by hand, the only ones this editor changes.
+  const derived = saved.entries.filter((e) => e.source === "person")
+  const stored: Row[] = saved.entries.filter((e) => e.source !== "person").map((e) => ({ kind: e.kind, original: e.original, pseudonym: e.pseudonym }))
+  const manualOn = saved.enabled_manual ?? saved.enabled
+  const nDerived = saved.n_person_entries ?? derived.length
   const [rows, setRows] = useState<Row[]>(stored)
   const [attempted, setAttempted] = useState(false)
   const [serverError, setServerError] = useState<string | null>(null)
@@ -72,10 +78,10 @@ function Editor({ saved }: { saved: Pseudonymisation }) {
           type="button"
           role="switch"
           className="switch"
-          aria-checked={saved.enabled}
+          aria-checked={manualOn}
           aria-label={t("settings.pseudonymisation.remplacer_les_noms_avant_tout")}
           disabled={save.isPending}
-          onClick={() => save.mutate({ enabled: !saved.enabled })}
+          onClick={() => save.mutate({ enabled: !manualOn })}
         />
         <span className="text-sm">
           <b>{saved.enabled ? t("common.pseudonymisation_active") : t("common.pseudonymisation_inactive")}</b>
@@ -84,7 +90,11 @@ function Editor({ saved }: { saved: Pseudonymisation }) {
           </span>
         </span>
       </div>
+      {saved.enabled && !manualOn && <p className="text-muted-foreground text-xs">{t("persons.pseudo_on_by_records", { n: nDerived })}</p>}
 
+      <DerivedEntries entries={derived} shadowed={saved.shadowed_manual ?? []} />
+
+      {(derived.length > 0 || rows.length > 0) && <h3 className="text-sm font-semibold">{t("persons.manual_entries")}</h3>}
       {rows.length > 0 && (
         <table className="tbl" aria-label={t("settings.pseudonymisation.liste_des_noms")}>
           <thead>
@@ -122,7 +132,9 @@ function Editor({ saved }: { saved: Pseudonymisation }) {
           </tbody>
         </table>
       )}
-      {rows.length === 0 && <p className="text-muted-foreground text-sm">{t("settings.pseudonymisation.la_liste_est_vide_ajoutez")}</p>}
+      {rows.length === 0 && (
+        <p className="text-muted-foreground text-sm">{derived.length > 0 ? t("persons.manual_entries_empty") : t("settings.pseudonymisation.la_liste_est_vide_ajoutez")}</p>
+      )}
 
       {attempted && problem && <Alerts messages={[problem]} />}
       {serverError && <Alerts messages={[serverError]} />}
@@ -145,9 +157,73 @@ function Editor({ saved }: { saved: Pseudonymisation }) {
         {t("settings.pseudonymisation.liste_de_n_noms", { n: saved.n_list_entries })}
         {saved.categories.length > 0 ? ` (${saved.categories.map((c) => (c === "person" ? t("settings.pseudonymisation.personnes") : c === "organisation" ? t("settings.pseudonymisation.organisations") : c)).join(", ")})` : ""}{t("settings.pseudonymisation.empreinte_sha_256")} <span className="mono">{shortHash(saved.digest, 16)}</span>{t("settings.pseudonymisation.enregistree_avec_chaque_prompt_le")}
       </p>
+      {nDerived > 0 && <p className="text-muted-foreground text-xs">{t("persons.list_parts", { derived: nDerived, manual: saved.n_manual_entries ?? rows.length })}</p>}
       <p className="text-muted-foreground text-xs">
         <b>{t("settings.pseudonymisation.le_texte_libre_n_est")}</b> {saved.note}
       </p>
     </div>
   )
+}
+
+/** The entries that come from anonymised records: read-only, each linked to its fiche. */
+function DerivedEntries({ entries, shadowed }: { entries: PseudonymEntry[]; shadowed: ShadowedEntry[] }) {
+  if (entries.length === 0 && shadowed.length === 0) return null
+  return (
+    <div className="flex flex-col gap-2">
+      <h3 className="text-sm font-semibold">{t("persons.derived_entries")}</h3>
+      <p className="text-muted-foreground text-xs">{t("persons.derived_help")}</p>
+      {entries.length > 0 && (
+        <table className="tbl" aria-label={t("persons.derived_table")}>
+          <thead>
+            <tr>
+              <th style={{ width: 150 }}>{t("common.type")}</th>
+              <th>{t("settings.pseudonymisation.nom_reel")}</th>
+              <th>{t("settings.pseudonymisation.pseudonyme")}</th>
+              <th style={{ width: 150 }}>{t("persons.source_record")}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {entries.map((e) => (
+              <tr key={`${e.person_id}:${e.original}`}>
+                <td>{KIND_LABEL[e.kind]}</td>
+                <td>{e.original}</td>
+                <td>{e.pseudonym}</td>
+                <td>
+                  {e.person_id ? (
+                    <a href={personHref(e.person_id)} aria-label={t("persons.open_record", { id: e.person_id, name: e.original })}>
+                      {e.person_id}
+                    </a>
+                  ) : (
+                    ""
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+      {shadowed.length > 0 && (
+        <div className="flex flex-col gap-1">
+          <p className="text-muted-foreground text-xs">{t("persons.shadowed_help")}</p>
+          <ul className="m-0 list-none p-0 text-xs">
+            {shadowed.map((s) => (
+              <li key={s.original}>
+                {s.original} {"\u2192"} {s.pseudonym}
+                <span className="text-muted-foreground"> ({shadowReason(s.reason)})</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  )
+}
+
+/** The reason the server gives for a manual entry that does not apply, in plain words. */
+function shadowReason(reason: string): string {
+  const managed = /^managed by (P-\d+)$/.exec(reason)
+  if (managed) return t("persons.shadowed_managed", { id: managed[1] })
+  const flag = /^(P-\d+) is not anonymised$/.exec(reason)
+  if (flag) return t("persons.shadowed_not_anonymised", { id: flag[1] })
+  return reason
 }

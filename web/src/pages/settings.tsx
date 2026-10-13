@@ -5,7 +5,10 @@
 // sidebar. The settings of the application (appearance, model providers) are in
 // Réglages.
 
+import { useState } from "react"
+
 import { PageTitle, Section } from "@/components/bits"
+import { VerificationDialog } from "@/components/export/verification-dialog"
 import { CodebookImportSection } from "@/components/settings/codebook-import"
 import { PseudonymisationSection } from "@/components/settings/pseudonymisation"
 import { ProjectListsSection } from "@/components/settings/project-lists"
@@ -13,6 +16,7 @@ import { ProjectTemplateButtons } from "@/components/settings/project-template"
 import { ResearchQuestionsEditor } from "@/components/settings/research-questions"
 import { StudyConfigSection } from "@/components/settings/study-config"
 import { ToolbarActions } from "@/components/toolbar"
+import { Button } from "@/components/ui/button"
 import { t } from "@/i18n"
 
 const EXPORTS = [
@@ -23,6 +27,7 @@ const EXPORTS = [
 ]
 
 export function SettingsPage() {
+  const [verification, setVerification] = useState(false)
   return (
     <div className="flex flex-col gap-5" style={{ maxWidth: 820 }}>
       <PageTitle title={t("common.parametres_de_l_etude")} sub={t("settings.enregistres_dans_coding_db_avec")} />
@@ -48,8 +53,15 @@ export function SettingsPage() {
               <span className="text-label2 text-xs">{e.note}</span>
             </li>
           ))}
+          <li className="flex flex-wrap items-baseline gap-x-3">
+            <Button variant="outline" onClick={() => setVerification(true)}>
+              {t("persons.verification_action")}
+            </Button>
+            <span className="text-label2 text-xs">{t("persons.verification_note_short")}</span>
+          </li>
         </ul>
       </Section>
+      {verification && <VerificationDialog open onClose={() => setVerification(false)} />}
     </div>
   )
 }

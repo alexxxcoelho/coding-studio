@@ -8,6 +8,7 @@
 import type { AxisSource, CellValue, MatrixCell, MatrixConfig } from "./analysis-api"
 import type { ProjectConfig } from "./types"
 import { t } from "@/i18n"
+import { interviewAttributes } from "./attributes"
 
 export const CELL_VALUE_LABEL: Record<CellValue, string> = {
   get present() { return t("matrix.present") },
@@ -54,7 +55,7 @@ export function axisOptions(cfg: ProjectConfig | undefined): AxisOption[] {
     { token: "codes", label: t("common.codes") },
     { token: "focused_codes", label: t("matrix.codes_focalises") },
   ]
-  const attributes = (cfg?.attributes ?? []).map((a) => ({ token: `attribute:${a.id}`, label: a.label }))
+  const attributes = interviewAttributes(cfg?.attributes).map((a) => ({ token: `attribute:${a.id}`, label: a.label }))
   const dimensions = (cfg?.matrix_dimensions ?? []).length > 0 ? [{ token: "dimensions", label: t("matrix.dimensions_de_l_etude") }] : []
   return [...base, ...attributes, ...dimensions]
 }

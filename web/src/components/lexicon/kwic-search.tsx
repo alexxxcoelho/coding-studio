@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
 import { t } from "@/i18n"
+import { interviewAttributes } from "@/lib/attributes"
 import { useProjectConfig } from "@/lib/hooks"
 import { EMPTY } from "@/lib/lexicon-copy"
 import { lexiconApi, type KwicHit } from "@/lib/lexicon-api"
@@ -77,7 +78,7 @@ export function KwicRow({ hit, compact = false }: { hit: KwicHit; compact?: bool
 
 export function KwicSearch({ compact = false }: { compact?: boolean }) {
   const cfg = useProjectConfig()
-  const attributes = cfg.data?.attributes ?? []
+  const attributes = interviewAttributes(cfg.data?.attributes)
   const [q, setQ] = useState("")
   const [stem, setStem] = useState(false)
   const [attribute, setAttribute] = useState("")

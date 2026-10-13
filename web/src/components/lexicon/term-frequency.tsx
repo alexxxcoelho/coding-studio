@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
 import { formatNumber, t } from "@/i18n"
+import { interviewAttributes } from "@/lib/attributes"
 import { useProjectConfig } from "@/lib/hooks"
 import { EMPTY } from "@/lib/lexicon-copy"
 import { frequencyTable, parseTerms, valueLabel } from "@/lib/lexicon"
@@ -27,7 +28,7 @@ const per1000 = (n: number) => formatNumber(n, { minimumFractionDigits: 1, maxim
 
 export function TermFrequency() {
   const cfg = useProjectConfig()
-  const attributes = cfg.data?.attributes ?? []
+  const attributes = interviewAttributes(cfg.data?.attributes)
   const [attribute, setAttribute] = useState("")
   const [raw, setRaw] = useState("")
   const [stem, setStem] = useState(true)

@@ -42,6 +42,7 @@ export function helpTarget(screen: string): GuideScreen {
 export function screenForRoute(route: Route): string {
   switch (route.page) {
     case "library":
+    case "persons":
       return "bibliotheque"
     case "interview":
       if (route.tab === "ai") return "revoir-ia"

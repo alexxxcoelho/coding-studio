@@ -5,6 +5,7 @@
 Corpus
 Bibliothèque
 0
+Personnes
 Analyse
 Codebook
 Lexique
@@ -33,6 +34,8 @@ Tous
 [aria-label] Rescanner le dossier
 [title] Rescanner le dossier
 Importer des transcriptions…
+[aria-label] Exporter
+Exporter
 [aria-label] Rechercher
 [placeholder] Rechercher
 [aria-label] Aide pour cet écran
@@ -55,6 +58,7 @@ non choisi
 Corpus
 Bibliothèque
 0
+Personnes
 Analyse
 Codebook
 Lexique
@@ -89,6 +93,65 @@ Le codebook est vide
 Créez un premier code, importez un fichier CSV, ou créez vos codes depuis les passages en codant.
 Nouveau code
 
+== #/personnes ==
+[aria-label] Barre latérale
+[aria-label] Masquer la barre latérale
+[title] Masquer la barre latérale
+Corpus
+Bibliothèque
+0
+Personnes
+Analyse
+Codebook
+Lexique
+Recherche
+Analyser
+Rédiger
+Étude
+Paramètres de l'étude
+Guide
+[title] 1 nom remplacé avant tout envoi à un modèle. Le texte libre n'est pas couvert. Les textes ne quittent jamais la machine sans un geste explicite.
+Pseudonymisation active
+Serveur injoignable
+[aria-label] Réglages
+Réglages
+Ctrl+,
+Personnes
+[title] 0 personne, 0 organisation, 0 groupe
+0 personne, 0 organisation, 0 groupe
++ Personne
++ Groupe
+Importer un CSV
+[aria-label] Filtrer les personnes
+[placeholder] Filtrer les personnes
+[aria-label] Aide pour cet écran
+[title] Aide pour cet écran
+?
+[aria-label] Groupes
+[aria-label] Arbre des groupes
+Groupes
+Personnes
+Toutes les personnes
+0
+Sans groupe
+0
+Le nombre d'un groupe compte les personnes distinctes du groupe et de ses sous-groupes. Glissez un groupe sur son futur parent, ou sur « Toutes les personnes » pour le remonter à la racine.
+[aria-label] Liste des personnes
+[aria-label] Filtrer par type
+Tous les types
+Personnes
+Organisations
+[aria-label] Filtrer par entretien
+Tous les entretiens
+[aria-label] Filtrer par anonymisation
+Anonymisées ou non
+Anonymisées
+Non anonymisées
+Aucune personne dans le registre
+Créez une fiche, ou importez un fichier CSV. Une fiche anonymisée remplace son nom par un pseudonyme dans tout ce qui part vers un modèle.
++ Personne
+Importer un CSV
+
 == #/to-clarify ==
 [aria-label] Barre latérale
 [aria-label] Masquer la barre latérale
@@ -96,6 +159,7 @@ Nouveau code
 Corpus
 Bibliothèque
 0
+Personnes
 Analyse
 Codebook
 Lexique
@@ -127,6 +191,7 @@ En phase 2, utilisez ? sur une unité qu'aucun code ne couvre encore pour lui do
 Corpus
 Bibliothèque
 0
+Personnes
 Analyse
 Codebook
 Lexique
@@ -160,6 +225,7 @@ Le tableau se remplit à mesure que les entretiens sont codés en phase 2.
 Corpus
 Bibliothèque
 0
+Personnes
 Analyse
 Codebook
 Lexique
@@ -221,6 +287,11 @@ Aucun attribut
 0
 [aria-label] Modifier : Attributs d'entretien
 Modifier…
+Attributs de personne
+Aucun attribut de personne
+0
+[aria-label] Modifier : Attributs de personne
+Modifier…
 Cadre d'interprétation
 N'apparaît qu'aux étapes Analyser et Rédiger, jamais au codage
 [aria-label] Cadre d'interprétation
@@ -270,6 +341,7 @@ ce qui part vers un modèle
 [aria-label] Remplacer les noms avant tout envoi à un modèle
 Pseudonymisation active
 : les noms de la liste sont remplacés dans chaque prompt et chaque envoi.
+Noms saisis à la main
 [aria-label] Liste des noms
 Type
 Nom réel
@@ -308,6 +380,8 @@ Matrice transversale
 Les thèmes par entretien et par dimension.
 À clarifier
 Étiquettes provisoires posées en phase 2.
+Paquet de vérification
+Sources et transcription codée masquée, pour un examinateur
 
 == #/audit ==
 [aria-label] Barre latérale
@@ -316,6 +390,7 @@ Les thèmes par entretien et par dimension.
 Corpus
 Bibliothèque
 0
+Personnes
 Analyse
 Codebook
 Lexique
@@ -353,6 +428,7 @@ Empreinte
 Corpus
 Bibliothèque
 0
+Personnes
 Analyse
 Codebook
 Lexique
@@ -401,6 +477,7 @@ Aucun code ne correspond.
 Corpus
 Bibliothèque
 0
+Personnes
 Analyse
 Codebook
 Lexique
@@ -441,6 +518,7 @@ unmocked GET /api/lexicon/keywords
 Corpus
 Bibliothèque
 0
+Personnes
 Analyse
 Codebook
 Lexique
@@ -469,6 +547,8 @@ Tous
 [aria-label] Rescanner le dossier
 [title] Rescanner le dossier
 Importer des transcriptions…
+[aria-label] Exporter
+Exporter
 [aria-label] Rechercher
 [placeholder] Rechercher
 [aria-label] Aide pour cet écran
@@ -491,6 +571,7 @@ non choisi
 Corpus
 Bibliothèque
 0
+Personnes
 Analyse
 Codebook
 Lexique
@@ -530,6 +611,7 @@ Ouvrir Analyser
 Corpus
 Bibliothèque
 0
+Personnes
 Analyse
 Codebook
 Lexique
@@ -649,6 +731,7 @@ Ce qui est personnalisable
 Corpus
 Bibliothèque
 0
+Personnes
 Analyse
 Codebook
 Lexique
@@ -788,6 +871,7 @@ Bibliothèque
 INT-01
 [aria-label] Fermer INT-01
 [title] Fermer INT-01
+Personnes
 Analyse
 Codebook
 Lexique
@@ -822,6 +906,7 @@ Bibliothèque
 INT-01
 [aria-label] Fermer INT-01
 [title] Fermer INT-01
+Personnes
 Analyse
 Codebook
 Lexique
@@ -853,6 +938,7 @@ Bibliothèque
 INT-01
 [aria-label] Fermer INT-01
 [title] Fermer INT-01
+Personnes
 Analyse
 Codebook
 Lexique
@@ -907,6 +993,7 @@ Bibliothèque
 INT-01
 [aria-label] Fermer INT-01
 [title] Fermer INT-01
+Personnes
 Analyse
 Codebook
 Lexique
@@ -949,6 +1036,7 @@ Bibliothèque
 INT-01
 [aria-label] Fermer INT-01
 [title] Fermer INT-01
+Personnes
 Analyse
 Codebook
 Lexique
@@ -991,6 +1079,7 @@ Bibliothèque
 INT-01
 [aria-label] Fermer INT-01
 [title] Fermer INT-01
+Personnes
 Analyse
 Codebook
 Lexique
@@ -1032,6 +1121,7 @@ Bibliothèque
 INT-01
 [aria-label] Fermer INT-01
 [title] Fermer INT-01
+Personnes
 Analyse
 Codebook
 Lexique
@@ -1066,6 +1156,7 @@ Bibliothèque
 INT-01
 [aria-label] Fermer INT-01
 [title] Fermer INT-01
+Personnes
 Analyse
 Codebook
 Lexique
@@ -1100,6 +1191,7 @@ Bibliothèque
 INT-01
 [aria-label] Fermer INT-01
 [title] Fermer INT-01
+Personnes
 Analyse
 Codebook
 Lexique

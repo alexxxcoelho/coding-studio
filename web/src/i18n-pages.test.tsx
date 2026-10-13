@@ -40,6 +40,7 @@ const PROJECT = {
 export const ROUTES = [
   "#/",
   "#/codebook",
+  "#/personnes",
   "#/to-clarify",
   "#/saturation",
   "#/settings",

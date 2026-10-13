@@ -132,3 +132,13 @@ export function cleanDef(d: AttributeDef): AttributeDef {
     choices: d.kind === "choice" ? d.choices.map((c) => c.trim()).filter(Boolean) : [],
   }
 }
+
+/** The attributes of the interviews: the ones without the person scope. */
+export function interviewAttributes(defs: AttributeDef[] | undefined): AttributeDef[] {
+  return (defs ?? []).filter((d) => d.scope !== "person")
+}
+
+/** The attributes of the register. */
+export function personAttributes(defs: AttributeDef[] | undefined): AttributeDef[] {
+  return (defs ?? []).filter((d) => d.scope === "person")
+}

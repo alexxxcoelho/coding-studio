@@ -1,5 +1,5 @@
 // Tiny hash router: #/interviews, #/interviews/ECO-07/coding?phase=2,
-// #/codebook, #/to-clarify, #/analyser, #/audit, #/guide/coder-detail. Hash routing keeps the
+// #/codebook, #/personnes, #/to-clarify, #/analyser, #/audit, #/guide/coder-detail. Hash routing keeps the
 // embedded server stateless. `?unit=ECO-07-U003` selects a unit in Coding.
 
 import { useSyncExternalStore } from "react"
@@ -15,6 +15,8 @@ export type Route =
   | { page: "library" }
   | { page: "interview"; id: string; tab: Tab; phase: Phase; unit: string | null }
   | { page: "codebook" }
+  /** The register of the people interviewed; `id` opens the fiche of one record (P-0001). */
+  | { page: "persons"; id: string | null }
   | { page: "to-clarify" }
   | { page: "saturation" }
   | { page: "settings" }
@@ -39,6 +41,7 @@ export function parseHash(hash: string): Route {
     return { page: "interview", id: parts[1], tab, phase, unit: params.get("unit") }
   }
   if (parts[0] === "codebook") return { page: "codebook" }
+  if (parts[0] === "personnes") return { page: "persons", id: parts[1] ?? null }
   if (parts[0] === "to-clarify") return { page: "to-clarify" }
   // The English pages are gone: their old links land on the screens that replaced them.
   if (parts[0] === "cross-case") return { page: "analyser" }
@@ -80,4 +83,9 @@ export function useRoute(): Route {
 
 export function navigate(href: string): void {
   window.location.hash = href.replace(/^#/, "")
+}
+
+/** Link to the fiche of a person or organisation of the register. */
+export function personHref(id: string): string {
+  return `#/personnes/${encodeURIComponent(id)}`
 }

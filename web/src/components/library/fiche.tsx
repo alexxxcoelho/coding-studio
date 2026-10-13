@@ -6,12 +6,13 @@ import { useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Check } from "lucide-react"
 
+import { InterviewPersons } from "@/components/library/persons-section"
 import { NativeSelect } from "@/components/settings/fields"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { t } from "@/i18n"
 import { api } from "@/lib/api"
-import { checkAttribute } from "@/lib/attributes"
+import { checkAttribute, interviewAttributes } from "@/lib/attributes"
 import { keys, useAttributes, useMemoView, useProjectConfig } from "@/lib/hooks"
 import { memoProgress, overrideCount } from "@/lib/memo-overrides"
 import { reportError } from "@/lib/notify"
@@ -129,7 +130,7 @@ export function Fiche({ summary, progress }: { summary: InterviewSummary; progre
     onError: (e) => reportError(e, t("common.modele_non_change")),
   })
 
-  const defs = attrs.data?.definitions ?? config.data?.attributes ?? []
+  const defs = interviewAttributes(attrs.data?.definitions ?? config.data?.attributes)
   const values = attrs.data?.values ?? {}
   const templates = config.data?.memo_templates ?? []
   const current = templates.find((t) => t.id === memo.data?.template_id)
@@ -166,6 +167,8 @@ export function Fiche({ summary, progress }: { summary: InterviewSummary; progre
           ))
         )}
       </div>
+
+      <InterviewPersons interviewId={id} />
 
       <div className="hs">{t("common.memo_de_familiarisation")}</div>
       <div className="grp">

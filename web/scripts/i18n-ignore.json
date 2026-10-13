@@ -30,7 +30,8 @@
   "E, environmental",
   "Z.ai",
   "hosted ({vendor}, {endpoint})",
-  "@guide/{fr,en}/*.md"
+  "@guide/{fr,en}/*.md",
+  "organisation"
  ],
  "include": [
   "aucun",

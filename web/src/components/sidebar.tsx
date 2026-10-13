@@ -4,7 +4,7 @@
 
 import type { ReactNode } from "react"
 import { useQuery } from "@tanstack/react-query"
-import { Search, ShieldAlert, ShieldCheck, TextSearch, X } from "lucide-react"
+import { Search, ShieldAlert, ShieldCheck, TextSearch, Users, X } from "lucide-react"
 
 import {
   AnalyserIcon,
@@ -20,6 +20,7 @@ import {
 import { t } from "@/i18n"
 import { api } from "@/lib/api"
 import { keys } from "@/lib/hooks"
+import { usePersonGroups } from "@/lib/persons-api"
 import { reviewApi } from "@/lib/review-api"
 import { isMac, navKeyFor } from "@/lib/nav"
 import { openInterviews } from "@/lib/open-interviews"
@@ -100,6 +101,7 @@ export function Sidebar({
   const active = navKeyFor(route)
   const interviews = useQuery({ queryKey: ["interviews"], queryFn: api.interviews })
   const state = useQuery({ queryKey: ["state"], queryFn: api.state })
+  const persons = usePersonGroups()
   const byId = new Map((interviews.data ?? []).map((s) => [s.interview_id, s]))
   const current = route.page === "interview" ? route.id : null
 
@@ -136,6 +138,10 @@ export function Sidebar({
           </button>
         </div>
       ))}
+
+      <NavItem href="#/personnes" on={active === "persons"} icon={<Users className="size-4" aria-hidden />} count={persons.data && persons.data.n_persons > 0 ? persons.data.n_persons : undefined}>
+        {t("persons.title")}
+      </NavItem>
 
       <div className="sb-h">{t("sidebar.analyse")}</div>
       <NavItem href="#/codebook" on={active === "codebook"} icon={<CodebookIcon />} count={state.data && state.data.codebook_size > 0 ? state.data.codebook_size : undefined}>
