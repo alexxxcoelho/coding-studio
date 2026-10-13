@@ -181,6 +181,7 @@ impl Store {
             .collect()
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn put_version(
         &self,
         scope: &str,

@@ -466,6 +466,7 @@ impl Store {
         Ok(out)
     }
 
+    #[allow(clippy::type_complexity)]
     pub(crate) fn stored_cells(
         &self,
     ) -> Result<BTreeMap<(String, String), (Option<String>, String)>> {
@@ -830,6 +831,7 @@ impl Store {
     }
 
     /// Every stored cell (value or summary), for export.
+    #[allow(clippy::type_complexity)]
     pub fn matrix_cells_stored(&self) -> Result<Vec<(String, String, Option<String>, String)>> {
         Ok(self
             .stored_cells()?

@@ -277,7 +277,7 @@ fn codes_questions_and_order_can_be_changed() {
     let b = code(&s, "Autre code", U2, 12, 20);
     s.create_research_question("RQ1", "Pourquoi ?", ACTOR)
         .unwrap();
-    let t1 = theme(&s, "Premier", &[a.clone()]);
+    let t1 = theme(&s, "Premier", std::slice::from_ref(&a));
     let t2 = theme(&s, "Second", &[]);
     let t = s.add_theme_code(&t1.theme_id, &b, ACTOR).unwrap();
     assert_eq!(t.codes.len(), 2);
@@ -288,7 +288,9 @@ fn codes_questions_and_order_can_be_changed() {
         .set_theme_questions(&t2.theme_id, &["RQ1".into()], ACTOR)
         .unwrap();
     assert_eq!(t.research_questions, vec!["RQ1".to_string()]);
-    let list = s.reorder_themes(&[t2.theme_id.clone()], ACTOR).unwrap();
+    let list = s
+        .reorder_themes(std::slice::from_ref(&t2.theme_id), ACTOR)
+        .unwrap();
     assert_eq!(
         list.iter().map(|t| t.theme_id.clone()).collect::<Vec<_>>(),
         vec![t2.theme_id.clone(), t1.theme_id.clone()]

@@ -351,14 +351,10 @@ async fn links_parts_synthesis_and_the_audit_make_a_chain() {
         .iter()
         .find(|c| c["claim_key"] == json!(format!("theme_part:{tid}:mechanism_evidence")))
         .unwrap();
-    assert_eq!(
-        linked["links"][0]["passage"]["text"]
-            .as_str()
-            .unwrap()
-            .len()
-            > 0,
-        true
-    );
+    assert!(!linked["links"][0]["passage"]["text"]
+        .as_str()
+        .unwrap()
+        .is_empty());
     let kinds: Vec<&str> = linked["gaps"]
         .as_array()
         .unwrap()
@@ -436,7 +432,7 @@ async fn the_framework_reading_needs_a_framework() {
     .await;
     assert_eq!(r["cells"]["tech"]["explains"], true);
     let table = ok(&ctx.app, "GET", "/api/writing/framework", None).await;
-    assert_eq!(table["rows"][0]["title"].as_str().is_some(), true);
+    assert!(table["rows"][0]["title"].as_str().is_some());
     assert_eq!(table["rows"][0]["cells"]["tech"]["note"], "le délai");
 }
 
