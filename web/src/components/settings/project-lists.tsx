@@ -45,14 +45,14 @@ const LISTS: { key: ListKey; label: string; min: number; note: string }[] = [
   { key: "passage_roles", get label() { return t("common.roles_dans_la_decision") }, min: 1, get note() { return t("settings.project_lists.ce_que_le_passage_fait") } },
 ]
 
-const KINDS: [AttributeKind, string][] = [
-  ["text", "texte"],
-  ["choice", "liste"],
-  ["number", "nombre"],
+const kinds = (): [AttributeKind, string][] => [
+  ["text", t("settings.project_lists.kind_text")],
+  ["choice", t("settings.project_lists.kind_choice")],
+  ["number", t("settings.project_lists.kind_number")],
   ["date", "date"],
 ]
 
-const kindLabel = (k: AttributeKind) => KINDS.find(([v]) => v === k)?.[1] ?? k
+const kindLabel = (k: AttributeKind) => kinds().find(([v]) => v === k)?.[1] ?? k
 const msg = (e: unknown) => {
   if (e instanceof ApiError && e.status === 409 && /origin|role|passage/i.test(e.message)) {
     return t("settings.project_lists.une_origine_ou_un_role")
@@ -125,7 +125,7 @@ export function ProjectListsSection() {
           title={t("settings.project_lists.dimensions_personnalisees_de_la_matr")}
           note={t("settings.project_lists.par_exemple_qui_decide_qui")}
           count={cfg.matrix_dimensions.length}
-          countLabel={cfg.matrix_dimensions.length === 0 ? "aucune" : undefined}
+          countLabel={cfg.matrix_dimensions.length === 0 ? t("common.aucune") : undefined}
           onEdit={() => setEditor("dimensions")}
         />
         {LISTS.map((l) => (
@@ -333,7 +333,7 @@ function AttributesDialog({
             <div key={a.id} className="r8" style={{ alignItems: "flex-start" }}>
               <Input aria-label={t("settings.project_lists.nom_de_l_attribut_v", { v: i + 1 })} style={{ width: 150 }} value={a.label} onChange={(e) => set(a.id, { label: e.target.value })} />
               <NativeSelect aria-label={t("settings.project_lists.type_de_l_attribut_v", { v: i + 1 })} style={{ width: 90 }} value={a.kind} onChange={(e) => set(a.id, { kind: e.target.value as AttributeKind })}>
-                {KINDS.map(([v, l]) => (
+                {kinds().map(([v, l]) => (
                   <option key={v} value={v}>
                     {l}
                   </option>

@@ -71,7 +71,7 @@ export function ImportDialog({ open, onOpenChange }: { open: boolean; onOpenChan
               {t("common.annuler")}
             </Button>
             <Button type="submit" disabled={scan.isPending}>
-              {scan.isPending ? t("library.import_dialog.scan_en_cours") : "Importer"}
+              {scan.isPending ? t("library.import_dialog.scan_en_cours") : t("library.import_dialog.importer")}
             </Button>
           </DialogFooter>
         </form>

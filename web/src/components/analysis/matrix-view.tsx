@@ -81,8 +81,8 @@ function MatrixControls({
   return (
     <div className="flex flex-col gap-2">
       <div className="flex flex-wrap items-center gap-3">
-        {side("Lignes", "rows")}
-        {side("Colonnes", "cols")}
+        {side(t("analysis.matrix_view.lignes"), "rows")}
+        {side(t("analysis.matrix_view.colonnes"), "cols")}
         <label className="flex items-center gap-1.5 text-xs">
           <span className="text-muted-foreground">{t("analysis.matrix_view.filtrer_par_attribut")}</span>
           <NativeSelect

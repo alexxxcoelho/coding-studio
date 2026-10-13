@@ -84,7 +84,7 @@ export function AttributeRow({ def, saved, onSave }: { def: AttributeDef; saved:
           style={{ width: 128 }}
           type="text"
           inputMode={def.kind === "number" ? "decimal" : undefined}
-          placeholder={def.kind === "text" ? t("common.texte_libre") : def.kind === "date" ? "AAAA-MM-JJ" : "Nombre"}
+          placeholder={def.kind === "text" ? t("common.texte_libre") : def.kind === "date" ? "AAAA-MM-JJ" : t("library.fiche.nombre")}
           value={draft}
           aria-invalid={!!error}
           onChange={(e) => setDraft(e.target.value)}
@@ -197,7 +197,7 @@ export function Fiche({ summary, progress }: { summary: InterviewSummary; progre
         </div>
         <div className="row">
           <span className="k">{t("common.memo_de_fin_d_entretien")}</span>
-          <span className="v">{checklist.data ? (checklist.data.note.trim() ? t("library.fiche.redige") : "vide") : ""}</span>
+          <span className="v">{checklist.data ? (checklist.data.note.trim() ? t("library.fiche.redige") : t("library.fiche.vide")) : ""}</span>
         </div>
       </div>
 

@@ -164,7 +164,7 @@ function WorklistBody({ opId, onClose }: { opId: number; onClose: () => void }) 
           ))}
         </div>
         <span className="small l2" aria-live="polite">
-          {wl.assigned} réaffecté{wl.assigned > 1 ? "s" : ""}, {wl.left} laissé{wl.left > 1 ? "s" : ""}, {wl.pending} à traiter sur {wl.total}
+          {t("codebook.worklist.progress", { assigned: t("codebook.worklist.n_reaffectes", { n: wl.assigned }), left: t("codebook.worklist.n_laisses", { n: wl.left }), pending: wl.pending, total: wl.total })}
           {wl.gone > 0 ? t("codebook.worklist.n_supprimes_depuis", { n: wl.gone }) : ""}
         </span>
       </div>

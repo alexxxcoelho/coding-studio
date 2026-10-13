@@ -11,7 +11,7 @@ import { GuideLink, ToolIntro } from "@/components/lexicon/parts"
 import { NativeSelect } from "@/components/settings/fields"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
-import { t } from "@/i18n"
+import { formatNumber, t } from "@/i18n"
 import { api } from "@/lib/api"
 import { codeName, isApplicable } from "@/lib/code-tree"
 import { invalidatePassages, useCodes } from "@/lib/hooks"
@@ -49,7 +49,7 @@ export function PassageLexicon({ passageId, onUseLabel }: { passageId: string | 
       ) : (
         <div className="r8">
           {d.keyphrases.slice(0, MAX_TAGS).map((k) => (
-            <span key={k.phrase} className="tag" data-no-i18n title={t("lexicon.passage_panel.score_yake_tolocalestring_plus_bas", { toLocaleString: k.score.toLocaleString("fr-CH", { maximumFractionDigits: 4 }) })}>
+            <span key={k.phrase} className="tag" data-no-i18n title={t("lexicon.passage_panel.score_yake_tolocalestring_plus_bas", { toLocaleString: formatNumber(k.score, { maximumFractionDigits: 4 }) })}>
               {k.phrase}
             </span>
           ))}

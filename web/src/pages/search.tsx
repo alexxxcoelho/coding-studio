@@ -129,7 +129,7 @@ export function SearchPage() {
               <p className="small l2" style={{ margin: "0 2px" }} aria-live="polite" role="status">
                 {data.total_hits === 0
                   ? t("search.aucune_occurrence")
-                  : `${data.total_hits} occurrence${data.total_hits > 1 ? "s" : ""} dans ${data.total_units} tour${data.total_units > 1 ? "s" : ""}, ${data.interviews.filter((i) => i.mentioned).length} entretien${data.interviews.filter((i) => i.mentioned).length > 1 ? "s" : ""}.`}
+                  : t("search.hits_summary", { hits: t("search.n_occurrences", { n: data.total_hits }), units: t("search.n_tours", { n: data.total_units }), interviews: t("common.n_entretiens", { n: data.interviews.filter((i) => i.mentioned).length }) })}
                 {data.words.length > 0 && t("search.mots_cherches_join", { join: data.words.join(", ") })}
               </p>
               {data.total_hits === 0 && (

@@ -143,7 +143,7 @@ function Editor({ saved }: { saved: Pseudonymisation }) {
 
       <p className="text-muted-foreground text-xs" data-testid="pseudo-digest">
         {t("settings.pseudonymisation.liste_de_n_noms", { n: saved.n_list_entries })}
-        {saved.categories.length > 0 ? ` (${saved.categories.map((c) => (c === "person" ? "personnes" : c === "organisation" ? "organisations" : c)).join(", ")})` : ""}{t("settings.pseudonymisation.empreinte_sha_256")} <span className="mono">{shortHash(saved.digest, 16)}</span>{t("settings.pseudonymisation.enregistree_avec_chaque_prompt_le")}
+        {saved.categories.length > 0 ? ` (${saved.categories.map((c) => (c === "person" ? t("settings.pseudonymisation.personnes") : c === "organisation" ? t("settings.pseudonymisation.organisations") : c)).join(", ")})` : ""}{t("settings.pseudonymisation.empreinte_sha_256")} <span className="mono">{shortHash(saved.digest, 16)}</span>{t("settings.pseudonymisation.enregistree_avec_chaque_prompt_le")}
       </p>
       <p className="text-muted-foreground text-xs">
         <b>{t("settings.pseudonymisation.le_texte_libre_n_est")}</b> {saved.note}

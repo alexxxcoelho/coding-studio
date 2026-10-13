@@ -1,5 +1,7 @@
 // Small display helpers.
 
+import { formatDateTime, t } from "@/i18n"
+
 export function shortHash(h: string | null | undefined, n = 10): string {
   return h ? h.slice(0, n) : ""
 }
@@ -14,11 +16,11 @@ export function dateTime(iso: string | null | undefined): string {
   if (!iso) return ""
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return iso
-  return d.toLocaleString("fr-CH", { dateStyle: "medium", timeStyle: "short" })
+  return formatDateTime(d)
 }
 
 export function percent(x: number, digits = 0): string {
-  return `${(x * 100).toFixed(digits)} %`
+  return t("common.percent", { value: (x * 100).toFixed(digits) })
 }
 
 export function plural(n: number, one: string, many = `${one}s`): string {

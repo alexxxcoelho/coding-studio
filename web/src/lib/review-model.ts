@@ -99,7 +99,7 @@ export interface CompareRow {
 }
 
 export const AGREEMENT_LABEL: Record<Agreement, string> = {
-  both: "accord",
+  get both() { return t("review_model.accord") },
   get human_only() { return t("review_model.vous_seul") },
   get ai_only() { return t("review_model.modele_seul") },
   get mixed() { return t("review_model.selon_le_run") },
@@ -191,7 +191,7 @@ function partsText(n: number, of: number | null): string {
 }
 
 export function runState(run: AiRun): { state: RunStateKind; label: string } {
-  if (run.complete) return { state: "complete", label: "complet" }
+  if (run.complete) return { state: "complete", label: t("common.complet") }
   const n = run.parts_received.length
   if (n === 0) return { state: "waiting", label: t("review_model.en_attente_de_reponses") }
   return { state: "partial", label: `partiel, ${partsText(n, run.parts_expected)}` }

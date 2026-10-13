@@ -65,7 +65,7 @@ export function CodebookImportSection() {
         </div>
         {result && (
           <p role="status" className="text-sm">
-            {`${result.added} ajouté${result.added > 1 ? "s" : ""}, ${result.updated} mis à jour, ${result.absent} absent${result.absent > 1 ? "s" : ""}`}
+            {t("common.import_report", { added: t("common.n_ajoutes", { n: result.added }), updated: result.updated, absent: t("common.n_absents", { n: result.absent }) })}
           </p>
         )}
         {importing.error && <Alerts messages={[importing.error instanceof ApiError ? importing.error.message : String(importing.error)]} />}

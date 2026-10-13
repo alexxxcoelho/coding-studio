@@ -93,7 +93,7 @@ export function KeywordTable({ filter, compact = false }: { filter?: LexFilter; 
         </tbody>
       </table>
       <p className="small l2" style={{ margin: 0 }}>
-        {q.data!.n_passages} surlignage{q.data!.n_passages > 1 ? "s" : ""}, {q.data!.n_rows} mot{q.data!.n_rows > 1 ? "s" : ""}
+        {t("lexicon.keyword_table.n_surlignages", { n: q.data!.n_passages })}, {t("lexicon.keyword_table.n_mots", { n: q.data!.n_rows })}
         {q.data!.n_rows > rows.length ? t("lexicon.keyword_table.les_length_premiers_sont_affiches", { length: rows.length }) : ""}{t("lexicon.keyword_table.un_comptage_de_mots_jamais")}
       </p>
       <Button type="button" variant="default" disabled={!prefill || busy} onClick={() => void openCreate()}>

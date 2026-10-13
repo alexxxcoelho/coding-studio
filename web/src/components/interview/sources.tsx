@@ -122,7 +122,7 @@ export function SourcesTab({ detail }: { detail: InterviewDetail }) {
                 : t("interview.sources.aucune_transcription_dans_ce_dossier")}
             </p>
             <Button disabled={!detail.entry.primary_source || segment.isPending} onClick={() => segment.mutate()}>
-              {segment.isPending ? "Segmentation…" : t("interview.sources.segmenter_la_transcription_principal")}
+              {segment.isPending ? t("interview.sources.segmentation") : t("interview.sources.segmenter_la_transcription_principal")}
             </Button>
           </div>
         )}

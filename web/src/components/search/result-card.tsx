@@ -62,7 +62,7 @@ export function ResultCard({ item, codes, onCoded }: { item: SearchItem; codes: 
         <a className="mono b" href={unitHref(item.unit_id)} title={t("common.ouvrir_dans_coder")}>
           {item.interview_id} {shortUnit(item.unit_id)}
         </a>
-        <span className="small l2">{interviewer ? "Intervieweur" : t("search.result_card.repondant")}</span>
+        <span className="small l2">{interviewer ? t("search.result_card.intervieweur") : t("search.result_card.repondant")}</span>
         <span className="badge">
           {t("search.result_card.n_occurrences", { n: item.matches.length })}
         </span>

@@ -125,7 +125,7 @@ export function DetailPanel({
               <button key={p.passage_id} type="button" className="row" style={{ width: "100%", textAlign: "left", background: "transparent", border: 0, font: "inherit", color: "inherit", cursor: "pointer" }} onClick={() => onSelectPassage(p)}>
                 <span className="k">
                   {p.text.length > 60 ? `${p.text.slice(0, 59)}…` : p.text}
-                  <small>{p.codings.length ? p.codings.map((c) => c.code_name).join(", ") : "surlignage"}</small>
+                  <small>{p.codings.length ? p.codings.map((c) => c.code_name).join(", ") : t("coder.detail_panel.surlignage")}</small>
                 </span>
               </button>
             ))}

@@ -1171,7 +1171,8 @@ Langue
 Langue de l'interface
 [aria-label] Langue de l'interface
 Français
-Le français est la seule langue de l'interface pour l'instant.
+English
+Le choix s'applique tout de suite et reste mémorisé sur cet appareil. Le texte des entretiens et les messages du serveur gardent leur langue.
 Fermer
 
 == réglages providers ==

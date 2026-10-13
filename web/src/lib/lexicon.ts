@@ -3,7 +3,7 @@
 // value. No React here; the components render what these functions return.
 
 import type { KeywordRow, TermFrequencyAnswer, TermFrequencyValue } from "./lexicon-api"
-import { t } from "@/i18n"
+import { formatNumber, getLang, t } from "@/i18n"
 
 export type SortKey = "term" | "passages" | "share" | "keyness" | "interviews"
 export type SortDir = "asc" | "desc"
@@ -107,13 +107,15 @@ const minus = "−"
 /** A score with a decimal comma and a true minus sign. */
 export function keynessText(n: number): string {
   const rounded = Math.round(n * 10) / 10
-  const s = Math.abs(rounded).toFixed(1).replace(".", ",")
+  // French keeps its decimal comma here (fr-CH would print a point).
+  const plain = formatNumber(Math.abs(rounded), { minimumFractionDigits: 1, maximumFractionDigits: 1 })
+  const s = getLang() === "fr" ? plain.replace(".", ",") : plain
   return rounded < 0 ? `${minus}${s}` : s
 }
 
 /** Similarity score from 0 to 1, two decimals. */
 export function scoreText(n: number): string {
-  return n.toLocaleString("fr-CH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  return formatNumber(n, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
 export function valueLabel(v: string | null): string {

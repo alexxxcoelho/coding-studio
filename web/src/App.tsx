@@ -1,5 +1,6 @@
 import { AppShell } from "@/components/app-shell"
 import { CodeNamesProvider } from "@/lib/code-names"
+import { useLang } from "@/i18n/react"
 import { useRoute } from "@/lib/router"
 import { GuidePage } from "@/pages/guide"
 import { AnalyserPage } from "@/pages/analyser"
@@ -15,6 +16,7 @@ import { SaturationPage } from "@/pages/saturation"
 import { SettingsPage } from "@/pages/settings"
 
 export default function App() {
+  useLang() // the whole tree re-renders when the interface language changes
   const route = useRoute()
   return (
     <CodeNamesProvider>

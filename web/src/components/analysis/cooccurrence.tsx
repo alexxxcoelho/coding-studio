@@ -196,7 +196,7 @@ export function CooccurrenceTab() {
                             type="button"
                             className={cn("heat-cell")}
                             style={{ background: `color-mix(in srgb, var(--accent-fill) ${Math.round(alpha * 100)}%, transparent)` }}
-                            aria-label={`${r.name} et ${c.name} : ${n} tour${n > 1 ? "s" : ""}, ${cell!.interviews} entretien${cell!.interviews > 1 ? "s" : ""}`}
+                            aria-label={t("analysis.cooccurrence.cell_aria", { a: r.name, b: c.name, turns: t("analysis.cooccurrence.n_tours", { n }), interviews: t("common.n_entretiens", { n: cell!.interviews }) })}
                             onClick={() => setDrill({ a: r.code_id, b: c.code_id, aName: r.name, bName: c.name, group: group.label })}
                           >
                             {n}

@@ -28,7 +28,11 @@ const FR_PATH = path.join(SRC, "i18n/fr.json")
 const args = new Set(process.argv.slice(2))
 const APPLY = args.has("--apply")
 const AS_JSON = args.has("--json")
+const WORDS = args.has("--words") // review aid: also lower-case single words
+const LAX = args.has("--lax") // review aid: every string in a visible position, French or not
 
+// Single lower-case words that are French labels, not code tokens (the heuristics cannot tell).
+const INCLUDE = new Set(JSON.parse(fs.readFileSync(path.join(import.meta.dirname, "i18n-ignore.json"), "utf8")).include ?? [])
 const IGNORE = new Set(JSON.parse(fs.readFileSync(path.join(import.meta.dirname, "i18n-ignore.json"), "utf8")).exact)
 const SKIP_FILES = /(^|\/)(i18n\/|.*\.test\.tsx?$|test-setup\.ts|test-utils\.tsx|main\.tsx|lib\/analysis-fixtures\.ts|lib\/memo\.ts|vite-env\.d\.ts)/
 
@@ -435,11 +439,11 @@ function collect(sf) {
     if (IGNORE.has(text) || !/[A-Za-zÀ-ÿ]/.test(text)) return
     const pos = positionOf(lit)
     if (!pos) return
-    let ok = readsFrench(text)
+    let ok = INCLUDE.has(text) || readsFrench(text) || LAX || (WORDS && /^[a-zà-ÿ]{3,}$/.test(text)) || CAPITALISED_WORD.test(text.replace(/…$/, ""))
     if (!ok && !pos.strict) ok = CAPITALISED_WORD.test(text) || (tokens(text).length === 1 && STOP.has(tokens(text)[0]))
     if (!ok && (pos.ctx.startsWith("prop:") || pos.ctx.startsWith("arg:")) && CAPITALISED_WORD.test(text) && !CSS_PROPS.has(text)) ok = false
     if (!ok) return
-    if (/^[\w./:#@-]+$/.test(text) && !CAPITALISED_WORD.test(text)) return
+    if (/^[\w./:#@-]+$/.test(text) && !CAPITALISED_WORD.test(text) && !INCLUDE.has(text) && !(WORDS && /^[a-zà-ÿ]{3,}$/.test(text))) return
     // Strings that are nothing but a code token or a template of one.
     if (/^(use client)$/.test(text) || /gradient|^[MmLlHhVvCcSsQqTtAaZz0-9 .,-]+$/.test(text)) return
     found.push({ kind: "str", sf, node: lit, ctx: pos.ctx, wrapped: !!pos.wrapped, prop: pos.prop, forms: { text }, vars: new Map() })
@@ -455,7 +459,12 @@ function collect(sf) {
     const pieces = []
     const joined = [tpl.head.text, ...tpl.templateSpans.map((s) => s.literal.text)].join("\u0001")
     const parts = joined.split("\u0001")
-    const litText = parts.join(" ")
+    const branchText = tpl.templateSpans
+      .map((sp) => unwrap(sp.expression))
+      .filter((e) => ts.isConditionalExpression(e) && pluralCondition(e.condition))
+      .map((e) => `${stringOf(e.whenTrue) ?? ""} ${stringOf(e.whenFalse) ?? ""}`)
+      .join(" ")
+    const litText = parts.join(" ") + " " + branchText
     if (!/[A-Za-zÀ-ÿ]{2}/.test(litText)) return
     if (/var\(|calc\(|rgb|srgb|gradient|\bpx\b|#[0-9a-f]{3}|^\s*[#/]|\/[a-z]|\?[a-z]+=|^[MmLlHhVvCcSsQqTtAaZz0-9 .,-]+$|^Request failed/i.test(litText)) return
     if (tpl.templateSpans.some((sp) => /^(class|cls|style)/i.test(unwrap(sp.expression).getText().split(".").pop()))) return

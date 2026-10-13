@@ -162,7 +162,7 @@ export function KwicSearch({ compact = false }: { compact?: boolean }) {
       {res.data && res.data.total > 0 && (
         <>
           <p className="small l2" style={{ margin: 0 }} aria-live="polite">
-            {res.data.total} occurrence{res.data.total > 1 ? "s" : ""} dans {res.data.n_interviews} entretien{res.data.n_interviews > 1 ? "s" : ""}
+            {t("lexicon.kwic_search.occurrences_in", { occurrences: t("lexicon.kwic_search.n_occurrences", { n: res.data.total }), interviews: t("common.n_entretiens", { n: res.data.n_interviews }) })}
             {res.data.stem ? ` · racines : ${res.data.query_tokens.join(", ")}` : ""}
           </p>
           <ul className={cn("m-0 flex flex-col p-0", compact ? "gap-1.5" : "gap-0")} aria-label={t("lexicon.kwic_search.occurrences")}>

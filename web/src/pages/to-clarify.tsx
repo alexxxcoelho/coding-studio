@@ -143,7 +143,7 @@ function GroupCard({ group, codes, questions }: { group: LabelGroup; codes: Code
           </span>
         </div>
         <Button size="sm" variant={open ? "ghost" : "outline"} onClick={() => setOpen((o) => !o)}>
-          {open ? "Fermer" : t("to_clarify.resoudre")}
+          {open ? t("to_clarify.fermer") : t("to_clarify.resoudre")}
         </Button>
       </header>
       <ul className="flex flex-col border-t">

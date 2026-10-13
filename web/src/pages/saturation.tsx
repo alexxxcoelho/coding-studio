@@ -33,7 +33,7 @@ export function SaturationPage() {
       {rows.length === 0 ? (
         <EmptyState title={t("saturation.aucun_codage_de_phase_2")}>{t("saturation.le_tableau_se_remplit_a")}</EmptyState>
       ) : (
-        <Section title={t("saturation.par_entretien_dans_l_ordre")} aside={`${rows.length} ${rows.length < 2 ? "entretien" : "entretiens"}`}>
+        <Section title={t("saturation.par_entretien_dans_l_ordre")} aside={t("saturation.n_entretiens", { n: rows.length })}>
           <div className="-m-4">
             <Table>
               <TableHeader>
@@ -67,7 +67,7 @@ export function SaturationPage() {
                     </TableCell>
                     <TableCell className="text-right tabular-nums">{cumulative[i]}</TableCell>
                     <TableCell>
-                      <ChipList codes={r.field_codes_created} empty="aucun" />
+                      <ChipList codes={r.field_codes_created} empty={t("common.aucun")} />
                     </TableCell>
                     <TableCell className="text-right tabular-nums">{r.labels_opened}</TableCell>
                     <TableCell className="pr-4 text-right tabular-nums">{r.labels_resolved}</TableCell>

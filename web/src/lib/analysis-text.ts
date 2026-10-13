@@ -17,9 +17,9 @@ export function passageRef(p: { interview_id: string; unit_id: string }): string
 /** The outcome of a documented decision in words (`adopt`, `defer`, `reject`; the earlier `adopted` forms are understood). */
 export function outcomeLabel(outcome: string | null): string {
   const d = (outcome ?? "").toLowerCase()
-  if (d.startsWith("adopt")) return "Adopter"
+  if (d.startsWith("adopt")) return t("analysis_text.adopter")
   if (d.startsWith("defer") || d.startsWith("différ")) return t("common.differer")
-  if (d.startsWith("reject") || d.startsWith("refus")) return "Refuser"
+  if (d.startsWith("reject") || d.startsWith("refus")) return t("analysis_text.refuser")
   return outcome || t("analysis_text.issue_non_renseignee")
 }
 

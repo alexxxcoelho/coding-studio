@@ -49,7 +49,7 @@ function useInvalidateCodes() {
 function originLabel(c: CodeNode): string {
   if (c.system) return t("codebook.systeme")
   if (c.origin === "literature") return t("codebook.litterature")
-  if (c.origin === "field") return "terrain"
+  if (c.origin === "field") return t("codebook.terrain")
   if (c.origin === "phase1") return t("codebook.categorie")
   return c.origin
 }
@@ -276,9 +276,9 @@ function Inspector({
       <div className="seg" role="tablist" aria-label={t("codebook.fiche_du_code")} style={{ alignSelf: "stretch", display: "flex" }}>
         {(
           [
-            ["sheet", "Fiche"],
-            ["stats", "Chiffres"],
-            ["journal", "Journal"],
+            ["sheet", t("codebook.fiche")],
+            ["stats", t("codebook.chiffres")],
+            ["journal", t("codebook.journal")],
           ] as const
         ).map(([k, label]) => (
           <button key={k} type="button" role="tab" aria-selected={part === k} className={cn("s", part === k && "on")} style={{ flex: 1 }} onClick={() => setPart(k)}>
@@ -384,8 +384,7 @@ function CodeSheet({
           </span>
         </span>
         <span className="small l2" title={t("codebook.interviews_rollup_entretiens", { interviews_rollup: code.counts.interviews_rollup })}>
-          {code.counts.passages_rollup} passage{code.counts.passages_rollup > 1 ? "s" : ""} · {code.counts.interviews_rollup} entretien
-          {code.counts.interviews_rollup > 1 ? "s" : ""}
+          {t("common.n_passages", { n: code.counts.passages_rollup })} · {t("common.n_entretiens", { n: code.counts.interviews_rollup })}
         </span>
       </div>
 
@@ -720,7 +719,7 @@ function CsvDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
         </Field>
         {report && (
           <p role="status" className="text-sm">
-            {`${report.added} ajouté${report.added > 1 ? "s" : ""}, ${report.updated} mis à jour, ${report.absent} absent${report.absent > 1 ? "s" : ""}`}
+            {t("common.import_report", { added: t("common.n_ajoutes", { n: report.added }), updated: report.updated, absent: t("common.n_absents", { n: report.absent }) })}
           </p>
         )}
         {error && <Alerts messages={[error]} />}

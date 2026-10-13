@@ -469,9 +469,9 @@ export function CoderPage({ id, unit: askedUnit = null }: { id: string; unit?: s
             <div className="seg" role="tablist" aria-label={t("coder.inspecteur")} style={{ alignSelf: "stretch", display: "flex" }}>
               {(
                 [
-                  ["codes", "Codes"],
+                  ["codes", t("coder.codes")],
                   ["detail", t("coder.detail")],
-                  ["lexique", "Lexique"],
+                  ["lexique", t("coder.lexique")],
                   ["memo", t("coder.memo")],
                 ] as const
               ).map(([key, label]) => (

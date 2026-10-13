@@ -139,7 +139,7 @@ export function Turn({ unit, passages, selected, codeName, marked = false, pendi
                   className={cn(coded ? "mk" : "hl", currentPassage === first.passage_id && "cur", isSel && "seltext")}
                   style={color ? ({ "--k": color } as CSSProperties) : undefined}
                   data-passage={first.passage_id}
-                  title={coded ? coded.codings.filter((c) => !c.system).map((c) => c.code_name).join(", ") : "Surlignage"}
+                  title={coded ? coded.codings.filter((c) => !c.system).map((c) => c.code_name).join(", ") : t("coder.turn.surlignage")}
                   onClick={(e) => {
                     if (window.getSelection()?.isCollapsed === false) return
                     e.stopPropagation()

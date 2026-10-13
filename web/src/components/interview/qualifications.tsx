@@ -206,7 +206,7 @@ function ClaimForm({
           {t("common.annuler")}
         </Button>
         <Button type="submit" size="sm" disabled={!ready || saving}>
-          {saving ? "Enregistrement…" : t("interview.qualifications.enregistrer_l_affirmation")}
+          {saving ? t("common.enregistrement") : t("interview.qualifications.enregistrer_l_affirmation")}
         </Button>
       </div>
     </form>
@@ -371,7 +371,7 @@ function FlagsForm({
       {problem && dirty && <span className="text-warn text-xs">{problem}</span>}
       <div className="flex justify-end">
         <Button size="xs" onClick={() => save.mutate()} disabled={!dirty || !!problem || save.isPending}>
-          {save.isPending ? "Enregistrement…" : t("interview.qualifications.enregistrer_les_drapeaux")}
+          {save.isPending ? t("common.enregistrement") : t("interview.qualifications.enregistrer_les_drapeaux")}
         </Button>
       </div>
     </div>
@@ -445,7 +445,7 @@ function CorrectionForm({ interviewId, row, onDone }: { interviewId: string; row
         )}
         <DialogFooter>
           <Button type="submit" disabled={!ready || correct.isPending}>
-            {correct.isPending ? "Enregistrement…" : t("interview.qualifications.enregistrer_la_correction")}
+            {correct.isPending ? t("common.enregistrement") : t("interview.qualifications.enregistrer_la_correction")}
           </Button>
         </DialogFooter>
       </form>
@@ -533,7 +533,7 @@ export function QualificationPanel({ interviewId, row, textRef }: { interviewId:
   return (
     <section aria-label={t("interview.qualifications.qualifications_de_l_unite")} className="flex flex-col gap-3">
       <ClaimsSection interviewId={interviewId} row={row} textRef={textRef} />
-      <Block title={t("interview.qualifications.drapeaux")} aside={savedFlags.length ? savedFlags.join(", ") : "aucun"}>
+      <Block title={t("interview.qualifications.drapeaux")} aside={savedFlags.length ? savedFlags.join(", ") : t("common.aucun")}>
         {flagsQ.isLoading ? (
           <span className="text-muted-foreground text-xs">{t("interview.qualifications.chargement_des_drapeaux")}</span>
         ) : (

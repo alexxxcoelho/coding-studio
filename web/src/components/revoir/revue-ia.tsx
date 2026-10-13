@@ -183,7 +183,7 @@ function PseudonymList({ id }: { id: string }) {
         <ul className="small" style={{ margin: "8px 0 0", paddingLeft: 18 }}>
           {d.entries.map((e) => (
             <li key={`${e.kind}-${e.original}`}>
-              {e.original} <span className="l2">{t("revoir.revue_ia.devient")}</span> {e.pseudonym} <span className="l2">({e.kind === "person" ? "personne" : "organisation"}, {t("revoir.revue_ia.n_remplacements", { n: e.count ?? 0 })})</span>
+              {e.original} <span className="l2">{t("revoir.revue_ia.devient")}</span> {e.pseudonym} <span className="l2">({e.kind === "person" ? t("revoir.revue_ia.personne") : t("revoir.revue_ia.organisation")}, {t("revoir.revue_ia.n_remplacements", { n: e.count ?? 0 })})</span>
             </li>
           ))}
         </ul>
@@ -398,7 +398,7 @@ function ProviderPanel({ id, runs, batch, hasPrompts }: { id: string; runs: AiRu
                 <div className="row">
                   <span className="k small l2">{t("revoir.revue_ia.l_envoi_est_un_geste")}</span>
                   <Button variant="default" disabled={run.isPending} onClick={() => run.mutate()}>
-                    {run.isPending ? t("revoir.revue_ia.execution") : "Lancer"}
+                    {run.isPending ? t("revoir.revue_ia.execution") : t("revoir.revue_ia.lancer")}
                   </Button>
                 </div>
               </>
@@ -412,7 +412,7 @@ function ProviderPanel({ id, runs, batch, hasPrompts }: { id: string; runs: AiRu
       </div>
       {outcome?.kind === "done" && (
         <p role="status" className="gf">
-          {t("revoir.revue_ia.run_run_label", { run_label: outcome.run.meta.run_label })} {outcome.run.complete ? "complet" : t("revoir.revue_ia.recu")} {t("revoir.revue_ia.items_sur", { items: t("revoir.revue_ia.n_parties", { n: outcome.run.parts_received.length }) })} {outcome.run.parts_expected ?? "?"} {t("revoir.revue_ia.importees_journal_journal", { journal: outcome.journal })}
+          {t("revoir.revue_ia.run_run_label", { run_label: outcome.run.meta.run_label })} {outcome.run.complete ? t("common.complet") : t("revoir.revue_ia.recu")} {t("revoir.revue_ia.items_sur", { items: t("revoir.revue_ia.n_parties", { n: outcome.run.parts_received.length }) })} {outcome.run.parts_expected ?? "?"} {t("revoir.revue_ia.importees_journal_journal", { journal: outcome.journal })}
         </p>
       )}
       {outcome?.kind === "refused" && (

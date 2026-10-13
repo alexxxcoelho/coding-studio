@@ -40,7 +40,7 @@ export function VerificationTab({ id }: { id: string }) {
           <Stat label={t("interview.verification.inutilisables")} value={cov.n_unusable} />
           <Stat label={t("interview.verification.perimees")} value={cov.n_stale} tone={cov.n_stale ? "warn" : undefined} />
           <Stat label={t("interview.verification.cibles")} value={cov.n_targets} />
-          <Stat label={t("interview.verification.cibles_verifiees")} value={share === null ? "aucune" : t("interview.verification.n_targets_verified_sur_n", { n_targets_verified: cov.n_targets_verified, n_targets: cov.n_targets, percent: percent(share) })} />
+          <Stat label={t("interview.verification.cibles_verifiees")} value={share === null ? t("common.aucune") : t("interview.verification.n_targets_verified_sur_n", { n_targets_verified: cov.n_targets_verified, n_targets: cov.n_targets, percent: percent(share) })} />
         </div>
       </Section>
 

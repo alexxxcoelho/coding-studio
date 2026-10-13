@@ -69,7 +69,7 @@ export function attributePatch(
   return Object.keys(patch).length ? patch : null
 }
 
-export const KIND_LABELS: Record<AttributeKind2, string> = { text: "texte", choice: "liste", number: "nombre", date: "date" }
+export const KIND_LABELS: Record<AttributeKind2, string> = { get text() { return t("common.texte") }, get choice() { return t("common.liste") }, get number() { return t("common.nombre") }, date: "date" }
 type AttributeKind2 = AttributeDef["kind"]
 
 /** "Secteur (liste)" or "Version du guide (liste A, B)" as in the settings summary. */

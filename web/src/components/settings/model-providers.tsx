@@ -35,10 +35,10 @@ const KIND_LABEL: Record<ProviderEntry["kind"], string> = {
   get oauth_chat_gpt() { return t("settings.model_providers.compte_chatgpt") },
 }
 
-const TYPES: [ProviderType, string][] = [
-  ["cli", "Ligne de commande"],
-  ["open_ai_compatible", "API (compatible OpenAI)"],
-  ["oauth_chat_gpt", "Compte ChatGPT"],
+const types = (): [ProviderType, string][] => [
+  ["cli", t("settings.model_providers.ligne_de_commande")],
+  ["open_ai_compatible", t("settings.model_providers.api_compatible_openai")],
+  ["oauth_chat_gpt", t("settings.model_providers.compte_chatgpt")],
 ]
 
 /** Defaults filled in by the server when a field is left out. */
@@ -163,7 +163,7 @@ function ProviderRegistry({ entries, pollMs }: { entries: ProviderEntry[]; pollM
                   disabled={editing.replaceId !== null}
                   onChange={(e) => setEditing({ replaceId: null, form: { ...EMPTY_FORM(e.target.value as ProviderType), id: editing.form.id } })}
                 >
-                  {TYPES.map(([value, label]) => (
+                  {types().map(([value, label]) => (
                     <option key={value} value={value}>
                       {label}
                     </option>
@@ -177,7 +177,7 @@ function ProviderRegistry({ entries, pollMs }: { entries: ProviderEntry[]; pollM
             <ProviderFields form={editing.form} errors={errors} setField={setField} />
             <div className="flex gap-2">
               <Button onClick={save} disabled={write.isPending}>
-                {write.isPending ? "Enregistrement…" : t("settings.model_providers.enregistrer_le_fournisseur")}
+                {write.isPending ? t("common.enregistrement") : t("settings.model_providers.enregistrer_le_fournisseur")}
               </Button>
               <Button variant="outline" onClick={() => setEditing(null)}>
                 {t("common.annuler")}
@@ -302,7 +302,7 @@ function ProbeResult({ id, result }: { id: string; result: IsolationReport | str
         {rows.map(([label, value]) => (
           <li key={label} className="flex justify-between gap-4">
             <span>{label}</span>
-            <span>{value ? "oui" : "non"}</span>
+            <span>{value ? t("settings.model_providers.oui") : t("settings.model_providers.non")}</span>
           </li>
         ))}
       </ul>

@@ -164,7 +164,7 @@ export function DecisionCard({
             {item.unit.timestamp} · {position}
           </span>
           {view.revised && <span className="badge">{t("revoir.decision_card.revise_depuis_la_capture")}</span>}
-          {decided && <span className="badge">{sample ? "revue" : t("common.decide")}</span>}
+          {decided && <span className="badge">{sample ? t("revoir.decision_card.revue") : t("common.decide")}</span>}
         </div>
         <a className="small" href={unitHref(item.unit_id, 1)}>
           {t("revoir.decision_card.ouvrir_dans_l_entretien")}
@@ -306,7 +306,7 @@ export function DecisionCard({
           </Button>
         ) : (
           <Button variant="default" size="lg" style={{ marginLeft: "auto" }} disabled={save.isPending} onClick={trySave}>
-            {save.isPending ? "Enregistrement…" : t("revoir.decision_card.enregistrer_et_suivant")}
+            {save.isPending ? t("common.enregistrement") : t("revoir.decision_card.enregistrer_et_suivant")}
           </Button>
         )}
       </div>

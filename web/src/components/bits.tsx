@@ -38,7 +38,7 @@ export function CodeChip({
   )
 }
 
-export function ChipList({ codes, book, empty = "aucun" }: { codes: string[]; book?: Code[]; empty?: string }) {
+export function ChipList({ codes, book, empty = t("common.aucun") }: { codes: string[]; book?: Code[]; empty?: string }) {
   if (!codes.length) return <span className="text-muted-foreground text-xs">{empty}</span>
   return (
     <span className="inline-flex flex-wrap gap-1">

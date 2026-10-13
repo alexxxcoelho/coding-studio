@@ -43,8 +43,8 @@ export function CodeStats({ codeId }: { codeId: string }) {
         </div>
         {(
           [
-            ["Passages", "passages"],
-            ["Entretiens", "interviews"],
+            [t("codebook.code_stats.passages"), "passages"],
+            [t("codebook.code_stats.entretiens"), "interviews"],
             ["Cas", "cases"],
           ] as const
         ).map(([label, key]) => (

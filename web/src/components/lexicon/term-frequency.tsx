@@ -10,7 +10,7 @@ import { NativeSelect } from "@/components/settings/fields"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
-import { t } from "@/i18n"
+import { formatNumber, t } from "@/i18n"
 import { useProjectConfig } from "@/lib/hooks"
 import { EMPTY } from "@/lib/lexicon-copy"
 import { frequencyTable, parseTerms, valueLabel } from "@/lib/lexicon"
@@ -22,8 +22,8 @@ interface Submitted {
   stem: boolean
 }
 
-const num = (n: number) => n.toLocaleString("fr-CH")
-const per1000 = (n: number) => n.toLocaleString("fr-CH", { minimumFractionDigits: 1, maximumFractionDigits: 1 })
+const num = (n: number) => formatNumber(n)
+const per1000 = (n: number) => formatNumber(n, { minimumFractionDigits: 1, maximumFractionDigits: 1 })
 
 export function TermFrequency() {
   const cfg = useProjectConfig()

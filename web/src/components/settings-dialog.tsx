@@ -12,7 +12,8 @@ import { Button } from "@/components/ui/button"
 import { FIELD } from "@/components/ui/field-styles"
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
-import { t } from "@/i18n"
+import { LANGS, setLang, t, type Lang } from "@/i18n"
+import { useLang } from "@/i18n/react"
 import { appearance, useAppearance } from "@/lib/appearance"
 import { api } from "@/lib/api"
 import { ACCENTS, ACCENT_IDS, TEXT_SIZES, type AccentId, type TextSize, type ThemeChoice } from "@/lib/theme"
@@ -150,6 +151,7 @@ function Group({ title, footer, children }: { title: string; footer?: ReactNode;
 
 function GeneralTab() {
   const a = useAppearance()
+  const lang = useLang()
   return (
     <>
       <div className="gh">{t("settings_dialog.apparence")}</div>
@@ -209,11 +211,15 @@ function GeneralTab() {
         </div>
       </Group>
 
-      <Group title={t("settings_dialog.langue")} footer={t("settings_dialog.le_francais_est_la_seule")}>
+      <Group title={t("settings_dialog.langue")} footer={t("settings_dialog.langue_note")}>
         <label className="row">
           <span className="k">{t("settings_dialog.langue_de_l_interface")}</span>
-          <select className={FIELD} style={{ width: 140 }} defaultValue="fr" aria-label={t("settings_dialog.langue_de_l_interface")}>
-            <option value="fr">{t("settings_dialog.francais")}</option>
+          <select className={FIELD} style={{ width: 140 }} value={lang} onChange={(e) => setLang(e.target.value as Lang)} aria-label={t("settings_dialog.langue_de_l_interface")}>
+            {LANGS.map((l) => (
+              <option key={l.id} value={l.id} lang={l.id}>
+                {l.label}
+              </option>
+            ))}
           </select>
         </label>
       </Group>
@@ -236,7 +242,7 @@ function AdvancedTab({ onNavigate }: { onNavigate: () => void }) {
         </div>
         <div className="row">
           <span className="k">{t("settings_dialog.base_de_codage_d_origine")}</span>
-          <span className="v mono break-all">{s?.coding_db ?? "aucune"}</span>
+          <span className="v mono break-all">{s?.coding_db ?? t("common.aucune")}</span>
         </div>
         <div className="row">
           <span className="k">{t("common.dossier_des_entretiens")}</span>

@@ -90,7 +90,7 @@ export function CapsuleItem({
 export function ToolbarSearch({
   value,
   onChange,
-  placeholder = "Rechercher",
+  placeholder = t("toolbar.rechercher"),
 }: {
   value: string
   onChange: (v: string) => void

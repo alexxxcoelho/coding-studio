@@ -11,7 +11,7 @@ import { EmptyState } from "@/components/bits"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Textarea } from "@/components/ui/textarea"
-import { t } from "@/i18n"
+import { formatDateTime, t } from "@/i18n"
 import { analysisApi, type QuestionSynthesis } from "@/lib/analysis-api"
 import { akeys, useQuestions } from "@/lib/analysis-hooks"
 import { reportError } from "@/lib/notify"
@@ -20,7 +20,7 @@ import { cn } from "@/lib/utils"
 function formatDate(iso: string | null): string {
   if (!iso) return ""
   const d = new Date(iso)
-  return Number.isNaN(d.getTime()) ? iso : d.toLocaleString("fr-CH", { dateStyle: "long", timeStyle: "short" })
+  return Number.isNaN(d.getTime()) ? iso : formatDateTime(d, { dateStyle: "long", timeStyle: "short" })
 }
 
 function SynthesisEditor({ synthesis }: { synthesis: QuestionSynthesis }) {

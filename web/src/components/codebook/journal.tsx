@@ -52,7 +52,7 @@ export function CodeJournal({ code, onOpenWorklist, empty }: { code?: string; on
         {ops.map((op) => (
           <li key={op.op_id} className="grp" style={{ padding: "8px 10px", display: "flex", flexDirection: "column", gap: 4 }} data-op={op.op_id}>
             <div className="r8" style={{ justifyContent: "space-between" }}>
-              <span className="b">{op.kind === "merge" ? "Fusion" : "Scission"} n° {op.op_id}</span>
+              <span className="b">{op.kind === "merge" ? t("codebook.journal.fusion") : t("codebook.journal.scission")} n° {op.op_id}</span>
               {op.undone ? <span className="badge">{t("codebook.journal.annulee")}</span> : null}
             </div>
             <span>{opSentence(op, nameOf)}</span>
@@ -77,7 +77,7 @@ export function CodeJournal({ code, onOpenWorklist, empty }: { code?: string; on
               )}
               {!op.undone && (
                 <Button variant="outline" size="sm" onClick={() => setUndoing(op)}>
-                  {t("codebook.journal.annuler_cette")} {op.kind === "merge" ? "fusion" : "scission"}…
+                  {t("codebook.journal.annuler_cette")} {op.kind === "merge" ? t("codebook.journal.fusion_2") : t("codebook.journal.scission_2")}…
                 </Button>
               )}
             </div>
@@ -114,7 +114,7 @@ function UndoBody({ op, onClose }: { op: CodeOp; onClose: () => void }) {
   return (
     <>
       <DialogHeader>
-        <DialogTitle>{t("codebook.journal.annuler_la")} {op.kind === "merge" ? "fusion" : "scission"} n° {op.op_id}</DialogTitle>
+        <DialogTitle>{t("codebook.journal.annuler_la")} {op.kind === "merge" ? t("codebook.journal.fusion_2") : t("codebook.journal.scission_2")} n° {op.op_id}</DialogTitle>
         <DialogDescription>
           {opSentence(op, nameOf)}.{" "}
           {op.kind === "merge"

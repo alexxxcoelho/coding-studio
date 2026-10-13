@@ -32,7 +32,7 @@ export function AudioCapsule() {
   }
   return (
     <div className="cap" role="group" aria-label={t("coder.audio_capsule.lecteur_audio")}>
-      <button type="button" className="ci" onClick={audio.toggle} aria-label={audio.playing ? "Pause" : "Lecture"} title={audio.playing ? "Pause" : "Lecture"}>
+      <button type="button" className="ci" onClick={audio.toggle} aria-label={audio.playing ? t("coder.audio_capsule.pause") : t("coder.audio_capsule.lecture")} title={audio.playing ? t("coder.audio_capsule.pause") : t("coder.audio_capsule.lecture")}>
         {audio.playing ? <Pause size={13} aria-hidden="true" /> : <Play size={13} aria-hidden="true" />}
       </button>
       <span className="ci mono" aria-label={t("coder.audio_capsule.position")} style={{ cursor: "default" }}>

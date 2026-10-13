@@ -12,8 +12,8 @@ import { t } from "@/i18n"
 export const CELL_VALUE_LABEL: Record<CellValue, string> = {
   get present() { return t("matrix.present") },
   get not_mentioned() { return t("matrix.non_evoque") },
-  contradicted: "contredit",
-  uncertain: "incertain",
+  get contradicted() { return t("matrix.contredit") },
+  get uncertain() { return t("matrix.incertain") },
 }
 
 export const DEFAULT_MATRIX: MatrixConfig = { rows: { kind: "interviews" }, cols: { kind: "themes" }, filter: null }

@@ -79,16 +79,16 @@ export function pipelineSteps(s: InterviewSummary, p: CodingProgress | null, r?:
   const p2 = s.phase2
   const ai = p2.n_ai_runs_complete
   return [
-    { key: "segmented", label: segmented ? t("pipeline.segmente") : "Segmentation", value: segmented ? 1 : 0 },
+    { key: "segmented", label: segmented ? t("pipeline.segmente") : t("pipeline.segmentation"), value: segmented ? 1 : 0 },
     {
       key: "coded",
-      label: !segmented ? "Codage" : respondent > 0 && done >= respondent ? t("pipeline.code_done_respondent", { done, respondent }) : `Codage ${done}/${respondent}`,
+      label: !segmented ? t("pipeline.codage") : respondent > 0 && done >= respondent ? t("pipeline.code_done_respondent", { done, respondent }) : `Codage ${done}/${respondent}`,
       value: respondent > 0 ? Math.min(1, done / respondent) : 0,
     },
     { key: "ai", ...aiStep(ai, r) },
     {
       key: "arbitrated",
-      label: p2.n_divergences > 0 ? t("pipeline.arbitre_n_arbitrated_n_divergences", { n_arbitrated: p2.n_arbitrated, n_divergences: p2.n_divergences }) : "Arbitrage",
+      label: p2.n_divergences > 0 ? t("pipeline.arbitre_n_arbitrated_n_divergences", { n_arbitrated: p2.n_arbitrated, n_divergences: p2.n_divergences }) : t("pipeline.arbitrage"),
       value: p2.n_divergences > 0 ? p2.n_arbitrated / p2.n_divergences : 0,
     },
   ]
@@ -112,7 +112,7 @@ export type NextAction =
 
 export function nextAction(s: InterviewSummary, p: CodingProgress | null, r?: ReviewState | null): NextAction {
   const id = s.interview_id
-  if (s.n_units === 0) return { kind: "segment", label: "Segmenter…" }
+  if (s.n_units === 0) return { kind: "segment", label: t("pipeline.segmenter") }
   const coding = interviewHref(id, "coding")
   if (!p || examined(p) === 0) return { kind: "link", label: t("pipeline.commencer_le_codage"), href: coding }
   const remaining = p.respondent - examined(p)

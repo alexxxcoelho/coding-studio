@@ -313,7 +313,7 @@ function CaseEditor({ initial, units, onSaved }: { initial: Case; units: Unit[];
           {dirty ? t("interview.cases.modifications_non_enregistrees") : initial.updated_at ? t("common.enregistre_le_datetime", { dateTime: dateTime(initial.updated_at) }) : t("common.enregistre")}
         </span>
         <Button onClick={() => save.mutate()} disabled={!dirty || save.isPending}>
-          {save.isPending ? "Enregistrement…" : t("interview.cases.enregistrer_le_cas")}
+          {save.isPending ? t("common.enregistrement") : t("interview.cases.enregistrer_le_cas")}
         </Button>
       </div>
     </div>
