@@ -728,12 +728,11 @@ async fn the_verification_package_keeps_unflagged_names_replaces_flagged_ones_an
     let readme = std::fs::read_to_string(dir.join("README.md")).unwrap();
     assert!(readme.contains("Vérifier les empreintes") && readme.contains("original_sha256"));
     assert!(!readme.contains('\u{2014}') && !readme.contains('\u{2013}'));
-    assert_eq!(
+    assert!(
         manifest["anonymisation"]["replacements"]["person"]
             .as_u64()
             .unwrap()
-            > 0,
-        true
+            > 0
     );
     assert!(
         manifest["anonymisation"]["pseudonymisation_digest"]

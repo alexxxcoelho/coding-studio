@@ -1409,7 +1409,7 @@ fn build_node(
         depth,
         n_persons: persons
             .iter()
-            .filter(|p| p.group_ids.iter().any(|x| *x == g.group_id))
+            .filter(|p| p.group_ids.contains(&g.group_id))
             .count(),
         n_persons_total: members_total.len(),
         n_interviews_total: interviews.len(),

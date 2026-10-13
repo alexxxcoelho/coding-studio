@@ -856,7 +856,7 @@ fn the_migration_is_idempotent_and_keeps_the_register() {
             .query_row("PRAGMA user_version", [], |r| r.get(0))
             .unwrap();
         assert_eq!(v, SCHEMA_VERSION);
-        assert!(SCHEMA_VERSION >= 8);
+        const { assert!(SCHEMA_VERSION >= 8) };
         // The counters survive: the next id continues.
         assert_eq!(
             s.create_person(&named("Luc Favre"), ACTOR)
