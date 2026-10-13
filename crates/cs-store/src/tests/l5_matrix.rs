@@ -236,6 +236,7 @@ fn attribute_values_are_axes_and_filters_narrow_the_interviews() {
         kind: AttributeKind::Choice,
         choices: vec!["public".into(), "privé".into()],
         shared_with_model: false,
+        scope: Default::default(),
     }];
     s.set_project_config(&cfg, ACTOR).unwrap();
     s.set_interview_attributes(

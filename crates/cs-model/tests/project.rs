@@ -8,6 +8,7 @@ fn attr(id: &str, kind: AttributeKind, choices: &[&str]) -> AttributeDef {
         kind,
         choices: choices.iter().map(|s| s.to_string()).collect(),
         shared_with_model: false,
+        scope: Default::default(),
     }
 }
 

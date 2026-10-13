@@ -277,6 +277,7 @@ fn attributes_are_filters_and_groups_of_term_frequencies() {
         kind: AttributeKind::Choice,
         choices: vec!["public".into(), "privé".into()],
         shared_with_model: false,
+        scope: Default::default(),
     }];
     s.set_project_config(&cfg, ACTOR).unwrap();
     let m = |v: &str| {

@@ -105,6 +105,7 @@ pub(super) fn with_attributes(s: &Store) {
             kind: AttributeKind::Choice,
             choices: vec!["public".into(), "privé".into()],
             shared_with_model: false,
+            scope: Default::default(),
         },
         AttributeDef {
             id: "size".into(),
@@ -112,6 +113,7 @@ pub(super) fn with_attributes(s: &Store) {
             kind: AttributeKind::Number,
             choices: vec![],
             shared_with_model: false,
+            scope: Default::default(),
         },
     ];
     s.set_project_config(&cfg, ACTOR).unwrap();
