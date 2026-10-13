@@ -5,6 +5,15 @@
 //! - `parse_source(path, kind, interviewer_names)` reads speaker turns.
 //! - `segment(interview_id, turns)` applies `cs_model::SEGMENTATION_RULE`.
 //! - `build_segmentation(entry, rel_path, interviewer_names)` does parse + segment + hashes.
+//! - `parse_document(path, interviewer_names)` reads a DOCX, text-layer PDF, SRT or VTT file.
+//!
+//! Accepted transcript formats:
+//! - WebVTT (`.vtt`, `<v Name>` voice tags), SRT (`.srt`, `Name:` prefix), cues merged per speaker.
+//! - DOCX (`.docx`): paragraphs; speaker from a `Name:` prefix or a leading bold run.
+//! - Text-layer PDF (`.pdf`): one line per PDF line; a PDF without text is read as no turns, with a warning.
+//! - Markdown and text kinds listed in `SourceKind` (cleaned, Budgie, timestamped text, written answers).
+//!
+//! Start times come from the file when present, otherwise `--:--`.
 //!
 //! Reading never modifies a source file. Text is only trimmed, whitespace
 //! collapsed, markdown bold markers removed and HTML entities decoded, so a

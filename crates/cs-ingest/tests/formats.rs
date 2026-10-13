@@ -113,6 +113,29 @@ fn docx_speakers_from_name_prefix_and_bold_run() {
 }
 
 #[test]
+fn docx_bold_label_without_colon_after_timestamp_and_entities() {
+    let bytes = docx_bytes(&[vec![
+        ("[00:03:10] ", false),
+        ("Roueche Celine", true),
+        (" Hi &amp; welcome.", false),
+    ]]);
+    let dir = tempfile::tempdir().unwrap();
+    let path = write_tmp(&dir, "bold.docx", &bytes);
+
+    let (turns, _) = parse_document(&path, &[]).unwrap();
+
+    assert_eq!(
+        rows(&turns),
+        vec![row(
+            "Roueche Celine",
+            "00:03:10",
+            SpeakerRole::Unknown,
+            "Hi & welcome."
+        )]
+    );
+}
+
+#[test]
 fn docx_same_speaker_consecutive_paragraphs_merge_keeping_first_time() {
     let bytes = docx_bytes(&[
         vec![("[00:00:10] Roueche Celine: First part.", false)],
