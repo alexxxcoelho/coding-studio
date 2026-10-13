@@ -1,22 +1,31 @@
 <!doctype html>
-<html lang="en">
+<html lang="fr">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Coding Studio</title>
     <script>
-      // Theme before first paint: a saved choice, otherwise the system setting.
+      // Appearance before first paint: saved choices, otherwise the system settings.
+      // Same keys and values as src/lib/theme.ts.
       (function () {
-        var t = null;
-        try { t = localStorage.getItem("cs-theme"); } catch (e) {}
+        var root = document.documentElement, ls = null;
+        try { ls = window.localStorage; } catch (e) {}
+        function get(k) { try { return ls && ls.getItem(k); } catch (e) { return null; } }
+        var t = get("cs-theme");
         var dark = t === "dark" || (t !== "light" && window.matchMedia("(prefers-color-scheme: dark)").matches);
-        if (dark) document.documentElement.classList.add("dark");
-        document.documentElement.style.colorScheme = dark ? "dark" : "light";
+        if (dark) root.classList.add("dark");
+        root.style.colorScheme = dark ? "dark" : "light";
+        var A = { graphite: ["#8C8C8C", "#636366", "#98989D", "#636366"], bleu: ["#007AFF", "#0062CC", "#0A84FF", "#0070E0"], violet: ["#AF52DE", "#8E3BBF", "#BF5AF2", "#9A44C9"], rose: ["#FF2D55", "#D1123F", "#FF375F", "#D1123F"], rouge: ["#FF3B30", "#D12A20", "#FF453A", "#D12A20"], orange: ["#FF9500", "#A85A00", "#FF9F0A", "#A85A00"], jaune: ["#FFCC00", "#8A6D00", "#FFD60A", "#8A6D00"], vert: ["#28CD41", "#1A7F2B", "#32D74B", "#1A7F2B"] };
+        var ac = get("cs-accent"), a = ac && Object.prototype.hasOwnProperty.call(A, ac) ? A[ac] : null;
+        if (a) { root.style.setProperty("--acL", a[0]); root.style.setProperty("--acLS", a[1]); root.style.setProperty("--acD", a[2]); root.style.setProperty("--acDS", a[3]); }
+        var sz = { small: "13.5px", large: "17px" }[get("cs-text-size")];
+        if (sz) root.style.setProperty("--transcript-size", sz);
+        root.dataset.shortcuts = get("cs-shortcuts") === "0" ? "off" : "on";
       })();
     </script>
-    <script type="module" crossorigin src="/assets/index-CTHchlSk.js"></script>
-    <link rel="stylesheet" crossorigin href="/assets/index-CSzZmhrf.css">
+    <script type="module" crossorigin src="/assets/index-D8LxY9FN.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-BrHbDGDK.css">
   </head>
   <body>
     <div id="root"></div>
