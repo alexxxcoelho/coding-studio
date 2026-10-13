@@ -13,7 +13,7 @@ import { DecisionCard } from "@/components/revoir/decision-card"
 import { Button } from "@/components/ui/button"
 import { api } from "@/lib/api"
 import { isApplicable } from "@/lib/code-tree"
-import { shortHash } from "@/lib/format"
+import { plural, shortHash } from "@/lib/format"
 import { useCodes, useUnits } from "@/lib/hooks"
 import { reviewProgress } from "@/lib/review"
 import { filterQueue, nextInQueue, precedingQuestion, type QueueFilter } from "@/lib/review-model"
@@ -87,7 +87,7 @@ export function Decisions({ id, review, runList }: { id: string; review: ReviewA
           {completeRuns.map((r) => (
             <Step key={r.run_id} ok title={`Run ${r.meta.run_label} importé`} sub={`${r.meta.model_name || "modèle non nommé"} · complet`} />
           ))}
-          <Step ok={prog.complete && prog.disagreements > 0} n={3} title="Arbitrage" sub={`${prog.disagreementsDecided} décisions sur ${prog.disagreements}`} />
+          <Step ok={prog.complete && prog.disagreements > 0} n={3} title="Arbitrage" sub={`${plural(prog.disagreementsDecided, "décision")} sur ${prog.disagreements}`} />
         </div>
 
         <div className="seg" role="group" aria-label="Filtre de la file" style={{ alignSelf: "flex-start" }}>

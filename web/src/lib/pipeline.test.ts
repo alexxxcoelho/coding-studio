@@ -37,7 +37,7 @@ describe("codingProgress", () => {
 describe("pipelineSteps", () => {
   it("shows an unsegmented interview with empty bars and the optional AI step dashed", () => {
     const steps = pipelineSteps(summary("ECO-05", 0), null)
-    expect(steps.map((s) => s.label)).toEqual(["Segmentation", "Codage", "Revue IA facultative", "Arbitrage"])
+    expect(steps.map((s) => s.label)).toEqual(["Segmentation", "Codage", "IA facultative", "Arbitrage"])
     expect(steps.map((s) => s.value)).toEqual([0, 0, 0, 0])
     expect(steps[2].optional).toBe(true)
   })
@@ -55,7 +55,7 @@ describe("pipelineSteps", () => {
       later: 0,
       toReview: 0,
     })
-    expect(steps.map((s) => s.label)).toEqual(["Segmenté", "Codé 61/61", "Revue IA · 1 passe", "Arbitré 9/12"])
+    expect(steps.map((s) => s.label)).toEqual(["Segmenté", "Codé 61/61", "IA · 1 passe", "Arbitré 9/12"])
     expect(steps[3].value).toBe(0.75)
     expect(steps[2].optional).toBe(false)
   })
@@ -99,12 +99,12 @@ describe("review state in the pipeline", () => {
   const ai = (r: ReviewState | undefined) => pipelineSteps(s, p, r).find((x) => x.key === "ai")!
 
   it("keeps the optional dashed step while nothing is done", () => {
-    expect(ai(rs())).toMatchObject({ label: "Revue IA facultative", value: 0, optional: true })
+    expect(ai(rs())).toMatchObject({ label: "IA facultative", value: 0, optional: true })
   })
   it("waits for the answer, then shows the coverage, then the passes", () => {
-    expect(ai(rs({ state: "in_progress", n_batches: 1 }))).toMatchObject({ label: "Revue IA en attente", value: 0 })
-    expect(ai(rs({ state: "in_progress", runs: ["a"], n_covered: 5, coverage: 0.5 }))).toMatchObject({ label: "Revue IA · 50 % relus", value: 0.5 })
-    expect(ai(rs({ state: "complete", runs: ["a", "b"], n_covered: 10, coverage: 1 }))).toMatchObject({ label: "Revue IA · 2 passes", value: 1 })
+    expect(ai(rs({ state: "in_progress", n_batches: 1 }))).toMatchObject({ label: "IA en attente", value: 0 })
+    expect(ai(rs({ state: "in_progress", runs: ["a"], n_covered: 5, coverage: 0.5 }))).toMatchObject({ label: "IA · 50 % relus", value: 0.5 })
+    expect(ai(rs({ state: "complete", runs: ["a", "b"], n_covered: 10, coverage: 1 }))).toMatchObject({ label: "IA · 2 passes", value: 1 })
   })
   it("sends to the worklist before the arbitration, and keeps the interview in progress", () => {
     expect(nextAction(s, p, rs({ harmonisation_open: 3 }))).toEqual({ kind: "link", label: "Harmoniser 3 unités", href: "#/interviews/ECO-05/harmonise" })

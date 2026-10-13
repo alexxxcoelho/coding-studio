@@ -4,7 +4,11 @@
 Codes a passage, creates a code (and undoes it), marks a unit to review,
 qualifies a passage, retains a theme with its checks, sets a matrix cell,
 writes a part of the write-up, links a passage by the keyboard alternative,
-draws the final audit, judges a claim and exports the Markdown.
+draws the final audit, judges a claim and exports the Markdown. Then the
+lexical workbench (create a code from keywords, near passages, keyword in
+context) and the review of INT-02 by copy and paste (generate the prompt, import
+a handcrafted answer with a candidate concept, decide a disagreement with the
+keys, decide the candidate, harmonise, library state, pseudonymisation list).
 
   python3 e2e/seed.py http://127.0.0.1:7979     # once, on an empty database
   PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers python3 e2e/flow.py --base http://127.0.0.1:7979 --out /tmp/flow
@@ -217,6 +221,208 @@ def main() -> int:
             assert "Une exigence extérieure" in r["markdown"], "partie absente de l'export"
 
         step("rédiger: exporter en Markdown", export)
+
+        # ---- Lot 3: the lexical workbench.
+        def lexicon_code_from_terms():
+            kw = api(base, "GET", "/api/lexicon/keywords")
+            multi = [r for r in kw["rows"] if r["n_passages"] >= 2]
+            assert multi, "aucun mot dans deux surlignages"
+            row = multi[0]
+            before = {c["code_id"] for c in api(base, "GET", "/api/codes")["codes"]}
+            n_codes = len(before)
+            page.goto(f"{base}/#/lexique", wait_until="load")
+            table = page.get_by_test_id("keyword-table")
+            expect(table).to_be_visible()
+            tr = table.locator(f'tr[data-stem="{row["stem"]}"]')
+            expect(tr).to_be_visible()
+            tr.get_by_role("checkbox").check()
+            shot(page, "10_lexique_mots_cles")
+            page.get_by_role("button", name=re.compile(r"^Créer un code")).click()
+            dialog = page.get_by_role("dialog")
+            expect(dialog).to_be_visible()
+            dialog.get_by_label("Définition").fill("Le pilote qui précède l'achat, ce qu'il montre et ce qu'il ne montre pas.")
+            dialog.get_by_role("button", name="Créer et poser").click()
+            expect(dialog).to_have_count(0)
+            codes = api(base, "GET", "/api/codes")["codes"]
+            assert len(codes) == n_codes + 1, f"codes {n_codes} -> {len(codes)}"
+            new = [c for c in codes if c["code_id"] not in before][0]
+            coded = api(base, "GET", "/api/codes/" + new["code_id"] + "/passages")
+            assert len(coded) >= 2, f"{len(coded)} passage(s) codé(s), attendu au moins 2"
+
+        step("lexique: créer un code à partir des mots-clés des surlignages", lexicon_code_from_terms)
+
+        def lexicon_similar():
+            page.goto(f"{base}/#/lexique", wait_until="load")
+            page.get_by_role("tab", name="Passages proches").click()
+            page.get_by_label("Entretien", exact=True).select_option("INT-02")
+            highlights = page.get_by_role("list", name="Surlignages").get_by_role("button")
+            expect(highlights.first).to_be_visible()
+            highlights.first.click()
+            expect(page.get_by_test_id("passage-lexicon")).to_contain_text("Expressions-clés")
+            cards = page.get_by_test_id("similar-passages").get_by_role("article")
+            expect(cards.first).to_be_visible()
+            assert cards.count() >= 1
+            before = len(api(base, "GET", "/api/interviews/INT-02/passages"))
+            cards.first.locator("select").select_option(index=1)
+            page.wait_for_timeout(800)
+            after = len(api(base, "GET", "/api/interviews/INT-02/passages")) + len(api(base, "GET", "/api/interviews/INT-01/passages"))
+            assert after > before, "aucun passage créé par « Coder avec… »"
+            shot(page, "11_lexique_proches")
+
+        step("lexique: passages proches d'un surlignage, coder un passage proche", lexicon_similar)
+
+        def lexicon_kwic():
+            page.goto(f"{base}/#/lexique", wait_until="load")
+            page.get_by_role("tab", name="Recherche en contexte").click()
+            page.get_by_label("Mot ou expression à chercher").fill("intégration")
+            page.get_by_role("button", name="Chercher").click()
+            hits = page.get_by_role("list", name="Occurrences").get_by_role("listitem")
+            expect(hits.first).to_be_visible()
+            answer = api(base, "GET", "/api/lexicon/kwic?q=int%C3%A9gration")
+            total = answer["total"]
+            # Case and accents are ignored: the English "integration" of INT-01 is found too.
+            assert total >= 2 and answer["n_interviews"] == 2 and hits.count() == total, (total, hits.count())
+            expect(page.get_by_text(f"{total} occurrences dans 2 entretiens")).to_be_visible()
+            shot(page, "12_lexique_kwic")
+
+        step("lexique: recherche en contexte", lexicon_kwic)
+
+        # ---- Lot 4: the review of INT-02, by copy and paste.
+        IV2 = "INT-02"
+        i2 = f"/api/interviews/{IV2}"
+
+        def review_generate():
+            page.goto(f"{base}/#/interviews/{IV2}/ai", wait_until="load")
+            page.get_by_role("button", name="Générer le prompt").click()
+            expect(page.get_by_role("button", name="Copier la partie 1 sur 1")).to_be_visible()
+            parts = api(base, "GET", f"{i2}/phases/2/prompts")
+            text = "\n".join(p["text"] for p in parts)
+            assert "Claire Vuilleumier" not in text and "Lectis" not in text, "un nom de la liste est parti dans le prompt"
+            assert "Interviewer questions" in text, "les questions de l'intervieweur manquent"
+            expect(page.get_by_text(re.compile(r"Pseudonymisation active : .* nom"))).to_be_visible()
+            shot(page, "13_revoir_prompt")
+
+        step("revoir: générer le prompt (noms remplacés, codage figé)", review_generate)
+
+        def review_import():
+            part = api(base, "GET", f"{i2}/phases/2/prompts")[-1]
+            seg = api(base, "GET", i2)["segmentation"]
+            texts = {u["unit_id"]: u["text"] for u in seg["units"]}
+            ai = {2: ["NA"], 4: ["CLIENT_PRESSURE"], 6: ["STOCK_ACCURACY"], 8: ["READER_COST"], 10: ["READER_COST"], 12: ["SKILLS_GAP"],
+                  14: ["SKILLS_GAP"], 16: ["SKILLS_GAP"], 18: ["CLIENT_PRESSURE"], 20: ["PRIVACY_CONCERN"], 22: ["CHANGE_RESISTANCE"],
+                  24: ["READER_COST"], 26: ["STOCK_ACCURACY"]}
+            quote = " ".join(texts[f"{IV2}-U010"].split()[:7])
+            answer = {
+                "schema": "coding-studio/ai-coding/v1", "interview_id": IV2, "phase": 2, "segmentation_hash": part["segmentation_hash"],
+                "part": part["part"], "of": part["of"],
+                "codings": [{"unit_id": u, "codes": ai.get(int(u[-3:]), ["NA"])} for u in part["unit_ids"]],
+                "candidate_concepts": [{
+                    "label": "Matériel pris en charge par la commune", "description": "La commune finance une partie du matériel sur son budget d'investissement.",
+                    "unit_ids": [f"{IV2}-U010"], "evidence": [{"unit_id": f"{IV2}-U010", "quote": quote}]}],
+            }
+            page.goto(f"{base}/#/interviews/{IV2}/ai", wait_until="load")
+            page.get_by_label("Modèle utilisé").fill("modele-main")
+            page.get_by_role("group", name="Réponse à la partie 1 sur 1").get_by_role("textbox").fill(json.dumps(answer, ensure_ascii=False))
+            page.get_by_role("button", name="Importer la réponse").click()
+            expect(page.get_by_text(re.compile(r"Run R1 complet"))).to_be_visible()
+            runs = api(base, "GET", f"{i2}/phases/2/runs")
+            assert runs and runs[-1]["complete"], runs
+            cands = api(base, "GET", f"{i2}/concept-candidates")
+            assert len(cands) == 1 and cands[0]["evidence"][0]["quote"] == quote, cands
+            state = api(base, "GET", f"{i2}/review-state")
+            assert state["state"] == "in_progress" and state["n_disagreements"] >= 2 and state["n_candidates"] == 1, state
+            shot(page, "14_revoir_import")
+
+        step("revoir: importer une réponse faite à la main, avec un concept candidat", review_import)
+
+        def review_decide():
+            page.goto(f"{base}/#/interviews/{IV2}/review", wait_until="load")
+            card = page.get_by_role("article", name=re.compile(r"^Unité U0"))
+            expect(card).to_be_visible()
+            page.keyboard.press("2")  # the model's reading
+            card.get_by_role("textbox").fill("Le tour parle du coût de l'intégration, pas seulement de la précision.")
+            page.keyboard.press("Control+Enter")
+            page.wait_for_timeout(800)
+            items = api(base, "GET", f"{i2}/review")["items"]
+            decided = [i for i in items if i["decision"]]
+            assert len(decided) == 1 and decided[0]["decision"]["choice"]["type"] == "ai", decided
+            state = api(base, "GET", f"{i2}/review-state")
+            assert state["n_decided"] == 1, state
+            expect(page.get_by_text(f"revue IA en cours, 1 sur {state['n_disagreements']} décidées")).to_be_visible()
+            shot(page, "15_revoir_decision")
+
+        step("revoir: décider un désaccord avec les touches", review_decide)
+
+        def review_candidate():
+            page.get_by_role("button", name=re.compile("Matériel pris en charge")).click()
+            card = page.get_by_role("article", name=re.compile("^Concept Matériel"))
+            expect(card).to_be_visible()
+            expect(card.locator("mark")).to_be_visible()
+            card.get_by_role("button", name="Créer un code").click()
+            card.get_by_label("Nom du nouveau code").fill("Financement par la commune")
+            card.get_by_label("Justification, obligatoire").fill("Revient dans la comparaison avec les communes voisines.")
+            card.get_by_role("button", name="Enregistrer la décision").click()
+            page.wait_for_timeout(800)
+            c = api(base, "GET", f"{i2}/concept-candidates")[0]
+            assert c["decision"] and c["decision"]["action"] == "create" and c["decision"]["code_id"], c
+            names = [x["name"] for x in api(base, "GET", "/api/codes")["codes"]]
+            assert "Financement par la commune" in names, names
+            shot(page, "16_revoir_concept")
+
+        step("revoir: décider un concept candidat (créer un code)", review_candidate)
+
+        def review_harmonise():
+            page.goto(f"{base}/#/interviews/{IV2}/harmonise", wait_until="load")
+            open0 = api(base, "GET", f"{i2}/harmonisation")["n_open"]
+            assert open0 >= 2, f"{open0} unité(s) à relire, attendu au moins 2"
+            expect(page.get_by_role("link", name=re.compile(rf"^Harmoniser\s*{open0}$"))).to_be_visible()
+            first = page.get_by_role("article").first
+            first.get_by_label("Note, facultative").fill("Le sens du code ne change pas pour ce tour.")
+            first.get_by_role("button", name="Confirmer le codage").click()
+            page.wait_for_timeout(700)
+            page.get_by_role("article").first.get_by_role("button", name="J'ai corrigé le codage").click()
+            page.wait_for_timeout(700)
+            w = api(base, "GET", f"{i2}/harmonisation")
+            assert w["n_done"] == 2 and w["n_open"] == open0 - 2, w["n_done"]
+            res = sorted(i["resolution"] for i in w["items"] if i["status"] == "done")
+            assert res == ["confirmed", "corrected"], res
+            page.get_by_role("button", name="Traitées").click()
+            expect(page.get_by_text("Codage confirmé").first).to_be_visible()
+            shot(page, "17_revoir_harmoniser")
+
+        step("revoir: harmoniser sans IA (confirmer, corriger)", review_harmonise)
+
+        def library_state():
+            page.goto(f"{base}/#/interviews", wait_until="load")
+            row = page.get_by_role("row").filter(has_text="INT-02")
+            expect(row).to_contain_text("IA · 100 % relus")
+            shot(page, "18_bibliotheque_revue")
+
+        step("bibliothèque: l'état de la revue dans la progression", library_state)
+
+        def settings_pseudonymisation():
+            page.goto(f"{base}/#/settings", wait_until="load")
+            region = page.get_by_role("region", name="Pseudonymisation avant envoi")
+            region.scroll_into_view_if_needed()
+            region.get_by_role("button", name="Ajouter un nom").click()
+            region.get_by_label("Nom réel 3").fill("Mme Rochat")
+            region.get_by_label("Pseudonyme 3").fill("Personne B")
+            region.get_by_role("button", name="Enregistrer la liste").click()
+            page.wait_for_timeout(700)
+            p = api(base, "GET", "/api/pseudonymisation")
+            assert p["n_list_entries"] == 3 and p["entries"][-1]["original"] == "Mme Rochat", p
+            expect(region.get_by_text(re.compile("Liste de 3 noms"))).to_be_visible()
+            side = page.get_by_role("navigation", name="Barre latérale")
+            expect(side.get_by_text("Pseudonymisation active")).to_be_visible()
+            region.get_by_role("switch").click()
+            expect(side.get_by_text("Pseudonymisation inactive")).to_be_visible()
+            assert api(base, "GET", "/api/pseudonymisation")["enabled"] is False
+            region.get_by_role("switch").click()
+            expect(side.get_by_text("Pseudonymisation active")).to_be_visible()
+            assert api(base, "GET", "/api/pseudonymisation")["enabled"] is True
+            shot(page, "19_parametres_pseudonymisation")
+
+        step("paramètres: éditer la liste de pseudonymisation et l'interrupteur", settings_pseudonymisation)
 
         browser.close()
 

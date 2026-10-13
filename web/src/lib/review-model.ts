@@ -225,21 +225,14 @@ export function reviewStatusLabel(runs: AiRun[], decisions: { decided: number; t
 }
 
 /** The same sentence from the review state the server computes: "pas de revue", "revue IA en attente",
- * "revue IA en cours, 2 sur 3 désaccords décidés", "revue IA faite, 3 sur 3 désaccords décidés". The units
- * left to harmonise are added at the end, whatever the state. */
+ * "revue IA en cours, 2 sur 3 décidées", "revue IA faite, 3 sur 3 décidées". The counts of concepts to sort
+ * and of units to harmonise are in the badges of the toolbar, not in this line. */
 export function reviewStateLabel(s: ReviewState): string {
-  const parts: string[] = []
-  if (s.state === "not_done") parts.push("pas de revue")
-  else if (s.runs.length === 0 && s.n_covered === 0) parts.push("revue IA en attente")
-  else {
-    const head = s.state === "complete" ? "revue IA faite" : "revue IA en cours"
-    if (s.n_disagreements === 0) parts.push(`${head}, aucun désaccord`)
-    else parts.push(`${head}, ${s.n_decided} sur ${s.n_disagreements} ${s.n_disagreements < 2 ? "désaccord décidé" : "désaccords décidés"}`)
-    const left = s.n_candidates - s.n_candidates_decided
-    if (left > 0) parts.push(`${plural(left, "concept")} à trier`)
-  }
-  if (s.harmonisation_open > 0) parts.push(`${plural(s.harmonisation_open, "unité")} à harmoniser`)
-  return parts.join(", ")
+  if (s.state === "not_done") return "pas de revue"
+  if (s.runs.length === 0 && s.n_covered === 0) return "revue IA en attente"
+  const head = s.state === "complete" ? "revue IA faite" : "revue IA en cours"
+  if (s.n_disagreements === 0) return `${head}, aucun désaccord`
+  return `${head}, ${s.n_decided} sur ${s.n_disagreements} ${s.n_disagreements < 2 ? "décidée" : "décidées"}`
 }
 
 /** Parts of the latest prompt batch (each generation is a new batch). */

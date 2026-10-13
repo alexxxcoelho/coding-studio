@@ -61,14 +61,14 @@ export interface Step {
   optional?: boolean
 }
 
-/** Label and bar of the optional review step, from the review state the server computes. */
+/** Label and bar of the optional review step, from the review state the server computes. The cell is narrow: the labels are short. */
 function aiStep(ai: number, r: ReviewState | null | undefined): Pick<Step, "label" | "value" | "optional"> {
-  if (!r) return { label: ai > 0 ? `Revue IA · ${ai} passe${ai > 1 ? "s" : ""}` : "Revue IA facultative", value: ai > 0 ? 1 : 0, optional: ai === 0 }
-  if (r.state === "not_done") return { label: "Revue IA facultative", value: 0, optional: true }
-  const passes = `${r.runs.length} passe${r.runs.length > 1 ? "s" : ""}`
-  if (r.state === "complete") return { label: `Revue IA · ${passes}`, value: 1 }
-  if (r.runs.length === 0) return { label: "Revue IA en attente", value: 0 }
-  return { label: `Revue IA · ${Math.round(r.coverage * 100)} % relus`, value: r.coverage }
+  const passes = (n: number) => `IA · ${n} passe${n > 1 ? "s" : ""}`
+  if (!r) return { label: ai > 0 ? passes(ai) : "IA facultative", value: ai > 0 ? 1 : 0, optional: ai === 0 }
+  if (r.state === "not_done") return { label: "IA facultative", value: 0, optional: true }
+  if (r.state === "complete") return { label: passes(r.runs.length), value: 1 }
+  if (r.runs.length === 0) return { label: "IA en attente", value: 0 }
+  return { label: `IA · ${Math.round(r.coverage * 100)} % relus`, value: r.coverage }
 }
 
 export function pipelineSteps(s: InterviewSummary, p: CodingProgress | null, r?: ReviewState | null): Step[] {
