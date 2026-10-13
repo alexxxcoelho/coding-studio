@@ -138,4 +138,95 @@ call("POST", f"/api/interviews/{IV}/cases", {
     "constraints": field("ERP ancien", [unit_id(14)]), "choice": field("Lancer un pilote"),
     "result": field("Exactitude de 70 % à 98 %", [unit_id(8)]), "stage": None, "outcome_status": None, "notes": None,
     "units": [unit_id(4), unit_id(8), unit_id(14)]})
+
+# ---- Analyse and Rédiger (lot 5): themes, matrix, write-up, links, final audit, decisions.
+# A second interview (ECO-02, a copy of the example in the temp library) gives the matrix a second row.
+IV2 = "ECO-02"
+if any(i["interview_id"] == IV2 for i in call("GET", "/api/interviews")):
+    call("POST", f"/api/interviews/{IV2}/segment", {})
+    for n, code in [(6, "STOCK_ACCURACY"), (10, "READER_COST"), (12, "CHANGE_RESISTANCE"), (14, "SKILLS_GAP"), (18, "CLIENT_PRESSURE")]:
+        call("POST", f"/api/interviews/{IV2}/passages", {"unit_id": f"{IV2}-U{n:03d}", "code": code})
+
+tree = call("GET", "/api/codes")["codes"]
+cid = {c["token"]: c["code_id"] for c in tree}
+
+# A memo on a code, a unit to review, the origin and role of a passage.
+call("PUT", f"/api/codes/{cid['READER_COST']}/memo", {"text": "Le coût des lecteurs et de l'intégration, à distinguer du prix des étiquettes."})
+call("PUT", f"/api/interviews/{IV}/units/{unit_id(16)}/mark", {"note": "Deux codes sur ce tour, à relire."})
+first = call("GET", f"/api/interviews/{IV}/passages")
+pq = [p for p in first if any(c["code_name"] == "READER_COST" for c in p["codings"])]
+if pq:
+    call("PUT", f"/api/passages/{pq[0]['passage_id']}/qualification", {"origin": "lived_experience", "role": "constraint"})
+
+def theme(title, codes, rqs, fields):
+    t = call("POST", "/api/themes", {"title": title})
+    for c in codes:
+        call("POST", f"/api/themes/{t['theme_id']}/codes", {"code_id": cid[c]})
+    call("PUT", f"/api/themes/{t['theme_id']}", {"research_questions": rqs, **fields})
+    return t["theme_id"]
+
+T1 = theme(
+    "Le coût d'intégration pèse plus lourd que celui des étiquettes",
+    ["READER_COST", "SKILLS_GAP"],
+    ["RQ1"],
+    {
+        "proposition": "Les organisations découvrent que l'intégration au système existant coûte plus que le matériel.",
+        "conditions": "Un système de gestion ancien et peu de compétences internes.",
+        "alternative_interpretation": "Le coût perçu tiendrait surtout à un chiffrage initial incomplet.",
+        "limits": "Deux entretiens, un seul secteur.",
+        "decision_memo": "Retenu après relecture des passages des deux entretiens.",
+        "supporting_cases": [f"{IV}-C1"],
+    },
+)
+T2 = theme(
+    "La pression des clients déclenche le projet avant tout besoin interne",
+    ["CLIENT_PRESSURE", "STOCK_ACCURACY"],
+    ["RQ1", "RQ2"],
+    {"proposition": "Le projet part d'une exigence extérieure; le gain de stock vient ensuite.", "conditions": "Un client qui impose le marquage à la source."},
+)
+checks = [c["id"] for c in call("GET", "/api/project-config")["theme_checks"]]
+for ck in checks:
+    call("PUT", f"/api/themes/{T1}/checks/{ck}", {"done": True, "note": "Vérifié sur les passages."})
+call("POST", f"/api/themes/{T1}/status", {"status": "retained", "reason": "Les sept contrôles sont faits."})
+for ck in checks[:3]:
+    call("PUT", f"/api/themes/{T2}/checks/{ck}", {"done": True, "note": ""})
+call("POST", f"/api/themes/{T2}/status", {"status": "revised", "reason": "Titre reformulé en proposition."})
+
+# Matrix: the researcher's reading of each cell.
+cells = [
+    (IV, T1, "present", "Le coût de l'intégration dépasse celui des étiquettes."),
+    (IV, T2, "present", "Un fournisseur impose l'étiquetage à la source."),
+    (IV2, T1, "contradicted", "Ici le matériel pèse davantage que l'intégration."),
+    (IV2, T2, "uncertain", "La pression n'est évoquée qu'à demi-mot."),
+]
+for iv, t, value, summary in cells:
+    call("PUT", "/api/matrix/cell", {"row_key": f"interview:{iv}", "col_key": f"theme:{t}", "value": value, "summary": summary})
+
+# Write-up of the retained theme, with typed links.
+parts = {
+    "analytical_statement": ("Le coût d'intégration dépasse celui des étiquettes. Les lecteurs et le raccordement au système existant absorbent l'essentiel du budget.", "first_hand"),
+    "mechanism_evidence": ("Le répondant chiffre d'abord les étiquettes, bon marché, puis découvre le prix des lecteurs. L'interface avec le système de gestion ancien a exigé un développement spécifique. Le départ de la seule personne qui comprenait l'entrepôt et la base de données a coûté des mois.", "first_hand"),
+    "variations_divergent": ("Dans le second entretien, le matériel pèse davantage que l'intégration, ce qui nuance la proposition.", "reported"),
+    "competing_limits": ("Un chiffrage initial incomplet pourrait expliquer à lui seul la surprise. Deux entretiens ne permettent pas de trancher.", "opinion"),
+    "mini_synthesis": ("Pour les organisations de petite taille, l'intégration est le poste de coût que l'on sous-estime.", None),
+}
+for part, (text, nature) in parts.items():
+    call("PUT", f"/api/writing/themes/{T1}/parts/{part}", {"text": text, **({"nature": nature} if nature else {})})
+tp = call("GET", f"/api/themes/{T1}/passages")
+kinds = {"analytical_statement": "supports", "mechanism_evidence": "mechanism", "variations_divergent": "exception", "competing_limits": "nuances"}
+for i, (part, ltype) in enumerate(kinds.items()):
+    p = tp[i % len(tp)]
+    call("POST", "/api/links", {"passage_id": p["passage_id"], "target": {"kind": "theme_part", "theme_id": T1, "part": part}, "link_type": ltype, "note": "Ce passage appuie la partie."})
+call("PUT", "/api/writing/questions/RQ1", {"answer": "L'adoption est freinée par le coût d'intégration, et déclenchée par une exigence extérieure.", "limits": "Un seul secteur, deux entretiens."})
+
+# A decision with its outcome in the words of the guide.
+d = call("GET", f"/api/decisions/{IV}-C1")
+d["outcome"] = "adopt"
+call("PUT", f"/api/decisions/{IV}-C1", d)
+
+# Final audit: a seeded draw, with one verdict.
+audit = call("POST", "/api/final-audit", {"n": 3, "seed": "controle-visuel"})
+if audit["claims"]:
+    call("POST", f"/api/final-audit/{audit['audit_id']}/verdicts", {"claim_key": audit["claims"][0]["claim_key"], "verdict": "to_nuance", "note": "À nuancer par le second entretien."})
+print(f"analysis seeded: themes {T1}, {T2}")
 print("seed done")

@@ -468,6 +468,11 @@ async fn decisions_use_the_words_of_the_guide() {
     assert_eq!(st, StatusCode::BAD_REQUEST);
     let all = ok(&ctx.app, "GET", "/api/decisions", None).await;
     assert_eq!(all.as_array().unwrap().len(), 1);
+    // what a read answers (`name` and `label` together) can be written back
+    let mut read = ok(&ctx.app, "GET", &format!("/api/decisions/{id}"), None).await;
+    read["outcome"] = json!("defer");
+    let back = ok(&ctx.app, "PUT", &format!("/api/decisions/{id}"), Some(read)).await;
+    assert_eq!(back["outcome"], "defer");
 }
 
 fn dir_of(v: &Value) -> PathBuf {

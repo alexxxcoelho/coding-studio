@@ -836,11 +836,28 @@ async fn get_decision(State(st): State<AppState>, UrlPath(id): UrlPath<String>) 
     Ok(Json(decision_json(&st.store().case(&id)?)))
 }
 
+/// The body of a decision. A decision read from this API carries `name` and
+/// `label` together; when both are there `name` is dropped, so that a read
+/// can be written back (`name` is an alias of `label` for serde).
+fn case_of(mut body: Value) -> Result<Case, crate::error::ApiError> {
+    if let Some(o) = body.as_object_mut() {
+        if o.contains_key("label") {
+            o.remove("name");
+        }
+    }
+    serde_json::from_value(body).map_err(|e| {
+        crate::error::ApiError::from(anyhow::Error::new(cs_model::CsError::Validation(format!(
+            "decision: {e}"
+        ))))
+    })
+}
+
 async fn add_decision(
     State(st): State<AppState>,
     UrlPath(id): UrlPath<String>,
-    Json(case): Json<Case>,
+    Json(body): Json<Value>,
 ) -> ApiResult {
+    let case = case_of(body)?;
     Ok(Json(decision_json(
         &st.store().create_case(&id, &case, &st.actor)?,
     )))
@@ -849,8 +866,9 @@ async fn add_decision(
 async fn put_decision(
     State(st): State<AppState>,
     UrlPath(id): UrlPath<String>,
-    Json(case): Json<Case>,
+    Json(body): Json<Value>,
 ) -> ApiResult {
+    let case = case_of(body)?;
     Ok(Json(decision_json(
         &st.store().update_case(&id, &case, &st.actor)?,
     )))
