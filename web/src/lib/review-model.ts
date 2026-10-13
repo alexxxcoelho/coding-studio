@@ -5,7 +5,7 @@
 import { plural } from "./format"
 import { sameSet } from "./codes"
 import type { KeyLike } from "./coder-keys"
-import type { AiRun, ArbitrationChoice, ReviewItem, Unit, ValidationIssue } from "./types"
+import type { AiRun, ArbitrationChoice, PromptPart, ReviewItem, Unit, ValidationIssue } from "./types"
 
 // ---------------------------------------------------------------- decisions
 
@@ -86,6 +86,38 @@ export const PROBLEM_TEXT: Record<Exclude<DraftProblem, null>, string> = {
   rationale: "Une justification est obligatoire quand votre lecture diffère de celle du modèle.",
 }
 
+// --------------------------------------------------------------- comparison
+
+export type Agreement = "both" | "human_only" | "ai_only" | "mixed"
+
+export interface CompareRow {
+  code: string
+  human: boolean
+  ai: Record<string, boolean>
+  status: Agreement
+}
+
+export const AGREEMENT_LABEL: Record<Agreement, string> = {
+  both: "accord",
+  human_only: "vous seul",
+  ai_only: "modèle seul",
+  mixed: "selon le run",
+}
+
+/** One row per code carried by the frozen human reading or by a run; the codes of the human reading come first. */
+export function compareRows(item: ReviewItem, runs: string[]): CompareRow[] {
+  const codes = [...new Set([...item.human, ...runs.flatMap((r) => item.ai[r] ?? [])])]
+  return codes.map((code) => {
+    const human = item.human.includes(code)
+    const ai = Object.fromEntries(runs.map((r) => [r, (item.ai[r] ?? []).includes(code)]))
+    const flags = Object.values(ai)
+    const all = flags.length > 0 && flags.every(Boolean)
+    const none = flags.every((f) => !f)
+    const status: Agreement = human && all ? "both" : human && none ? "human_only" : !human && all ? "ai_only" : "mixed"
+    return { code, human, ai, status }
+  })
+}
+
 // ----------------------------------------------------------------- keyboard
 
 export type DecisionKeyAction = { type: "choose"; kind: DecisionKind } | { type: "save" } | { type: "next" } | { type: "prev" }
@@ -164,6 +196,11 @@ export function runState(run: AiRun): { state: RunStateKind; label: string } {
   return { state: "partial", label: `partiel, ${partsText(n, run.parts_expected)}` }
 }
 
+/** The instant now, as the ISO text the server stores. */
+export function isoNow(): string {
+  return new Date().toISOString()
+}
+
 /** "13.10 09:40", local time. */
 export function shortStamp(iso: string): string {
   const d = new Date(iso)
@@ -184,6 +221,19 @@ export function reviewStatusLabel(runs: AiRun[], decisions: { decided: number; t
   if (!runs.some((r) => r.complete) || !decisions) return "revue IA en attente"
   if (decisions.total === 0) return "revue IA faite, aucun désaccord"
   return `revue IA faite, ${decisions.decided} sur ${decisions.total} ${decisions.total < 2 ? "décidée" : "décidées"}`
+}
+
+/** Parts of the latest prompt batch (each generation is a new batch). */
+export function latestSet(parts: PromptPart[]): PromptPart[] {
+  if (!parts.length) return []
+  const last = parts[parts.length - 1]
+  if (last.batch_id !== undefined) return parts.filter((p) => p.batch_id === last.batch_id)
+  return parts.slice(-last.of).filter((p) => p.of === last.of && p.sha256)
+}
+
+/** "Partie 1 sur 2". */
+export function partTitle(p: Pick<PromptPart, "part" | "of">): string {
+  return `${p.part} sur ${p.of}`
 }
 
 /** The refusal of an answer: a title and one line per problem, all reported together. */

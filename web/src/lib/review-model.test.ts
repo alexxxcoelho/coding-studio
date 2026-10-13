@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 
 import {
   availableChoices,
+  compareRows,
   candidateProblem,
   decisionKey,
   draftFromDecision,
@@ -9,6 +10,7 @@ import {
   filterQueue,
   finalCodesOf,
   issueLines,
+  latestSet,
   newDraft,
   nextInQueue,
   precedingQuestion,
@@ -19,7 +21,7 @@ import {
   toChoice,
   type DecisionDraft,
 } from "./review-model"
-import type { AiRun, ReviewItem, Unit } from "./types"
+import type { AiRun, PromptPart, ReviewItem, Unit } from "./types"
 
 const unit = (seq: number, role: Unit["role"], text = "t"): Unit => ({
   unit_id: `X-U${String(seq).padStart(3, "0")}`,
@@ -306,5 +308,55 @@ describe("candidate concept actions", () => {
   })
   it("reports the missing target before the missing reason", () => {
     expect(candidateProblem({ kind: "map", code: "" }, "")).toBe("code")
+  })
+})
+
+describe("comparison rows", () => {
+  it("marks agreement, human only and model only", () => {
+    const rows = compareRows(item({ ai: { R1: ["B", "C"] } }), ["R1"])
+    expect(rows.map((r) => [r.code, r.status])).toEqual([
+      ["A", "human_only"],
+      ["B", "both"],
+      ["C", "ai_only"],
+    ])
+  })
+  it("marks a code that only some runs carry as mixed, and one that all runs carry alone as model only", () => {
+    const rows = compareRows(item(), ["R1", "R2"])
+    expect(rows.find((r) => r.code === "C")?.status).toBe("ai_only")
+    expect(rows.find((r) => r.code === "B")?.status).toBe("mixed")
+    expect(rows.find((r) => r.code === "C")?.ai).toEqual({ R1: true, R2: true })
+  })
+  it("lists the human codes first", () => {
+    expect(compareRows(item({ human: ["Z"], ai: { R1: ["A"] } }), ["R1"]).map((r) => r.code)).toEqual(["Z", "A"])
+  })
+})
+
+describe("latest prompt batch", () => {
+  const part = (batch: number | undefined, n: number, of: number): PromptPart => ({
+    interview_id: "X",
+    phase: 2,
+    batch_id: batch,
+    part: n,
+    of,
+    unit_ids: [],
+    segmentation_hash: "",
+    codebook_hash: "",
+    prompt_version: "",
+    text: "",
+    sha256: `sha${batch}${n}`,
+  })
+  it("keeps the parts of the last batch only", () => {
+    const all = [part(1, 1, 1), part(2, 1, 2), part(2, 2, 2)]
+    expect(latestSet(all).map((p) => [p.batch_id, p.part])).toEqual([
+      [2, 1],
+      [2, 2],
+    ])
+  })
+  it("falls back on the last parts when the batch is not named", () => {
+    const all = [part(undefined, 1, 1), part(undefined, 1, 2), part(undefined, 2, 2)]
+    expect(latestSet(all)).toHaveLength(2)
+  })
+  it("is empty without a prompt", () => {
+    expect(latestSet([])).toEqual([])
   })
 })
