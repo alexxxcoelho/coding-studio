@@ -77,8 +77,14 @@ const DEFAULT_LANG: &str = "C.UTF-8";
 /// Fresh directories for one call, removed when dropped, plus what was
 /// verified about them before the command ran.
 struct Sandbox {
-    home: TempDir,
-    cwd: TempDir,
+    /// Kept alive for the duration of the call; removed on drop.
+    _home: TempDir,
+    _cwd: TempDir,
+    /// Canonical paths handed to the child, so that what the command sees
+    /// (`$HOME`, `$PWD`) matches the resolved temporary location even where
+    /// the temporary root is a symbolic link (macOS `/var` to `/private/var`).
+    home_path: std::path::PathBuf,
+    cwd_path: std::path::PathBuf,
     cwd_empty: bool,
     instruction_files_absent: bool,
 }
@@ -87,6 +93,10 @@ impl Sandbox {
     fn new() -> anyhow::Result<Self> {
         let home = tempfile::tempdir().context("cannot create the isolated HOME")?;
         let cwd = tempfile::tempdir().context("cannot create the empty working directory")?;
+        let home_path =
+            std::fs::canonicalize(home.path()).unwrap_or_else(|_| home.path().to_path_buf());
+        let cwd_path =
+            std::fs::canonicalize(cwd.path()).unwrap_or_else(|_| cwd.path().to_path_buf());
         let cwd_empty = std::fs::read_dir(cwd.path())
             .context("cannot read the working directory")?
             .next()
@@ -97,8 +107,10 @@ impl Sandbox {
                 .all(|name| !dir.join(name).exists())
         });
         Ok(Self {
-            home,
-            cwd,
+            home_path,
+            cwd_path,
+            _home: home,
+            _cwd: cwd,
             cwd_empty,
             instruction_files_absent,
         })
@@ -132,12 +144,12 @@ impl CliProvider {
                 "PATH",
                 std::env::var("PATH").unwrap_or_else(|_| DEFAULT_PATH.into()),
             )
-            .env("HOME", sandbox.home.path())
+            .env("HOME", &sandbox.home_path)
             .env(
                 "LANG",
                 std::env::var("LANG").unwrap_or_else(|_| DEFAULT_LANG.into()),
             )
-            .current_dir(sandbox.cwd.path())
+            .current_dir(&sandbox.cwd_path)
             .args(&self.args)
             .args(&self.disable_flags)
             .stdout(Stdio::piped())
