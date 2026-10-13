@@ -547,7 +547,7 @@ fn source_text(
         if rel.contains("://") || rel.starts_with('/') {
             return Err(format!("the text is an external file ({path})"));
         }
-        match read_entry(zip, &[rel.clone()]) {
+        match read_entry(zip, std::slice::from_ref(&rel)) {
             Ok(Some(b)) => b,
             Ok(None) => match &src.inline_text {
                 Some(t) => t.clone().into_bytes(),
