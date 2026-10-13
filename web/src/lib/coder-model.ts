@@ -46,14 +46,14 @@ export function hasRealCode(p: Passage): boolean {
 
 /**
  * State of a turn. Order of precedence: interviewer, not relevant, coded,
- * to review, remaining. A turn with a code is coded even when a passage of it
+ * to review (marked "à revoir" with R, or parked under Plus tard), remaining. A turn with a code is coded even when a passage of it
  * is also parked; a turn with only highlights is still remaining.
  */
-export function unitState(u: CoderUnit, passages: Passage[]): UnitState {
+export function unitState(u: CoderUnit, passages: Passage[], marked = false): UnitState {
   if (!isCodable(u)) return "interviewer"
   if (u.notRelevant) return "non_pertinent"
   if (passages.some(hasRealCode)) return "coded"
-  if (passages.some(hasLater)) return "later"
+  if (marked || passages.some(hasLater)) return "later"
   return "remaining"
 }
 
@@ -85,27 +85,36 @@ export interface Counts {
   remaining: number
   /** Coded, not relevant or to review: the turns the researcher has dealt with. */
   examined: number
+  /** Turns of the "À revoir" filter: every marked turn, coded or not, and those parked under Plus tard. */
+  review: number
 }
 
-export function countStates(units: CoderUnit[], byUnit: Map<string, Passage[]>): Counts {
-  const c: Counts = { respondent: 0, coded: 0, later: 0, non_pertinent: 0, remaining: 0, examined: 0 }
+export function countStates(units: CoderUnit[], byUnit: Map<string, Passage[]>, marks: ReadonlySet<string> = new Set()): Counts {
+  const c: Counts = { respondent: 0, coded: 0, later: 0, non_pertinent: 0, remaining: 0, examined: 0, review: 0 }
   for (const u of units) {
-    const s = unitState(u, byUnit.get(u.unit_id) ?? [])
+    const s = unitState(u, byUnit.get(u.unit_id) ?? [], marks.has(u.unit_id))
     if (s === "interviewer") continue
     c.respondent++
     c[s]++
+    if (inReviewFilter(u, s, marks)) c.review++
   }
   c.examined = c.coded + c.later + c.non_pertinent
   return c
 }
 
+/** A turn the "À revoir" filter lists: marked with R (whatever its coding), or parked under Plus tard. */
+function inReviewFilter(u: CoderUnit, state: UnitState, marks: ReadonlySet<string>): boolean {
+  return state !== "interviewer" && state !== "non_pertinent" && (state === "later" || marks.has(u.unit_id))
+}
+
 /** Turns shown for a filter. Interviewer turns stay in "all" and are hidden by the others (they are context, not work). */
-export function applyFilter(units: CoderUnit[], byUnit: Map<string, Passage[]>, filter: CoderFilter, search = ""): CoderUnit[] {
+export function applyFilter(units: CoderUnit[], byUnit: Map<string, Passage[]>, filter: CoderFilter, search = "", marks: ReadonlySet<string> = new Set()): CoderUnit[] {
   const q = search.trim().toLowerCase()
   return units.filter((u) => {
     if (q && !u.text.toLowerCase().includes(q) && !u.unit_id.toLowerCase().includes(q)) return false
     if (filter === "all") return true
-    return unitState(u, byUnit.get(u.unit_id) ?? []) === filter
+    const state = unitState(u, byUnit.get(u.unit_id) ?? [], marks.has(u.unit_id))
+    return filter === "later" ? inReviewFilter(u, state, marks) : state === filter
   })
 }
 

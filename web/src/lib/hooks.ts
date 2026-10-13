@@ -23,6 +23,7 @@ export const keys = {
   checklist: (id: string) => ["checklist", id] as const,
   attributes: (id: string) => ["attributes", id] as const,
   libraryProgress: ["library-progress"] as const,
+  marks: (id: string) => ["marks", id] as const,
 }
 
 export const useCodes = () => useQuery({ queryKey: keys.codes, queryFn: api.codes })
@@ -43,6 +44,7 @@ export function invalidatePassages(qc: QueryClient, id: string): Promise<unknown
     qc.invalidateQueries({ queryKey: ["chain"] }),
     qc.invalidateQueries({ queryKey: ["later"] }),
     qc.invalidateQueries({ queryKey: keys.libraryProgress }),
+    qc.invalidateQueries({ queryKey: keys.marks(id) }),
   ])
 }
 

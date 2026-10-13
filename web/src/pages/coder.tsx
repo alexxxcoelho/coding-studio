@@ -3,7 +3,7 @@
 // "Fin d'entretien" and the bar of shortcuts.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 
 import { CodeList } from "@/components/coder/code-list"
@@ -41,7 +41,7 @@ import { isMac } from "@/lib/nav"
 import { appliedCodes } from "@/lib/passage-cache"
 import { interviewHref } from "@/lib/router"
 import { UndoStack } from "@/lib/undo"
-import type { Passage } from "@/lib/types"
+import type { Passage, UnitMark } from "@/lib/types"
 import { cn } from "@/lib/utils"
 
 type Tab = "codes" | "detail" | "lexique" | "memo"
@@ -86,6 +86,7 @@ export function CoderPage({ id, unit: askedUnit = null }: { id: string; unit?: s
   const passagesQ = usePassages(id)
   const codesQ = useCodes()
   const memoQ = useMemoView(id)
+  const marksQ = useQuery({ queryKey: keys.marks(id), queryFn: () => api.unitMarks(id) })
 
   const [undo] = useState(() => new UndoStack())
   const actions = useCodingActions(id, undo)
@@ -110,8 +111,9 @@ export function CoderPage({ id, unit: askedUnit = null }: { id: string; unit?: s
   const passages = useMemo(() => passagesQ.data ?? [], [passagesQ.data])
   const byUnit = useMemo(() => groupByUnit(passages), [passages])
   const codes = useMemo(() => codesQ.data?.codes ?? [], [codesQ.data])
-  const counts = useMemo(() => countStates(units, byUnit), [units, byUnit])
-  const shown = useMemo(() => applyFilter(units, byUnit, filter, search), [units, byUnit, filter, search])
+  const marked = useMemo(() => new Set((marksQ.data ?? []).map((m) => m.unit_id)), [marksQ.data])
+  const counts = useMemo(() => countStates(units, byUnit, marked), [units, byUnit, marked])
+  const shown = useMemo(() => applyFilter(units, byUnit, filter, search, marked), [units, byUnit, filter, search, marked])
   const rows = useMemo(() => filterRows(codes, query), [codes, query])
   const keyMap = useMemo(() => numberKeys(rows), [rows])
   const nameById = useMemo(() => new Map(codes.map((c) => [c.code_id, c.name])), [codes])
@@ -229,6 +231,36 @@ export function CoderPage({ id, unit: askedUnit = null }: { id: string; unit?: s
     }
   }, [undo, qc, id])
 
+  // R: the mark "à revoir" of the turn, apart from the code Plus tard.
+  const toggleReview = useCallback(
+    async (unitId: string) => {
+      const key = keys.marks(id)
+      const was = (qc.getQueryData<UnitMark[]>(key) ?? []).some((m) => m.unit_id === unitId)
+      const set = async (on: boolean) => {
+        qc.setQueryData<UnitMark[]>(key, (l = []) =>
+          on ? [...l.filter((m) => m.unit_id !== unitId), { interview_id: id, unit_id: unitId, mark: "to_review", note: "", at: "", by: "" }] : l.filter((m) => m.unit_id !== unitId),
+        )
+        try {
+          if (on) await api.markUnit(id, unitId)
+          else await api.unmarkUnit(id, unitId)
+        } catch (err) {
+          toast.error(err instanceof Error ? err.message : "La marque n'a pas été enregistrée")
+          throw err
+        } finally {
+          void qc.invalidateQueries({ queryKey: key })
+          void qc.invalidateQueries({ queryKey: keys.libraryProgress })
+        }
+      }
+      try {
+        await set(!was)
+        undo.push({ label: was ? "À revoir retiré" : "À revoir posé", run: () => set(was) })
+      } catch {
+        // The toast says it; the cache is refetched.
+      }
+    },
+    [qc, id, undo],
+  )
+
   const openNewCode = useCallback(() => {
     if (!current || !requireCodable()) return
     setMenu(null)
@@ -257,9 +289,8 @@ export function CoderPage({ id, unit: askedUnit = null }: { id: string; unit?: s
         case "review":
           e.preventDefault()
           if (current && requireCodable()) {
-            const r = range
             clearSelection()
-            void actions.toggleLater(current, r)
+            void toggleReview(current.unit_id)
           }
           return
         case "highlight":
@@ -298,7 +329,7 @@ export function CoderPage({ id, unit: askedUnit = null }: { id: string; unit?: s
     }
     window.addEventListener("keydown", onKey)
     return () => window.removeEventListener("keydown", onKey)
-  }, [rows, applyCode, actions, current, range, requireCodable, clearSelection, doHighlight, move, doUndo, openNewCode, modalOpen, menu, pending])
+  }, [rows, applyCode, actions, current, range, requireCodable, clearSelection, doHighlight, move, doUndo, openNewCode, toggleReview, modalOpen, menu, pending])
 
   const saveNote = useMutation({
     mutationFn: (v: { p: Passage; note: string }) => api.addCoding(v.p.passage_id, LATER_ID, v.note),
@@ -329,7 +360,7 @@ export function CoderPage({ id, unit: askedUnit = null }: { id: string; unit?: s
   }
 
   const nHighlights = passages.filter((p) => p.kind === "highlight" && !p.stale).length
-  const nLater = counts.later
+  const nLater = counts.review
   const cmd = isMac() ? "⌘" : "Ctrl+"
   const total = counts.respondent
   const pct = total > 0 ? (counts.examined / total) * 100 : 0
@@ -352,13 +383,13 @@ export function CoderPage({ id, unit: askedUnit = null }: { id: string; unit?: s
               {FILTER_LABELS.map(({ key, label }) => (
                 <button key={key} type="button" role="tab" aria-selected={filter === key} className={cn("s", filter === key && "on")} onClick={() => setFilter(key)}>
                   {label}
-                  {key !== "all" && <span className="n">{key === "remaining" ? counts.remaining : key === "later" ? counts.later : key === "coded" ? counts.coded : counts.non_pertinent}</span>}
+                  {key !== "all" && <span className="n">{key === "remaining" ? counts.remaining : key === "later" ? counts.review : key === "coded" ? counts.coded : counts.non_pertinent}</span>}
                 </button>
               ))}
             </div>
             <div
               className="prog"
-              title={`${counts.coded} codées, ${counts.non_pertinent} non pertinentes, ${counts.later} à revoir, ${counts.remaining} pas encore examinées`}
+              title={`${counts.coded} codées, ${counts.non_pertinent} non pertinentes, ${counts.review} à revoir, ${counts.remaining} pas encore examinées`}
             >
               <span>
                 {counts.examined} / {total}
@@ -381,6 +412,7 @@ export function CoderPage({ id, unit: askedUnit = null }: { id: string; unit?: s
               passages={byUnit.get(u.unit_id) ?? []}
               selected={u.unit_id === selected}
               codeName={(cid, fb) => nameById.get(cid) ?? fb}
+              marked={marked.has(u.unit_id)}
               pending={pending && pending.unitId === u.unit_id ? pending : null}
               currentPassage={passageId}
               onSelect={() => select(u.unit_id)}

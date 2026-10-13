@@ -27,6 +27,7 @@ import type {
   ProjectConfig,
   ProjectPresets,
   TemplateReport,
+  UnitMark,
   ChainCheck,
   Claim,
   ClaimInput,
@@ -183,6 +184,9 @@ export const api = {
     request<{ root: string; interviews: InterviewSummary[] }>("POST", "/api/library/scan", root ? { root } : {}),
   interviews: () => request<InterviewSummary[]>("GET", "/api/interviews"),
   interview: (id: string) => request<InterviewDetail>("GET", iv(id)),
+  unitMarks: (id: string) => request<UnitMark[]>("GET", `${iv(id)}/marks`),
+  markUnit: (id: string, unitId: string, note = "") => request<UnitMark>("PUT", `${iv(id)}/units/${enc(unitId)}/mark`, { note }),
+  unmarkUnit: (id: string, unitId: string) => request<{ unit_id: string; cleared: boolean }>("DELETE", `${iv(id)}/units/${enc(unitId)}/mark`),
   libraryProgress: () => request<LibraryProgress>("GET", "/api/library/progress"),
   simple: (id: string) =>
     request<{ n_respondent_units: number; n_relevant: number; n_coded: number; done: boolean }>("GET", `${iv(id)}/simple`),

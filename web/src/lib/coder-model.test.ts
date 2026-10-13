@@ -99,7 +99,7 @@ describe("unitState", () => {
 
 describe("counts and filters", () => {
   it("counts respondent turns only", () => {
-    expect(countStates(units, byUnit)).toEqual({ respondent: 4, coded: 1, later: 1, non_pertinent: 1, remaining: 1, examined: 3 })
+    expect(countStates(units, byUnit)).toEqual({ respondent: 4, coded: 1, later: 1, non_pertinent: 1, remaining: 1, examined: 3, review: 1 })
   })
   it("filters by state; all keeps the interviewer turns", () => {
     expect(applyFilter(units, byUnit, "all")).toHaveLength(6)
@@ -107,6 +107,14 @@ describe("counts and filters", () => {
     expect(applyFilter(units, byUnit, "later").map((u) => u.unit_id)).toEqual(["U4"])
     expect(applyFilter(units, byUnit, "non_pertinent").map((u) => u.unit_id)).toEqual(["U5"])
     expect(applyFilter(units, byUnit, "coded").map((u) => u.unit_id)).toEqual(["U2"])
+  })
+  it("a unit marked à revoir with R is parked, and the filter keeps the coded ones that are marked", () => {
+    const marks = new Set(["U6", "U2"])
+    expect(unitState(units.find((u) => u.unit_id === "U6")!, [], true)).toBe("later")
+    expect(unitState(units.find((u) => u.unit_id === "U2")!, byUnit.get("U2") ?? [], true)).toBe("coded")
+    expect(countStates(units, byUnit, marks)).toEqual({ respondent: 4, coded: 1, later: 2, non_pertinent: 1, remaining: 0, examined: 4, review: 3 })
+    expect(applyFilter(units, byUnit, "later", "", marks).map((u) => u.unit_id)).toEqual(["U2", "U4", "U6"])
+    expect(applyFilter(units, byUnit, "remaining", "", marks)).toEqual([])
   })
   it("searches the text and the id", () => {
     expect(applyFilter(units, byUnit, "all", "texte u4").map((u) => u.unit_id)).toEqual(["U4"])

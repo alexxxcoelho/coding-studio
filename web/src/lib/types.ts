@@ -777,6 +777,16 @@ export interface PassageCoding {
 }
 
 /** A selected part of a unit. Offsets count Unicode characters; the `_utf16` forms are those of a browser selection. */
+/** A respondent unit marked "à revoir" (R in the Coder). */
+export interface UnitMark {
+  interview_id: string
+  unit_id: string
+  mark: "to_review"
+  note: string
+  at: string
+  by: string
+}
+
 export interface Passage {
   passage_id: string
   interview_id: string

@@ -48,6 +48,8 @@ export interface TurnProps {
   selected: boolean
   /** Name of a code by id, for the tags. */
   codeName: (id: string, fallback: string) => string
+  /** The turn carries the mark "à revoir". */
+  marked?: boolean
   pending: { start: number; end: number } | null
   currentPassage: string | null
   onSelect: () => void
@@ -56,9 +58,9 @@ export interface TurnProps {
   onPassage: (p: Passage) => void
 }
 
-export function Turn({ unit, passages, selected, codeName, pending, currentPassage, onSelect, onRange, onPassage }: TurnProps) {
+export function Turn({ unit, passages, selected, codeName, marked = false, pending, currentPassage, onSelect, onRange, onPassage }: TurnProps) {
   const textRef = useRef<HTMLSpanElement>(null)
-  const state = unitState(unit, passages)
+  const state = unitState(unit, passages, marked)
   const interviewer = state === "interviewer"
   const stripes = stripeCodes(passages)
   const inline = passages.filter((p) => !isWholePassage(p, unit.text.length))
@@ -141,7 +143,7 @@ export function Turn({ unit, passages, selected, codeName, pending, currentPassa
                 {codeName(c.code_id, c.name)}
               </span>
             ))}
-            {later && <span className="badge">à revoir</span>}
+            {(later || marked) && <span className="badge">à revoir</span>}
             {state === "non_pertinent" && <span className="badge">non pertinent</span>}
             {state === "remaining" && <span className="badge">non codée</span>}
             {selected && (
