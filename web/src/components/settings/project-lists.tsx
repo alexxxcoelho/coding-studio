@@ -129,7 +129,7 @@ export function ProjectListsSection() {
           onEdit={() => setEditor("dimensions")}
         />
         {LISTS.map((l) => (
-          <Row key={l.key} title={l.label} note={l.note} count={cfg[l.key].length} onEdit={() => setEditor(l.key)} />
+          <Row key={l.key} title={l.label} note={l.note} count={(cfg[l.key] ?? []).length} onEdit={() => setEditor(l.key)} />
         ))}
       </div>
       <p className="small l2" style={{ margin: "4px 2px" }}>

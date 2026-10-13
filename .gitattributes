@@ -1,0 +1,13 @@
+# Binary fixtures and media must never get line-ending conversion (Windows checkouts).
+*.pdf binary
+*.docx binary
+*.wav binary
+*.m4a binary
+*.mp3 binary
+*.png binary
+*.icns binary
+*.ico binary
+*.zip binary
+*.qdpx binary
+# Text fixtures keep LF so offsets are the same on every platform.
+crates/*/tests/fixtures/** -text
