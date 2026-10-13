@@ -315,7 +315,9 @@ impl Store {
 
     // ------------------------------------------------- attributes
 
-    fn all_attribute_values(&self) -> Result<BTreeMap<String, BTreeMap<String, String>>> {
+    pub(crate) fn all_attribute_values(
+        &self,
+    ) -> Result<BTreeMap<String, BTreeMap<String, String>>> {
         let mut out = BTreeMap::new();
         for (iv, body) in self.all_data(ATTRIBUTES)? {
             out.insert(iv, from_json::<BTreeMap<String, String>>(&body)?);

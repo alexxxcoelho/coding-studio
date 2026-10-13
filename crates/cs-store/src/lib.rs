@@ -23,6 +23,7 @@ mod codebook;
 mod codetree;
 mod coding;
 mod library;
+mod matrix;
 mod memos;
 mod passages;
 mod project;
@@ -42,6 +43,10 @@ pub use coding::ResolveRequest;
 pub use library::{
     LibraryProgress, LibraryReview, LibraryRow, LibraryTotals, PassageQualify, UnitMark,
     MARK_TO_REVIEW,
+};
+pub use matrix::{
+    CellPatch, Matrix, MatrixAxis, MatrixCell, MatrixConfig, MatrixEntry, MatrixFilter,
+    MatrixOptions, MatrixViewRecord,
 };
 pub use passages::{NewPassage, PassageFilter};
 pub use project::{
