@@ -877,12 +877,46 @@ pub(crate) fn target_dir(base: &Path, name: &str) -> PathBuf {
     }
 }
 
+/// What a package writer does besides writing the files. The anonymised
+/// export builds its source package without logging it and without the
+/// database snapshot, which cannot be pseudonymised.
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct PackageOpts {
+    pub log: bool,
+    pub snapshot: bool,
+}
+
+impl PackageOpts {
+    pub const NORMAL: PackageOpts = PackageOpts {
+        log: true,
+        snapshot: true,
+    };
+}
+
 pub fn write_package(
     store: &Store,
     interview_id: &str,
     base: &Path,
     db_path: &Path,
     actor: &str,
+) -> Result<ExportResult> {
+    write_package_with(
+        store,
+        interview_id,
+        base,
+        db_path,
+        actor,
+        PackageOpts::NORMAL,
+    )
+}
+
+pub(crate) fn write_package_with(
+    store: &Store,
+    interview_id: &str,
+    base: &Path,
+    db_path: &Path,
+    actor: &str,
+    opts: PackageOpts,
 ) -> Result<ExportResult> {
     let entry = store
         .interview(interview_id)?
@@ -1062,8 +1096,10 @@ pub fn write_package(
 
     let (state_bytes, state_sha) = state_document(store, &[interview_id.to_string()], &cases)?;
     w.write("state.json", &state_bytes)?;
-    write_snapshot(store, &dir.join("db_snapshot.sqlite"))?;
-    w.register("db_snapshot.sqlite")?;
+    if opts.snapshot {
+        write_snapshot(store, &dir.join("db_snapshot.sqlite"))?;
+        w.register("db_snapshot.sqlite")?;
+    }
 
     let mut jsonl = String::new();
     for e in &events {
@@ -1118,19 +1154,21 @@ pub fn write_package(
     let manifest_sha = sha256_hex(&manifest_bytes);
     w.write("manifest.json", &manifest_bytes)?;
 
-    store.log(
-        actor,
-        "export.package",
-        Some(interview_id),
-        Some(&dir.display().to_string()),
-        json!({
-            "dir": dir.display().to_string(),
-            "manifest_sha256": manifest_sha,
-            "state_sha256": state_sha,
-            "n_files": w.files.len(),
-            "status": status,
-        }),
-    )?;
+    if opts.log {
+        store.log(
+            actor,
+            "export.package",
+            Some(interview_id),
+            Some(&dir.display().to_string()),
+            json!({
+                "dir": dir.display().to_string(),
+                "manifest_sha256": manifest_sha,
+                "state_sha256": state_sha,
+                "n_files": w.files.len(),
+                "status": status,
+            }),
+        )?;
+    }
 
     Ok(ExportResult {
         dir: dir.display().to_string(),
@@ -1259,6 +1297,16 @@ pub fn write_cross_case(
     db_path: &Path,
     actor: &str,
 ) -> Result<CrossCaseExport> {
+    write_cross_case_with(store, base, db_path, actor, PackageOpts::NORMAL)
+}
+
+pub(crate) fn write_cross_case_with(
+    store: &Store,
+    base: &Path,
+    db_path: &Path,
+    actor: &str,
+    opts: PackageOpts,
+) -> Result<CrossCaseExport> {
     let cross = store.cross_case()?;
     let saturation = store.saturation()?;
     let memos: Vec<Option<RqMemo>> = cross
@@ -1353,17 +1401,19 @@ pub fn write_cross_case(
     });
     w.write("manifest.json", &serde_json::to_vec_pretty(&manifest)?)?;
 
-    store.log(
-        actor,
-        "export.cross_case",
-        None,
-        Some(&dir.display().to_string()),
-        json!({
-            "dir": dir.display().to_string(),
-            "state_sha256": state_sha,
-            "n_files": w.files.len(),
-        }),
-    )?;
+    if opts.log {
+        store.log(
+            actor,
+            "export.cross_case",
+            None,
+            Some(&dir.display().to_string()),
+            json!({
+                "dir": dir.display().to_string(),
+                "state_sha256": state_sha,
+                "n_files": w.files.len(),
+            }),
+        )?;
+    }
 
     Ok(CrossCaseExport {
         folder: dir.display().to_string(),
@@ -1412,6 +1462,16 @@ pub fn write_writeup(
     db_path: &Path,
     actor: &str,
 ) -> Result<WriteupExport> {
+    write_writeup_with(store, base, db_path, actor, PackageOpts::NORMAL)
+}
+
+pub(crate) fn write_writeup_with(
+    store: &Store,
+    base: &Path,
+    db_path: &Path,
+    actor: &str,
+    opts: PackageOpts,
+) -> Result<WriteupExport> {
     let interview_ids: Vec<String> = store
         .summaries()?
         .into_iter()
@@ -1445,13 +1505,15 @@ pub fn write_writeup(
         "files": w.files,
     });
     w.write("manifest.json", &serde_json::to_vec_pretty(&manifest)?)?;
-    store.log(
-        actor,
-        "export.writeup",
-        None,
-        Some(&dir.display().to_string()),
-        json!({"dir": dir.display().to_string(), "state_sha256": state_sha, "n_files": w.files.len()}),
-    )?;
+    if opts.log {
+        store.log(
+            actor,
+            "export.writeup",
+            None,
+            Some(&dir.display().to_string()),
+            json!({"dir": dir.display().to_string(), "state_sha256": state_sha, "n_files": w.files.len()}),
+        )?;
+    }
     Ok(WriteupExport {
         dir: dir.display().to_string(),
         files: w.files,

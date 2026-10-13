@@ -8,6 +8,7 @@ mod error;
 mod export;
 mod export_analysis;
 mod export_v1;
+pub mod export_v2;
 mod lexicon;
 mod providers;
 mod qdpx;

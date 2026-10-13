@@ -573,6 +573,50 @@ pub struct WriteupDoc {
 }
 
 impl WriteupDoc {
+    /// The same document with `f` applied to every text (headings, paragraphs,
+    /// cells, quotations, notes). Interview and unit ids are kept.
+    pub fn map_text(&self, f: &dyn Fn(&str) -> String) -> WriteupDoc {
+        let blocks = self
+            .blocks
+            .iter()
+            .map(|b| match b {
+                WriteupBlock::Heading { level, text } => WriteupBlock::Heading {
+                    level: *level,
+                    text: f(text),
+                },
+                WriteupBlock::Para {
+                    text,
+                    italic,
+                    cites,
+                } => WriteupBlock::Para {
+                    text: f(text),
+                    italic: *italic,
+                    cites: cites.clone(),
+                },
+                WriteupBlock::Table { header, rows } => WriteupBlock::Table {
+                    header: header.iter().map(|h| f(h)).collect(),
+                    rows: rows
+                        .iter()
+                        .map(|r| r.iter().map(|c| f(c)).collect())
+                        .collect(),
+                },
+                WriteupBlock::Bullet { text } => WriteupBlock::Bullet { text: f(text) },
+            })
+            .collect();
+        let cites = self
+            .cites
+            .iter()
+            .map(|c| WriteupCite {
+                n: c.n,
+                interview_id: c.interview_id.clone(),
+                unit_id: c.unit_id.clone(),
+                quote: f(&c.quote),
+                note: f(&c.note),
+            })
+            .collect();
+        WriteupDoc { blocks, cites }
+    }
+
     /// Markdown with the citations as footnotes: interview, unit, exact quotation.
     pub fn to_markdown(&self) -> String {
         let mut md = String::new();
