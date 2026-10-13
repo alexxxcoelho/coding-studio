@@ -191,6 +191,7 @@ fn output(s: &Store, part: u32, of: u32, codings: &[(&str, &[&str])]) -> AiOutpu
             .iter()
             .map(|(u, c)| (u.to_string(), set(c)))
             .collect(),
+        candidate_concepts: Vec::new(),
     }
 }
 

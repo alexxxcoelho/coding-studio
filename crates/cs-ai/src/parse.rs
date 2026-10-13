@@ -5,7 +5,10 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use cs_model::{AiOutput, CodeSet, ValidationIssue, NA, PHASE_2};
+use cs_model::pseudonym::Pseudonymiser;
+use cs_model::{
+    AiOutput, CandidateConcept, CandidateEvidence, CodeSet, ValidationIssue, NA, PHASE_2,
+};
 use serde_json::Value;
 
 use crate::prompt::part_unit_ids;
@@ -19,7 +22,13 @@ const TOP_KEYS: &[&str] = &[
     "part",
     "of",
     "codings",
+    "candidate_concepts",
 ];
+
+/// Longest accepted label of a candidate concept, in characters.
+const MAX_LABEL: usize = 200;
+/// Largest number of candidate concepts per part.
+const MAX_CANDIDATES: usize = 50;
 
 fn issue(location: impl Into<String>, message: impl Into<String>) -> ValidationIssue {
     ValidationIssue {
@@ -315,6 +324,11 @@ pub(crate) fn parse(
         ));
     }
 
+    let candidates = match obj.get("candidate_concepts") {
+        None | Some(Value::Null) => Vec::new(),
+        Some(v) => parse_candidates(v, &expected_set, &mut issues),
+    };
+
     if !issues.is_empty() {
         return Err(issues);
     }
@@ -326,5 +340,141 @@ pub(crate) fn parse(
         part,
         of,
         codings,
+        candidate_concepts: candidates,
     })
+}
+
+fn parse_candidates(
+    value: &Value,
+    part_units: &BTreeSet<&str>,
+    issues: &mut Vec<ValidationIssue>,
+) -> Vec<CandidateConcept> {
+    let Value::Array(items) = value else {
+        issues.push(issue(
+            "$.candidate_concepts",
+            "\"candidate_concepts\" must be an array",
+        ));
+        return Vec::new();
+    };
+    if items.len() > MAX_CANDIDATES {
+        issues.push(issue(
+            "$.candidate_concepts",
+            format!("at most {MAX_CANDIDATES} candidate concepts per part"),
+        ));
+    }
+    let mut out = Vec::new();
+    for (i, item) in items.iter().enumerate() {
+        let path = format!("$.candidate_concepts[{i}]");
+        let Value::Object(o) = item else {
+            issues.push(issue(path, "each candidate concept must be an object"));
+            continue;
+        };
+        for key in o.keys() {
+            if !["label", "description", "unit_ids", "evidence"].contains(&key.as_str()) {
+                issues.push(issue(&path, format!("unexpected field \"{key}\"")));
+            }
+        }
+        let label = match o.get("label") {
+            Some(Value::String(s)) if !s.trim().is_empty() => s.trim().to_string(),
+            _ => {
+                issues.push(issue(&path, "missing or empty \"label\""));
+                continue;
+            }
+        };
+        if label.chars().count() > MAX_LABEL {
+            issues.push(issue(
+                &path,
+                format!("label longer than {MAX_LABEL} characters"),
+            ));
+        }
+        let description = match o.get("description") {
+            None | Some(Value::Null) => None,
+            Some(Value::String(s)) if s.trim().is_empty() => None,
+            Some(Value::String(s)) => Some(s.trim().to_string()),
+            Some(_) => {
+                issues.push(issue(&path, "\"description\" must be a string"));
+                None
+            }
+        };
+        let mut unit_ids: Vec<String> = Vec::new();
+        match o.get("unit_ids") {
+            Some(Value::Array(us)) if !us.is_empty() => {
+                for u in us {
+                    match u.as_str().map(str::trim) {
+                        Some(id) if part_units.contains(id) => {
+                            if !unit_ids.iter().any(|x| x == id) {
+                                unit_ids.push(id.to_string());
+                            }
+                        }
+                        Some(id) => issues.push(issue(
+                            &path,
+                            format!("unit \"{id}\" does not belong to this part"),
+                        )),
+                        None => issues.push(issue(&path, "unit_ids must hold strings")),
+                    }
+                }
+            }
+            _ => issues.push(issue(&path, "\"unit_ids\" must be a non-empty array")),
+        }
+        let mut evidence = Vec::new();
+        match o.get("evidence") {
+            None | Some(Value::Null) => {}
+            Some(Value::Array(es)) => {
+                for e in es {
+                    let unit = e.get("unit_id").and_then(Value::as_str).map(str::trim);
+                    let quote = e.get("quote").and_then(Value::as_str).map(str::trim);
+                    match (unit, quote) {
+                        (Some(u), Some(q)) if !q.is_empty() && part_units.contains(u) => evidence
+                            .push(CandidateEvidence {
+                                unit_id: u.to_string(),
+                                quote: q.to_string(),
+                            }),
+                        _ => issues.push(issue(
+                            &path,
+                            "each evidence needs a unit_id of this part and a quote",
+                        )),
+                    }
+                }
+            }
+            Some(_) => issues.push(issue(&path, "\"evidence\" must be an array")),
+        }
+        out.push(CandidateConcept {
+            label,
+            description,
+            unit_ids,
+            evidence,
+        });
+    }
+    out
+}
+
+fn squash(s: &str) -> String {
+    s.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
+/// A9: a quotation that is not in the unit is refused.
+pub(crate) fn check_quotes(
+    output: &AiOutput,
+    unit_texts: &BTreeMap<String, String>,
+    pseudonyms: &Pseudonymiser,
+) -> Vec<ValidationIssue> {
+    let mut issues = Vec::new();
+    for (i, c) in output.candidate_concepts.iter().enumerate() {
+        for e in &c.evidence {
+            let found = unit_texts
+                .get(&e.unit_id)
+                .map(|t| squash(&pseudonyms.mask(t)))
+                .is_some_and(|t| t.contains(&squash(&e.quote)));
+            if !found {
+                issues.push(issue(
+                    format!("$.candidate_concepts[{i}]"),
+                    format!(
+                        "the quotation \"{}\" is not found word for word in {}",
+                        e.quote, e.unit_id
+                    ),
+                ));
+            }
+        }
+    }
+    issues
 }

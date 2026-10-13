@@ -14,10 +14,12 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
+use cs_model::pseudonym::Pseudonymiser;
 use cs_model::{
-    AgreementReport, AiOutput, Arbitration, Code, CodingMap, Divergence, FinalCoding, PromptPart,
-    PromptTemplate, ReviewItem, Segmentation, ValidationIssue,
+    canonical_hash, AgreementReport, AiOutput, Arbitration, Code, CodingMap, Divergence,
+    FinalCoding, PromptPart, PromptTemplate, ReviewItem, Segmentation, ValidationIssue,
 };
+use serde::Serialize;
 use serde_json::json;
 
 mod analysis;
@@ -52,6 +54,56 @@ pub struct PromptInput<'a> {
     pub codes: &'a [Code],
 }
 
+/// One code of the tree offered to the model.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct TreeCode {
+    /// Token the model answers with.
+    pub code: String,
+    pub name: String,
+    /// Token of the nearest offered ancestor.
+    pub parent: Option<String>,
+    pub definition: String,
+    pub includes: String,
+    pub excludes: String,
+    pub example: Option<String>,
+}
+
+/// What the configuration of the study adds to a prompt (V1 lot 4). Holds
+/// nothing of the candidate's coding: no code, memo, highlight or passage of
+/// the researcher exists in this type, so none can reach a prompt.
+#[derive(Debug, Clone, Default)]
+pub struct PromptContext {
+    /// What the study is about.
+    pub description: String,
+    pub coding_rules: String,
+    /// (id, text) in project order.
+    pub research_questions: Vec<(String, String)>,
+    /// The offered codes, parent first.
+    pub tree: Vec<TreeCode>,
+    /// (label, value) of the attributes the project shares with the model.
+    pub attributes: Vec<(String, String)>,
+    /// Interviewer turn that precedes a respondent unit, by unit id.
+    pub preceding: std::collections::BTreeMap<String, String>,
+    /// Applied to every free text of the prompt.
+    pub pseudonyms: Pseudonymiser,
+    /// Digest of the list `pseudonyms` was made from.
+    pub pseudonym_digest: String,
+}
+
+impl PromptContext {
+    /// Digest of the configuration the prompt is built from: study text, rules,
+    /// questions, tree and shared attribute values (before pseudonymisation).
+    pub fn digest(&self) -> String {
+        canonical_hash(&(
+            &self.description,
+            &self.coding_rules,
+            &self.research_questions,
+            &self.tree,
+            &self.attributes,
+        ))
+    }
+}
+
 /// What an answer is checked against: the batch its prompt belongs to.
 #[derive(Debug, Clone, Copy)]
 pub struct AnswerScope<'a> {
@@ -76,6 +128,30 @@ pub fn batch_scope(parts: &[PromptPart]) -> (Vec<String>, BTreeSet<String>) {
 /// text.
 pub fn build_prompts(input: &PromptInput, batch_size: usize) -> Vec<PromptPart> {
     template::build_prompts_with(&PromptTemplate::default(), input, batch_size)
+}
+
+/// Builds the prompts from the configuration of the study: description,
+/// rules, questions, the code tree with its definitions, the shared attributes
+/// and the preceding interviewer turn of each unit, all pseudonymised.
+/// Deterministic.
+pub fn build_prompts_configured(
+    template: &PromptTemplate,
+    input: &PromptInput,
+    ctx: &PromptContext,
+    batch_size: usize,
+) -> Vec<PromptPart> {
+    prompt::build_with(template, input, Some(ctx), batch_size)
+}
+
+/// Checks the quotations of the candidate concepts of an answer: each must be
+/// found word for word (whitespace aside) in the unit it cites, as the model
+/// saw it (pseudonymised). Returns every problem found.
+pub fn check_candidate_quotes(
+    output: &AiOutput,
+    unit_texts: &std::collections::BTreeMap<String, String>,
+    pseudonyms: &Pseudonymiser,
+) -> Vec<ValidationIssue> {
+    parse::check_quotes(output, unit_texts, pseudonyms)
 }
 
 /// JSON Schema (draft 2020-12) of the expected answer. Generic: the prompt
@@ -116,6 +192,39 @@ pub fn output_json_schema() -> serde_json::Value {
             }
         }
     })
+}
+
+/// The answer schema with the optional `candidate_concepts` channel, embedded
+/// in the prompts built from the configuration.
+pub fn output_json_schema_with_candidates() -> serde_json::Value {
+    let mut schema = output_json_schema();
+    schema["properties"]["candidate_concepts"] = json!({
+        "type": "array",
+        "description": "Optional. Concepts that no offered code covers; proposals only.",
+        "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["label", "unit_ids"],
+            "properties": {
+                "label": { "type": "string", "minLength": 1 },
+                "description": { "type": "string" },
+                "unit_ids": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+                "evidence": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": ["unit_id", "quote"],
+                        "properties": {
+                            "unit_id": { "type": "string" },
+                            "quote": { "type": "string", "minLength": 1 }
+                        }
+                    }
+                }
+            }
+        }
+    });
+    schema
 }
 
 /// Parses and validates an AI answer against the batch its prompt belongs to.

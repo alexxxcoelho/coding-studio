@@ -14,7 +14,7 @@ use cs_model::{
 };
 use serde_json::{json, Value};
 
-use crate::{PromptInput, OUTPUT_SCHEMA_ID};
+use crate::{PromptContext, PromptInput, OUTPUT_SCHEMA_ID};
 
 /// Number of parts for `n` units and a requested batch size (0 = one part).
 pub fn parts_for_batch(n: usize, batch_size: usize) -> u32 {
@@ -171,15 +171,28 @@ pub(crate) fn build(
     input: &PromptInput,
     batch_size: usize,
 ) -> Vec<PromptPart> {
+    build_with(template, input, None, batch_size)
+}
+
+/// Parts of the prompt, with the configuration of the study when `ctx` is given.
+pub(crate) fn build_with(
+    template: &PromptTemplate,
+    input: &PromptInput,
+    ctx: Option<&PromptContext>,
+    batch_size: usize,
+) -> Vec<PromptPart> {
     let units = scope_units(input);
     let of = parts_for_batch(units.len(), batch_size);
     let listed = ordered_codes(input.codes);
-    let hash = canonical_hash(&listed);
+    let hash = match ctx {
+        Some(c) => canonical_hash(&(&listed, &c.tree)),
+        None => canonical_hash(&listed),
+    };
     let codes: Vec<String> = listed.iter().map(|c| c.code.clone()).collect();
     (1..=of)
         .map(|part| {
             let part_units = part_slice(&units, part, of);
-            let text = render(template, input, &listed, &hash, part_units, part, of);
+            let text = render(template, input, ctx, &listed, &hash, part_units, part, of);
             PromptPart {
                 interview_id: input.seg.interview_id.clone(),
                 phase: PHASE_2,
@@ -214,8 +227,18 @@ fn split_header(header: &str) -> (&str, &str) {
 
 /// Schema embedded in a prompt: the generic schema with the values of this
 /// part fixed and the codes restricted to those offered.
-fn part_schema(input: &PromptInput, valid: &[&str], part: u32, of: u32) -> Value {
-    let mut schema = crate::output_json_schema();
+fn part_schema(
+    input: &PromptInput,
+    valid: &[&str],
+    part: u32,
+    of: u32,
+    with_candidates: bool,
+) -> Value {
+    let mut schema = if with_candidates {
+        crate::output_json_schema_with_candidates()
+    } else {
+        crate::output_json_schema()
+    };
     let props = &mut schema["properties"];
     props["interview_id"] = json!({ "const": input.seg.interview_id });
     props["segmentation_hash"] = json!({ "const": input.seg.hash });
@@ -299,9 +322,31 @@ fn code_line(c: &Code) -> String {
     ])
 }
 
+fn tree_line(node: &crate::TreeCode, m: &dyn Fn(&str) -> String) -> String {
+    let text = |s: &str| m(&redact_unit_ids(s));
+    let mut fields = vec![
+        ("code", json!(node.code)),
+        ("label", json!(text(&node.name))),
+        ("parent", json!(node.parent)),
+        ("definition", json!(text(&node.definition))),
+    ];
+    if !node.includes.trim().is_empty() {
+        fields.push(("includes", json!(text(&node.includes))));
+    }
+    if !node.excludes.trim().is_empty() {
+        fields.push(("excludes", json!(text(&node.excludes))));
+    }
+    if let Some(e) = node.example.as_deref().filter(|e| !e.trim().is_empty()) {
+        fields.push(("example", json!(text(e))));
+    }
+    json_line(&fields)
+}
+
+#[allow(clippy::too_many_arguments)]
 fn render(
     template: &PromptTemplate,
     input: &PromptInput,
+    ctx: Option<&PromptContext>,
     listed: &[&Code],
     codebook_hash: &str,
     units: &[&Unit],
@@ -314,6 +359,14 @@ fn render(
     let first = units.first().map(|u| u.unit_id.as_str()).unwrap_or("");
     let last = units.last().map(|u| u.unit_id.as_str()).unwrap_or("");
     let (title, rest) = split_header(&template.header);
+    // Every free text that goes into the prompt passes through `m`: the
+    // pseudonymisation of the project, when there is one.
+    let m = |text: &str| -> String {
+        match ctx {
+            Some(c) => c.pseudonyms.mask(text),
+            None => text.to_string(),
+        }
+    };
 
     // Writing to a String cannot fail; the results are ignored on purpose.
     if !title.trim().is_empty() {
@@ -327,10 +380,38 @@ fn render(
     let _ = writeln!(t, "segmentation_hash: {}", seg.hash);
     let _ = writeln!(t, "codebook_hash: {codebook_hash}");
     let _ = writeln!(t, "units_in_this_part: {} ({first} to {last})", units.len());
+    if let Some(c) = ctx {
+        let _ = writeln!(t, "configuration_digest: {}", c.digest());
+        let _ = writeln!(t, "pseudonymisation_digest: {}", c.pseudonym_digest);
+    }
     let _ = writeln!(t);
     if !rest.trim().is_empty() {
         let _ = writeln!(t, "{}", rest.trim());
         let _ = writeln!(t);
+    }
+    if let Some(c) = ctx {
+        if !c.description.trim().is_empty() {
+            let _ = writeln!(t, "## Study");
+            let _ = writeln!(t);
+            let _ = writeln!(t, "{}", m(c.description.trim()));
+            let _ = writeln!(t);
+        }
+        if !c.research_questions.is_empty() {
+            let _ = writeln!(t, "## Research questions");
+            let _ = writeln!(t);
+            for (id, text) in &c.research_questions {
+                let _ = writeln!(t, "- {id}: {}", m(text.trim()));
+            }
+            let _ = writeln!(t);
+        }
+        if !c.attributes.is_empty() {
+            let _ = writeln!(t, "## Respondent");
+            let _ = writeln!(t);
+            for (label, value) in &c.attributes {
+                let _ = writeln!(t, "- {}: {}", m(label.trim()), m(value.trim()));
+            }
+            let _ = writeln!(t);
+        }
     }
 
     let _ = writeln!(t, "## Codebook");
@@ -339,16 +420,32 @@ fn render(
         .codebook_intro
         .replace(CODE_COUNT_PLACEHOLDER, &listed.len().to_string());
     let _ = writeln!(t, "{intro}");
-    for (toe, title) in GROUPS {
-        let group: Vec<&&Code> = listed.iter().filter(|c| c.toe.as_deref() == toe).collect();
-        if group.is_empty() {
-            continue;
+    match ctx.filter(|c| !c.tree.is_empty()) {
+        Some(c) => {
+            let _ = writeln!(t);
+            let _ = writeln!(
+                t,
+                "The codes form a tree, listed parent first: the field parent gives the code under which a code sits (null at the top). Respect the includes and excludes of each code."
+            );
+            let _ = writeln!(t);
+            for node in &c.tree {
+                let _ = writeln!(t, "{}", tree_line(node, &m));
+            }
         }
-        let _ = writeln!(t);
-        let _ = writeln!(t, "### {title}");
-        let _ = writeln!(t);
-        for c in group {
-            let _ = writeln!(t, "{}", code_line(c));
+        None => {
+            for (toe, title) in GROUPS {
+                let group: Vec<&&Code> =
+                    listed.iter().filter(|c| c.toe.as_deref() == toe).collect();
+                if group.is_empty() {
+                    continue;
+                }
+                let _ = writeln!(t);
+                let _ = writeln!(t, "### {title}");
+                let _ = writeln!(t);
+                for c in group {
+                    let _ = writeln!(t, "{}", code_line(c));
+                }
+            }
         }
     }
     let _ = writeln!(t);
@@ -358,19 +455,36 @@ fn render(
     if !template.footer.trim().is_empty() {
         let _ = writeln!(t, "{}", template.footer.trim());
     }
+    if let Some(c) = ctx {
+        if !c.coding_rules.trim().is_empty() {
+            let _ = writeln!(t);
+            let _ = writeln!(t, "Coding rules of the study:");
+            let _ = writeln!(t);
+            let _ = writeln!(t, "{}", m(c.coding_rules.trim()));
+        }
+    }
     let _ = writeln!(t);
 
     let _ = writeln!(t, "## Units");
     let _ = writeln!(t);
     let _ = writeln!(t, "{}", template.units_intro.trim());
+    if ctx.is_some() {
+        let _ = writeln!(
+            t,
+            "The field preceding_question, when present, is the interviewer turn that comes right before the unit. It is context only: it is not a unit, it is never coded and it needs no answer."
+        );
+    }
     let _ = writeln!(t);
     for u in units {
-        let fields = vec![
+        let mut fields = vec![
             ("unit_id", json!(u.unit_id)),
             ("speaker", json!(speaker_label(u))),
             ("timestamp", json!(u.timestamp)),
-            ("text", json!(u.text)),
+            ("text", json!(m(&u.text))),
         ];
+        if let Some(q) = ctx.and_then(|c| c.preceding.get(&u.unit_id)) {
+            fields.push(("preceding_question", json!(m(q))));
+        }
         let _ = writeln!(t, "{}", json_line(&fields));
     }
     let _ = writeln!(t);
@@ -403,11 +517,18 @@ answer, where the angle brackets are placeholders:"
         seg.interview_id, seg.hash
     );
     let _ = writeln!(t);
+    if ctx.is_some() {
+        let _ = writeln!(
+            t,
+            "Optionally, add the field \"candidate_concepts\" when a unit expresses a concept that no code of the codebook covers. It is an array of objects with \"label\" (a short name), \"description\" (one sentence, optional), \"unit_ids\" (the units concerned) and \"evidence\" (optional array of objects with \"unit_id\" and \"quote\", the quotation copied word for word from that unit). A candidate is only a proposal for the researcher: also code the units with the codes offered, or NA. Omit the field when there is no such concept."
+        );
+        let _ = writeln!(t);
+    }
     let _ = writeln!(t, "The answer must validate against this JSON Schema:");
     let _ = writeln!(t);
     let mut valid: Vec<&str> = listed.iter().map(|c| c.code.as_str()).collect();
     valid.push(NA);
-    let schema = part_schema(input, &valid, part, of);
+    let schema = part_schema(input, &valid, part, of, ctx.is_some());
     let mut pretty = String::new();
     canonical_pretty(&schema, 0, &mut pretty);
     let _ = writeln!(t, "{}", escape_dashes(&pretty));

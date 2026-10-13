@@ -14,6 +14,7 @@ pub mod config;
 pub mod passage;
 pub mod phase;
 pub mod project;
+pub mod pseudonym;
 pub mod reconcile;
 
 pub use config::{Category, FrameworkPreset, PromptTemplate, StudyConfig};
@@ -443,6 +444,29 @@ pub struct AiOutput {
     pub part: u32,
     pub of: u32,
     pub codings: CodingMap,
+    /// Concepts the model reports as absent from the codebook. A proposal for
+    /// the researcher to decide on, never a coding.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub candidate_concepts: Vec<CandidateConcept>,
+}
+
+/// A concept reported by the model that no code of the codebook covers.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CandidateConcept {
+    pub label: String,
+    #[serde(default)]
+    pub description: Option<String>,
+    /// Units of the part that motivate the proposal.
+    pub unit_ids: Vec<String>,
+    /// Quotations from those units; each must be found word for word.
+    #[serde(default)]
+    pub evidence: Vec<CandidateEvidence>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CandidateEvidence {
+    pub unit_id: String,
+    pub quote: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
