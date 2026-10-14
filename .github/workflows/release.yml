@@ -93,17 +93,9 @@ jobs:
           notes="$RUNNER_TEMP/notes.md"
           {
             printf 'Coding Studio %s\n\n' "$TAG"
-            if [ "$APPLE_SIGNED" = "true" ]; then
-              cat <<'EOF'
-          The macOS builds are signed with a Developer ID certificate and notarised by Apple.
+            cat <<'EOF'
+          Signing status of the macOS build: added by the build job once the build is checked.
           EOF
-            else
-              cat <<'EOF'
-          The macOS builds are not signed or notarised, so macOS stops the first launch with a warning.
-          Open Coding Studio with right-click, then Open, and confirm Open once. From a terminal:
-          `xattr -dr com.apple.quarantine "Coding Studio.app"`.
-          EOF
-            fi
             cat <<'EOF'
 
           Files:
@@ -226,6 +218,22 @@ jobs:
           ditto -c -k --sequesterRsrc --keepParent "${apps[0]}" "$out/Coding-Studio_${TAG}_${arch}.app.zip"
           cp "${dmgs[0]}" "$out/Coding-Studio_${TAG}_${arch}.dmg"
           gh release upload "$TAG" "$out"/* --clobber
+
+      # The notes state what was actually checked on the built app, not what
+      # the secrets promised.
+      - name: Signing status in the release notes
+        run: |
+          shopt -s nullglob
+          apps=("$GITHUB_WORKSPACE/target/${{ matrix.target }}/release/bundle"/macos/*.app)
+          if codesign --verify --deep --strict "${apps[0]}" 2>/dev/null && spctl --assess --type execute "${apps[0]}" 2>/dev/null; then
+            line="The macOS build is signed with a Developer ID certificate and notarised by Apple."
+          else
+            line="The macOS build is not signed or notarised: macOS stops the first launch with a warning. Open Coding Studio with right-click, then Open, or run xattr -dr com.apple.quarantine \"Coding Studio.app\"."
+          fi
+          body=$(gh release view "$TAG" --json body -q .body)
+          body=${body//"Signing status of the macOS build: added by the build job once the build is checked."/$line}
+          printf '%s\n' "$body" > "$RUNNER_TEMP/notes.md"
+          gh release edit "$TAG" --notes-file "$RUNNER_TEMP/notes.md"
 
   # Optional: the job may fail without failing the release.
   linux:
