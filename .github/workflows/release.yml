@@ -82,13 +82,13 @@ jobs:
           PRERELEASE: ${{ inputs.prerelease }}
           REBUILD: ${{ inputs.rebuild }}
         run: |
+          exists=false
           if gh release view "$TAG" >/dev/null 2>&1; then
-            if [ "$REBUILD" = "true" ]; then
-              echo "Release $TAG exists; build jobs replace its files."
-              exit 0
+            exists=true
+            if [ "$REBUILD" != "true" ]; then
+              echo "::error::Release $TAG already exists. Bump the version, or run again with rebuild checked."
+              exit 1
             fi
-            echo "::error::Release $TAG already exists. Bump the version, or run again with rebuild checked."
-            exit 1
           fi
           notes="$RUNNER_TEMP/notes.md"
           {
@@ -114,6 +114,15 @@ jobs:
           Changes are listed in CHANGELOG.md.
           EOF
           } > "$notes"
+          if [ "$exists" = "true" ]; then
+            # Rebuild: refresh the notes (signing may have changed) and drop
+            # files this workflow no longer builds; build jobs replace the rest.
+            gh release edit "$TAG" --notes-file "$notes"
+            for asset in $(gh release view "$TAG" --json assets -q '.assets[].name' | grep -E 'x86_64' || true); do
+              gh release delete-asset "$TAG" "$asset" --yes
+            done
+            exit 0
+          fi
           pre=""
           if [ "$PRERELEASE" = "true" ]; then pre="--prerelease"; fi
           gh release create "$TAG" --target "$GITHUB_SHA" $pre --title "Coding Studio $TAG" --notes-file "$notes"
