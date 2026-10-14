@@ -108,8 +108,7 @@ jobs:
 
           Files:
 
-          - `Coding-Studio_<version>_aarch64.dmg` and `Coding-Studio_<version>_aarch64.app.zip`: Apple silicon Macs.
-          - `Coding-Studio_<version>_x86_64.dmg` and `Coding-Studio_<version>_x86_64.app.zip`: Intel Macs.
+          - `Coding-Studio_<version>_aarch64.dmg` and `Coding-Studio_<version>_aarch64.app.zip`: Apple silicon Macs (Intel Macs are not supported).
           - AppImage and deb (Linux), msi (Windows): attached when their build succeeded. They are unsigned.
 
           Changes are listed in CHANGELOG.md.
@@ -129,7 +128,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        target: [aarch64-apple-darwin, x86_64-apple-darwin]
+        target: [aarch64-apple-darwin]
     env:
       TAG: ${{ needs.prepare.outputs.tag }}
       GH_TOKEN: ${{ github.token }}

@@ -22,7 +22,7 @@ The `prepare` job reads the version from `Cargo.toml` and `crates/cs-desktop/tau
 | Job | Runner | Output | Blocks the release |
 |---|---|---|---|
 | Create release | ubuntu-latest | The release, with notes | Yes |
-| macOS (aarch64, x86_64) | macos-latest, one job per target | `Coding-Studio_X.Y.Z_<arch>.dmg` and `Coding-Studio_X.Y.Z_<arch>.app.zip` | Yes |
+| macOS (Apple silicon, aarch64 only; Intel is not built) | macos-latest | `Coding-Studio_X.Y.Z_<arch>.dmg` and `Coding-Studio_X.Y.Z_<arch>.app.zip` | Yes |
 | Linux | ubuntu-latest | `.AppImage` and `.deb` | No (`continue-on-error`) |
 | Windows | windows-latest | `.msi` | No (`continue-on-error`) |
 
