@@ -1,7 +1,7 @@
 //! V2, F-41: code search for the picker. A query is split in words; every
-//! word must be the beginning of a word of the name, an alias, the legacy
+//! word must be the beginning of a word of the name, the legacy
 //! token, the label or the definition of the code (prefix match, accents and
-//! case ignored). Results are ranked: a name beats an alias, which beats the
+//! case ignored). Results are ranked: a name beats the
 //! definition; a whole-query prefix of the name beats a word prefix.
 
 use anyhow::Result;
@@ -145,9 +145,6 @@ impl Store {
                     }
                 };
                 consider("name", &n.name, &mut best);
-                for a in &n.aliases {
-                    consider("alias", &a.alias, &mut best);
-                }
                 consider("token", &n.token, &mut best);
                 consider("label", &n.label, &mut best);
                 consider("definition", &n.definition, &mut best);
@@ -163,10 +160,6 @@ impl Store {
                     ] {
                         all.push(' ');
                         all.push_str(part);
-                    }
-                    for a in &n.aliases {
-                        all.push(' ');
-                        all.push_str(&a.alias);
                     }
                     if covers(&query, &folded_words(&all)) {
                         best = Some((

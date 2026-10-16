@@ -66,7 +66,7 @@ Un cadre d'interprétation est une grille théorique qui sert à lire vos thème
 
 Les tours de l'intervieweur donnent le contexte, mais ne se codent pas. L'outil doit donc savoir lesquels ils sont.
 
-**Dans Coding Studio.** Dans Réglages, bloc Étude, champ Noms des intervieweurs, saisissez les noms ou étiquettes tels qu'ils figurent dans vos transcriptions (par exemple INT). Les tours correspondants s'affichent en gris dans l'écran Coder et ne partent jamais vers un modèle.
+**Dans Coding Studio.** Dans Réglages, bloc Étude, champ Noms des intervieweurs, saisissez les noms ou étiquettes tels qu'ils figurent dans vos transcriptions (par exemple INT). Les tours correspondants s'affichent en gris dans l'écran Coder et ne sont jamais des cibles de codage. Une question peut être fournie au modèle comme contexte du tour du répondant ; elle ne constitue pas une preuve du répondant. Relisez le prompt et sa pseudonymisation avant tout envoi.
 
 ### 9. Importer les transcriptions et lire la Bibliothèque {#preparer-bibliotheque}
 
@@ -91,6 +91,21 @@ La pseudonymisation protège les répondants et leurs organisations. Elle interv
 Un modèle de projet réutilise vos choix pour une nouvelle étude, sans les données.
 
 **Dans Coding Studio.** Dans Réglages, bloc Modèles et listes de l'étude, Exporter écrit un fichier JSON avec description, questions, règles, cadre, attributs, modèles de mémo, listes éditables et dimensions de matrice. Il ne contient ni transcription, ni codage, ni mémo rédigé. Dans une nouvelle base, Importer un modèle de projet (JSON) remplit ces champs : relisez-les avant de commencer.
+
+### 13. Ajouter un entretien à un corpus déjà analysé {#preparer-ajouter}
+
+Un nouvel entretien prolonge l'étude. Le codebook courant sert de point de départ, sans imposer aux nouveaux propos les conclusions existantes. Il n'est pas nécessaire de recoder tout le corpus.
+
+1. Sauvegardez le projet avant l'import. Dans Bibliothèque, utilisez Importer des transcriptions, puis vérifiez la source, les locuteurs, les repères, la segmentation et les attributs. Ne remplacez pas les sources des entretiens déjà codés.
+2. Lisez l'entretien entier et rédigez le mémo de familiarisation avant le premier codage. Distinguez récit vécu, observation rapportée, attente et hypothèse. Les questions de l'intervieweur donnent le contexte, jamais une preuve du répondant par elles-mêmes.
+3. Codez les passages exacts avec le codebook courant. Pour une thèse en anglais, conservez les noms et définitions des codes en anglais, et les verbatims dans leur langue originale. Réutilisez un code commun pour un même phénomène, indépendamment du secteur ou du locuteur. Ajoutez séparément chaque dimension effectivement exprimée : « Stock visibility » décrit le phénomène ; « Stated business value » s'ajoute uniquement si le répondant le présente comme une valeur métier. Un passage peut porter les deux. Ne les fusionnez pas dans un intitulé composite.
+4. Examinez tous les tours du répondant. Marquez explicitement NA les passages hors périmètre ; laissez une incertitude à revoir plutôt que d'inventer un code. Affinez les premières sélections en fin de séance : limites du passage, codes indépendants, définition, critères d'inclusion et d'exclusion, mémo et citation d'exemple.
+5. Créez ou scindez un code seulement si une distinction utile n'est pas couverte. Documentez la raison et la version du codebook. Utilisez Lexique, recherche en contexte et passages proches pour retrouver les occurrences possibles dans les anciens entretiens, puis relisez-les avec leur contexte. Corrigez seulement les passages concernés et clôturez leur harmonisation ; un résultat de recherche ne suffit pas à appliquer un code.
+6. La revue IA reste facultative. Si vous la lancez, conservez le codebook et la lecture de référence figés, le prompt, la réponse réelle et les décisions. Arbitrez les désaccords, contrôlez les accords échantillonnés et traitez les concepts proposés. Une ancienne passe ne couvre pas automatiquement les nouveaux passages ou un codebook révisé. Une construction assistée par IA n'est pas une validation humaine indépendante et doit être déclarée comme telle.
+7. Contrôlez que les codes finaux décidés se retrouvent bien sur les passages exacts utilisés dans l'analyse. Une décision d'arbitrage enregistrée ne remplace pas ce contrôle des surlignages. Terminez la liste de contrôle, le mémo et les éléments à revoir. Vérifiez à l'audio les citations destinées à la thèse et les passages incertains pour lesquels un enregistrement existe ; ne confondez pas disponibilité de l'audio et réécoute effectuée.
+8. Actualisez les thèmes, leurs contre-exemples, les cellules de matrice commentées et leurs liens de preuve, les cas et la synthèse par question. Recalculez les explorations lexicales et les fréquences par attribut ; la fréquence n'est pas l'importance analytique. Révisez le texte de Rédiger avant de régénérer les exports datés et le rapport d'analyse. Le rapport reprend les textes et preuves enregistrés ; il n'atteste pas à lui seul leur validation.
+
+**Lire l'avancement.** Le compteur de codage mesure les tours examinés, codés ou explicitement hors périmètre, sur les tours du répondant. « Plus tard », les marques à revoir, les harmonisations et les décisions ouvertes restent du travail à faire. La revue IA affiche sa propre couverture et peut rester absente ou partielle sans annuler un codage terminé. Le compteur d'arbitrage inclut les désaccords et les accords échantillonnés, au numérateur comme au dénominateur. « Prêt » décrit un état de travail dans l'outil, pas une certification de réécoute ou une validation scientifique indépendante.
 
 ## Pièges fréquents {#preparer-pieges}
 

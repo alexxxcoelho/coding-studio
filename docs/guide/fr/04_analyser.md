@@ -76,6 +76,14 @@ Certaines études observent des décisions concrètes. L'onglet qui les rassembl
 
 **Dans Coding Studio.** L'onglet Décisions documentées liste les décisions créées. Cliquez sur Nouvelle décision : donnez un nom (par exemple « Bibliothèque de la commune X, nouveau système de prêt »), l'issue (adopter, différer ou refuser) et les caractéristiques utiles à votre étude, puis rattachez-y des unités de n'importe quel entretien. Une décision sans unité rattachée est marquée non documentée. Cet onglet complète l'analyse par thèmes sans la remplacer.
 
+### 11. Exporter le rapport analytique Word {#analyser-rapport}
+
+Le rapport réunit les résultats déjà rédigés et leur dossier de preuves. Il prépare la rédaction d'un chapitre de résultats ; il ne rédige pas de nouvelles interprétations à votre place.
+
+**Dans Coding Studio.** Dans Analyser, cliquez sur Rapport analytique Word. Actualisez d'abord les fiches de thème, les cinq parties de Rédiger, les réponses aux questions et les cellules de matrice commentées. L'export rassemble le corpus et son périmètre, les thèmes retenus avec leurs passages, les réponses aux questions, les comparaisons entre entretiens, les preuves liées manuellement à la matrice, le cadre choisi, les décisions documentées, le codebook et la traçabilité. Les thèmes non retenus et les preuves hors résultats restent identifiés séparément. Le dossier est daté et comporte un manifeste.
+
+La génération du fichier Word n'appelle aucun modèle : elle met en forme le contenu enregistré. Cela n'efface pas une assistance IA utilisée auparavant pour construire ou revoir ce contenu. Conservez cette provenance dans la méthode ; n'annoncez pas une analyse sans IA si elle en a utilisé. Avant toute reprise dans la thèse, relisez les affirmations contre leurs sources, contrôlez les citations à l'audio et conservez les limites et cas divergents. Un document complet n'est pas une certification de validation scientifique.
+
 ## Pièges fréquents {#analyser-pieges}
 
 - Nommer un thème par un sujet (« Coûts »). Si le titre n'est pas une phrase qui peut être contredite, ce n'est pas un thème.

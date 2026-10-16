@@ -18,6 +18,8 @@ The cross-case export covers the whole corpus.
 
 **In Coding Studio.** In the same block, click "Export the cross-case package" (Exporter le transversal). The package contains the answers file (the text from the "Write" (Rédiger) stage), the matrix, the interview coverage table, the list of cases, a manifest and a README file that describes the content. You do not have to build a saturation table yourself: it is a file produced by the export from the codes applied.
 
+For a Word document gathering the findings and their evidence, also use [Analysis report (Word) in Analyse](04_analyse.md#analyser-rapport).
+
 ### 3. Read the manifest {#exporter-manifeste}
 
 The manifest is the verifiable table of contents of the package.
@@ -66,3 +68,20 @@ The complete audit log and copies of the database are kept in your archive, toge
 - The text of the findings, the tables and the appendices drawn directly from the exports.
 - The result of the final audit of three statements.
 - A coherent archive of the database, the sources and the exports, ready to submit.
+
+
+## Final reviewer export
+
+Open **Final reviewer export** from Analyse or the Library export menu. This creates a local, read-only review package. It does not publish anything.
+
+1. **Content.** Expand sections down to each field. A folder checkbox selects its fields; deselect a leaf to create an exception. Click a field to preview it. Complete text is exported even when the preview is limited. Original files, people records, interview metadata and AI passes start unchecked. Select the source file for an unsegmented transcript. References never reintroduce the content of excluded objects.
+2. **Access.** Choose and retain a unique passphrase of at least 16 characters. It is not saved in the export and cannot be recovered. Send it separately. The HTTPS address is optional: leave it blank until hosting is defined. No public URL or QR will be created. With a real address, URL.txt and QR.svg represent that address; nothing is uploaded automatically.
+3. **Review.** Check the selection, volume and pseudonymisation options, then create the protected export. upload.zip contains only the reader and encrypted data, never the working database or password. Host its complete contents on a trusted HTTPS server, then test the real link.
+
+The reader searches the included fields. It opens with the password in a recent browser supporting WebCrypto. For local attachments, select the data subfolder in the reader. Hosted attachments load from the same origin. Files are encrypted in chunks; files over 1 GiB are rejected explicitly without truncation. Downloads use neutral names; original names are separate selectable fields.
+
+Pseudonymisation replaces only configured forms of names in the copy. Zero replacements does not mean anonymous. Original files are not pseudonymised and may reveal voices or identities. The password protects encrypted content but provides neither account management nor revocation of downloaded copies. Project changes after opening the catalogue require refreshing the selection. Changed or missing sources cause generation to fail without leaving an incomplete final package.
+
+## Notes style
+
+Use brief notes, with bullets when useful: main idea, useful passage, contrast, open question, limitation. Interview notes, theme sheets and writing areas serve as the researcher’s working notes. A code definition needs one simple sentence. A processing status or note does not replace checking a quotation against its recording.

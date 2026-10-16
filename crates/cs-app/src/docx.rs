@@ -75,16 +75,21 @@ fn table(header: &[String], rows: &[Vec<String>]) -> String {
     let mut x = String::from(
         "<w:tbl><w:tblPr><w:tblStyle w:val=\"TableGrid\"/><w:tblW w:w=\"5000\" w:type=\"pct\"/></w:tblPr><w:tblGrid>",
     );
-    for _ in header {
-        x.push_str("<w:gridCol/>");
+    for (i, _) in header.iter().enumerate() {
+        let width = if header.len() == 4 {
+            [1200, 1000, 1400, 5472][i]
+        } else {
+            9072 / header.len().max(1)
+        };
+        x.push_str(&format!("<w:gridCol w:w=\"{width}\"/>"));
     }
-    x.push_str("</w:tblGrid><w:tr>");
+    x.push_str("</w:tblGrid><w:tr><w:trPr><w:tblHeader/><w:cantSplit/></w:trPr>");
     for h in header {
         x.push_str(&cell(h, true));
     }
     x.push_str("</w:tr>");
     for r in rows {
-        x.push_str("<w:tr>");
+        x.push_str("<w:tr><w:trPr><w:cantSplit/></w:trPr>");
         for c in r {
             x.push_str(&cell(c, false));
         }
@@ -97,13 +102,17 @@ fn table(header: &[String], rows: &[Vec<String>]) -> String {
 }
 
 /// `document.xml` and the footnotes it refers to (id, text).
-fn body(doc: &WriteupDoc) -> (String, Vec<(usize, String)>) {
+fn body(doc: &WriteupDoc, inline_quotes: bool) -> (String, Vec<(usize, String)>) {
     let mut xml = String::new();
     let mut notes: Vec<(usize, String)> = Vec::new();
     for b in &doc.blocks {
         match b {
             WriteupBlock::Heading { level, text } => {
-                let style = format!("Heading{}", (*level).clamp(1, 3));
+                let style = if !inline_quotes && *level == 1 {
+                    "Title".to_string()
+                } else {
+                    format!("Heading{}", (*level).clamp(1, 3))
+                };
                 xml.push_str(&paragraph(Some(&style), &run(text, false, false)));
             }
             WriteupBlock::Para {
@@ -111,15 +120,30 @@ fn body(doc: &WriteupDoc) -> (String, Vec<(usize, String)>) {
                 italic,
                 cites,
             } => {
+                if !inline_quotes {
+                    let marks = cites.iter().map(|n| format!(" [{n}]")).collect::<String>();
+                    xml.push_str(&paragraph(
+                        None,
+                        &run(&format!("{text}{marks}"), *italic, false),
+                    ));
+                    continue;
+                }
                 xml.push_str(&paragraph(None, &run(text, *italic, false)));
                 for n in cites {
                     if let Some(c) = doc.cites.iter().find(|c| c.n == *n) {
                         // One footnote per reference: a footnote id is used once.
                         let id = notes.len() + 1;
-                        notes.push((id, footnote_text(c)));
+                        notes.push((
+                            id,
+                            if inline_quotes {
+                                footnote_text(c)
+                            } else {
+                                format!("Source [{}]: {}", c.n, c.reference())
+                            },
+                        ));
                         let runs = format!(
                             "{}<w:r><w:rPr><w:rStyle w:val=\"FootnoteReference\"/></w:rPr><w:footnoteReference w:id=\"{id}\"/></w:r>",
-                            run(&format!("« {} »", c.quote), false, false)
+                            run(&if inline_quotes { format!("« {} »", c.quote) } else { format!("Source [{}]", c.n) }, false, false)
                         );
                         xml.push_str(&paragraph(Some("Quote"), &runs));
                     }
@@ -137,13 +161,21 @@ fn body(doc: &WriteupDoc) -> (String, Vec<(usize, String)>) {
     if !doc.cites.is_empty() {
         xml.push_str(&paragraph(
             Some("Heading2"),
-            &run("Références", false, false),
+            &run(
+                if inline_quotes {
+                    "Références"
+                } else {
+                    "Source evidence appendix"
+                },
+                false,
+                false,
+            ),
         ));
         for c in &doc.cites {
             xml.push_str(&paragraph(
                 Some("Reference"),
                 &run(
-                    &format!("{} : « {} »", footnote_text(c), c.quote),
+                    &format!("[{}] {} : « {} »", c.n, footnote_text(c), c.quote),
                     false,
                     false,
                 ),
@@ -190,6 +222,13 @@ fn styles_xml() -> String {
          <w:pPrDefault><w:pPr><w:spacing w:after=\"120\" w:line=\"276\" w:lineRule=\"auto\"/></w:pPr></w:pPrDefault></w:docDefaults>\
          <w:style w:type=\"paragraph\" w:default=\"1\" w:styleId=\"Normal\"><w:name w:val=\"Normal\"/><w:qFormat/></w:style>"
     );
+    x.push_str(&style(
+        "Title",
+        "Title",
+        Some("Normal"),
+        "<w:keepNext/><w:spacing w:after=\"240\"/>",
+        "<w:b/><w:sz w:val=\"40\"/>",
+    ));
     x.push_str(&style(
         "Heading1",
         "heading 1",
@@ -286,6 +325,16 @@ fn core_xml(title: &str) -> String {
 
 /// The write-up as a `.docx` archive.
 pub fn render(doc: &WriteupDoc) -> Result<Vec<u8>> {
+    render_options(doc, true)
+}
+
+/// Analysis reports refer to shared numbered source quotations printed once
+/// in the reference appendix, rather than repeating them in each section.
+pub fn render_report(doc: &WriteupDoc) -> Result<Vec<u8>> {
+    render_options(doc, false)
+}
+
+fn render_options(doc: &WriteupDoc, inline_quotes: bool) -> Result<Vec<u8>> {
     let title = doc
         .blocks
         .iter()
@@ -294,7 +343,7 @@ pub fn render(doc: &WriteupDoc) -> Result<Vec<u8>> {
             _ => None,
         })
         .unwrap_or("Rédaction");
-    let (document, notes) = body(doc);
+    let (document, notes) = body(doc, inline_quotes);
     let mut zip = ZipWriter::new(std::io::Cursor::new(Vec::new()));
     let opt = SimpleFileOptions::default()
         .compression_method(CompressionMethod::Deflated)

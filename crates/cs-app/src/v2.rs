@@ -19,7 +19,21 @@ use crate::{invalid, ApiError, AppState};
 
 pub(crate) fn routes() -> Router<AppState> {
     Router::new()
+        .route(
+            "/api/export/reviewer/open",
+            post(crate::reviewer_export::open_package),
+        )
+        .route(
+            "/api/export/reviewer/catalogue",
+            get(crate::reviewer_export::get_catalogue),
+        )
+        .route(
+            "/api/export/reviewer",
+            post(crate::reviewer_export::generate).layer(DefaultBodyLimit::max(32 * 1024 * 1024)),
+        )
         .route("/api/writing/export.docx", get(writeup_docx))
+        .route("/api/analysis/export.docx", get(analysis_docx))
+        .route("/api/analysis/export", post(analysis_package))
         .route("/api/export/anonymised", post(export_anonymised))
         .route("/api/example/load", post(load_example))
         .route("/api/project/bundle", get(export_bundle))
@@ -171,4 +185,47 @@ async fn writeup_docx(State(st): State<AppState>) -> Result<Response, ApiError> 
     let doc = st.store().writeup_doc()?;
     let bytes = crate::docx::render(&doc)?;
     Ok(attachment(bytes, DOCX_TYPE, "writeup.docx"))
+}
+
+/// Saved analysis, comparison, codebook and source evidence, without runtime AI.
+async fn analysis_docx(State(st): State<AppState>) -> Result<Response, ApiError> {
+    let doc = crate::analysis_report::document(&st.store(), &st.actor)?;
+    let bytes = crate::docx::render_report(&doc)?;
+    Ok(attachment(bytes, DOCX_TYPE, "analysis-report.docx"))
+}
+
+/// Persist a versioned report locally, including a plain-text companion and hashes.
+async fn analysis_package(State(st): State<AppState>) -> Result<Json<Value>, ApiError> {
+    let doc = crate::analysis_report::document(&st.store(), &st.actor)?;
+    let bytes = crate::docx::render_report(&doc)?;
+    let base = exports_base(&st.db_path);
+    std::fs::create_dir_all(&base).map_err(anyhow::Error::from)?;
+    let dir = crate::export::target_dir(&base, "analysis-report");
+    std::fs::create_dir(&dir).map_err(anyhow::Error::from)?;
+    let mut writer = crate::export::Writer {
+        dir: dir.clone(),
+        files: vec![],
+    };
+    let evidence = crate::analysis_report::evidence_value(&st.store(), &st.actor)?;
+    writer.write(
+        "analysis-evidence.json",
+        &serde_json::to_vec_pretty(&evidence).map_err(anyhow::Error::from)?,
+    )?;
+    writer.write("analysis-report.docx", &bytes)?;
+    writer.write("analysis-report.md", doc.to_markdown().as_bytes())?;
+    let manifest = json!({"kind": "analysis_report", "generator": env!("CARGO_PKG_VERSION"), "runtime_ai": false, "files": writer.files});
+    writer.write(
+        "manifest.json",
+        &serde_json::to_vec_pretty(&manifest).map_err(anyhow::Error::from)?,
+    )?;
+    st.store().log(
+        &st.actor,
+        "export.analysis",
+        None,
+        Some("analysis-report"),
+        json!({"dir": dir.display().to_string(), "files": writer.files, "runtime_ai": false}),
+    )?;
+    Ok(Json(
+        json!({"dir": dir.display().to_string(), "files": writer.files}),
+    ))
 }

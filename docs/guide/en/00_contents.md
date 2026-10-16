@@ -19,6 +19,8 @@ The work follows six stages. The workflow is not a waterfall: going back to the 
 
 In the app, stages 2 to 5 form the numbered bar of the single-interview screen. Stages 1 and 6 are done from the "Library" (Bibliothèque) and the "Settings".
 
+To add an interview after analysis, follow the [incremental corpus workflow](01_prepare.md#preparer-ajouter). It includes targeted review of earlier passages and updating the analysis.
+
 ## The screens of the app {#sommaire-ecrans}
 
 The top navigation offers the Library, "Analyse" (Analyser), "Write" (Rédiger), the Codebook, the Settings and the Guide, plus the interview you have open. Each screen has a "?" button in the top right corner that opens the matching section of this guide in a side drawer, without leaving the screen.

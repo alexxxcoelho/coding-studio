@@ -2,7 +2,7 @@
 
 ## Pourquoi cette étape {#coder-pourquoi}
 
-Coder, c'est donner à chaque passage utile une étiquette qui dit ce qu'il contient. Saldaña distingue un premier cycle de codage, descriptif et proche des mots du répondant, et des cycles ultérieurs qui regroupent et reformulent. Coding Studio suit cet ordre : vous posez d'abord des codes concrets, parfois longs (« Formation du personnel jugée plus lourde que le matériel »), puis vous les regroupez, et les thèmes ne naissent qu'à l'étape Analyser. L'approche est hybride au sens de Fereday et Muir-Cochrane (2006) : vous pouvez partir d'une palette issue de la littérature, tout en restant libre de créer des codes à partir des données. Braun et Clarke (2006, 2021) rappellent que la familiarisation précède le codage, d'où le mémo qui ouvre cette étape.
+Coder, c'est donner à chaque passage utile une étiquette qui dit ce qu'il contient. Saldaña distingue un premier cycle de codage, descriptif et proche des mots du répondant, et des cycles ultérieurs qui regroupent et reformulent. Coding Studio suit cet ordre : vous posez d'abord des codes descriptifs réutilisables (« Staff training », « Implementation effort »), en séparant les dimensions plutôt que de les combiner dans un seul intitulé, puis vous les regroupez, et les thèmes ne naissent qu'à l'étape Analyser. L'approche est hybride au sens de Fereday et Muir-Cochrane (2006) : vous pouvez partir d'une palette issue de la littérature, tout en restant libre de créer des codes à partir des données. Braun et Clarke (2006, 2021) rappellent que la familiarisation précède le codage, d'où le mémo qui ouvre cette étape.
 
 ## Ce que vous faites {#coder-actions}
 
@@ -28,7 +28,7 @@ Par défaut, tout tour du répondant est considéré comme pertinent. Un code po
 
 Un même passage peut relever de plusieurs phénomènes. Posez plusieurs codes si, et seulement si, ils décrivent des choses distinctes.
 
-**Dans Coding Studio.** Posez un premier code, puis un second sur le même tour ou le même passage : les deux pastilles apparaissent. Exemple fictif : « Six mois pour les deux premières annexes, surtout à cause de la formation des bénévoles ; le matériel, lui, était prêt en trois semaines. » Le premier passage porte « Formation du personnel jugée plus lourde que le matériel », le second « Matériel disponible rapidement », chacun avec son propre soulignement. Un code posé n'en écrase aucun autre, et un code retiré reste dans l'historique.
+**Dans Coding Studio.** Posez un premier code, puis un second sur le même tour ou le même passage : les deux pastilles apparaissent. Exemple fictif : « Six mois pour les deux premières annexes, surtout à cause de la formation des bénévoles ; le matériel, lui, était prêt en trois semaines. » Le passage sur la formation porte « Staff training » et « Implementation effort » ; celui sur le matériel porte « Equipment availability ». La comparaison et sa portée restent dans le mémo, avec leurs passages sources. Chaque dimension peut ensuite être comparée aux autres entretiens. Un code posé n'en écrase aucun autre, et un code retiré reste dans l'historique.
 
 ### 5. Créer un code à la volée {#coder-nouveau-code}
 
@@ -47,6 +47,8 @@ Si vous hésitez devant un passage important, ne forcez pas un code : posez Plus
 Les codes forment un arbre à trois niveaux qui suit la progression de l'analyse : des codes descriptifs, des codes focalisés qui les regroupent (le parent), puis, plus tard et ailleurs, les thèmes. Placer un code sous un parent ne modifie aucun codage ; fusionner deux codes recode toutes leurs unités. Ces deux gestes sont différents.
 
 **Dans Coding Studio.** Cliquez sur Codebook dans la barre du haut. L'arbre affiche pour chaque code son nom, son origine (littérature ou terrain), les questions qu'il sert et son nombre de passages. Glissez un code sur un autre pour en faire un sous-code ; un code posé sur un sous-code compte aussi pour son parent dans les exports. Cliquez sur un code pour ouvrir sa fiche : nom, définition (inclut, exclut), parent, questions concernées, origine, exemple. Fusionner dans... recode toutes les unités vers un autre code en gardant la trace de l'ancien. Désactiver cache un code sans toucher aux codages passés. Chaque mouvement est daté et motivé, et la version du codebook change à chaque modification. Importer CSV charge une palette de départ, qui n'est pas une vérité acquise. Tous les trois entretiens, relisez la liste pour fusionner les synonymes et scinder les codes trop larges. Quand un code apparaît en cours de route, la fiche liste les unités des entretiens précédents à revoir.
+
+Une définition courte suffit : « Stated business value: A purpose, problem solved, benefit as business value or a reason for the solution. » Les inclusions et exclusions restent facultatives, sous Précisions facultatives. Pour regrouper un ancien code couvert par un autre, utilisez Fusionner dans, plutôt que Désactiver. Si l’ancien code combinait plusieurs idées, fusionnez-le vers son idée principale et conservez les autres codes justifiés sur les passages. Les alias ne font pas partie de ce processus. Les traces des changements sont conservées en interne ; le journal n’est pas affiché dans le codebook.
 
 ### 8. Tenir un mémo de code {#coder-memo-code}
 

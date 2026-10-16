@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/cs-model", "crates/cs-ingest", "crates/cs-store", "crates/cs-ai", "crates/cs-lex", "crates/cs-qdpx", "crates/cs-app", "crates/cs-desktop"]
+members = ["crates/cs-reviewer-export", "crates/cs-model", "crates/cs-ingest", "crates/cs-store", "crates/cs-ai", "crates/cs-lex", "crates/cs-qdpx", "crates/cs-app", "crates/cs-desktop"]
 
 [workspace.package]
 version = "0.1.0"

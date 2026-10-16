@@ -84,9 +84,9 @@ describe("buildRows", () => {
 })
 
 describe("filterRows", () => {
-  it("matches name, alias and definition without accents or case", () => {
+  it("matches name and definition, ignoring historical aliases without accents or case", () => {
     expect(filterRows(tree, "OBLIGATION legale").map((r) => r.node.code_id)).toEqual(["C-0001"])
-    expect(filterRows(tree, "listing").map((r) => r.node.code_id)).toEqual(["C-0002", "C-0003"])
+    expect(filterRows(tree, "listing")).toEqual([])
     expect(filterRows(tree, "fournisseur l'exige").map((r) => r.node.code_id)).toEqual(["C-0002"])
   })
   it("keeps the ancestors of a match", () => {

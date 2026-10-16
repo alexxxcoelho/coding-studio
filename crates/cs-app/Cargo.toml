@@ -9,6 +9,10 @@ name = "coding-studio"
 path = "src/main.rs"
 
 [dependencies]
+coding-studio-final-export = { path = "../cs-reviewer-export" }
+sha2_010 = { package = "sha2", version = "0.10.9" }
+qrcode = { version = "0.14.1", default-features = false, features = ["svg"] }
+url = "2"
 cs-model.workspace = true
 cs-ingest.workspace = true
 cs-store.workspace = true

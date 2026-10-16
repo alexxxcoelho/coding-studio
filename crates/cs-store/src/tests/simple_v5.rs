@@ -478,7 +478,7 @@ fn progress_counts_phase_1_relevance_and_phase_2_coding() {
         .unwrap();
     let p = s.simple_progress(ID).unwrap();
     assert_eq!((p.n_relevant, p.n_coded), (2, 2));
-    assert!(!p.done, "no run yet");
+    assert!(p.done, "AI review is optional");
 }
 
 #[test]
@@ -533,7 +533,7 @@ fn progress_follows_batch_run_and_review() {
 }
 
 #[test]
-fn not_done_when_a_relevant_unit_is_not_covered_by_a_complete_run() {
+fn optional_ai_coverage_does_not_gate_completed_coding() {
     let (s, _d) = segmented();
     code_phase2(&s);
     // The batch leaves U5 out.
@@ -548,7 +548,10 @@ fn not_done_when_a_relevant_unit_is_not_covered_by_a_complete_run() {
     let p = s.simple_progress(ID).unwrap();
     assert_eq!(p.n_runs_complete, 1);
     assert_eq!(p.n_decided + p.n_sample_reviewed, review.items.len());
-    assert!(!p.done, "U5 is relevant but covered by no complete run");
+    assert!(
+        p.done,
+        "U5 is coded; incomplete optional AI coverage is reported separately"
+    );
 }
 
 #[test]
@@ -571,4 +574,24 @@ fn progress_of_an_unknown_interview_is_refused() {
     let (s, _d) = segmented();
     let err = s.simple_progress("NOPE-01").unwrap_err();
     assert_eq!(kind(&err), "not_found");
+}
+
+#[test]
+fn completed_coding_reopens_for_a_review_mark_and_all_na_can_be_complete() {
+    let (s, _d) = segmented();
+    code_phase2(&s);
+    assert!(s.simple_progress(ID).unwrap().done);
+    s.set_unit_mark(ID, U2, "Check the source", ACTOR).unwrap();
+    assert!(!s.simple_progress(ID).unwrap().done);
+    s.clear_unit_mark(ID, U2, ACTOR).unwrap();
+    for unit in [U2, U3, U5] {
+        s.set_human_coding(ID, 1, &hc(unit, &["NA"]), ACTOR)
+            .unwrap();
+    }
+    let progress = s.simple_progress(ID).unwrap();
+    assert_eq!((progress.n_relevant, progress.n_coded), (0, 0));
+    assert!(
+        progress.done,
+        "all respondent units were explicitly assessed as out of scope"
+    );
 }

@@ -1,7 +1,7 @@
 // Codebook (design/macos/Codebook.dc.html): the tree of codes with counts
 // (roll-up to the parent), and the inspector of the selected code. A code is
 // moved by dragging it onto its future parent or with "Parent"; renaming,
-// definition, includes and excludes, questions, aliases, merge, deactivation
+// definition, includes and excludes, questions, merge, deactivation
 // and the history all go through /api/codes. Every move, merge and
 // deactivation carries a rationale and is dated by the server.
 
@@ -10,7 +10,6 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 
 import { CodeStats } from "@/components/codebook/code-stats"
-import { CodeJournal, JournalDialog } from "@/components/codebook/journal"
 import { SplitDialog } from "@/components/codebook/split-dialog"
 import { WorklistDialog } from "@/components/codebook/worklist"
 import { EmptyState, PageTitle } from "@/components/bits"
@@ -63,7 +62,7 @@ export function CodebookPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [dragId, setDragId] = useState<string | null>(null)
   const [dropId, setDropId] = useState<string | null>(null)
-  const [dialog, setDialog] = useState<"new" | "history" | "csv" | "journal" | null>(null)
+  const [dialog, setDialog] = useState<"new" | "history" | "csv" | null>(null)
   const [worklist, setWorklist] = useState<number | null>(null)
 
   const codes = useMemo(() => codesQ.data?.codes ?? [], [codesQ.data])
@@ -109,8 +108,6 @@ export function CodebookPage() {
       <ToolbarActions>
         <Capsule>
           <CapsuleItem onClick={() => setDialog("history")}>{t("codebook.historique")}</CapsuleItem>
-          <span className="vs" />
-          <CapsuleItem onClick={() => setDialog("journal")}>{t("codebook.journal")}</CapsuleItem>
           <span className="vs" />
           <CapsuleItem onClick={() => setDialog("csv")}>{t("codebook.importer_csv")}</CapsuleItem>
         </Capsule>
@@ -249,7 +246,6 @@ export function CodebookPage() {
       <NewCodeDialog open={dialog === "new"} onClose={() => setDialog(null)} codes={codes} onCreated={(id) => setSelectedId(id)} />
       <HistoryDialog open={dialog === "history"} onClose={() => setDialog(null)} />
       <CsvDialog open={dialog === "csv"} onClose={() => setDialog(null)} />
-      <JournalDialog open={dialog === "journal"} onClose={() => setDialog(null)} onOpenWorklist={setWorklist} />
       <WorklistDialog opId={worklist} onClose={() => setWorklist(null)} />
     </>
   )
@@ -270,7 +266,7 @@ function Inspector({
   onMerged: () => void
   onWorklist: (opId: number) => void
 }) {
-  const [part, setPart] = useState<"sheet" | "stats" | "journal">("sheet")
+  const [part, setPart] = useState<"sheet" | "stats">("sheet")
   return (
     <div className="insp-in">
       <div className="seg" role="tablist" aria-label={t("codebook.fiche_du_code")} style={{ alignSelf: "stretch", display: "flex" }}>
@@ -278,7 +274,6 @@ function Inspector({
           [
             ["sheet", t("codebook.fiche")],
             ["stats", t("codebook.chiffres")],
-            ["journal", t("codebook.journal")],
           ] as const
         ).map(([k, label]) => (
           <button key={k} type="button" role="tab" aria-selected={part === k} className={cn("s", part === k && "on")} style={{ flex: 1 }} onClick={() => setPart(k)}>
@@ -288,7 +283,6 @@ function Inspector({
       </div>
       {part === "sheet" && <CodeSheet code={code} codes={codes} questions={questions} onMerged={onMerged} onWorklist={onWorklist} />}
       {part === "stats" && <CodeStats codeId={code.code_id} />}
-      {part === "journal" && <CodeJournal code={code.code_id} onOpenWorklist={onWorklist} empty={t("codebook.ce_code_n_a_ete")} />}
     </div>
   )
 }
@@ -313,7 +307,6 @@ function CodeSheet({
   const [excludes, setExcludes] = useState(code.excludes)
   const [rqs, setRqs] = useState(code.research_questions)
   const [memo, setMemo] = useState(code.memo ?? "")
-  const [alias, setAlias] = useState("")
   const [mergeOpen, setMergeOpen] = useState(false)
   const [splitOpen, setSplitOpen] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -357,19 +350,6 @@ function CodeSheet({
     onSuccess: () => refresh(),
     onError: (e) => reportError(e, t("codebook.changement_refuse")),
   })
-  const addAlias = useMutation({
-    mutationFn: (a: string) => api.addAlias(code.code_id, a),
-    onSuccess: () => {
-      setAlias("")
-      return refresh()
-    },
-    onError: (e) => reportError(e, t("codebook.alias_refuse")),
-  })
-  const removeAlias = useMutation({
-    mutationFn: (a: string) => api.removeAlias(code.code_id, a),
-    onSuccess: () => refresh(),
-    onError: (e) => reportError(e, t("codebook.alias_non_retire")),
-  })
 
   const parents = possibleParents(codes, code.code_id)
   const nameClash = name.trim() !== code.name && codes.some((c) => c.code_id !== code.code_id && c.name.toLowerCase() === name.trim().toLowerCase())
@@ -394,12 +374,15 @@ function CodeSheet({
       <Field label={t("common.definition")}>
         <textarea className={TEXTAREA} rows={3} value={definition} disabled={locked} onChange={(e) => setDefinition(e.target.value)} />
       </Field>
-      <Field label={t("codebook.inclut")}>
-        <textarea className={TEXTAREA} rows={3} value={includes} disabled={locked} onChange={(e) => setIncludes(e.target.value)} />
-      </Field>
-      <Field label={t("codebook.exclut")}>
-        <textarea className={TEXTAREA} rows={3} value={excludes} disabled={locked} onChange={(e) => setExcludes(e.target.value)} />
-      </Field>
+      <details className="small">
+        <summary className="cursor-pointer l2">{t("codebook.precisions_facultatives")}</summary>
+        <Field label={t("codebook.inclut")}>
+          <textarea className={TEXTAREA} rows={3} value={includes} disabled={locked} onChange={(e) => setIncludes(e.target.value)} />
+        </Field>
+        <Field label={t("codebook.exclut")}>
+          <textarea className={TEXTAREA} rows={3} value={excludes} disabled={locked} onChange={(e) => setExcludes(e.target.value)} />
+        </Field>
+      </details>
 
       <div className="grp">
         <label className="row">
@@ -441,34 +424,6 @@ function CodeSheet({
               {code.created_at ? t("codebook.cree_le_slice", { slice: code.created_at.slice(0, 10) }) : ""}
             </small>
           </span>
-        </div>
-        <div className="row" style={{ flexWrap: "wrap" }}>
-          <span className="k">
-            {t("common.alias")}
-            <small>{t("codebook.autres_noms_sous_lesquels_ce")}</small>
-          </span>
-          {code.aliases.map((a) => (
-            <span key={a.alias} className="tok" title={a.reason}>
-              {a.alias}
-              <button type="button" aria-label={t("codebook.retirer_l_alias_alias", { alias: a.alias })} onClick={() => removeAlias.mutate(a.alias)}>
-                ×
-              </button>
-            </span>
-          ))}
-          {!locked && (
-            <form
-              style={{ display: "flex", gap: 4 }}
-              onSubmit={(e) => {
-                e.preventDefault()
-                if (alias.trim()) addAlias.mutate(alias.trim())
-              }}
-            >
-              <Input value={alias} onChange={(e) => setAlias(e.target.value)} placeholder={t("codebook.nouvel_alias")} aria-label={t("codebook.nouvel_alias")} style={{ width: 130 }} />
-              <Button type="submit" variant="outline" disabled={!alias.trim() || addAlias.isPending}>
-                {t("common.ajouter")}
-              </Button>
-            </form>
-          )}
         </div>
       </div>
 

@@ -11,3 +11,6 @@
 *.qdpx binary
 # Text fixtures keep LF so offsets are the same on every platform.
 crates/*/tests/fixtures/** -text
+
+# Bundled vendor code contains intentional whitespace inside CSS template literals.
+crates/cs-app/web-dist/assets/*.js -whitespace

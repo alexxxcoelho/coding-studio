@@ -46,7 +46,16 @@ export interface LibraryProgress {
 
 /** Progress of an interview from its row of the library progress. */
 export function codingProgress(row: LibraryRow): CodingProgress {
-  return { respondent: row.respondent_units, nonPertinent: row.not_relevant, coded: row.units_coded, later: row.units_later, toReview: row.to_review }
+  // Older servers predate passage counters. Do not turn absent fields into a
+  // fictitious 0/0; use their explicit phase-2 counters as a compatibility path.
+  return { respondent: row.respondent_units ?? row.relevant + row.not_relevant, nonPertinent: row.not_relevant, coded: row.units_coded ?? row.coded, later: row.units_later ?? 0, toReview: row.to_review }
+}
+
+/** Decisions and sampled agreements must share the same denominator. */
+function reviewProgress(s: InterviewSummary, r?: ReviewState | null) {
+  const total = r ? r.n_disagreements + r.n_sample : s.phase2.n_divergences + (s.phase2.n_sampled ?? 0)
+  const decided = r ? r.n_decided + r.n_sample_reviewed : s.phase2.n_arbitrated
+  return { total, decided: Math.min(total, decided), open: Math.max(0, total - decided) }
 }
 
 export function examined(p: CodingProgress): number {
@@ -78,18 +87,19 @@ export function pipelineSteps(s: InterviewSummary, p: CodingProgress | null, r?:
   const done = p ? p.coded + p.nonPertinent : 0
   const p2 = s.phase2
   const ai = p2.n_ai_runs_complete
+  const review = reviewProgress(s, r)
   return [
     { key: "segmented", label: segmented ? t("pipeline.segmente") : t("pipeline.segmentation"), value: segmented ? 1 : 0 },
     {
       key: "coded",
-      label: !segmented ? t("pipeline.codage") : respondent > 0 && done >= respondent ? t("pipeline.code_done_respondent", { done, respondent }) : `Codage ${done}/${respondent}`,
+      label: !segmented || !p ? t("pipeline.codage") : respondent > 0 && done >= respondent ? t("pipeline.code_done_respondent", { done, respondent }) : `Codage ${done}/${respondent}`,
       value: respondent > 0 ? Math.min(1, done / respondent) : 0,
     },
     { key: "ai", ...aiStep(ai, r) },
     {
       key: "arbitrated",
-      label: p2.n_divergences > 0 ? t("pipeline.arbitre_n_arbitrated_n_divergences", { n_arbitrated: p2.n_arbitrated, n_divergences: p2.n_divergences }) : t("pipeline.arbitrage"),
-      value: p2.n_divergences > 0 ? p2.n_arbitrated / p2.n_divergences : 0,
+      label: review.total > 0 ? t("pipeline.arbitre_n_arbitrated_n_divergences", { n_arbitrated: review.decided, n_divergences: review.total }) : t("pipeline.arbitrage"),
+      value: review.total > 0 ? review.decided / review.total : 0,
     },
   ]
 }
@@ -100,10 +110,10 @@ export type Stage = "new" | "in_progress" | "ready"
 export function stageOf(s: InterviewSummary, p: CodingProgress | null, r?: ReviewState | null): Stage {
   if (s.n_units === 0) return "new"
   if (!p) return "in_progress"
-  const openDisagreements = Math.max(0, s.phase2.n_divergences - s.phase2.n_arbitrated)
+  const openDisagreements = reviewProgress(s, r).open
   const remaining = p.respondent - examined(p)
   const toHarmonise = r?.harmonisation_open ?? 0
-  return p.respondent > 0 && remaining <= 0 && openDisagreements === 0 && toHarmonise === 0 ? "ready" : "in_progress"
+  return p.respondent > 0 && remaining <= 0 && p.later === 0 && p.toReview === 0 && openDisagreements === 0 && toHarmonise === 0 && (!r || r.n_candidates === r.n_candidates_decided) ? "ready" : "in_progress"
 }
 
 export type NextAction =
@@ -116,10 +126,10 @@ export function nextAction(s: InterviewSummary, p: CodingProgress | null, r?: Re
   const coding = interviewHref(id, "coding")
   if (!p || examined(p) === 0) return { kind: "link", label: t("pipeline.commencer_le_codage"), href: coding }
   const remaining = p.respondent - examined(p)
-  if (remaining > 0) return { kind: "link", label: t("pipeline.reprendre_le_codage"), href: coding }
+  if (remaining > 0 || p.later > 0 || p.toReview > 0) return { kind: "link", label: t("pipeline.reprendre_le_codage"), href: coding }
   const toHarmonise = r?.harmonisation_open ?? 0
   if (toHarmonise > 0) return { kind: "link", label: toHarmonise === 1 ? t("pipeline.harmoniser_la_derniere_unite") : t("pipeline.harmoniser_toharmonise_unites", { toHarmonise }), href: interviewHref(id, "harmonise") }
-  const open = s.phase2.n_divergences - s.phase2.n_arbitrated
+  const open = reviewProgress(s, r).open + (r ? Math.max(0, r.n_candidates - r.n_candidates_decided) : 0)
   if (open > 0) return { kind: "link", label: open === 1 ? t("pipeline.arbitrer_le_dernier") : t("pipeline.arbitrer_les_open_restants", { open }), href: interviewHref(id, "review") }
   if (s.phase2.n_ai_runs_complete === 0) return { kind: "link", label: t("pipeline.lancer_la_revue_ia"), href: interviewHref(id, "ai") }
   return { kind: "link", label: t("pipeline.voir_le_resultat"), href: interviewHref(id, "cases") }

@@ -61,9 +61,9 @@ export function buildRows(codes: CodeNode[], collapsed: ReadonlySet<string> = ne
   return rows
 }
 
-/** Text a filter looks into: name, label, token, definition, aliases. */
+/** Text a filter looks into: name, label, token, definition. */
 function haystack(c: CodeNode): string {
-  return fold([c.name, c.label, c.token, c.definition, ...c.aliases.map((a) => a.alias)].join("\n"))
+  return fold([c.name, c.label, c.token, c.definition].join("\n"))
 }
 
 /**

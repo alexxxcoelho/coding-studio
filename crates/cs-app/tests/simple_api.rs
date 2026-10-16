@@ -466,9 +466,15 @@ async fn the_three_steps_reach_done_and_the_export_derives_contexts() {
         (p["n_relevant"].clone(), p["n_coded"].clone()),
         (json!(3), json!(3))
     );
-    assert_eq!(p["done"], false);
+    assert_eq!(
+        p["done"], true,
+        "coding can finish without optional AI review"
+    );
+    let (_, review) = call(app, "GET", &format!("{I}/review-state"), None).await;
+    assert_eq!(review["state"], "not_done");
+    assert_eq!(review["n_covered"], 0);
 
-    // Confront.
+    // Confront: starting optional review does not fabricate completed coverage.
     let (st, parts) = call(app, "POST", &format!("{P2}/prompts"), Some(json!({}))).await;
     assert_eq!(st, StatusCode::OK, "{parts}");
     let parts = parts.as_array().unwrap().clone();
@@ -486,6 +492,16 @@ async fn the_three_steps_reach_done_and_the_export_derives_contexts() {
     )
     .await;
     assert_eq!(st, StatusCode::OK, "{run}");
+    let (_, p) = call(app, "GET", &format!("{I}/simple"), None).await;
+    assert_eq!(
+        p["done"], true,
+        "no review decisions exist until a real response arrives"
+    );
+    assert_eq!(p["n_runs_complete"], 0);
+    let (_, review) = call(app, "GET", &format!("{I}/review-state"), None).await;
+    assert_eq!(review["state"], "in_progress");
+    assert_eq!(review["n_covered"], 0);
+    assert_eq!(review["coverage"], 0.0);
     let run_id = run["run_id"].as_i64().unwrap();
     let ai = |unit: &str| -> Vec<String> {
         if unit == u[3] {

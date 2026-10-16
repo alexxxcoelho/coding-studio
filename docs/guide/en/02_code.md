@@ -2,7 +2,7 @@
 
 ## Why this stage {#coder-pourquoi}
 
-Coding means giving each useful passage a label that says what it contains. Saldaña distinguishes a first cycle of coding, descriptive and close to the respondent's words, from later cycles that group and reword. Coding Studio follows that order: you first attach concrete codes, sometimes long ones ("Staff training judged heavier than the equipment"), then you group them, and themes only emerge in the Analyse stage. The approach is hybrid in the sense of Fereday and Muir-Cochrane (2006): you may start from a palette taken from the literature, while remaining free to create codes from the data. Braun and Clarke (2006, 2021) remind us that familiarisation comes before coding, hence the memo that opens this stage.
+Coding means giving each useful passage a label that says what it contains. Saldaña distinguishes a first cycle of coding, descriptive and close to the respondent's words, from later cycles that group and reword. Coding Studio follows that order: you first attach reusable descriptive codes ("Staff training", "Implementation effort"), separating independently expressed dimensions instead of combining them in one label, then you group them, and themes only emerge in the Analyse stage. The approach is hybrid in the sense of Fereday and Muir-Cochrane (2006): you may start from a palette taken from the literature, while remaining free to create codes from the data. Braun and Clarke (2006, 2021) remind us that familiarisation comes before coding, hence the memo that opens this stage.
 
 ## What you do {#coder-actions}
 
@@ -28,7 +28,7 @@ By default, every respondent turn is considered relevant. A code attached withou
 
 The same passage can relate to several phenomena. Attach several codes if, and only if, they describe distinct things.
 
-**In Coding Studio.** Attach a first code, then a second one to the same turn or passage: both dots appear. Fictional example: "Six months for the first two annexes, mainly because of training the volunteers; the equipment, by contrast, was ready in three weeks." The first passage carries "Staff training judged heavier than the equipment", the second "Equipment available quickly", each with its own underline. An added code never overwrites another, and a removed code stays in the history.
+**In Coding Studio.** Attach a first code, then a second one to the same turn or passage: both dots appear. Fictional example: "Six months for the first two annexes, mainly because of training the volunteers; the equipment, by contrast, was ready in three weeks." The training passage carries "Staff training" and "Implementation effort"; the equipment passage carries "Equipment availability". Keep the comparison and its scope in the memo with its source passages. Each dimension can then be compared across interviews. An added code never overwrites another, and a removed code stays in the history.
 
 ### 5. Create a code on the fly {#coder-nouveau-code}
 
@@ -47,6 +47,8 @@ If you hesitate over an important passage, do not force a code: attach "Later".
 Codes form a tree of three levels that follows the progress of the analysis: descriptive codes, focused codes that group them (the parent), then, later and elsewhere, themes. Placing a code under a parent changes no coding; merging two codes recodes all their units. These two gestures are different.
 
 **In Coding Studio.** Click "Codebook" in the top bar. For each code, the tree shows its name, its origin (literature or field), the questions it serves and its number of passages. Drag a code onto another to make it a sub-code; a code attached to a sub-code also counts for its parent in the exports. Click a code to open its record: name, definition (includes, excludes), parent, questions concerned, origin, example. "Merge into..." (Fusionner dans...) recodes all units to another code while keeping a trace of the old one. "Disable" (Désactiver) hides a code without touching past codings. Every move is dated and justified, and the codebook version changes with each modification. "Import CSV" (Importer CSV) loads a starting palette, which is not an established truth. Every three interviews, re-read the list to merge synonyms and split codes that are too broad. When a code appears midway through, the record lists the units from earlier interviews to review.
+
+A short definition is enough: “Stated business value: A purpose, problem solved, benefit as business value or a reason for the solution.” Includes and excludes remain optional under Optional details. Use Merge into, rather than Deactivate, to consolidate an old code covered by another. For a compound old code, merge into its main idea and retain the other supported codes on its passages. Aliases are not part of this workflow. Change records are retained internally; the journal is not shown in the codebook.
 
 ### 8. Keep a code memo {#coder-memo-code}
 

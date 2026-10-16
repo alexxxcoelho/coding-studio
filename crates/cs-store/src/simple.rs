@@ -32,8 +32,10 @@ pub(crate) const AUTO_MODIFIER: &str = "auto";
 /// - `n_runs_complete`: complete AI runs.
 /// - `n_disagreements`, `n_decided`: disagreements with a complete run, and those decided.
 /// - `n_sample`, `n_sample_reviewed`: sampled agreements, and those decided.
-/// - `done`: every relevant unit coded, every relevant unit covered by a
-///   complete run, every disagreement and every sample item decided.
+/// - `done`: every relevant unit coded, no pending mark or harmonisation,
+///   and every existing disagreement, sample and concept candidate decided.
+///   AI coverage is reported separately: an AI review is optional.
+///   Completion does not certify audio verification or independent validation.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct SimpleProgress {
     pub n_respondent_units: usize,
@@ -269,8 +271,6 @@ impl Store {
         )?;
         let runs = self.ai_runs(interview_id)?;
         let complete: Vec<_> = runs.iter().filter(|r| r.complete).collect();
-        let covered: BTreeSet<&String> = complete.iter().flat_map(|r| r.unit_ids.iter()).collect();
-        let all_covered = relevant.iter().all(|u| covered.contains(u));
 
         let review = self.review(interview_id)?;
         let disagreements: Vec<_> = review
@@ -289,11 +289,16 @@ impl Store {
             .count();
         let n_sample_reviewed = samples.iter().filter(|e| e.item.decision.is_some()).count();
 
-        let done = !relevant.is_empty()
+        let n_to_review = self.unit_marks(interview_id)?.len();
+        let (harmonisation_open, _) = self.harmonisation_counts(interview_id)?;
+        let candidates = self.concept_candidates(interview_id)?;
+        let done = n_respondent_units > 0
             && n_coded == relevant.len()
-            && all_covered
+            && n_to_review == 0
+            && harmonisation_open == 0
             && n_decided == disagreements.len()
-            && n_sample_reviewed == samples.len();
+            && n_sample_reviewed == samples.len()
+            && candidates.iter().all(|c| c.decision.is_some());
 
         Ok(SimpleProgress {
             n_respondent_units,
@@ -305,7 +310,7 @@ impl Store {
             n_decided,
             n_sample: samples.len(),
             n_sample_reviewed,
-            n_to_review: self.unit_marks(interview_id)?.len(),
+            n_to_review,
             done,
         })
     }

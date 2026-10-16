@@ -1,5 +1,5 @@
 // Code search for every picker (Coder list, selection menu, Codebook filter):
-// the server's GET /api/codes/search answers by name, alias, old handle, label
+// the server's GET /api/codes/search answers by name, stable handle, label
 // and definition and says which field matched. While the answer is on its way
 // (or if it fails) the screen filters the codes it already holds, so that typing
 // never waits for the network.

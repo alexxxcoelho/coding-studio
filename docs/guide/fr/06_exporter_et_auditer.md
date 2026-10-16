@@ -18,6 +18,8 @@ L'export transversal couvre l'ensemble du corpus.
 
 **Dans Coding Studio.** Dans le même bloc, cliquez sur Exporter le transversal. Le paquet contient le fichier des réponses (le texte de l'étape Rédiger), la matrice, la table de couverture des entretiens, la liste des cas, un manifeste et un fichier README qui décrit le contenu. Vous n'avez pas à construire de tableau de saturation vous-même : c'est un fichier produit par l'export à partir des codes posés.
 
+Pour un document Word rassemblant les résultats et leurs preuves, utilisez aussi [Rapport analytique Word dans Analyser](04_analyser.md#analyser-rapport).
+
 ### 3. Lire le manifeste {#exporter-manifeste}
 
 Le manifeste est la table des matières vérifiable du paquet.
@@ -66,3 +68,20 @@ Le journal d'audit complet et les copies de la base se gardent dans votre archiv
 - Le texte des résultats, les tableaux et les annexes tirés directement des exports.
 - Le résultat de l'audit final de trois affirmations.
 - Une archive cohérente de la base, des sources et des exports, prête à remettre.
+
+
+## Export final pour les correcteurs
+
+Ouvrir **Export final pour les correcteurs** depuis Analyser ou depuis le menu Exporter de la Bibliothèque. L’outil prépare un dossier local de consultation en lecture seule. Il ne publie rien.
+
+1. **Contenu.** Déplier les rubriques jusqu’au champ voulu. Cocher un dossier sélectionne tous ses champs ; décocher une feuille crée une exception. Cliquer sur un champ affiche son aperçu. Les textes complets sont exportés, même si l’aperçu est limité. Les fichiers originaux, fiches de personnes, métadonnées d’entretien et passes IA sont décochés au départ. Pour une transcription non segmentée, sélectionner son fichier source. Une référence ne réintroduit jamais le contenu d’un objet exclu.
+2. **Accès.** Choisir et conserver une phrase de passe unique d’au moins 16 caractères. Elle ne sera pas enregistrée dans l’export et ne pourra pas être récupérée. La transmettre séparément. L’adresse HTTPS est facultative : sans hébergement défini, laisser ce champ vide. Aucun lien public ni QR ne sera créé. Avec une adresse réelle, URL.txt et QR.svg correspondent à cette adresse ; aucune mise en ligne n’est effectuée.
+3. **Vérification.** Relire la sélection, son volume et les options de pseudonymisation, puis créer l’export protégé. Le fichier upload.zip contient uniquement le lecteur et ses données chiffrées, jamais la base de travail ni le mot de passe. Héberger son contenu complet sur un serveur HTTPS de confiance et tester ensuite le lien réel.
+
+Le lecteur recherche dans les champs inclus. Il s’ouvre avec le mot de passe dans un navigateur récent autorisant WebCrypto. Pour les pièces jointes depuis le disque, choisir le sous-dossier data dans le lecteur. En ligne, elles sont chargées depuis le même hébergement. Les fichiers sont chiffrés par morceaux ; un fichier de plus de 1 Gio est refusé avec une erreur explicite, sans troncature. Les noms de téléchargement sont neutres ; le nom original reste un champ sélectionnable séparément.
+
+La liste de pseudonymisation ne remplace que les formes de noms configurées, sur une copie. Zéro remplacement ne signifie pas anonyme. Les fichiers originaux ne sont pas pseudonymisés : ils peuvent révéler des voix ou des identités. Le mot de passe protège le contenu chiffré, mais il ne constitue pas une gestion de comptes et ne permet pas de révoquer une copie déjà téléchargée. Un projet modifié depuis l’ouverture du catalogue impose de recommencer la sélection. Un fichier source modifié ou absent fait échouer la génération, sans dossier final incomplet.
+
+## Style des notes
+
+Utiliser des notes courtes, en puces si utile : idée, passage utile, contraste, question ouverte, limite. Les mémos d’entretien, fiches de thèmes et zones de rédaction servent de prise de notes du chercheur. Une définition de code tient en une phrase simple. Une note ou un statut de traitement ne remplace pas la vérification ciblée d’une citation contre l’enregistrement.

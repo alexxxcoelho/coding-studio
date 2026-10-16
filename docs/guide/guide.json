@@ -113,6 +113,11 @@
           "anchor": "preparer-modele"
         },
         {
+          "level": 3,
+          "title": "13. Ajouter un entretien à un corpus déjà analysé",
+          "anchor": "preparer-ajouter"
+        },
+        {
           "level": 2,
           "title": "Pièges fréquents",
           "anchor": "preparer-pieges"
@@ -350,6 +355,11 @@
           "level": 3,
           "title": "10. Documenter les décisions",
           "anchor": "analyser-decisions"
+        },
+        {
+          "level": 3,
+          "title": "11. Exporter le rapport analytique Word",
+          "anchor": "analyser-rapport"
         },
         {
           "level": 2,
@@ -681,6 +691,11 @@
               "anchor": "preparer-modele"
             },
             {
+              "level": 3,
+              "title": "13. Add an interview to an already analysed corpus",
+              "anchor": "preparer-ajouter"
+            },
+            {
               "level": 2,
               "title": "Common pitfalls",
               "anchor": "preparer-pieges"
@@ -918,6 +933,11 @@
               "level": 3,
               "title": "10. Document the decisions",
               "anchor": "analyser-decisions"
+            },
+            {
+              "level": 3,
+              "title": "11. Export the Word analysis report",
+              "anchor": "analyser-rapport"
             },
             {
               "level": 2,

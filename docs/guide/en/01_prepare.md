@@ -66,7 +66,7 @@ An interpretive framework is a theoretical grid used to read your themes once th
 
 The interviewer's turns give context, but they are not coded. The tool therefore needs to know which turns they are.
 
-**In Coding Studio.** In "Settings", "Study" block, field "Interviewer names" (Noms des intervieweurs), enter the names or labels as they appear in your transcripts (for example INT). The matching turns are shown in grey on the "Coding" screen and are never sent to a model.
+**In Coding Studio.** In "Settings", "Study" block, field "Interviewer names" (Noms des intervieweurs), enter the names or labels as they appear in your transcripts (for example INT). The matching turns are shown in grey on the "Coding" screen and are never coding targets. A question may be supplied to the model as context for the respondent’s turn; it is not respondent evidence. Review the prompt and its pseudonymisation before any transmission.
 
 ### 9. Import the transcripts and read the "Library" (Bibliothèque) {#preparer-bibliotheque}
 
@@ -91,6 +91,21 @@ Pseudonymisation protects respondents and their organisations. It applies to you
 A project template reuses your choices for a new study, without the data.
 
 **In Coding Studio.** In the "Study models and lists" block, "Export" (Exporter) writes a JSON file with the description, questions, rules, framework, attributes, memo templates, editable lists and matrix dimensions. It contains no transcript, no coding and no written memo. In a new database, "Import a project template (JSON)" (Importer un modèle de projet (JSON)) fills in these fields: check them before you start.
+
+### 13. Add an interview to an already analysed corpus {#preparer-ajouter}
+
+A new interview extends the study. Use the current codebook as a starting point without forcing the new account into existing conclusions. The whole corpus does not need to be recoded.
+
+1. Back up the project before importing. In Library, use Import transcripts, then check the source, speakers, timestamps, segmentation and attributes. Do not replace the sources of previously coded interviews.
+2. Read the whole interview and write the familiarisation memo before coding. Distinguish lived experience, reported observations, expectations and hypotheses. Interviewer questions provide context, never respondent evidence on their own.
+3. Code exact passages with the current codebook. For an English-language thesis, keep code names and definitions in English, and verbatim quotations in their original language. Reuse the same code for a common phenomenon across sectors and speakers. Add each independently expressed dimension separately: “Stock visibility” describes the phenomenon; add “Stated business value” only when the respondent frames it as business value. A passage can carry both. Do not combine them into a composite label.
+4. Examine every respondent turn. Explicitly mark out-of-scope passages NA; retain uncertainty for review instead of inventing a code. Refine the initial selections at the end of the session: passage boundaries, independent codes, definitions, inclusion and exclusion criteria, memo and example quotation.
+5. Create or split a code only when a useful distinction is missing. Document the reason and codebook version. Use Lexicon, keyword in context and similar passages to locate possible occurrences in earlier interviews, then reread their context. Revise only affected passages and close their harmonisation items; a search hit is not enough to apply a code.
+6. AI review remains optional. If used, preserve the frozen codebook and reference reading, prompt, actual response and decisions. Arbitrate disagreements, check sampled agreements and decide candidate concepts. An earlier run does not automatically cover new passages or a revised codebook. AI-assisted construction is not independent human validation and must be disclosed accordingly.
+7. Check that the final decided codes are actually attached to the exact source passages used in analysis. Recording an arbitration does not replace checking the highlights. Complete the checklist, memo and pending review items. Check thesis quotations and uncertain passages against available audio; audio availability does not mean that listening has taken place.
+8. Refresh themes, counter-examples, annotated matrix cells and evidence links, cases and research-question syntheses. Recompute lexical exploration and attribute frequencies; frequency does not establish analytical importance. Revise the Write findings text before regenerating dated exports and the analysis report. The report reproduces stored text and evidence; generating it does not itself validate the findings.
+
+**Read the progress indicators.** Coding counts examined turns, coded or explicitly out of scope, against respondent turns. Later, to-review marks, harmonisation and open decisions remain unfinished work. AI review displays its own coverage and can remain absent or partial without cancelling completed coding. The arbitration counter includes disagreements and sampled agreements in both numerator and denominator. Ready describes a working state in the tool, not audio certification or independent scientific validation.
 
 ## Common pitfalls {#preparer-pieges}
 

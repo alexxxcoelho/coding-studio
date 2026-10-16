@@ -19,6 +19,8 @@ Le travail suit six temps. Le parcours n'est pas une cascade : revenir aux entre
 
 Dans l'application, les étapes 2 à 5 forment la barre numérotée de l'écran d'un entretien. Les étapes 1 et 6 se font depuis la Bibliothèque et les Réglages.
 
+Pour ajouter un entretien après l'analyse, suivez le [parcours d'ajout au corpus](01_preparer.md#preparer-ajouter). Il comprend la reprise ciblée des anciens passages et la mise à jour de l'analyse.
+
 ## Les écrans de l'application {#sommaire-ecrans}
 
 La navigation du haut offre la Bibliothèque, l'Analyser, Rédiger, le Codebook, les Réglages et le Guide, plus l'entretien ouvert. Chaque écran porte en haut à droite un bouton « ? » qui ouvre la section correspondante du guide dans un tiroir latéral, sans quitter l'écran.

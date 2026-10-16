@@ -94,7 +94,7 @@ async fn f45_stats_are_in_api_codes_and_on_the_per_code_route() {
 }
 
 #[tokio::test]
-async fn f41_code_search_finds_names_aliases_and_definitions() {
+async fn f41_code_search_finds_names_and_definitions_without_aliases() {
     let ctx = setup().await;
     let adv = code_id(&ctx.app, "TECH-ADV").await;
     let made = ok(
@@ -117,7 +117,7 @@ async fn f41_code_search_finds_names_aliases_and_definitions() {
     assert_eq!(r["items"][0]["code_id"], json!(eco));
     assert_eq!(r["items"][0]["matched"]["field"], "name");
     let r = ok(&ctx.app, "GET", "/api/codes/search?q=circular", None).await;
-    assert_eq!(r["items"][0]["matched"]["field"], "alias");
+    assert!(r["items"].as_array().unwrap().is_empty());
     let r = ok(&ctx.app, "GET", "/api/codes/search?q=%C3%A9tiquet", None).await;
     assert_eq!(r["items"][0]["matched"]["field"], "definition");
     // The legacy label of an imported code.

@@ -3,6 +3,7 @@
 //! protocol rules live in `cs-store`, `cs-ai` and `cs-model`, never here.
 //! The contract is documented in `docs/API.md`.
 
+mod analysis_report;
 pub mod bundle;
 pub mod cli;
 pub mod docx;
@@ -18,6 +19,7 @@ mod lexicon;
 mod persons;
 mod providers;
 mod qdpx;
+mod reviewer_export;
 mod v1;
 mod v1_analysis;
 mod v1_project;

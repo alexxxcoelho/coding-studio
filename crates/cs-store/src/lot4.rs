@@ -745,6 +745,16 @@ impl Store {
     /// The worklist: the items of an interview (all interviews when `None`),
     /// open ones first, in unit order.
     pub fn harmonisation(&self, interview_id: Option<&str>) -> Result<Vec<HarmonisationView>> {
+        self.harmonisation_filtered(interview_id, None)
+    }
+
+    // A single resolution must not rebuild every other item's source and code
+    // metadata. The public worklist and the resolution use the same projection.
+    fn harmonisation_filtered(
+        &self,
+        interview_id: Option<&str>,
+        item_id: Option<i64>,
+    ) -> Result<Vec<HarmonisationView>> {
         if let Some(id) = interview_id {
             self.require_interview(id)?;
         }
@@ -766,10 +776,11 @@ impl Store {
             "SELECT item_id, interview_id, unit_id, code_id, cause, detail, created_at,
                     resolved_at, resolved_by, resolution, note, created_by
              FROM harmonisation_items WHERE (?1 IS NULL OR interview_id = ?1)
+               AND (?2 IS NULL OR item_id = ?2)
              ORDER BY (resolved_at IS NOT NULL), interview_id, unit_id, item_id",
         )?;
         let rows: Vec<Row> = stmt
-            .query_map([interview_id], |r| {
+            .query_map(params![interview_id, item_id], |r| {
                 Ok((
                     r.get(0)?,
                     r.get(1)?,
@@ -924,7 +935,7 @@ impl Store {
             json!({"item_id": item_id, "unit_id": unit_id, "resolution": resolution, "note": note}),
         )?;
         tx.commit()?;
-        self.harmonisation(Some(interview_id))?
+        self.harmonisation_filtered(Some(interview_id), Some(item_id))?
             .into_iter()
             .find(|v| v.item_id == item_id)
             .ok_or_else(|| not_found(format!("harmonisation item {item_id}")))

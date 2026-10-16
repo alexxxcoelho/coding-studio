@@ -17,7 +17,6 @@ Paramètres de l'étude
 Guide
 [title] 1 nom remplacé avant tout envoi à un modèle. Le texte libre n'est pas couvert. Les textes ne quittent jamais la machine sans un geste explicite.
 Pseudonymisation active
-Serveur injoignable
 [aria-label] Réglages
 Réglages
 Ctrl+,
@@ -70,7 +69,6 @@ Paramètres de l'étude
 Guide
 [title] 1 nom remplacé avant tout envoi à un modèle. Le texte libre n'est pas couvert. Les textes ne quittent jamais la machine sans un geste explicite.
 Pseudonymisation active
-Serveur injoignable
 [aria-label] Réglages
 Réglages
 Ctrl+,
@@ -78,7 +76,6 @@ Codebook
 [title] Version undefined · 0 codes actifs · 0 fusionné
 Version undefined · 0 codes actifs · 0 fusionné
 Historique
-Journal
 Importer CSV…
 [aria-label] Nouveau code
 [title] Nouveau code
@@ -112,7 +109,6 @@ Paramètres de l'étude
 Guide
 [title] 1 nom remplacé avant tout envoi à un modèle. Le texte libre n'est pas couvert. Les textes ne quittent jamais la machine sans un geste explicite.
 Pseudonymisation active
-Serveur injoignable
 [aria-label] Réglages
 Réglages
 Ctrl+,
@@ -171,7 +167,6 @@ Paramètres de l'étude
 Guide
 [title] 1 nom remplacé avant tout envoi à un modèle. Le texte libre n'est pas couvert. Les textes ne quittent jamais la machine sans un geste explicite.
 Pseudonymisation active
-Serveur injoignable
 [aria-label] Réglages
 Réglages
 Ctrl+,
@@ -203,7 +198,6 @@ Paramètres de l'étude
 Guide
 [title] 1 nom remplacé avant tout envoi à un modèle. Le texte libre n'est pas couvert. Les textes ne quittent jamais la machine sans un geste explicite.
 Pseudonymisation active
-Serveur injoignable
 [aria-label] Réglages
 Réglages
 Ctrl+,
@@ -237,7 +231,6 @@ Paramètres de l'étude
 Guide
 [title] 1 nom remplacé avant tout envoi à un modèle. Le texte libre n'est pas couvert. Les textes ne quittent jamais la machine sans un geste explicite.
 Pseudonymisation active
-Serveur injoignable
 [aria-label] Réglages
 Réglages
 Ctrl+,
@@ -402,7 +395,6 @@ Paramètres de l'étude
 Guide
 [title] 1 nom remplacé avant tout envoi à un modèle. Le texte libre n'est pas couvert. Les textes ne quittent jamais la machine sans un geste explicite.
 Pseudonymisation active
-Serveur injoignable
 [aria-label] Réglages
 Réglages
 Ctrl+,
@@ -440,13 +432,15 @@ Paramètres de l'étude
 Guide
 [title] 1 nom remplacé avant tout envoi à un modèle. Le texte libre n'est pas couvert. Les textes ne quittent jamais la machine sans un geste explicite.
 Pseudonymisation active
-Serveur injoignable
 [aria-label] Réglages
 Réglages
 Ctrl+,
 Analyser
 [title] Des codes aux thèmes, puis comparaison des entretiens
 Des codes aux thèmes, puis comparaison des entretiens
+Export final pour les correcteurs
+[title] Exporter les résultats enregistrés, les comparaisons et leurs sources, sans génération IA.
+Rapport analytique Word
 [aria-label] Onglets d'Analyser
 Thèmes
 Matrice
@@ -489,7 +483,6 @@ Paramètres de l'étude
 Guide
 [title] 1 nom remplacé avant tout envoi à un modèle. Le texte libre n'est pas couvert. Les textes ne quittent jamais la machine sans un geste explicite.
 Pseudonymisation active
-Serveur injoignable
 [aria-label] Réglages
 Réglages
 Ctrl+,
@@ -530,7 +523,6 @@ Paramètres de l'étude
 Guide
 [title] 1 nom remplacé avant tout envoi à un modèle. Le texte libre n'est pas couvert. Les textes ne quittent jamais la machine sans un geste explicite.
 Pseudonymisation active
-Serveur injoignable
 [aria-label] Réglages
 Réglages
 Ctrl+,
@@ -583,7 +575,6 @@ Paramètres de l'étude
 Guide
 [title] 1 nom remplacé avant tout envoi à un modèle. Le texte libre n'est pas couvert. Les textes ne quittent jamais la machine sans un geste explicite.
 Pseudonymisation active
-Serveur injoignable
 [aria-label] Réglages
 Réglages
 Ctrl+,
@@ -623,7 +614,6 @@ Paramètres de l'étude
 Guide
 [title] 1 nom remplacé avant tout envoi à un modèle. Le texte libre n'est pas couvert. Les textes ne quittent jamais la machine sans un geste explicite.
 Pseudonymisation active
-Serveur injoignable
 [aria-label] Réglages
 Réglages
 Ctrl+,
@@ -667,6 +657,9 @@ Analyser (sur l'ensemble des entretiens). Vous regroupez les codes en thèmes, v
 Rédiger (sur l'ensemble des entretiens). Vous écrivez le texte des résultats thème par thème, vous reliez chaque passage cité à la partie qu'il soutient, puis vous répondez à chaque question de recherche.
 Exporter et auditer. Vous produisez les paquets d'export, vous vérifiez le journal d'audit, vous contrôlez trois affirmations au hasard et vous constituez vos annexes.
 Dans l'application, les étapes 2 à 5 forment la barre numérotée de l'écran d'un entretien. Les étapes 1 et 6 se font depuis la Bibliothèque et les Réglages.
+Pour ajouter un entretien après l'analyse, suivez le
+parcours d'ajout au corpus
+. Il comprend la reprise ciblée des anciens passages et la mise à jour de l'analyse.
 Les écrans de l'application
 La navigation du haut offre la Bibliothèque, l'Analyser, Rédiger, le Codebook, les Réglages et le Guide, plus l'entretien ouvert. Chaque écran porte en haut à droite un bouton « ? » qui ouvre la section correspondante du guide dans un tiroir latéral, sans quitter l'écran.
 Bibliothèque : la liste des entretiens, l'import et la fiche. Voir
@@ -743,7 +736,6 @@ Paramètres de l'étude
 Guide
 [title] 1 nom remplacé avant tout envoi à un modèle. Le texte libre n'est pas couvert. Les textes ne quittent jamais la machine sans un geste explicite.
 Pseudonymisation active
-Serveur injoignable
 [aria-label] Réglages
 Réglages
 Ctrl+,
@@ -820,7 +812,7 @@ Dans Réglages, bloc Modèles et listes de l'étude, section Cadre d'interpréta
 8. Déclarer les intervieweurs
 Les tours de l'intervieweur donnent le contexte, mais ne se codent pas. L'outil doit donc savoir lesquels ils sont.
 Dans Coding Studio.
-Dans Réglages, bloc Étude, champ Noms des intervieweurs, saisissez les noms ou étiquettes tels qu'ils figurent dans vos transcriptions (par exemple INT). Les tours correspondants s'affichent en gris dans l'écran Coder et ne partent jamais vers un modèle.
+Dans Réglages, bloc Étude, champ Noms des intervieweurs, saisissez les noms ou étiquettes tels qu'ils figurent dans vos transcriptions (par exemple INT). Les tours correspondants s'affichent en gris dans l'écran Coder et ne sont jamais des cibles de codage. Une question peut être fournie au modèle comme contexte du tour du répondant ; elle ne constitue pas une preuve du répondant. Relisez le prompt et sa pseudonymisation avant tout envoi.
 9. Importer les transcriptions et lire la Bibliothèque
 Importez des transcriptions déjà épurées : locuteurs identifiés, repères de temps, noms pseudonymisés si vos engagements l'exigent.
 Dans Coding Studio.
@@ -843,6 +835,18 @@ Dans Réglages, bloc Fournisseurs IA, cochez Pseudonymiser les noms de personnes
 Un modèle de projet réutilise vos choix pour une nouvelle étude, sans les données.
 Dans Coding Studio.
 Dans Réglages, bloc Modèles et listes de l'étude, Exporter écrit un fichier JSON avec description, questions, règles, cadre, attributs, modèles de mémo, listes éditables et dimensions de matrice. Il ne contient ni transcription, ni codage, ni mémo rédigé. Dans une nouvelle base, Importer un modèle de projet (JSON) remplit ces champs : relisez-les avant de commencer.
+13. Ajouter un entretien à un corpus déjà analysé
+Un nouvel entretien prolonge l'étude. Le codebook courant sert de point de départ, sans imposer aux nouveaux propos les conclusions existantes. Il n'est pas nécessaire de recoder tout le corpus.
+Sauvegardez le projet avant l'import. Dans Bibliothèque, utilisez Importer des transcriptions, puis vérifiez la source, les locuteurs, les repères, la segmentation et les attributs. Ne remplacez pas les sources des entretiens déjà codés.
+Lisez l'entretien entier et rédigez le mémo de familiarisation avant le premier codage. Distinguez récit vécu, observation rapportée, attente et hypothèse. Les questions de l'intervieweur donnent le contexte, jamais une preuve du répondant par elles-mêmes.
+Codez les passages exacts avec le codebook courant. Pour une thèse en anglais, conservez les noms et définitions des codes en anglais, et les verbatims dans leur langue originale. Réutilisez un code commun pour un même phénomène, indépendamment du secteur ou du locuteur. Ajoutez séparément chaque dimension effectivement exprimée : « Stock visibility » décrit le phénomène ; « Stated business value » s'ajoute uniquement si le répondant le présente comme une valeur métier. Un passage peut porter les deux. Ne les fusionnez pas dans un intitulé composite.
+Examinez tous les tours du répondant. Marquez explicitement NA les passages hors périmètre ; laissez une incertitude à revoir plutôt que d'inventer un code. Affinez les premières sélections en fin de séance : limites du passage, codes indépendants, définition, critères d'inclusion et d'exclusion, mémo et citation d'exemple.
+Créez ou scindez un code seulement si une distinction utile n'est pas couverte. Documentez la raison et la version du codebook. Utilisez Lexique, recherche en contexte et passages proches pour retrouver les occurrences possibles dans les anciens entretiens, puis relisez-les avec leur contexte. Corrigez seulement les passages concernés et clôturez leur harmonisation ; un résultat de recherche ne suffit pas à appliquer un code.
+La revue IA reste facultative. Si vous la lancez, conservez le codebook et la lecture de référence figés, le prompt, la réponse réelle et les décisions. Arbitrez les désaccords, contrôlez les accords échantillonnés et traitez les concepts proposés. Une ancienne passe ne couvre pas automatiquement les nouveaux passages ou un codebook révisé. Une construction assistée par IA n'est pas une validation humaine indépendante et doit être déclarée comme telle.
+Contrôlez que les codes finaux décidés se retrouvent bien sur les passages exacts utilisés dans l'analyse. Une décision d'arbitrage enregistrée ne remplace pas ce contrôle des surlignages. Terminez la liste de contrôle, le mémo et les éléments à revoir. Vérifiez à l'audio les citations destinées à la thèse et les passages incertains pour lesquels un enregistrement existe ; ne confondez pas disponibilité de l'audio et réécoute effectuée.
+Actualisez les thèmes, leurs contre-exemples, les cellules de matrice commentées et leurs liens de preuve, les cas et la synthèse par question. Recalculez les explorations lexicales et les fréquences par attribut ; la fréquence n'est pas l'importance analytique. Révisez le texte de Rédiger avant de régénérer les exports datés et le rapport d'analyse. Le rapport reprend les textes et preuves enregistrés ; il n'atteste pas à lui seul leur validation.
+Lire l'avancement.
+Le compteur de codage mesure les tours examinés, codés ou explicitement hors périmètre, sur les tours du répondant. « Plus tard », les marques à revoir, les harmonisations et les décisions ouvertes restent du travail à faire. La revue IA affiche sa propre couverture et peut rester absente ou partielle sans annuler un codage terminé. Le compteur d'arbitrage inclut les désaccords et les accords échantillonnés, au numérateur comme au dénominateur. « Prêt » décrit un état de travail dans l'outil, pas une certification de réécoute ou une validation scientifique indépendante.
 Pièges fréquents
 Écrire des questions trop larges pour guider la lecture. Une question à laquelle on répond par « tout » n'oriente rien.
 Oublier le statut des propos, puis comparer comme équivalents un déploiement vécu et un avis d'expert.
@@ -883,7 +887,6 @@ Paramètres de l'étude
 Guide
 [title] 1 nom remplacé avant tout envoi à un modèle. Le texte libre n'est pas couvert. Les textes ne quittent jamais la machine sans un geste explicite.
 Pseudonymisation active
-Serveur injoignable
 [aria-label] Réglages
 Réglages
 Ctrl+,
@@ -918,7 +921,6 @@ Paramètres de l'étude
 Guide
 [title] 1 nom remplacé avant tout envoi à un modèle. Le texte libre n'est pas couvert. Les textes ne quittent jamais la machine sans un geste explicite.
 Pseudonymisation active
-Serveur injoignable
 [aria-label] Réglages
 Réglages
 Ctrl+,
@@ -950,7 +952,6 @@ Paramètres de l'étude
 Guide
 [title] 1 nom remplacé avant tout envoi à un modèle. Le texte libre n'est pas couvert. Les textes ne quittent jamais la machine sans un geste explicite.
 Pseudonymisation active
-Serveur injoignable
 [aria-label] Réglages
 Réglages
 Ctrl+,
@@ -1005,7 +1006,6 @@ Paramètres de l'étude
 Guide
 [title] 1 nom remplacé avant tout envoi à un modèle. Le texte libre n'est pas couvert. Les textes ne quittent jamais la machine sans un geste explicite.
 Pseudonymisation active
-Serveur injoignable
 [aria-label] Réglages
 Réglages
 Ctrl+,
@@ -1048,7 +1048,6 @@ Paramètres de l'étude
 Guide
 [title] 1 nom remplacé avant tout envoi à un modèle. Le texte libre n'est pas couvert. Les textes ne quittent jamais la machine sans un geste explicite.
 Pseudonymisation active
-Serveur injoignable
 [aria-label] Réglages
 Réglages
 Ctrl+,
@@ -1091,7 +1090,6 @@ Paramètres de l'étude
 Guide
 [title] 1 nom remplacé avant tout envoi à un modèle. Le texte libre n'est pas couvert. Les textes ne quittent jamais la machine sans un geste explicite.
 Pseudonymisation active
-Serveur injoignable
 [aria-label] Réglages
 Réglages
 Ctrl+,
@@ -1133,7 +1131,6 @@ Paramètres de l'étude
 Guide
 [title] 1 nom remplacé avant tout envoi à un modèle. Le texte libre n'est pas couvert. Les textes ne quittent jamais la machine sans un geste explicite.
 Pseudonymisation active
-Serveur injoignable
 [aria-label] Réglages
 Réglages
 Ctrl+,
@@ -1168,7 +1165,6 @@ Paramètres de l'étude
 Guide
 [title] 1 nom remplacé avant tout envoi à un modèle. Le texte libre n'est pas couvert. Les textes ne quittent jamais la machine sans un geste explicite.
 Pseudonymisation active
-Serveur injoignable
 [aria-label] Réglages
 Réglages
 Ctrl+,
@@ -1203,7 +1199,6 @@ Paramètres de l'étude
 Guide
 [title] 1 nom remplacé avant tout envoi à un modèle. Le texte libre n'est pas couvert. Les textes ne quittent jamais la machine sans un geste explicite.
 Pseudonymisation active
-Serveur injoignable
 [aria-label] Réglages
 Réglages
 Ctrl+,
@@ -1311,12 +1306,12 @@ Aide
 Coder un entretien, tiré du guide de Coding Studio.
 Coder un entretien
 Pourquoi cette étape
-Coder, c'est donner à chaque passage utile une étiquette qui dit ce qu'il contient. Saldaña distingue un premier cycle de codage, descriptif et proche des mots du répondant, et des cycles ultérieurs qui regroupent et reformulent. Coding Studio suit cet ordre : vous posez d'abord des codes concrets, parfois longs (« Formation du personnel jugée plus lourde que le matériel »), puis vous les regroupez, et les thèmes ne naissent qu'à l'étape Analyser. L'approche est hybride au sens de Fereday et Muir-Cochrane (2006) : vous pouvez partir d'une palette issue de la littérature, tout en restant libre de créer des codes à partir des données. Braun et Clarke (2006, 2021) rappellent que la familiarisation précède le codage, d'où le mémo qui ouvre cette étape.
+Coder, c'est donner à chaque passage utile une étiquette qui dit ce qu'il contient. Saldaña distingue un premier cycle de codage, descriptif et proche des mots du répondant, et des cycles ultérieurs qui regroupent et reformulent. Coding Studio suit cet ordre : vous posez d'abord des codes descriptifs réutilisables (« Staff training », « Implementation effort »), en séparant les dimensions plutôt que de les combiner dans un seul intitulé, puis vous les regroupez, et les thèmes ne naissent qu'à l'étape Analyser. L'approche est hybride au sens de Fereday et Muir-Cochrane (2006) : vous pouvez partir d'une palette issue de la littérature, tout en restant libre de créer des codes à partir des données. Braun et Clarke (2006, 2021) rappellent que la familiarisation précède le codage, d'où le mémo qui ouvre cette étape.
 Ce que vous faites
 1. Écrire le mémo de familiarisation
 Avant de coder, lisez l'entretien en entier, puis répondez aux questions du modèle de mémo, une page au plus. Pour les trois premiers entretiens, ce mémo précède tout codage : il fixe votre première compréhension du cas avant que les codes ne la découpent.
 Dans Coding Studio.
-Dans la Bibliothèque, double-cliquez sur l'entretien, ou cliquez sur Coder dans sa fiche. Lors de la première visite, le panneau Mémo de familiarisation (modèle : Par défaut) s'ouvre en premier, avant tout codage. Il affiche les questions du modèle choisi dans la fiche : avec le modèle générique, que raconte l
+Dans la Bibliothèque, double-cliquez sur l'entretien, ou cliquez sur Coder dans sa fiche. Lors de la première visite, le panneau Mémo de familiarisation (modèle : Par défaut) s'ouvre en premier, avant tout codage. Il affiche les questions du modèl
 
 == aide analyser ==
 Aide
@@ -1353,9 +1348,9 @@ Aide
 Coder un entretien, tiré du guide de Coding Studio.
 Coder un entretien
 Pourquoi cette étape
-Coder, c'est donner à chaque passage utile une étiquette qui dit ce qu'il contient. Saldaña distingue un premier cycle de codage, descriptif et proche des mots du répondant, et des cycles ultérieurs qui regroupent et reformulent. Coding Studio suit cet ordre : vous posez d'abord des codes concrets, parfois longs (« Formation du personnel jugée plus lourde que le matériel »), puis vous les regroupez, et les thèmes ne naissent qu'à l'étape Analyser. L'approche est hybride au sens de Fereday et Muir-Cochrane (2006) : vous pouvez partir d'une palette issue de la littérature, tout en restant libre de créer des codes à partir des données. Braun et Clarke (2006, 2021) rappellent que la familiarisation précède le codage, d'où le mémo qui ouvre cette étape.
+Coder, c'est donner à chaque passage utile une étiquette qui dit ce qu'il contient. Saldaña distingue un premier cycle de codage, descriptif et proche des mots du répondant, et des cycles ultérieurs qui regroupent et reformulent. Coding Studio suit cet ordre : vous posez d'abord des codes descriptifs réutilisables (« Staff training », « Implementation effort »), en séparant les dimensions plutôt que de les combiner dans un seul intitulé, puis vous les regroupez, et les thèmes ne naissent qu'à l'étape Analyser. L'approche est hybride au sens de Fereday et Muir-Cochrane (2006) : vous pouvez partir d'une palette issue de la littérature, tout en restant libre de créer des codes à partir des données. Braun et Clarke (2006, 2021) rappellent que la familiarisation précède le codage, d'où le mémo qui ouvre cette étape.
 Ce que vous faites
 1. Écrire le mémo de familiarisation
 Avant de coder, lisez l'entretien en entier, puis répondez aux questions du modèle de mémo, une page au plus. Pour les trois premiers entretiens, ce mémo précède tout codage : il fixe votre première compréhension du cas avant que les codes ne la découpent.
 Dans Coding Studio.
-Dans la Bibliothèque, double-cliquez sur l'entretien, ou cliquez sur Coder dans sa fiche. Lors de la première visite, le panneau Mémo de familiarisation (modèle : Par défaut) s'ouvre en premier, avant tout codage. Il affiche les questions du modèle choisi dans la fiche : avec le modèle générique, que raconte l
+Dans la Bibliothèque, double-cliquez sur l'entretien, ou cliquez sur Coder dans sa fiche. Lors de la première visite, le panneau Mémo de familiarisation (modèle : Par défaut) s'ouvre en premier, avant tout codage. Il affiche les questions du modèl

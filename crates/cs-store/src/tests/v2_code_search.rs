@@ -49,16 +49,13 @@ fn a_name_prefix_matches_without_accents_or_case() {
 }
 
 #[test]
-fn an_alias_is_found_and_says_so() {
-    let (s, _d, eco, ..) = fixture();
-    let r = search(&s, "circular");
-    assert_eq!(ids(&r), [eco]);
-    assert_eq!(r.items[0].matched.field, "alias");
-    assert_eq!(r.items[0].matched.text, "Circular economy");
+fn historical_aliases_do_not_participate_in_search() {
+    let (s, _d, ..) = fixture();
+    assert!(search(&s, "circular").items.is_empty());
 }
 
 #[test]
-fn the_legacy_token_and_the_renamed_former_name_are_found() {
+fn stable_tokens_are_found_but_renamed_former_names_are_not() {
     let (s, _d, eco, ..) = fixture();
     s.update_code(
         &eco,
@@ -69,10 +66,9 @@ fn the_legacy_token_and_the_renamed_former_name_are_found() {
         ACTOR,
     )
     .unwrap();
-    // The former name is an alias now.
+    // Historical aliases are retained for old references, not searched.
     let r = search(&s, "econom");
-    assert_eq!(ids(&r)[0], eco);
-    assert_eq!(r.items[0].matched.field, "alias");
+    assert!(r.items.is_empty());
     // The tokens of the imported codebook (TECH-ADV and others).
     let r = search(&s, "tech-a");
     assert!(!r.items.is_empty());
@@ -116,10 +112,11 @@ fn inactive_and_merged_codes_are_left_out_unless_asked() {
         .unwrap();
     assert_eq!(ids(&r), std::slice::from_ref(&cost));
     assert!(!r.items[0].active);
-    // The merged name finds the target.
+    // A merge resolves by stable identity without adding a search alias.
     s.set_code_active(&cost, true, ACTOR).unwrap();
     s.merge_code(&cost, &eco, "same idea", ACTOR).unwrap();
-    assert_eq!(ids(&search(&s, "cout"))[0], eco);
+    assert!(search(&s, "cout").items.is_empty());
+    assert_eq!(s.resolve_code(&cost).unwrap().code_id, eco);
 }
 
 #[test]

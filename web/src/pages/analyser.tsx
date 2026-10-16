@@ -1,3 +1,4 @@
+import { ReviewerExport } from "@/components/reviewer-export"
 // Analyser (step 3): from codes to themes, then comparison of the interviews.
 // Tabs: Thèmes (list, sheet, code tree to drag from), Matrice, Explorer,
 // Décisions documentées. Guide: docs/guide/fr/04_analyser.md.
@@ -17,6 +18,9 @@ import { EmptyState, PageTitle } from "@/components/bits"
 import { ToolbarActions } from "@/components/toolbar"
 import { Skeleton } from "@/components/ui/skeleton"
 import { t } from "@/i18n"
+import { request } from "@/lib/api"
+import { toast } from "sonner"
+import { Button } from "@/components/ui/button"
 import { analysisApi } from "@/lib/analysis-api"
 import { akeys, invalidateThemes, useCasesAll, useQuestions, useTheme, useThemes } from "@/lib/analysis-hooks"
 import { useCodes, useProjectConfig } from "@/lib/hooks"
@@ -88,11 +92,20 @@ function ThemesTab() {
 
 export function AnalyserPage() {
   const projectQ = useProjectConfig()
+  const [reviewerOpen, setReviewerOpen] = useState(false)
   const [tab, setTab] = useState<Tab>("themes")
+  const exportReport = useMutation({
+    mutationFn: () => request<{ dir: string }>("POST", "/api/analysis/export"),
+    onSuccess: (r) => toast.success(t("analyser.export_report_saved", { dir: r.dir })),
+    onError: (e) => reportError(e, t("rediger.export_impossible")),
+  })
   return (
     <>
+      <ReviewerExport open={reviewerOpen} onOpenChange={setReviewerOpen} />
       <PageTitle title={t("common.analyser")} sub={t("analyser.des_codes_aux_themes_puis")} />
       <ToolbarActions>
+        <Button variant="outline" onClick={() => setReviewerOpen(true)}>{t("reviewer.title")}</Button>
+        <Button variant="outline" onClick={() => exportReport.mutate()} disabled={exportReport.isPending} title={t("analyser.export_report_help")}>{t("analyser.export_report")}</Button>
         <TabBar tabs={TABS} value={tab} onChange={setTab} label={t("analyser.onglets_d_analyser")} />
       </ToolbarActions>
       <div role="tabpanel" aria-label={TABS.find((t) => t.id === tab)?.label} className="pt-1">

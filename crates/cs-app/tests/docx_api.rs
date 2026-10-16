@@ -122,3 +122,111 @@ async fn the_route_streams_the_same_document() {
     assert_eq!(&bytes[..2], b"PK");
     assert!(entry(&bytes, "word/document.xml").contains("Le stock devient exact."));
 }
+
+#[tokio::test]
+async fn analysis_report_is_deterministic_traceable_and_separate_from_writeup() {
+    let ctx = written().await;
+    let mut documents = Vec::new();
+    for _ in 0..2 {
+        let res = ctx
+            .app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri("/api/analysis/export.docx")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(res.status(), 200);
+        assert!(res.headers()["content-disposition"]
+            .to_str()
+            .unwrap()
+            .contains("analysis-report.docx"));
+        documents.push(res.into_body().collect().await.unwrap().to_bytes());
+    }
+    assert_eq!(documents[0], documents[1]);
+    let d = entry(&documents[0], "word/document.xml");
+    for expected in [
+        "Analysis report and evidence register",
+        "Le stock devient exact.",
+        "Cross-case comparison",
+        "Codebook and descriptive coverage",
+        "independent researcher validation",
+        "no generative model at export time",
+        "INT-01",
+        "unassessed",
+        "not evidence of absence",
+    ] {
+        assert!(d.contains(expected), "missing {expected}");
+    }
+    let notes = entry(&documents[0], "word/footnotes.xml");
+    assert!(d.contains("passage P"));
+    assert!(d.contains("verification: unverified"));
+    assert!(d.contains("source timestamp: 00:24"));
+    assert!(d.contains("not an audio verification"));
+    assert!(d.contains("INT-01-U004"));
+    assert!(!d.contains("<w:footnoteReference"));
+    assert!(d.contains("w:val=\"Title\""));
+    assert!(notes.contains("<w:footnotes"));
+    let mut z = zip::ZipArchive::new(std::io::Cursor::new(&documents[0][..])).unwrap();
+    for i in 0..z.len() {
+        let mut s = String::new();
+        z.by_index(i).unwrap().read_to_string(&mut s).unwrap();
+        roxmltree::Document::parse(&s).unwrap();
+    }
+}
+
+#[tokio::test]
+async fn analysis_package_keeps_versioned_files_and_matching_hashes() {
+    let ctx = written().await;
+    let first = ok(&ctx.app, "POST", "/api/analysis/export", Some(json!({}))).await;
+    let second = ok(&ctx.app, "POST", "/api/analysis/export", Some(json!({}))).await;
+    assert_ne!(first["dir"], second["dir"]);
+    assert_eq!(first["files"].as_array().unwrap().len(), 4);
+    let store = cs_store::Store::open(&ctx.db).unwrap();
+    let events = store.audit_events(None).unwrap();
+    let exports: Vec<_> = events
+        .iter()
+        .filter(|e| e.action == "export.analysis")
+        .collect();
+    assert_eq!(exports.len(), 2);
+    let event = serde_json::to_value(exports[0]).unwrap();
+    assert!(event
+        .to_string()
+        .contains(first["files"][0]["sha256"].as_str().unwrap()));
+    assert!(event.to_string().contains(first["dir"].as_str().unwrap()));
+
+    let dir = std::path::PathBuf::from(first["dir"].as_str().unwrap());
+    for f in first["files"].as_array().unwrap() {
+        let bytes = std::fs::read(dir.join(f["name"].as_str().unwrap())).unwrap();
+        assert_eq!(cs_model::sha256_hex(&bytes), f["sha256"].as_str().unwrap());
+    }
+    assert!(dir.join("analysis-evidence.json").exists());
+    let md = std::fs::read_to_string(dir.join("analysis-report.md")).unwrap();
+    assert!(md.contains("Le stock devient exact."));
+    assert!(md.contains("unverified"));
+}
+
+#[tokio::test]
+async fn report_masks_configured_names_even_when_ai_prompt_masking_is_disabled() {
+    let ctx = written().await;
+    ok(&ctx.app, "PUT", "/api/pseudonymisation", Some(json!({"enabled": false, "entries": [{"kind": "person", "original": "Le stock", "pseudonym": "Respondent A"}]}))).await;
+    let res = ctx
+        .app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri("/api/analysis/export.docx")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(res.status(), 200);
+    let bytes = res.into_body().collect().await.unwrap().to_bytes();
+    let d = entry(&bytes, "word/document.xml");
+    assert!(d.contains("Respondent A devient exact."));
+    assert!(!d.contains("Le stock devient exact."));
+}

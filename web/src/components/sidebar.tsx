@@ -4,7 +4,7 @@
 
 import type { ReactNode } from "react"
 import { useQuery } from "@tanstack/react-query"
-import { Search, ShieldAlert, ShieldCheck, TextSearch, Users, X } from "lucide-react"
+import { Search, TextSearch, Users, X } from "lucide-react"
 
 import {
   AnalyserIcon,
@@ -19,7 +19,7 @@ import {
 } from "@/components/icons"
 import { t } from "@/i18n"
 import { api } from "@/lib/api"
-import { keys } from "@/lib/hooks"
+import { keys, useCodes } from "@/lib/hooks"
 import { usePersonGroups } from "@/lib/persons-api"
 import { reviewApi } from "@/lib/review-api"
 import { isMac, navKeyFor } from "@/lib/nav"
@@ -47,23 +47,6 @@ function progress(s: InterviewSummary | undefined): string | null {
   if (!s) return null
   const p = s.phase2.n_units > 0 ? s.phase2 : s.phase1
   return p.n_units > 0 ? `${p.n_human_coded}/${p.n_units}` : null
-}
-
-function ChainNote() {
-  const { data, isError } = useQuery({ queryKey: ["chain"], queryFn: api.verify, refetchInterval: 30_000 })
-  if (isError) return <div className="sb-note text-destructive">{t("sidebar.serveur_injoignable")}</div>
-  if (!data) return null
-  return (
-    <a
-      href="#/audit"
-      className={cn("sb-note no-underline", data.ok ? "" : "text-destructive")}
-      title={t("sidebar.chaque_evenement_du_journal_d")}
-      style={data.ok ? { color: "var(--label2)" } : undefined}
-    >
-      {data.ok ? <ShieldCheck className="size-3.5" aria-hidden /> : <ShieldAlert className="size-3.5" aria-hidden />}
-      {data.ok ? t("sidebar.journal_intact_n_events_evenements", { n_events: data.n_events }) : t("sidebar.journal_rompu_a_l_evenement", { first_bad_seq: data.first_bad_seq })}
-    </a>
-  )
 }
 
 /** The state of the pseudonymisation of what is sent to a model, as the server holds it. */
@@ -100,7 +83,8 @@ export function Sidebar({
 }) {
   const active = navKeyFor(route)
   const interviews = useQuery({ queryKey: ["interviews"], queryFn: api.interviews })
-  const state = useQuery({ queryKey: ["state"], queryFn: api.state })
+  const codes = useCodes()
+  const codeCount = codes.data?.codes?.filter((c) => c.active && !c.system && !c.merged_into).length
   const persons = usePersonGroups()
   const byId = new Map((interviews.data ?? []).map((s) => [s.interview_id, s]))
   const current = route.page === "interview" ? route.id : null
@@ -144,7 +128,7 @@ export function Sidebar({
       </NavItem>
 
       <div className="sb-h">{t("sidebar.analyse")}</div>
-      <NavItem href="#/codebook" on={active === "codebook"} icon={<CodebookIcon />} count={state.data && state.data.codebook_size > 0 ? state.data.codebook_size : undefined}>
+      <NavItem href="#/codebook" on={active === "codebook"} icon={<CodebookIcon />} count={codeCount || undefined}>
         {t("common.codebook")}
       </NavItem>
       <NavItem href="#/lexique" on={active === "lexique"} icon={<Search className="size-4" aria-hidden />}>
@@ -170,7 +154,6 @@ export function Sidebar({
 
       <div className="mt-auto flex flex-col gap-px pt-2">
         <PseudoNote />
-        <ChainNote />
         <button type="button" className="it" onClick={onOpenSettings} aria-label={t("sidebar.reglages")}>
           <GearIcon />
           {t("sidebar.reglages")}

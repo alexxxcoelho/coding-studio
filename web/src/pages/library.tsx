@@ -1,3 +1,4 @@
+import { ReviewerExport } from "@/components/reviewer-export"
 // Bibliothèque (design/macos/Main.dc.html): the interviews with their four
 // steps, filters En cours / Prêts / Tous, rescan, search, and the Fiche of the
 // selected interview in the inspector.
@@ -55,6 +56,7 @@ export function LibraryPage() {
   const qc = useQueryClient()
   const state = useQuery({ queryKey: ["state"], queryFn: api.state })
   const list = useQuery({ queryKey: ["interviews"], queryFn: api.interviews })
+  const [reviewerOpen, setReviewerOpen] = useState(false)
   const [filter, setFilter] = useState<Filter>("progress")
   const [search, setSearch] = useState("")
   const [picked, setPicked] = useState<string | null>(null)
@@ -88,6 +90,8 @@ export function LibraryPage() {
       qc.invalidateQueries({ queryKey: ["interviews"] })
       qc.invalidateQueries({ queryKey: ["state"] })
       qc.invalidateQueries({ queryKey: ["chain"] })
+      qc.invalidateQueries({ queryKey: keys.libraryProgress })
+      qc.invalidateQueries({ queryKey: keys.corpusReviewState })
       toast.success(t("library.dossier_scanne_n_entretiens", { n: res.interviews.length }))
     },
     onError: (e) => reportError(e, t("common.le_scan_a_echoue")),
@@ -99,6 +103,8 @@ export function LibraryPage() {
       qc.invalidateQueries({ queryKey: ["interview", id] })
       qc.invalidateQueries({ queryKey: keys.units(id) })
       qc.invalidateQueries({ queryKey: ["chain"] })
+      qc.invalidateQueries({ queryKey: keys.libraryProgress })
+      qc.invalidateQueries({ queryKey: keys.corpusReviewState })
       toast.success(t("library.id_segmente_length_unites", { id, length: seg.units.length }))
     },
     onError: (e) => reportError(e, t("common.segmentation_refusee")),
@@ -111,6 +117,7 @@ export function LibraryPage() {
 
   return (
     <>
+      <ReviewerExport open={reviewerOpen} onOpenChange={setReviewerOpen} />
       <PageTitle title={t("common.bibliotheque")} sub={sub} />
       <ToolbarActions>
         <Capsule label={t("library.filtrer_les_entretiens")} role="tablist">
@@ -138,6 +145,7 @@ export function LibraryPage() {
               </CapsuleItem>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
+              <DropdownMenuItem onSelect={() => setReviewerOpen(true)}>{t("reviewer.title")}</DropdownMenuItem>
               <DropdownMenuItem onSelect={() => setVerificationOpen(true)}>{t("persons.verification_action")}</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

@@ -587,3 +587,34 @@ The mask applies whatever the state of the manual switch. `manifest.json` lists 
 CLI: `coding-studio verification-export <ids|all> --out DIR` calls this route. `all` cannot be combined with ids.
 
 **Audit.** Every write is one event in the same transaction as the write: `person.create`, `person.update`, `person.delete`, `person.link`, `person.unlink`, `persons.import`, `person_group.create`, `person_group.update`, `person_group.delete`, `pseudonymisation.update`. Events hold ids, the names of the fields changed, flags, pseudonyms and digests; never a name, an alias, an email, a phone number or a note.
+
+### Analysis report for Word
+
+`GET /api/analysis/export.docx` streams `analysis-report.docx` (Word OOXML).
+`POST /api/analysis/export` writes a new versioned `exports/YYYY-MM-DD_analysis-report/`
+folder (a suffix is used when it exists) and returns `{dir,files}`. The folder
+contains the Word report, a Markdown companion, complete `analysis-evidence.json`
+(source links, notes, audit, matrices, decisions and codebook), and a SHA-256/size
+manifest. The Analysis screen uses this saved package so it also works in the
+native desktop shell.
+
+The report assembles recorded retained-theme writing and typed evidence,
+research-question answers, theme-sheet boundaries and checks, interview/theme
+comparisons with manual judgements, manual matrix evidence, framework readings,
+documented decisions, the active codebook and the latest audit. It never calls
+an external model or invents missing analysis. Missing text and unassessed matrix
+cells remain explicit. Counts reflect current code coverage, not population
+prevalence, causal support or saturation. Source references retain interview,
+unit, passage, link role and verification state. Configured pseudonymisation is
+applied to every text; unlisted identifying information still needs review.
+Export does not establish audio or independent researcher validation, and does
+not assert that the underlying analysis was produced without AI assistance.
+
+
+### Protected reviewer export
+
+`GET /api/export/reviewer/catalogue?pseudonymise=true` returns a whitelisted research-data projection, stable field IDs, a content snapshot, default selections, source-file IDs/sizes, pseudonym-rule count and transcript coverage. No raw database, provider configuration or audit history is offered.
+
+`POST /api/export/reviewer` accepts `{snapshot, selected: string[], password, pseudonymise: boolean, url?: string}`. The server rebuilds the projection and rejects stale, duplicate, empty or unknown selections. The password needs 16 Unicode characters and is never logged or persisted. Sources are checked against their recorded hashes and encrypted in 8 MiB chunks. Paths are confined to interview folders; symlinks and files over 1 GiB are refused. Text JSON is limited to 256 MiB explicitly. A staging directory is removed on failure. The returned local package has `published:false`, an encrypted reader and an upload ZIP. URL.txt and QR.svg exist only with an explicit HTTPS address without credentials, query or fragment. AES-256-GCM; PBKDF2-HMAC-SHA256 at 600,000 iterations, random 16-byte salt and fresh 12-byte IV per part, authenticated part identity.
+
+`POST /api/export/reviewer/open` accepts `{dir, kind: "folder" | "reader"}` and opens only an immediate reviewer-package folder under the current database’s exports directory. No publication occurs.

@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input"
 import { t } from "@/i18n"
 import { api } from "@/lib/api"
+import { keys } from "@/lib/hooks"
 import { reportError } from "@/lib/notify"
 
 export function ImportDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
@@ -24,6 +25,8 @@ export function ImportDialog({ open, onOpenChange }: { open: boolean; onOpenChan
       qc.invalidateQueries({ queryKey: ["interviews"] })
       qc.invalidateQueries({ queryKey: ["state"] })
       qc.invalidateQueries({ queryKey: ["chain"] })
+      qc.invalidateQueries({ queryKey: keys.libraryProgress })
+      qc.invalidateQueries({ queryKey: keys.corpusReviewState })
       toast.success(t("library.import_dialog.n_entretiens_trouves", { n: res.interviews.length }))
       onOpenChange(false)
     },

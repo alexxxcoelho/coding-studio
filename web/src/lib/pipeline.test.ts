@@ -29,6 +29,9 @@ describe("codingProgress", () => {
   it("reads the row of the library progress: the units the Coder shows as coded or parked, the others not relevant", () => {
     expect(codingProgress(row())).toEqual({ respondent: 10, nonPertinent: 2, coded: 2, later: 1, toReview: 3 })
   })
+  it("accepts progress payloads from before passage counters without displaying NaN", () => {
+    expect(codingProgress(row({ units_coded: undefined, units_later: undefined, coded: 8 } as unknown as Partial<LibraryRow>))).toEqual({ respondent: 10, nonPertinent: 2, coded: 8, later: 0, toReview: 3 })
+  })
   it("examined adds coded, parked and not relevant", () => {
     expect(examined({ respondent: 10, nonPertinent: 2, coded: 2, later: 1, toReview: 0 })).toBe(5)
   })
@@ -40,6 +43,13 @@ describe("pipelineSteps", () => {
     expect(steps.map((s) => s.label)).toEqual(["Segmentation", "Codage", "IA facultative", "Arbitrage"])
     expect(steps.map((s) => s.value)).toEqual([0, 0, 0, 0])
     expect(steps[2].optional).toBe(true)
+  })
+  it("does not invent a 0/0 count while progress is loading", () => {
+    expect(pipelineSteps(summary("A", 10), null)[1]).toMatchObject({ label: "Codage", value: 0 })
+  })
+  it("counts sampled agreements alongside disagreements in a legacy summary", () => {
+    const steps = pipelineSteps(summary("A", 10, { n_divergences: 10, n_sampled: 6, n_arbitrated: 16 }), null)
+    expect(steps[3]).toMatchObject({ label: "Arbitré 16/16", value: 1 })
   })
   it("shows coding in progress", () => {
     const steps = pipelineSteps(summary("RET-22", 132), { respondent: 97, nonPertinent: 0, coded: 40, later: 0, toReview: 0 })
@@ -69,6 +79,9 @@ describe("stage and next action", () => {
     expect(stageOf(summary("A", 10), full)).toBe("ready")
     expect(stageOf(summary("A", 10, { n_divergences: 3, n_arbitrated: 1 }), full)).toBe("in_progress")
     expect(stageOf(summary("A", 10), null)).toBe("in_progress")
+    expect(stageOf(summary("A", 10), { ...full, coded: 55, later: 1 })).toBe("in_progress")
+    expect(stageOf(summary("A", 10), { ...full, toReview: 1 })).toBe("in_progress")
+    expect(nextAction(summary("A", 10), { ...full, toReview: 1 })).toMatchObject({ label: "Reprendre le codage" })
   })
   it("proposes the next step", () => {
     expect(nextAction(summary("A", 0), null)).toEqual({ kind: "segment", label: "Segmenter…" })
@@ -95,7 +108,7 @@ describe("review state in the pipeline", () => {
     n_sample: 0, n_sample_reviewed: 0, n_candidates: 0, n_candidates_decided: 0, harmonisation_open: 0, harmonisation_done: 0, declaration: "", ...over,
   })
   const s = summary("ECO-05", 22)
-  const p = codingProgress(row({ units_coded: 8, not_relevant: 2 }))
+  const p = codingProgress(row({ units_coded: 8, not_relevant: 2, units_later: 0, to_review: 0 }))
   const ai = (r: ReviewState | undefined) => pipelineSteps(s, p, r).find((x) => x.key === "ai")!
 
   it("keeps the optional dashed step while nothing is done", () => {
@@ -105,6 +118,19 @@ describe("review state in the pipeline", () => {
     expect(ai(rs({ state: "in_progress", n_batches: 1 }))).toMatchObject({ label: "IA en attente", value: 0 })
     expect(ai(rs({ state: "in_progress", runs: ["a"], n_covered: 5, coverage: 0.5 }))).toMatchObject({ label: "IA · 50 % relus", value: 0.5 })
     expect(ai(rs({ state: "complete", runs: ["a", "b"], n_covered: 10, coverage: 1 }))).toMatchObject({ label: "IA · 2 passes", value: 1 })
+  })
+  it("does not let decided samples hide an undecided disagreement", () => {
+    const legacy = summary("A", 22, { n_divergences: 2, n_sampled: 2, n_arbitrated: 2 })
+    const review = rs({ n_disagreements: 2, n_decided: 0, n_sample: 2, n_sample_reviewed: 2 })
+    expect(pipelineSteps(legacy, p, review)[3]).toMatchObject({ label: "Arbitré 2/4", value: 0.5 })
+    expect(stageOf(legacy, p, review)).toBe("in_progress")
+    expect(nextAction(legacy, p, review)).toMatchObject({ href: "#/interviews/A/review" })
+  })
+  it("keeps undecided candidate concepts and sampled agreements open", () => {
+    expect(stageOf(s, p, rs({ n_candidates: 1 }))).toBe("in_progress")
+    expect(stageOf(s, p, rs({ n_sample: 1 }))).toBe("in_progress")
+    expect(nextAction(s, p, rs({ n_candidates: 1 }))).toMatchObject({ href: "#/interviews/ECO-05/review" })
+    expect(stageOf(s, p, rs({ state: "in_progress", n_covered: 5, coverage: 0.5 }))).toBe("ready")
   })
   it("sends to the worklist before the arbitration, and keeps the interview in progress", () => {
     expect(nextAction(s, p, rs({ harmonisation_open: 3 }))).toEqual({ kind: "link", label: "Harmoniser 3 unités", href: "#/interviews/ECO-05/harmonise" })

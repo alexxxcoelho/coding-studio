@@ -4,3 +4,5 @@
 *.db-journal
 .claude/
 .simple-workflow/
+
+/web/node_modules/

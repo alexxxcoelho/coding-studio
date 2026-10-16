@@ -76,6 +76,14 @@ Some studies observe concrete decisions. The tab that gathers them serves as ill
 
 **In Coding Studio.** The "Documented decisions" (Décisions documentées) tab lists the decisions created. Click "New decision" (Nouvelle décision): give it a name (for example "Municipality X library, new loan system"), the outcome (adopt, defer or refuse) and the characteristics useful for your study, then attach units from any interview. A decision with no unit attached is marked "not documented". This tab complements the thematic analysis without replacing it.
 
+### 11. Export the Word analysis report {#analyser-rapport}
+
+The report gathers the findings already written and their evidence register. It prepares a findings chapter; it does not write new interpretations for you.
+
+**In Coding Studio.** In Analyse, click Analysis report (Word). First refresh the theme records, the five Write parts, the research-question answers and the annotated matrix cells. The export gathers the corpus and analytical scope, retained themes and their passages, answers to the research questions, cross-interview comparisons, manually linked matrix evidence, the selected framework, documented decisions, the codebook and traceability. Non-retained themes and evidence outside retained findings remain identified separately. The dated folder includes a manifest.
+
+Generating the Word file does not call a model: it formats stored content. This does not erase AI assistance used earlier to construct or review that content. Preserve that provenance in the methods; do not describe the analysis as AI-free if it used AI. Before copying text into the thesis, reread claims against their sources, check quotations against audio, and retain limitations and divergent cases. A complete document does not certify scientific validation.
+
 ## Common pitfalls {#analyser-pieges}
 
 - Naming a theme after a topic ("Costs"). If the title is not a sentence that could be contradicted, it is not a theme.

@@ -398,9 +398,10 @@ impl Store {
         let current = self.question_synthesis(rq_id)?;
         let answer = clean_text("the answer", answer)?;
         let limits = clean_text("the limits", limits)?;
-        if (current.n_versions > 0 || !answer.is_empty() || !limits.is_empty())
-            && !(answer == current.answer && limits == current.limits && current.n_versions > 0)
-        {
+        let has_content = current.n_versions > 0 || !answer.is_empty() || !limits.is_empty();
+        let unchanged =
+            current.n_versions > 0 && answer == current.answer && limits == current.limits;
+        if has_content && !unchanged {
             let before = self
                 .latest_version(SCOPE_RQ, &current.rq_id, "")?
                 .map(|(b, _)| b);

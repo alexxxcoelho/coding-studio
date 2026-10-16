@@ -93,14 +93,18 @@ pub struct AnonymisedExport {
 /// The masking rules of an export: the project list (whether or not the
 /// prompt switch is on: asking for an anonymised export is the decision) and
 /// the researcher's names.
-struct Masker {
+pub(crate) struct Masker {
     rules: Pseudonymiser,
     kinds: Vec<String>,
     counts: std::cell::RefCell<Vec<usize>>,
 }
 
 impl Masker {
-    fn new(store: &Store, opts: &AnonymiseOptions, actor: &str) -> Result<(Masker, String)> {
+    pub(crate) fn new(
+        store: &Store,
+        opts: &AnonymiseOptions,
+        actor: &str,
+    ) -> Result<(Masker, String)> {
         let cfg = store.pseudonym_config()?;
         let label = opts
             .researcher_label
@@ -151,7 +155,7 @@ impl Masker {
         ))
     }
 
-    fn mask(&self, text: &str) -> String {
+    pub(crate) fn mask(&self, text: &str) -> String {
         self.rules.mask_counted(text, &mut self.counts.borrow_mut())
     }
 
@@ -159,7 +163,7 @@ impl Masker {
         self.rules.contains_original(text)
     }
 
-    fn replacements(&self) -> Replacements {
+    pub(crate) fn replacements(&self) -> Replacements {
         let counts = self.counts.borrow();
         let mut r = Replacements::default();
         for (i, kind) in self.kinds.iter().enumerate() {
@@ -517,6 +521,21 @@ pub fn summary(e: &AnonymisedExport) -> BTreeMap<&'static str, usize> {
         ("organisation", e.replacements.organisation),
         ("researcher", e.replacements.researcher),
     ])
+}
+
+/// Apply the same configured confidentiality rules as the academic package.
+pub(crate) fn mask_document(
+    store: &Store,
+    doc: &cs_store::WriteupDoc,
+    actor: &str,
+) -> Result<cs_store::WriteupDoc> {
+    let (masker, _) = Masker::new(store, &AnonymiseOptions::default(), actor)?;
+    Ok(doc.map_text(&|text| masker.mask(text)))
+}
+
+pub(crate) fn mask_value(store: &Store, value: &Value, actor: &str) -> Result<Value> {
+    let (masker, _) = Masker::new(store, &AnonymiseOptions::default(), actor)?;
+    Ok(mask_json_value(value, &masker))
 }
 
 #[cfg(test)]
