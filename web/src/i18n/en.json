@@ -2116,7 +2116,7 @@
   "reviewer.generate": "Create protected export",
   "reviewer.coverage": "{interviews} interviews, including {transcripts} with a segmented transcript. For the others, select source files if needed.",
   "anonymizer.title": "Anonymise",
-  "anonymizer.local": "Local processing. Originals and coding are preserved. No interview is sent to an AI for anonymisation.",
+  "anonymizer.local": "Manual dictionary, without a model. Originals and coding are preserved. To detect names with your local model at import, use transcript preparation below.",
   "anonymizer.interview": "Interview",
   "anonymizer.reviewed": "Copy reviewed",
   "anonymizer.pending": "Review needed",

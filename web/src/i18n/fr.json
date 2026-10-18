@@ -2116,7 +2116,7 @@
   "reviewer.generate": "Créer l’export protégé",
   "reviewer.coverage": "{interviews} entretiens, dont {transcripts} avec une transcription segmentée. Pour les autres, sélectionner les fichiers sources si nécessaire.",
   "anonymizer.title": "Anonymiser",
-  "anonymizer.local": "Traitement local. Les originaux et le codage sont conservés. Aucun entretien n’est envoyé à une IA pour l’anonymiser.",
+  "anonymizer.local": "Dictionnaire manuel, sans modèle. Les originaux et le codage sont conservés. Pour détecter les noms avec votre modèle local à l’import, utilisez la préparation des transcriptions ci-dessous.",
   "anonymizer.interview": "Entretien",
   "anonymizer.reviewed": "Copie relue",
   "anonymizer.pending": "À relire",
