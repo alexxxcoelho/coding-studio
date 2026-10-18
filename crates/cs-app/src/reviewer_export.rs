@@ -102,21 +102,25 @@ fn rows(
     Ok(())
 }
 
-fn mask_value(value: &mut Value, masker: &crate::export_v2::Masker) {
+fn mask_value(value: &mut Value, masker: &crate::export_v2::Masker) -> Result<()> {
     match value {
         Value::String(s) => *s = masker.mask(s),
         Value::Array(items) => {
             for item in items {
-                mask_value(item, masker);
+                mask_value(item, masker)?;
             }
         }
         Value::Object(items) => {
-            for item in items.values_mut() {
-                mask_value(item, masker);
+            let old = std::mem::take(items);
+            for (key, mut item) in old {
+                mask_value(&mut item, masker)?;
+                let masked_key = masker.mask(&key);
+                anyhow::ensure!(items.insert(masked_key,item).is_none(), "Deux champs deviennent identiques après anonymisation : choisissez des labels distincts");
             }
         }
         _ => (),
     }
+    Ok(())
 }
 
 fn projection(store: &Store, pseudonymise: bool, actor: &str) -> Result<Projection> {
@@ -126,7 +130,7 @@ fn projection(store: &Store, pseudonymise: bool, actor: &str) -> Result<Projecti
         c,
         &mut records,
         "Interviews",
-        "SELECT interview_id,folder_name,primary_source,warnings FROM interviews",
+        "SELECT interview_id FROM interviews",
         &["interview_id"],
         false,
     )?;
@@ -300,11 +304,93 @@ fn projection(store: &Store, pseudonymise: bool, actor: &str) -> Result<Projecti
             },
         );
     }
-    let rules = store.pseudonym_config()?.entries.len();
+    let original_units: HashMap<(String, String), String> = records
+        .iter()
+        .filter(|r| r.path[0] == "Transcript")
+        .filter_map(|r| {
+            Some((
+                (
+                    r.value["interview_id"].as_str()?.into(),
+                    r.value["unit_id"].as_str()?.into(),
+                ),
+                r.value["text"].as_str()?.into(),
+            ))
+        })
+        .collect();
+    if pseudonymise {
+        let (privacy_masker, _) = crate::export_v2::Masker::new(store, &Default::default(), actor)?;
+        for record in records.iter_mut().filter(|r| r.path[0] == "Passages") {
+            if let (Some(id), Some(unit), Some(start), Some(end)) = (
+                record.value["interview_id"].as_str(),
+                record.value["unit_id"].as_str(),
+                record.value["start_offset"].as_u64(),
+                record.value["end_offset"].as_u64(),
+            ) {
+                if let Some(text) = original_units.get(&(id.into(), unit.into())) {
+                    let original_quote = record.value["text"].as_str().unwrap_or("");
+                    let count = text.chars().count();
+                    let mut range = None;
+                    if start <= end
+                        && end as usize <= count
+                        && text
+                            .chars()
+                            .skip(start as usize)
+                            .take((end - start) as usize)
+                            .collect::<String>()
+                            == original_quote
+                    {
+                        range = Some((start as usize, end as usize));
+                    } else if !original_quote.is_empty() {
+                        let matches: Vec<_> = text.match_indices(original_quote).collect();
+                        if matches.len() == 1 {
+                            let a = text[..matches[0].0].chars().count();
+                            range = Some((a, a + original_quote.chars().count()));
+                        }
+                    }
+                    if let Some((start, end)) = range {
+                        let (a, b, quote) = privacy_masker.mask_passage(text, start, end)?;
+                        record.value["start_offset"] = json!(a);
+                        record.value["end_offset"] = json!(b);
+                        record.value["text"] = json!(quote);
+                    } else {
+                        // A correction can invalidate a historical anchor. Never
+                        // replace the researcher's quote with another source slice.
+                        record.value["start_offset"] = Value::Null;
+                        record.value["end_offset"] = Value::Null;
+                        record.value["anchor_status"] = json!("unresolved_after_source_edit");
+                    }
+                }
+            }
+        }
+    }
+    let rules = crate::anonymisation::entries(store)?.len();
+    if pseudonymise {
+        records.retain(|r| r.path[0] != "Source files");
+        sources.clear();
+        for record in &mut records {
+            if record.path[0] == "People" {
+                if let Some(o) = record.value.as_object_mut() {
+                    for k in [
+                        "email",
+                        "phone",
+                        "notes",
+                        "consent_document",
+                        "consent_date",
+                        "consent_status",
+                    ] {
+                        o.remove(k);
+                    }
+                }
+            }
+        }
+    }
     if pseudonymise {
         let (masker, _) = crate::export_v2::Masker::new(store, &Default::default(), actor)?;
         for record in &mut records {
-            mask_value(&mut record.value, &masker);
+            for path in &mut record.path {
+                *path = masker.mask(path);
+            }
+            mask_value(&mut record.value, &masker)?;
         }
     }
     Ok(Projection {
@@ -319,6 +405,13 @@ pub(crate) struct CatalogueQuery {
     #[serde(default = "yes")]
     pseudonymise: bool,
 }
+fn ensure_anonymised(value: bool) -> Result<()> {
+    anyhow::ensure!(
+        value,
+        "Seule la copie anonymisée est disponible pour les correcteurs"
+    );
+    Ok(())
+}
 fn yes() -> bool {
     true
 }
@@ -327,7 +420,8 @@ pub(crate) async fn get_catalogue(
     Query(q): Query<CatalogueQuery>,
 ) -> Result<Json<Value>, ApiError> {
     let store = st.store();
-    let p = projection(&store, q.pseudonymise, &st.actor)?;
+    ensure_anonymised(q.pseudonymise)?;
+    let p = projection(&store, true, &st.actor)?;
     let interviews = store
         .connection()
         .query_row("SELECT COUNT(*) FROM interviews", [], |r| {
@@ -349,6 +443,8 @@ pub(crate) async fn get_catalogue(
 
 #[derive(Deserialize)]
 pub(crate) struct ExportBody {
+    #[serde(default)]
+    privacy_reviewed: bool,
     snapshot: String,
     selected: Vec<String>,
     password: String,
@@ -402,6 +498,15 @@ fn source_path(source: &Source) -> Result<PathBuf> {
 }
 
 fn package(store: &Store, actor: &str, db: &Path, body: ExportBody) -> Result<Value> {
+    anyhow::ensure!(
+        body.pseudonymise,
+        "L’export correcteurs accepte uniquement une copie anonymisée"
+    );
+    crate::anonymisation::require_all(store)?;
+    anyhow::ensure!(
+        body.privacy_reviewed,
+        "Confirmez la relecture des champs anonymisés sélectionnés"
+    );
     let public_url = checked_url(&body.url)?;
     let p = projection(store, body.pseudonymise, actor)?;
     let mut payload =
@@ -479,7 +584,7 @@ fn package(store: &Store, actor: &str, db: &Path, body: ExportBody) -> Result<Va
                 .map_err(anyhow::Error::msg)?;
             let (masker, _) = crate::export_v2::Masker::new(store, &Default::default(), actor)?;
             for mut field in raw_selected.fields {
-                mask_value(&mut field.value, &masker);
+                mask_value(&mut field.value, &masker)?;
             }
             let counts = masker.replacements();
             replacements = counts.person + counts.organisation + counts.researcher;

@@ -3,6 +3,7 @@
 // paste or run the answers, and keep the list of runs.
 
 import { useMemo, useState } from "react"
+import { Anonymizer, PromptPrivacy } from "@/components/anonymizer"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 
@@ -12,13 +13,12 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { t } from "@/i18n"
-import { api, ApiError } from "@/lib/api"
+import { api, ApiError, request } from "@/lib/api"
 import { shortHash } from "@/lib/format"
 import { reportError } from "@/lib/notify"
 import { invalidateInterview } from "@/lib/queries"
 import { interviewHref } from "@/lib/router"
 import { isoNow, latestSet, partTitle, runLine, runState, shortStamp } from "@/lib/review-model"
-import { reviewApi } from "@/lib/review-api"
 import { journalLine, nextRunLabel, runBody, runnableProviders } from "@/lib/settings"
 import type { AiRun, GuardStatus, PromptPart, ProviderEntry, RejectedAnswer, ValidationIssue } from "@/lib/types"
 
@@ -51,6 +51,7 @@ export function RevueIa({ id, guard, prompts, runs }: { id: string; guard: Guard
         <p className="small l2" style={{ margin: "0 2px" }}>
           {t("revoir.revue_ia.la_revue_ia_est_facultative")} <a href={GUIDE}>{t("common.lire_la_section_revoir_du")}</a>.
         </p>
+        {!batch && <Anonymizer interviewId={id} />}
         <PromptPanel id={id} guard={guard} parts={parts} />
         <ImportPanel id={id} guard={guard} parts={parts} runs={runs} />
         <ProviderPanel id={id} runs={runs} batch={batch} hasPrompts={parts.length > 0} />
@@ -85,7 +86,12 @@ function PromptPanel({ id, guard, parts }: { id: string; guard: GuardStatus; par
   const nUnits = parts.reduce((n, p) => n + p.unit_ids.length, 0)
   const blocked = !guard.complete
   const copy = async (p: PromptPart) => {
-    await copyText(p.text)
+    try {
+      const checked = await request<PromptPart[]>("POST", `/api/anonymisation/interviews/${encodeURIComponent(id)}/batches/${p.batch_id}/copy`)
+      const safe = checked.find(x => x.part === p.part)
+      if (!safe || safe.sha256 !== p.sha256) throw new Error(t("anonymizer.stale"))
+      await copyText(safe.text)
+    } catch (e) { reportError(e, t("anonymizer.prompt_blocked")); return }
     setCopied((c) => (c.includes(p.sha256) ? c : [...c, p.sha256]))
     toast.success(t("revoir.revue_ia.partie_parttitle_copiee", { partTitle: partTitle(p) }))
   }
@@ -159,40 +165,11 @@ function PromptPanel({ id, guard, parts }: { id: string; guard: GuardStatus; par
           <p className="gf" role="status">
             {copied.length === 0 ? t("revoir.revue_ia.aucune_partie_copiee") : t("revoir.revue_ia.length_sur_n_parties_copiees", { n: parts.length, length: copied.length })} {t("revoir.revue_ia.collez_chaque_partie_dans_une")}
           </p>
-          <PseudonymList id={id} />
+          {batch !== undefined && <PromptPrivacy id={id} batch={batch} />}
+
         </>
       )}
     </section>
-  )
-}
-
-/** The names replaced before sending, with the state of the switch and the digest recorded with the prompt. */
-function PseudonymList({ id }: { id: string }) {
-  const list = useQuery({ queryKey: ["pseudonymisation", id], queryFn: () => reviewApi.pseudonymisation(id) })
-  if (!list.data) return null
-  const d = list.data
-  const n = d.entries.length
-  return (
-    <details className="grp" style={{ padding: "8px 12px" }}>
-      <summary style={{ cursor: "pointer" }}>
-        {d.enabled
-          ? `Pseudonymisation active : ${n === 0 ? t("revoir.revue_ia.aucun_nom_de_la_liste") : t("revoir.revue_ia.n_noms_remplaces", { n })} avant envoi`
-          : t("revoir.revue_ia.pseudonymisation_inactive_les_noms_p")}
-      </summary>
-      {d.enabled && n > 0 && (
-        <ul className="small" style={{ margin: "8px 0 0", paddingLeft: 18 }}>
-          {d.entries.map((e) => (
-            <li key={`${e.kind}-${e.original}`}>
-              {e.original} <span className="l2">{t("revoir.revue_ia.devient")}</span> {e.pseudonym} <span className="l2">({e.kind === "person" ? t("revoir.revue_ia.personne") : t("revoir.revue_ia.organisation")}, {t("revoir.revue_ia.n_remplacements", { n: e.count ?? 0 })})</span>
-            </li>
-          ))}
-        </ul>
-      )}
-      <p className="gf">
-        {d.enabled ? t("revoir.revue_ia.liste_de_items_empreinte_shorthash", { items: t("revoir.revue_ia.n_noms", { n: d.n_list_entries }), shortHash: shortHash(d.digest, 12) }) : ""}
-        {d.note} <a href="#/settings">{t("revoir.revue_ia.modifier_la_liste_dans_les")}</a>.
-      </p>
-    </details>
   )
 }
 

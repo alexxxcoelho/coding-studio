@@ -20,7 +20,7 @@ La revue IA coûte de l'attention et expose un texte à un tiers si le modèle e
 
 ### 3. Configurer un fournisseur, ou y renoncer {#revoir-fournisseurs}
 
-Le copier-coller vers le modèle de votre choix est le parcours de référence et reste toujours disponible. Un fournisseur configuré fait seulement l'aller-retour à votre place.
+Le copier-coller vers le modèle de votre choix reste le parcours de référence, après validation de l’anonymisation. Un fournisseur configuré fait seulement l'aller-retour à votre place.
 
 **Dans Coding Studio.** Dans Réglages, bloc Fournisseurs IA, la liste montre les fournisseurs déclarés (commande locale, API compatible OpenAI, connexion par compte). Cliquez sur Ajouter un fournisseur et renseignez son type. Une clé n'est jamais stockée : elle se nomme par sa variable d'environnement. Chaque fournisseur déclare ce qu'il envoie et où il s'exécute (local ou hébergé). Pour une commande locale, Tester l'isolation vérifie son isolation et date le contrôle. L'envoi est toujours un geste explicite et journalisé. Voir aussi [la pseudonymisation](01_preparer.md#preparer-pseudo).
 
@@ -29,6 +29,12 @@ Le copier-coller vers le modèle de votre choix est le parcours de référence e
 Générer le prompt fige votre codage de l'entretien et prépare le texte à envoyer.
 
 **Dans Coding Studio.** Ouvrez l'entretien, puis l'étape Revoir. Le volet IA commence par Générer le prompt, désactivé tant que les tours pertinents ne sont pas codés. Au clic, votre codage est enregistré tel quel : c'est la référence de la comparaison, même si vous changez d'avis ensuite. Le prompt contient la description de l'étude, les questions, les règles de codage, le codebook (arbre, définitions, exemples), l'attribut du répondant utile au contexte et, pour chaque tour, la question de l'intervieweur qui le précède. Les noms de personnes et d'organisations sont pseudonymisés avant envoi. Vos codes n'y figurent jamais. Le prompt est découpé en parties si nécessaire ; une ligne indique la date, la version du codebook, le nombre d'unités et de parties. Cliquez sur Copier la partie 1 sur 2, puis sur la partie 2 sur 2. Le modèle peut signaler un « concept absent du codebook » : cette proposition arrivera comme candidat dans le volet décisions.
+
+Avant de copier ou lancer un fournisseur :
+
+1. Ouvrez **Anonymiser**, relisez et validez la copie de l’entretien.
+2. Affichez toutes les parties du prompt. Vérifiez également le codebook, les exemples, les attributs, les questions et la description de l’étude.
+3. Cochez la confirmation puis cliquez sur **Valider ce prompt**. La copie passe par le même contrôle que les fournisseurs. Une modification du texte, des règles, du codebook ou du contexte invalide l’autorisation correspondante. Les anciennes passes IA restent conservées ; leur affichage pour copie est remasqué avec les règles actuelles.
 
 ### 5. Importer la réponse du modèle {#revoir-reponse}
 

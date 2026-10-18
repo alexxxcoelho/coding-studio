@@ -12,7 +12,7 @@ use axum::{Json, Router};
 use cs_ai::{PromptContext, TreeCode};
 use cs_model::passage::CodeNode;
 use cs_model::pseudonym::{
-    PseudonymConfig, PseudonymEntry, PseudonymisationRecord, Pseudonymiser, FREE_TEXT_NOTE,
+    PseudonymConfig, PseudonymEntry, PseudonymisationRecord, FREE_TEXT_NOTE,
 };
 use cs_model::{AiOutput, Code, CsError, Segmentation, SpeakerRole};
 use cs_store::{ConceptCandidateView, ConceptDecisionRequest, Store};
@@ -160,7 +160,11 @@ pub(crate) fn prompt_context(
             preceding.insert(unit.unit_id.clone(), before.text.clone());
         }
     }
-    let list = store.pseudonym_config()?;
+    let privacy_entries = crate::anonymisation::entries(store)?;
+    let list = PseudonymConfig {
+        enabled: true,
+        entries: privacy_entries,
+    };
     Ok(PromptContext {
         description: study.description.clone(),
         coding_rules: study.coding_rules.clone(),
@@ -172,7 +176,7 @@ pub(crate) fn prompt_context(
         tree: offered_tree(&nodes, codes),
         attributes,
         preceding,
-        pseudonyms: list.pseudonymiser(),
+        pseudonyms: crate::anonymisation::rules(store)?,
         pseudonym_digest: list.digest(),
     })
 }
@@ -191,7 +195,7 @@ pub(crate) fn check_answer(store: &Store, id: &str, out: &AiOutput) -> Result<()
         .iter()
         .map(|u| (u.unit_id.clone(), u.text.clone()))
         .collect();
-    let rules = store.pseudonym_config()?.pseudonymiser();
+    let rules = crate::anonymisation::rules(store)?;
     let issues = cs_ai::check_candidate_quotes(out, &texts, &rules);
     if issues.is_empty() {
         Ok(())
@@ -205,7 +209,7 @@ pub(crate) fn refuse_unmasked(
     store: &Store,
     parts: &[cs_model::PromptPart],
 ) -> Result<(), ApiError> {
-    let rules = store.pseudonym_config()?.pseudonymiser();
+    let rules = crate::anonymisation::rules(store)?;
     if rules.is_empty() {
         return Ok(());
     }
@@ -236,7 +240,10 @@ pub(crate) fn run_record(
     let Some(digest) = meta_line(prompt_text, "pseudonymisation_digest") else {
         return Ok(None);
     };
-    let cfg = store.pseudonym_config()?;
+    let cfg = PseudonymConfig {
+        enabled: true,
+        entries: crate::anonymisation::entries(store)?,
+    };
     let enabled = digest != PseudonymConfig::default().digest();
     let same = cfg.digest() == digest;
     Ok(Some(PseudonymisationRecord {
@@ -272,7 +279,7 @@ pub(crate) fn batch_run_record(
 /// The label, description and quotations of a candidate as the researcher
 /// reads them: the pseudonyms of the model are turned back into the names.
 fn displayed(store: &Store, mut c: ConceptCandidateView) -> anyhow::Result<ConceptCandidateView> {
-    let rules = Pseudonymiser::new(&store.pseudonym_config()?.entries);
+    let rules = crate::anonymisation::rules(store)?;
     c.label = rules.unmask(&c.label);
     c.description = c.description.map(|d| rules.unmask(&d));
     for e in &mut c.evidence {

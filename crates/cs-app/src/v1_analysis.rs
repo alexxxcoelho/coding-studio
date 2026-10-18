@@ -18,7 +18,7 @@ use cs_store::{
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
-use crate::{export, ApiResult, AppState};
+use crate::{ApiResult, AppState};
 
 pub(crate) fn routes() -> Router<AppState> {
     Router::new()
@@ -722,8 +722,18 @@ async fn export_writeup(State(st): State<AppState>) -> ApiResult {
         .map(std::path::Path::to_path_buf)
         .unwrap_or_else(|| PathBuf::from("."))
         .join("exports");
-    let r = export::write_writeup(&store, &base, &st.db_path, &st.actor)?;
-    Ok(Json(json!(r)))
+    let r = crate::export_v2::write_anonymised(
+        &store,
+        &crate::export_v2::Scope::Writeup,
+        &base,
+        &st.db_path,
+        &st.actor,
+        &Default::default(),
+    )?;
+    let doc = crate::export_v2::mask_document(&store, &store.writeup_doc()?, &st.actor)?;
+    let mut value = json!(r);
+    value["markdown"] = json!(doc.to_markdown());
+    Ok(Json(value))
 }
 
 // ------------------------------------------------------------ final audit

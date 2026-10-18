@@ -19,6 +19,7 @@ fn selected(c: &Value, category: &str, field: &str) -> String {
 #[tokio::test]
 async fn catalogue_is_whitelisted_and_private_fields_start_unchecked() {
     let ctx = setup().await;
+    common::approve_all_anonymisation(&ctx.app).await;
     let c = ok(&ctx.app, "GET", "/api/export/reviewer/catalogue", None).await;
     let fields = c["fields"].as_array().unwrap();
     assert!(!fields.is_empty());
@@ -36,9 +37,10 @@ async fn catalogue_is_whitelisted_and_private_fields_start_unchecked() {
 #[tokio::test]
 async fn exact_selection_produces_only_a_protected_local_package() {
     let ctx = setup().await;
+    common::approve_all_anonymisation(&ctx.app).await;
     let c = ok(&ctx.app, "GET", "/api/export/reviewer/catalogue", None).await;
     let id = selected(&c, "Transcript", "text");
-    let r=ok(&ctx.app,"POST","/api/export/reviewer",Some(json!({"snapshot":c["snapshot"],"selected":[id],"password":"synthetic API test only 12345"}))).await;
+    let r=ok(&ctx.app,"POST","/api/export/reviewer",Some(json!({"snapshot":c["snapshot"],"selected":[id],"privacy_reviewed":true,"password":"synthetic API test only 12345"}))).await;
     assert_eq!(r["fields"], 1);
     assert_eq!(r["files"], 0);
     assert_eq!(r["published"], false);
@@ -57,42 +59,29 @@ async fn exact_selection_produces_only_a_protected_local_package() {
 }
 
 #[tokio::test]
-async fn source_files_are_encrypted_and_changed_sources_fail_without_final_package() {
+async fn original_sources_are_excluded_from_anonymised_catalogue() {
     let ctx = setup().await;
     let c = ok(&ctx.app, "GET", "/api/export/reviewer/catalogue", None).await;
-    let id = selected(&c, "Source files", "download");
-    let body = json!({"snapshot":c["snapshot"],"selected":[id],"password":"synthetic API test only 12345"});
-    let r = ok(&ctx.app, "POST", "/api/export/reviewer", Some(body.clone())).await;
-    assert_eq!(r["files"], 1);
-    let data = std::path::Path::new(r["dir"].as_str().unwrap()).join("data");
-    let files: Vec<_> = std::fs::read_dir(data).unwrap().collect();
-    assert_eq!(files.len(), 1);
-    let bytes = std::fs::read(files[0].as_ref().unwrap().path()).unwrap();
-    assert!(!String::from_utf8_lossy(&bytes).contains("interview_id"));
-    // Both possible sources change; whichever catalogue record was selected must fail.
-    for entry in std::fs::read_dir(&ctx.root).unwrap() {
-        let p = entry
-            .unwrap()
-            .path()
-            .join("02_transcript_cleaned_diarised.md");
-        if p.exists() {
-            std::fs::write(p, "changed").unwrap();
-        }
-    }
-    let (status, _) = call(&ctx.app, "POST", "/api/export/reviewer", Some(body)).await;
-    assert_eq!(status, axum::http::StatusCode::BAD_REQUEST);
-    assert!(std::fs::read_dir(ctx.db.parent().unwrap().join("exports"))
+    assert_eq!(c["file_ids"], json!({}));
+    assert!(c["fields"]
+        .as_array()
         .unwrap()
-        .all(|e| e
-            .unwrap()
-            .path()
-            .extension()
-            .is_none_or(|s| s != "building")));
+        .iter()
+        .all(|f| f["path"][0] != "Source files"));
+    let (status, _) = call(
+        &ctx.app,
+        "GET",
+        "/api/export/reviewer/catalogue?pseudonymise=false",
+        None,
+    )
+    .await;
+    assert_ne!(status, axum::http::StatusCode::OK);
 }
 
 #[tokio::test]
 async fn unknown_stale_empty_and_bad_password_are_refused() {
     let ctx = setup().await;
+    common::approve_all_anonymisation(&ctx.app).await;
     let c = ok(&ctx.app, "GET", "/api/export/reviewer/catalogue", None).await;
     let id = selected(&c, "Transcript", "text");
     for (snapshot, ids, password) in [
@@ -117,7 +106,7 @@ async fn unknown_stale_empty_and_bad_password_are_refused() {
             &ctx.app,
             "POST",
             "/api/export/reviewer",
-            Some(json!({"snapshot":snapshot,"selected":ids,"password":password})),
+            Some(json!({"snapshot":snapshot,"selected":ids,"privacy_reviewed":true,"password":password})),
         )
         .await;
         assert_eq!(status, axum::http::StatusCode::BAD_REQUEST);
@@ -127,9 +116,10 @@ async fn unknown_stale_empty_and_bad_password_are_refused() {
 #[tokio::test]
 async fn real_https_address_generates_a_qr_without_publishing() {
     let ctx = setup().await;
+    common::approve_all_anonymisation(&ctx.app).await;
     let c = ok(&ctx.app, "GET", "/api/export/reviewer/catalogue", None).await;
     let id = selected(&c, "Transcript", "text");
-    let r=ok(&ctx.app,"POST","/api/export/reviewer",Some(json!({"snapshot":c["snapshot"],"selected":[id],"password":"synthetic API test only 12345","url":"https://example.org/thesis/"}))).await;
+    let r=ok(&ctx.app,"POST","/api/export/reviewer",Some(json!({"snapshot":c["snapshot"],"selected":[id],"privacy_reviewed":true,"password":"synthetic API test only 12345","url":"https://example.org/thesis/"}))).await;
     let dir = std::path::Path::new(r["dir"].as_str().unwrap());
     assert_eq!(
         std::fs::read_to_string(dir.join("URL.txt")).unwrap(),

@@ -37,6 +37,7 @@ async fn filled() -> Ctx {
         ),
     )
     .await;
+    common::approve_all_anonymisation(&ctx.app).await;
     ctx
 }
 
@@ -121,7 +122,7 @@ async fn an_interview_package_is_pseudonymised_in_every_text_and_keeps_its_ids()
     let readme = std::fs::read_to_string(dir.join("README.md")).unwrap();
     assert!(readme.contains("What was replaced") && readme.contains("What was not replaced"));
     assert!(
-        readme.contains("texte libre"),
+        readme.contains("identités inconnues"),
         "the free text note is stated"
     );
     assert!(readme.contains("db_snapshot.sqlite") && readme.contains("audit_log.jsonl"));
@@ -214,6 +215,7 @@ async fn a_listed_name_inside_an_interview_id_is_refused() {
             { "kind": "person", "original": "INT", "pseudonym": "X" } ] })),
     )
     .await;
+    common::approve_all_anonymisation(&ctx.app).await;
     let (st, v) = call(
         &ctx.app,
         "POST",

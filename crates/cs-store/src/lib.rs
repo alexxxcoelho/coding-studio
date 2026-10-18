@@ -454,7 +454,11 @@ impl Store {
             "settings.set",
             None,
             Some(key),
-            json!({"key": key, "before": before, "after": value}),
+            if key == "anonymisation_v1" {
+                json!({"key": key, "before_sha256": before.as_ref().map(|v| cs_model::sha256_hex(v.as_bytes())), "after_sha256": cs_model::sha256_hex(value.as_bytes())})
+            } else {
+                json!({"key": key, "before": before, "after": value})
+            },
         )?;
         tx.commit()?;
         Ok(())

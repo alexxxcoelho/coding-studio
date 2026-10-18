@@ -289,6 +289,33 @@ async fn frozen_batch(ctx: &Ctx, batch_size: usize) -> (String, String, Vec<Valu
     )
     .await;
     assert_eq!(st, StatusCode::OK, "{parts}");
+    let path = "/api/anonymisation/interviews/INT-01";
+    let (_, p) = call(&ctx.app, "GET", path, None).await;
+    assert_eq!(
+        call(
+            &ctx.app,
+            "PUT",
+            path,
+            Some(json!({"digest":p["digest"],"reviewed":true}))
+        )
+        .await
+        .0,
+        StatusCode::OK
+    );
+    let bid = parts[0]["batch_id"].as_i64().unwrap();
+    let path = format!("/api/anonymisation/interviews/INT-01/batches/{bid}");
+    let (_, p) = call(&ctx.app, "GET", &path, None).await;
+    assert_eq!(
+        call(
+            &ctx.app,
+            "PUT",
+            &path,
+            Some(json!({"digest":p["digest"],"reviewed":true}))
+        )
+        .await
+        .0,
+        StatusCode::OK
+    );
     (u4, u6, parts.as_array().unwrap().clone())
 }
 
@@ -959,4 +986,124 @@ async fn harness_fake_client_answers_a_real_prompt() {
     let echo = write_script(ctx.dir.path(), "echo-cli", Behaviour::Echo);
     let seen = run_script(&echo, text);
     assert!(seen.contains("cwd_entries=0"), "{seen}");
+}
+
+#[tokio::test]
+async fn privacy_guard_blocks_copy_and_provider_before_invocation_and_after_context_change() {
+    let ctx = setup();
+    let source = ctx
+        .root
+        .join("INT-01_Test/02_transcript_cleaned_diarised.md");
+    std::fs::write(
+        &source,
+        CLEANED.replace(
+            "The inventory accuracy",
+            "Sophie says the inventory accuracy",
+        ),
+    )
+    .unwrap();
+    assert_eq!(
+        call(
+            &ctx.app,
+            "PUT",
+            "/api/anonymisation",
+            Some(
+                json!({"entries":[{"kind":"person","original":"Sophie","pseudonym":"[Person 88]"}]})
+            )
+        )
+        .await
+        .0,
+        StatusCode::OK
+    );
+    let (_, _, parts) = frozen_batch(&ctx, 0).await;
+    let bid = batch_id_of(&parts);
+    let script = write_script(ctx.dir.path(), "privacy-provider", Behaviour::Valid);
+    let marker = ctx.dir.path().join("provider-invoked");
+    let text = std::fs::read_to_string(&script).unwrap().replace(
+        "PROMPT=$(cat)",
+        &format!(
+            "PROMPT=$(cat)\nprintf '%s' \"$PROMPT\" > '{}'",
+            marker.display()
+        ),
+    );
+    std::fs::write(&script, text).unwrap();
+    assert_eq!(
+        put_providers(&ctx, vec![cli_entry("privacy", &script)])
+            .await
+            .0,
+        StatusCode::OK
+    );
+    // Clearing local review deliberately revokes every previous approval.
+    assert_eq!(
+        call(
+            &ctx.app,
+            "PUT",
+            "/api/anonymisation",
+            Some(
+                json!({"entries":[{"kind":"person","original":"Sophie","pseudonym":"[Person 88]"}]})
+            )
+        )
+        .await
+        .0,
+        StatusCode::OK
+    );
+    let copy = format!("/api/anonymisation/interviews/INT-01/batches/{bid}/copy");
+    assert_eq!(
+        call(&ctx.app, "POST", &copy, None).await.0,
+        StatusCode::CONFLICT
+    );
+    let body = json!({"provider_id":"privacy","run_label":"privacy-test"});
+    assert_eq!(
+        call(&ctx.app, "POST", &run_uri(bid), Some(body.clone()))
+            .await
+            .0,
+        StatusCode::CONFLICT
+    );
+    assert!(
+        !marker.exists(),
+        "provider must not even start before review"
+    );
+    let path = "/api/anonymisation/interviews/INT-01";
+    let (_, p) = call(&ctx.app, "GET", path, None).await;
+    call(
+        &ctx.app,
+        "PUT",
+        path,
+        Some(json!({"digest":p["digest"],"reviewed":true})),
+    )
+    .await;
+    let path = format!("/api/anonymisation/interviews/INT-01/batches/{bid}");
+    let (_, p) = call(&ctx.app, "GET", &path, None).await;
+    call(
+        &ctx.app,
+        "PUT",
+        &path,
+        Some(json!({"digest":p["digest"],"reviewed":true})),
+    )
+    .await;
+    assert_eq!(call(&ctx.app, "POST", &copy, None).await.0, StatusCode::OK);
+    let approved = json!({"provider_id":"privacy","run_label":"approved"});
+    let (status, result) = call(&ctx.app, "POST", &run_uri(bid), Some(approved)).await;
+    assert_eq!(status, StatusCode::OK, "{result}");
+    let sent = std::fs::read_to_string(&marker).unwrap();
+    assert!(!sent.contains("Sophie"));
+    assert!(sent.contains("[Person 88]"));
+    std::fs::remove_file(&marker).unwrap();
+    // A changed study context invalidates prompt approval, although the
+    // transcript itself is still reviewed. No real network/model is used.
+    {
+        let store = ctx.store.lock().unwrap();
+        let mut study = store.study_config().unwrap();
+        study.description.push_str("Synthetic new context");
+        store.set_study_config(&study, "test").unwrap();
+    }
+    assert_eq!(
+        call(&ctx.app, "POST", &copy, None).await.0,
+        StatusCode::CONFLICT
+    );
+    assert_eq!(
+        call(&ctx.app, "POST", &run_uri(bid), Some(body)).await.0,
+        StatusCode::CONFLICT
+    );
+    assert!(!marker.exists());
 }

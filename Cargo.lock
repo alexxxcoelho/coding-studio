@@ -949,6 +949,7 @@ dependencies = [
  "mime_guess",
  "open",
  "qrcode",
+ "regex",
  "roxmltree",
  "rusqlite",
  "serde",

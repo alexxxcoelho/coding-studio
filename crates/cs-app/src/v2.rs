@@ -182,13 +182,16 @@ pub(crate) const DOCX_TYPE: &str =
 
 /// `GET /api/writing/export.docx`: the write-up as a Word document.
 async fn writeup_docx(State(st): State<AppState>) -> Result<Response, ApiError> {
-    let doc = st.store().writeup_doc()?;
+    let store = st.store();
+    crate::anonymisation::require_all(&store)?;
+    let doc = crate::export_v2::mask_document(&store, &store.writeup_doc()?, &st.actor)?;
     let bytes = crate::docx::render(&doc)?;
     Ok(attachment(bytes, DOCX_TYPE, "writeup.docx"))
 }
 
 /// Saved analysis, comparison, codebook and source evidence, without runtime AI.
 async fn analysis_docx(State(st): State<AppState>) -> Result<Response, ApiError> {
+    crate::anonymisation::require_all(&st.store())?;
     let doc = crate::analysis_report::document(&st.store(), &st.actor)?;
     let bytes = crate::docx::render_report(&doc)?;
     Ok(attachment(bytes, DOCX_TYPE, "analysis-report.docx"))
@@ -196,6 +199,7 @@ async fn analysis_docx(State(st): State<AppState>) -> Result<Response, ApiError>
 
 /// Persist a versioned report locally, including a plain-text companion and hashes.
 async fn analysis_package(State(st): State<AppState>) -> Result<Json<Value>, ApiError> {
+    crate::anonymisation::require_all(&st.store())?;
     let doc = crate::analysis_report::document(&st.store(), &st.actor)?;
     let bytes = crate::docx::render_report(&doc)?;
     let base = exports_base(&st.db_path);

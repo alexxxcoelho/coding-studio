@@ -169,3 +169,21 @@ pub async fn unit_ids(app: &Router, interview: &str) -> Vec<String> {
 pub fn text_of(v: &Value) -> String {
     v.as_str().unwrap_or_default().to_string()
 }
+
+pub async fn approve_anonymisation(app: &Router, id: &str) {
+    let path = format!("/api/anonymisation/interviews/{id}");
+    let p = ok(app, "GET", &path, None).await;
+    ok(
+        app,
+        "PUT",
+        &path,
+        Some(json!({"digest":p["digest"],"reviewed":true})),
+    )
+    .await;
+}
+pub async fn approve_all_anonymisation(app: &Router) {
+    let p = ok(app, "GET", "/api/anonymisation", None).await;
+    for i in p["interviews"].as_array().unwrap() {
+        approve_anonymisation(app, i["id"].as_str().unwrap()).await;
+    }
+}

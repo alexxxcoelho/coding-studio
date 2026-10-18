@@ -52,7 +52,7 @@ describe("sidebar", () => {
       expect(n.getByRole("link", { name: new RegExp(`^${l}`) })).toBeInTheDocument()
     }
     expect(n.getByRole("button", { name: "Réglages" })).toBeInTheDocument()
-    expect(await n.findByText("Pseudonymisation inactive")).toBeInTheDocument()
+    expect(await n.findByText("Anonymisation locale")).toBeInTheDocument()
     // The count of the library comes from the API.
     expect(await n.findByRole("link", { name: "Bibliothèque 2" })).toBeInTheDocument()
   })

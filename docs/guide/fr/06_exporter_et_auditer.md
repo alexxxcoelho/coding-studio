@@ -85,3 +85,7 @@ La liste de pseudonymisation ne remplace que les formes de noms configurées, su
 ## Style des notes
 
 Utiliser des notes courtes, en puces si utile : idée, passage utile, contraste, question ouverte, limite. Les mémos d’entretien, fiches de thèmes et zones de rédaction servent de prise de notes du chercheur. Une définition de code tient en une phrase simple. Une note ou un statut de traitement ne remplace pas la vérification ciblée d’une citation contre l’enregistrement.
+
+## Copie destinée aux correcteurs
+
+L’assistant **Export correcteurs** ne propose que la copie anonymisée. Tous les entretiens doivent avoir été relus dans **Anonymiser**. Relisez aussi les champs sélectionnés dans l’arbre, notamment notes, analyse, rapport et anciennes passes IA : des noms inconnus peuvent s’y trouver. Confirmez cette relecture avant de générer le dossier chiffré. Les fichiers originaux, coordonnées et documents de consentement sont exclus, ainsi que la table privée des identités. Un export ancien ne devient pas anonyme rétroactivement : régénérez-le après cette vérification.

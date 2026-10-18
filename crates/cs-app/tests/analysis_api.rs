@@ -523,6 +523,7 @@ async fn the_writeup_export_carries_every_lot_5_file_under_the_manifest() {
         Some(json!({"n": 3, "seed": "s1"})),
     )
     .await;
+    common::approve_all_anonymisation(&ctx.app).await;
     let state_before = ok(
         &ctx.app,
         "POST",
@@ -623,7 +624,7 @@ async fn the_writeup_export_carries_every_lot_5_file_under_the_manifest() {
         "link.create",
         "writing.part",
         "audit.draw",
-        "export.writeup",
+        "export.anonymised",
     ] {
         assert!(actions.contains(&a), "no {a}");
     }

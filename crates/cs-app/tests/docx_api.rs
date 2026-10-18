@@ -62,6 +62,7 @@ async fn written() -> Ctx {
         })),
     )
     .await;
+    common::approve_all_anonymisation(&ctx.app).await;
     ctx
 }
 
@@ -213,6 +214,7 @@ async fn analysis_package_keeps_versioned_files_and_matching_hashes() {
 async fn report_masks_configured_names_even_when_ai_prompt_masking_is_disabled() {
     let ctx = written().await;
     ok(&ctx.app, "PUT", "/api/pseudonymisation", Some(json!({"enabled": false, "entries": [{"kind": "person", "original": "Le stock", "pseudonym": "Respondent A"}]}))).await;
+    common::approve_all_anonymisation(&ctx.app).await;
     let res = ctx
         .app
         .clone()

@@ -6,11 +6,11 @@
 // Réglages.
 
 import { useState } from "react"
+import { Anonymizer } from "@/components/anonymizer"
 
 import { PageTitle, Section } from "@/components/bits"
 import { VerificationDialog } from "@/components/export/verification-dialog"
 import { CodebookImportSection } from "@/components/settings/codebook-import"
-import { PseudonymisationSection } from "@/components/settings/pseudonymisation"
 import { ProjectListsSection } from "@/components/settings/project-lists"
 import { ProjectTemplateButtons } from "@/components/settings/project-template"
 import { ResearchQuestionsEditor } from "@/components/settings/research-questions"
@@ -41,7 +41,7 @@ export function SettingsPage() {
       <Section title={t("common.modeles_et_listes_de_l")}>
         <ProjectListsSection />
       </Section>
-      <PseudonymisationSection />
+      <Section title={t("anonymizer.title")}><p className="text-sm mb-3">{t("anonymizer.local")}</p><Anonymizer /></Section>
       <CodebookImportSection />
       <Section title={t("settings.exports_et_verification")} aside={t("settings.ces_vues_sont_des_sorties")}>
         <ul className="m-0 flex list-none flex-col gap-2 p-0">

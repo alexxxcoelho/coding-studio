@@ -4,6 +4,7 @@
 //! The contract is documented in `docs/API.md`.
 
 mod analysis_report;
+mod anonymisation;
 pub mod bundle;
 pub mod cli;
 pub mod docx;
@@ -251,6 +252,7 @@ pub fn router(state: AppState) -> Router {
         .merge(v1_project::routes())
         .merge(lexicon::routes())
         .merge(v1_review::routes())
+        .merge(anonymisation::routes())
         .merge(persons::routes())
         .merge(qdpx::routes())
         .merge(v1_analysis::routes())
@@ -1408,7 +1410,7 @@ async fn generate_prompts(
     // coding of the researcher. The human reference is frozen by
     // `record_prompts`, ahead of the prompt in the audit chain.
     let ctx = v1_review::prompt_context(&store, &seg, &unit_ids, &codes)?;
-    let parts = cs_ai::build_prompts_configured(
+    let mut parts = cs_ai::build_prompts_configured(
         &template,
         &cs_ai::PromptInput {
             seg: &seg,
@@ -1418,6 +1420,7 @@ async fn generate_prompts(
         &ctx,
         batch,
     );
+    anonymisation::safe_parts(&store, &mut parts)?;
     Ok(Json(json!(store.record_prompts(&parts, &st.actor)?)))
 }
 
@@ -1426,7 +1429,10 @@ async fn list_prompts(
     UrlPath((id, phase)): UrlPath<(String, String)>,
 ) -> ApiResult {
     only_phase2(&phase)?;
-    Ok(Json(json!(st.store().prompts(&id)?)))
+    let store = st.store();
+    let mut parts = store.prompts(&id)?;
+    anonymisation::safe_parts(&store, &mut parts)?;
+    Ok(Json(json!(parts)))
 }
 
 async fn list_runs(

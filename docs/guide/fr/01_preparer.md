@@ -80,11 +80,17 @@ La fiche réunit ce que vous savez de l'entretien avant de le coder.
 
 **Dans Coding Studio.** Dans la Bibliothèque, un clic sur une ligne ouvre la Fiche à droite ; un double-clic, ou le bouton Coder de la fiche, ouvre l'écran Coder. La fiche contient trois blocs. Attributs : les champs que vous avez définis (les listes sont des menus), à remplir avant de coder car ils servent ensuite de filtres dans l'Analyser. Mémo de familiarisation : le choix du modèle de mémo, avec le décompte des questions ajoutées ou retirées pour cet entretien. Source : le fichier de transcription, le nombre de tours et la mention des tours de l'intervieweur, grisés et jamais codés (par exemple 84 tours dont 61 du répondant, 23 grisés).
 
-### 11. Régler la pseudonymisation {#preparer-pseudo}
+### 11. Anonymiser localement avant toute revue IA {#preparer-pseudo}
 
-La pseudonymisation protège les répondants et leurs organisations. Elle intervient dans vos transcriptions avant l'import, et dans ce qui part vers un modèle.
+Dans **Paramètres de l’étude → Anonymiser**, choisissez un entretien. Comparez l’original local et la copie, tour par tour. Les noms connus du registre et les règles existantes sont repris. Ajoutez les personnes mentionnées et leurs différentes formes ; réutilisez le même label seulement si vous avez établi qu’il s’agit de la même personne. Examinez aussi les noms dans les locuteurs.
 
-**Dans Coding Studio.** Dans Réglages, bloc Fournisseurs IA, cochez Pseudonymiser les noms de personnes et d'organisations avant tout envoi, puis complétez la liste de remplacement (nom réel vers pseudonyme). Elle s'applique à chaque prompt généré. Elle complète la pseudonymisation de vos transcriptions sans la remplacer : une forme de nom que vous n'avez pas listée ne sera pas remplacée. Relisez un prompt avant de l'envoyer à un fournisseur hébergé. Aucune clé de fournisseur n'est stockée : elle se nomme par sa variable d'environnement.
+- Le repérage par majuscules propose des mots à examiner, sans IA. Il manque des noms et propose aussi des mots ordinaires.
+- Le texte hors des remplacements est conservé : hésitations, répétitions, ponctuation, espaces et erreurs. Le plan de remplacement garde les positions source, y compris en Unicode.
+- Une protection séparée masque les emails, numéros internationaux et URL ; ajoutez manuellement les autres coordonnées, adresses et détails identifiants. Les organisations restent telles quelles sauf règle de confidentialité explicite, notamment celles déjà définies dans le projet.
+- Relisez toute la copie puis validez-la. Toute modification du texte ou des règles annule cette validation. L’outil ne certifie pas une anonymisation automatique complète.
+- **Exporter la copie anonymisée** produit le texte segmenté, le JSON par unités et un manifeste. Les originaux et le codage restent intacts. La table des identités reste dans la base locale et n’est jamais jointe à cet export.
+
+Le prompt de référence amélioré est consultable dans ce même écran. Il est destiné à un environnement local de confiance : n’envoyez pas l’original ou la table à un service IA pour les anonymiser. Les sauvegardes complètes du projet contiennent toujours les données privées et ne sont pas des exports pour correcteurs.
 
 ### 12. Exporter ou importer un modèle de projet {#preparer-modele}
 

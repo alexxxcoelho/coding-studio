@@ -313,6 +313,7 @@ fn plan_run(st: &AppState, id: &str, batch_id: i64, body: &RunBody) -> Result<Ru
             "run label {label} is already used for {id}"
         )));
     }
+    parts = crate::anonymisation::require_batch(&store, id, batch_id)?;
     Ok(RunPlan {
         interview_id: id.to_string(),
         cfg,

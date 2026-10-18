@@ -112,6 +112,8 @@ beforeEach(() => {
   mock.on("GET", `${I}/phases/2/runs`, () => ({ body: runs }))
   mock.on("GET", `${I}/review`, () => ({ body: review }))
   mock.on("GET", "/api/providers", { body: REGISTRY })
+  mock.on("GET", "/api/anonymisation/interviews/INT-01/batches/2", {body:{digest:"privacy",reviewed:false,transcript_reviewed:false}})
+  mock.on("POST", "/api/anonymisation/interviews/INT-01/batches/2/copy", {body:[part(1,2,2),part(2,2,2)]})
   mock.on("GET", `${I}/snapshots`, { body: [{ snapshot_id: 4, interview_id: ID, batch_id: 2, phase: 2, segmentation_hash: "", codebook_hash: "", codings: {}, sha256: "", created_at: new Date(2026, 9, 13, 9, 12).toISOString() }] })
   mock.on("GET", `${I}/phases/1/units`, {
     body: [unit(1, "interviewer", "Combien de temps a pris le déploiement ?"), unit(2, "respondent", "Réponse numéro 2")].map((u) => ({ unit: u, coding: null, allowed: [] })),
@@ -148,9 +150,9 @@ describe("Revue IA, generate the prompt", () => {
     const copy1 = await screen.findByRole("button", { name: "Copier la partie 1 sur 2" })
     expect(screen.getByRole("button", { name: "Copier la partie 2 sur 2" })).toBeInTheDocument()
     expect(screen.queryByRole("button", { name: "Copier la partie 1 sur 1" })).toBeNull()
-    expect(screen.getByRole("status")).toHaveTextContent("Aucune partie copiée.")
+    expect(screen.getAllByRole("status")[0]).toHaveTextContent("Aucune partie copiée.")
     fireEvent.click(copy1)
-    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("1 sur 2 parties copiées"))
+    await waitFor(() => expect(screen.getAllByRole("status")[0]).toHaveTextContent("1 sur 2 parties copiées"))
     expect(writeText).toHaveBeenCalledWith("prompt 1")
     expect(screen.getByText(/13\.10 à 09:12/)).toBeInTheDocument()
   })
@@ -170,30 +172,19 @@ describe("Revue IA, generate the prompt", () => {
   })
 })
 
-const PSEUDO = (over: Record<string, unknown> = {}) => ({
-  enabled: true,
-  digest: "d".repeat(64),
-  categories: ["person"],
-  n_list_entries: 2,
-  entries: [{ kind: "person", original: "Anna Keller", pseudonym: "Personne 1", count: 3 }],
-  free_text_covered: false,
-  note: "La liste ne couvre pas le texte libre.",
-  ...over,
-})
-
-describe("Revue IA, pseudonymisation", () => {
-  it("says that the pseudonymisation is inactive", async () => {
-    mock.on("GET", `${I}/pseudonymisation`, { body: PSEUDO({ enabled: false, entries: [] }) })
+describe("Revue IA, anonymisation",()=>{
+  it("blocks approval until the transcript was reviewed",async()=>{
     renderWithClient(<RevoirPage id={ID} part="ai" />)
-    expect(await screen.findByText(/Pseudonymisation inactive : les noms partent tels quels/)).toBeInTheDocument()
+    expect(await screen.findByText(/Copie et envoi IA bloqués/)).toBeInTheDocument()
+    expect(screen.getByRole("button",{name:"Valider ce prompt"})).toBeDisabled()
   })
-
-  it("lists the replaced names with their number of replacements", async () => {
-    mock.on("GET", `${I}/pseudonymisation`, { body: PSEUDO() })
+  it("does not copy when the server privacy guard refuses",async()=>{
+    const writeText=vi.fn();vi.stubGlobal("navigator",{...navigator,clipboard:{writeText}})
+    mock.on("POST","/api/anonymisation/interviews/INT-01/batches/2/copy",{status:409,body:{kind:"guard",error:"Review required"}})
     renderWithClient(<RevoirPage id={ID} part="ai" />)
-    expect(await screen.findByText(/Pseudonymisation active : 1 nom remplacé avant envoi/)).toBeInTheDocument()
-    expect(screen.getByText(/3 remplacements/)).toBeInTheDocument()
-    expect(screen.getByText(/La liste ne couvre pas le texte libre/)).toBeInTheDocument()
+    fireEvent.click(await screen.findByRole("button",{name:"Copier la partie 1 sur 2"}))
+    await waitFor(()=>expect(mock.to("POST","/api/anonymisation/interviews/INT-01/batches/2/copy")).toHaveLength(1))
+    expect(writeText).not.toHaveBeenCalled()
   })
 })
 

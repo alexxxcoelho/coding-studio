@@ -105,7 +105,6 @@ impl Masker {
         opts: &AnonymiseOptions,
         actor: &str,
     ) -> Result<(Masker, String)> {
-        let cfg = store.pseudonym_config()?;
         let label = opts
             .researcher_label
             .as_deref()
@@ -113,19 +112,19 @@ impl Masker {
             .filter(|l| !l.is_empty())
             .unwrap_or(DEFAULT_RESEARCHER_LABEL)
             .to_string();
-        let mut entries: Vec<PseudonymEntry> = cfg.entries.clone();
+        let mut entries: Vec<PseudonymEntry> = crate::anonymisation::entries(store)?;
         let mut names: Vec<String> = opts.researcher_names.clone();
         names.extend(store.study_config()?.interviewers);
         names.push(actor.to_string());
         let mut seen: Vec<String> = Vec::new();
         for n in names {
             let n = n.trim().to_string();
-            if n.is_empty() || seen.iter().any(|s| s.eq_ignore_ascii_case(&n)) {
+            if crate::anonymisation::generic_speaker(&n)
+                || seen.iter().any(|s| s.eq_ignore_ascii_case(&n))
+            {
                 continue;
             }
-            if entries.iter().any(|e| e.original.eq_ignore_ascii_case(&n)) {
-                continue;
-            }
+            entries.retain(|e| !e.original.eq_ignore_ascii_case(&n));
             seen.push(n.clone());
             entries.push(PseudonymEntry {
                 kind: "researcher".into(),
@@ -151,12 +150,28 @@ impl Masker {
                 kinds,
                 counts: std::cell::RefCell::new(Vec::new()),
             },
-            cfg.digest(),
+            cs_model::pseudonym::PseudonymConfig {
+                enabled: true,
+                entries,
+            }
+            .digest(),
         ))
     }
 
     pub(crate) fn mask(&self, text: &str) -> String {
-        self.rules.mask_counted(text, &mut self.counts.borrow_mut())
+        // Count against the source; contacts must also be detected before a
+        // name replacement could split an address into unrecognisable fragments.
+        let _ = self.rules.mask_counted(text, &mut self.counts.borrow_mut());
+        crate::anonymisation::mask_with(&self.rules, text)
+    }
+
+    pub(crate) fn mask_passage(
+        &self,
+        text: &str,
+        start: usize,
+        end: usize,
+    ) -> Result<(usize, usize, String)> {
+        crate::anonymisation::mask_passage(&self.rules, text, start, end)
     }
 
     fn residual(&self, text: &str) -> bool {
@@ -344,6 +359,10 @@ pub fn write_anonymised(
             .interview(id)?
             .ok_or_else(|| CsError::NotFound(format!("interview {id}")))?;
     }
+    match scope {
+        Scope::Interview(id) => crate::anonymisation::require_review(store, id)?,
+        _ => crate::anonymisation::require_all(store)?,
+    }
     let (masker, digest) = Masker::new(store, opts, actor)?;
     let label = opts
         .researcher_label
@@ -444,7 +463,7 @@ pub fn write_anonymised(
                 anyhow::bail!("a listed name is still present in {name}; the export is refused");
             }
         }
-        let n_entries = store.pseudonym_config()?.entries.len();
+        let n_entries = crate::anonymisation::entries(store)?.len();
         let replacements = masker.replacements();
         w.write(
             "README.md",

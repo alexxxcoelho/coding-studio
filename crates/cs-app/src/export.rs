@@ -1495,16 +1495,6 @@ fn writeup_readme(state_sha: &str) -> String {
     s
 }
 
-/// Writes the write-up package to `<base>/<YYYY-MM-DD>_writeup/` (time suffix when it exists).
-pub fn write_writeup(
-    store: &Store,
-    base: &Path,
-    db_path: &Path,
-    actor: &str,
-) -> Result<WriteupExport> {
-    write_writeup_with(store, base, db_path, actor, PackageOpts::NORMAL)
-}
-
 pub(crate) fn write_writeup_with(
     store: &Store,
     base: &Path,

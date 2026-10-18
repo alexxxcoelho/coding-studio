@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react"
+import { Anonymizer } from "@/components/anonymizer"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -37,7 +38,7 @@ function Wizard({ onClose }: { onClose: () => void }) {
   const [step, setStep] = useState(0)
   const [catalogue, setCatalogue] = useState<ReviewerCatalogue | null>(null)
   const [selected, setSelected] = useState(new Set<string>())
-  const [pseudonymise, setPseudonymise] = useState(true)
+  const pseudonymise = true
   const [search, setSearch] = useState("")
   const [preview, setPreview] = useState<ReviewerField | null>(null)
   const [password, setPassword] = useState("")
@@ -73,7 +74,7 @@ function Wizard({ onClose }: { onClose: () => void }) {
   const generate = async () => {
     if (!catalogue || !validPassword || !validUrl || !selected.size || !acknowledged) return
     setBusy(true); setError("")
-    const body = { snapshot: catalogue.snapshot, selected: [...selected], password, pseudonymise, url }
+    const body = { snapshot: catalogue.snapshot, selected: [...selected], password, pseudonymise, url, privacy_reviewed: acknowledged }
     setPassword(""); setConfirmation("")
     try { setResult(await request<Result>("POST", "/api/export/reviewer", body)) }
     catch (e) { setError(e instanceof Error ? e.message : String(e)); setStep(1) }
@@ -96,7 +97,7 @@ function Wizard({ onClose }: { onClose: () => void }) {
           <p className="text-label2">{t("reviewer.password_separate")}</p>{result.url && <p className="break-all select-text">{t("reviewer.url_prepared", { url: result.url })}</p>}
         </div> : loading ? <p role="status">{t("reviewer.loading")}</p> : step === 0 ? <>
           <div className="flex flex-wrap items-center gap-3 mb-3">
-            <label className="flex items-center gap-2"><input type="checkbox" checked={pseudonymise} onChange={e => setPseudonymise(e.target.checked)} />{t("reviewer.pseudonymise")}</label>
+            <span>{t("anonymizer.export_only")}</span><Anonymizer />
             <span className="text-xs text-label2">{t("reviewer.rules", { n: catalogue?.pseudonym_rules ?? 0 })}</span>
           </div>
           {catalogue?.coverage && <p className="text-xs text-label2 mb-2">{t("reviewer.coverage", catalogue.coverage)}</p>}

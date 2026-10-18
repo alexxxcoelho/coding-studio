@@ -19,9 +19,8 @@ import {
 } from "@/components/icons"
 import { t } from "@/i18n"
 import { api } from "@/lib/api"
-import { keys, useCodes } from "@/lib/hooks"
+import { useCodes } from "@/lib/hooks"
 import { usePersonGroups } from "@/lib/persons-api"
-import { reviewApi } from "@/lib/review-api"
 import { isMac, navKeyFor } from "@/lib/nav"
 import { openInterviews } from "@/lib/open-interviews"
 import { interviewHref, type Route } from "@/lib/router"
@@ -49,25 +48,9 @@ function progress(s: InterviewSummary | undefined): string | null {
   return p.n_units > 0 ? `${p.n_human_coded}/${p.n_units}` : null
 }
 
-/** The state of the pseudonymisation of what is sent to a model, as the server holds it. */
+/** Mandatory masking is independent of the retired optional switch. */
 function PseudoNote() {
-  const { data } = useQuery({ queryKey: keys.projectPseudonymisation, queryFn: reviewApi.projectPseudonymisation })
-  if (!data) return null
-  return (
-    <a
-      href="#/settings"
-      className="sb-note no-underline"
-      style={{ color: "var(--label2)" }}
-      title={
-        data.enabled
-          ? t("sidebar.n_noms_remplaces_avant_tout", { n: data.n_list_entries })
-          : t("sidebar.les_noms_partent_tels_quels")
-      }
-    >
-      <ShieldIcon size={14} />
-      {data.enabled ? t("common.pseudonymisation_active") : t("common.pseudonymisation_inactive")}
-    </a>
-  )
+  return <a href="#/settings" className="sb-note no-underline" style={{color:"var(--label2)"}} title={t("anonymizer.sidebar_help")}><ShieldIcon size={14}/>{t("anonymizer.sidebar")}</a>
 }
 
 export function Sidebar({

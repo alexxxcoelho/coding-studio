@@ -19,7 +19,7 @@ pub const PSEUDONYMISATION_KEY: &str = "pseudonymisation";
 pub const KINDS: [&str; 2] = ["person", "organisation"];
 
 /// What the interface and the run records say about the limits of the method.
-pub const FREE_TEXT_NOTE: &str = "La liste remplace les noms qu'elle contient, sous la forme exacte où ils sont listés, dans tout ce qui part vers un modèle. Elle ne couvre ni une autre forme d'un nom ni le texte libre (mémos, notes) : relisez le prompt avant de l'envoyer à un fournisseur hébergé.";
+pub const FREE_TEXT_NOTE: &str = "Les règles connues sont appliquées à tout le prompt, y compris les notes et le contexte. Elles ne détectent pas toutes les identités inconnues ou indirectes : la copie de l’entretien et le prompt complet doivent être relus avant copie ou envoi IA.";
 
 /// What a run records of the pseudonymisation applied to its prompt.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -255,6 +255,25 @@ impl Pseudonymiser {
             i += 1;
         }
         out
+    }
+
+    /// Non-overlapping source-character spans, in source order. Only these
+    /// characters are changed by the deterministic local anonymiser.
+    pub fn replacement_spans(&self, text: &str) -> Vec<(usize, usize, String)> {
+        let hay: Vec<char> = text.chars().collect();
+        let mut spans = Vec::new();
+        let mut i = 0;
+        while i < hay.len() {
+            if let Some((needle, _, label)) =
+                self.rules.iter().find(|(n, _, _)| matches_at(&hay, i, n))
+            {
+                spans.push((i, i + needle.len(), label.clone()));
+                i += needle.len();
+            } else {
+                i += 1;
+            }
+        }
+        spans
     }
 
     /// The listed names, in the order `mask_counted` counts them.
