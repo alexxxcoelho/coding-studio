@@ -52,7 +52,7 @@ async fn exact_selection_produces_only_a_protected_local_package() {
     let zip = zip::ZipArchive::new(std::fs::File::open(dir.join("upload.zip")).unwrap()).unwrap();
     assert_eq!(
         zip.file_names().map(Result::unwrap).collect::<Vec<_>>(),
-        ["README.txt", "index.html"]
+        ["COPYING.LESSER", "NOTICE.txt", "README.txt", "index.html"]
     );
 }
 

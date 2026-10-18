@@ -1,0 +1,23 @@
+Coding Studio
+Copyright (c) 2026 Alexandre Dos Santos Coelho
+
+SPDX-License-Identifier: LGPL-2.1-or-later
+
+Coding Studio is free software: you can redistribute it and/or modify it
+under the terms of the GNU Lesser General Public License as published by
+the Free Software Foundation, either version 2.1 of the License, or
+(at your option) any later version.
+
+Coding Studio is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+or FITNESS FOR A PARTICULAR PURPOSE. See LICENSE for the full terms.
+
+Project: https://github.com/alexxxcoelho/coding-studio
+
+This notice concerns first-party software only. Dependencies retain their
+own licences and copyright notices. Interviews, transcripts, recordings,
+codebooks, research notes and other user data do not acquire the software's
+licence merely because they are opened or exported with Coding Studio.
+
+Earlier revisions released under MIT remain available under their original
+terms; this change does not revoke permissions already granted.

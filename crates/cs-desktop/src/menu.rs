@@ -37,6 +37,9 @@ pub fn build(app: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
         name: Some("Coding Studio".into()),
         version: Some(cs_app::VERSION.into()),
         copyright: app.config().bundle.copyright.clone(),
+        license: Some("GNU LGPL 2.1 or later".into()),
+        website: Some("https://github.com/alexxxcoelho/coding-studio".into()),
+        credits: Some("<p>Coding Studio · © 2026 Alexandre Dos Santos Coelho</p><p>GNU LGPL version 2.1 or later. No warranty.</p><p>Software licence only; research data retain their own rights.</p>".into()),
         ..Default::default()
     };
     let sep = || PredefinedMenuItem::separator(app);

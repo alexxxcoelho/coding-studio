@@ -1,6 +1,10 @@
 # Protected reviewer export
 
-This library owns exact field selection, authenticated encryption and the static reader. The application adapter in `cs-app/src/reviewer_export.rs` owns the explicit research-data whitelist, current-state projection, source checks, optional URL/QR and package creation.
+This library owns exact field selection, authenticated encryption and the static reader.
+
+The reader is a read-only research workspace: interview library, full selected transcripts with overlapping code/highlight spans, Codes/Detail/Lexicon/Notes inspector, people and transcript speakers, hierarchical codebook with source occurrences, local KWIC and attribute frequencies, themes, evidence-linked matrix, documented decisions, and a printable report. It reconstructs only the selected fields and clearly labels missing content. Local lexical comparisons are descriptive calculations over the exported subset, not a semantic model or a replacement for the application’s analysis.
+
+The first-party reader is LGPL-2.1-or-later. Its source and complete licence are included in the HTML; packages also carry COPYING.LESSER and NOTICE.txt. Research data retain their own rights. The application adapter in `cs-app/src/reviewer_export.rs` owns the explicit research-data whitelist, current-state projection, source checks, optional URL/QR and package creation.
 
 - PBKDF2-HMAC-SHA256 at 600,000 iterations, random 16-byte salt per package.
 - AES-256-GCM with a fresh random 12-byte IV for every part. The manifest and each source chunk have authenticated identities.

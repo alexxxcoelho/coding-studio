@@ -5,7 +5,7 @@ members = ["crates/cs-reviewer-export", "crates/cs-model", "crates/cs-ingest", "
 [workspace.package]
 version = "0.1.0"
 edition = "2021"
-license = "MIT"
+license = "LGPL-2.1-or-later"
 authors = ["Alexandre Dos Santos Coelho"]
 
 [workspace.dependencies]

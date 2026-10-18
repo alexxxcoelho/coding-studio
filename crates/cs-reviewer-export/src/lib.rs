@@ -219,12 +219,21 @@ pub fn encrypt(payload: &Payload, password: &str) -> Result<Envelope, String> {
 pub fn reader_html(envelope: &Envelope) -> Result<String, String> {
     let data = STANDARD
         .encode(serde_json::to_vec(envelope).map_err(|_| "Cannot serialize encrypted export")?);
-    let script = include_str!("../web/reader.js");
+    let script = format!(
+        "{}\n{}",
+        include_str!("../web/reader-model.js"),
+        include_str!("../web/reader.js")
+    );
+    let licence = include_str!("../../../LICENSE")
+        .replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;");
     let hash = STANDARD.encode(Sha256::digest(script.as_bytes()));
     Ok(include_str!("../web/reader.html")
         .replace("__SCRIPT_HASH__", &hash)
         .replace("__ENCRYPTED_PAYLOAD__", &data)
-        .replace("__READER_SCRIPT__", script))
+        .replace("__LICENSE_TEXT__", &licence)
+        .replace("__READER_SCRIPT__", &script))
 }
 
 #[cfg(test)]

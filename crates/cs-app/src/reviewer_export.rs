@@ -252,6 +252,24 @@ fn projection(store: &Store, pseudonymise: bool, actor: &str) -> Result<Projecti
         &["run_id"],
         false,
     )?;
+    rows(
+        c,
+        &mut records,
+        "Unit marks",
+        "SELECT interview_id,unit_id,mark,note FROM unit_marks",
+        &["interview_id", "unit_id"],
+        true,
+    )?;
+    rows(
+        c,
+        &mut records,
+        "People memberships",
+        "SELECT person_id,group_id FROM person_group_members",
+        &["person_id", "group_id"],
+        false,
+    )?;
+    rows(c, &mut records, "Project configuration", "SELECT 'attributes' AS name, json_extract(value,'$.attributes') AS body FROM settings WHERE key='project_config'", &["name"], true)?;
+    rows(c, &mut records, "Project configuration", "SELECT 'memo_templates' AS name, json_extract(value,'$.memo_templates') AS body FROM settings WHERE key='project_config'", &["name"], true)?;
     let mut sources = HashMap::new();
     let mut q = c.prepare("SELECT s.interview_id,i.folder_path,s.rel_path,s.sha256,s.size,s.kind FROM sources s JOIN interviews i USING(interview_id) ORDER BY s.interview_id,s.rel_path")?;
     let mut r = q.query([])?;
@@ -485,8 +503,18 @@ fn package(store: &Store, actor: &str, db: &Path, body: ExportBody) -> Result<Va
             )?;
         }
         fs::write(stage.join("README.txt"),"CODING STUDIO · DOSSIER DE CONSULTATION\n\nContenu chiffré, accès en lecture seule. Ouvrir index.html avec un navigateur récent. Le mot de passe doit être transmis séparément. Pour les pièces jointes en local, choisir le dossier data dans le lecteur. Pour héberger, déposer l’intégralité de ce dossier sur un serveur HTTPS de confiance. Ne pas déposer le mot de passe. Aucun hébergement ni contrôle de comptes n’est fourni. Les copies téléchargées ne peuvent pas être révoquées.\n")?;
+        fs::write(
+            stage.join("COPYING.LESSER"),
+            include_str!("../../../LICENSE"),
+        )?;
+        fs::write(stage.join("NOTICE.txt"), include_str!("../../../NOTICE"))?;
         // Only the encrypted/public package enters the upload ZIP, never the database or password.
-        let mut names = vec!["index.html".to_string(), "README.txt".to_string()];
+        let mut names = vec![
+            "index.html".to_string(),
+            "README.txt".to_string(),
+            "COPYING.LESSER".to_string(),
+            "NOTICE.txt".to_string(),
+        ];
         if public_url.is_some() {
             names.extend(["URL.txt".into(), "QR.svg".into()]);
         }

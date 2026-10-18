@@ -1,124 +1,208 @@
-"use strict";
+/* SPDX-License-Identifier: LGPL-2.1-or-later
+ * Copyright (c) 2026 Alexandre Dos Santos Coelho */
+'use strict';
 (() => {
-  const $ = (id) => document.getElementById(id);
-  const decode = (s) => Uint8Array.from(atob(s), c => c.charCodeAt(0));
-  let fields = [], active = "", sessionKey = null, revision = 0;
-  const localFiles = new Map();
-  const valueText = (value) => typeof value === "string" ? value : JSON.stringify(value, null, 2);
-  const keyFor = (field) => JSON.stringify(field.path.slice(0, Math.min(2, field.path.length)));
-  const labelFor = (field) => field.path.slice(0, Math.min(2, field.path.length)).join(" / ");
-  async function download(file, button) {
-    const current = revision, key = sessionKey;
-    button.disabled = true;
-    button.textContent = "Déchiffrement…";
-    try {
-      // Browsers assemble downloads in memory. Large files remain intact in the
-      // package but require an explicit smaller-file export for this reader.
-      if (file.size > 1024 * 1024 * 1024) throw new Error("Ce fichier dépasse 1 Gio, la limite de téléchargement de ce lecteur.");
-      const parts = [];
-      let length = 0;
-      for (const chunk of file.chunks) {
-        if (revision !== current) throw new Error("Dossier verrouillé.");
-        if (!/^[a-f0-9]{64}-\d+\.bin$/.test(chunk.name)) throw new Error("Référence de fichier invalide.");
-        let bytes;
-        if (localFiles.has(chunk.name)) bytes = await localFiles.get(chunk.name).arrayBuffer();
-        else if (location.protocol === "https:" || location.protocol === "http:") {
-          const response = await fetch(new URL("data/" + chunk.name, location.href), {redirect:"error",credentials:"omit"});
-          if (!response.ok) throw new Error("Pièce jointe absente de l’hébergement.");
-          bytes = await response.arrayBuffer();
-        } else throw new Error("Choisissez d’abord le dossier « data » ci-dessus.");
-        if (revision !== current) throw new Error("Dossier verrouillé.");
-        const plain = await crypto.subtle.decrypt({name:"AES-GCM",iv:decode(chunk.iv),additionalData:new TextEncoder().encode(chunk.aad),tagLength:128},key,bytes);
-        parts.push(new Uint8Array(plain)); length += plain.byteLength;
+  const M=ReviewerData,$=id=>document.getElementById(id),decode=s=>Uint8Array.from(atob(s),c=>c.charCodeAt(0));
+  let fields=[],model=null,sessionKey=null,revision=0,route={view:'library'},inspector='codes',selectedUnit='',selectedPassage='',lexTerm='',lexInterview='',lexAttribute='',lexLimit=60,unitFilter='',codeFilter='',analysisTab='themes',selectedTheme='',selectedCell=null,searchTimer;
+  const localFiles=new Map(),objectUrls=new Set();
+  const navs=[['library','Bibliothèque'],['people','Personnes'],['codebook','Codebook'],['lexicon','Lexique'],['analysis','Analyse'],['report','Rapport']];
+  const labels={actor_group:'Groupe d’acteurs',sector:'Secteur',respondent_role:'Fonction du répondant',account_scope:'Portée du témoignage',metadata_sources:'Sources des attributs',trigger:'Déclencheur',alternatives:'Alternatives',constraints:'Contraintes',choice:'Choix',result:'Résultat',stage:'Étape',outcome_status:'État du résultat',notes:'Notes',origin:'Origine',role:'Rôle',ev_level:'Niveau de preuve',provenance:'Provenance',nature:'Nature de la preuve',email:'E-mail',phone:'Téléphone',person_function:'Fonction',organisation:'Organisation',consent_status:'Consentement'};
+  const valueLabels={present:'Présent',not_mentioned:'Non évoqué',contradicted:'Contredit',uncertain:'Incertain',retained:'Retenu',candidate:'Candidat',revised:'Révisé',lived_experience:'Expérience vécue',project:'Projet',opinion:'Opinion',document:'Document',verified:'Vérifié à l’audio',unverified:'Non vérifié à l’audio',unusable:'Inutilisable',undetermined:'Indéterminé',constraint:'Contrainte','enabling-condition':'Condition facilitatrice',trigger:'Déclencheur','retrospective-justification':'Justification rétrospective',supports:'Soutient',nuances:'Nuance',conditions:'Conditionne',mechanism:'Mécanisme',exception:'Exception',contradicts:'Contredit'};
+  function el(tag,cls='',content){const n=document.createElement(tag);if(cls)n.className=cls;if(content!==undefined)n.textContent=M.text(content);return n;}
+  function button(label,fn,cls=''){const n=el('button',cls,label);n.type='button';n.addEventListener('click',fn);return n;}
+  const quantity=(n,word)=>n+' '+word+(n===1?'':'s');
+  function empty(parent,message='Cet élément ne figure pas dans les données choisies pour cet export.'){parent.append(el('p','empty',message));}
+  function prose(parent,value){
+    const text=M.text(value).replace(/\\n/g,'\n');if(!text)return;
+    const root=el('div','prose');let list=null;
+    for(const line of text.split('\n')){
+      if(/^\s*[-•]\s/.test(line)){if(!list){list=el('ul');root.append(list);}list.append(el('li','',line.replace(/^\s*[-•]\s/,'')));}
+      else {list=null;if(line.trim())root.append(el('p','',line));}
+    }parent.append(root);
+  }
+  function head(parent,title,sub=''){const h=el('div','pagehead');h.append(el('h1','',title));if(sub)h.append(el('p','',sub));parent.append(h);return h;}
+  function tabs(parent,items,active,change){const row=el('div','tabs');row.setAttribute('role','tablist');for(const [id,label]of items){const b=button(label,()=>change(id));b.setAttribute('role','tab');b.setAttribute('aria-selected',String(id===active));row.append(b);}parent.append(row);}
+  function table(parent,columns){const wrap=el('div','tablewrap'),table=el('table'),thead=el('thead'),tr=el('tr'),body=el('tbody');for(const title of columns){const th=el('th','',title);th.scope='col';tr.append(th);}thead.append(tr);table.append(thead,body);wrap.append(table);parent.append(wrap);return body;}
+  function cell(row,value,cls=''){const td=el('td',cls);if(value instanceof Object&&value.nodeType)td.append(value);else td.textContent=M.text(value);row.append(td);return td;}
+  const recordId=(record,field)=>M.text(record[field]??record._ids.at(-1));
+  function attrLabels(){const defs=model.records('Project configuration').find(r=>r._ids[0]==='attributes')?.body;return Object.fromEntries(M.ordered(defs).filter(d=>d.id).map(d=>[d.id,d.label??d.id]));}
+  function attributes(parent,values){const names={...labels,...attrLabels()};for(const [key,value]of Object.entries(values??{})){if(value===null||value==='')continue;parent.append(el('h3','',names[key]??key));prose(parent,value);}}
+  function note(i,kind){return i.notes.find(n=>(n.kind??n._ids[1])===kind)?.body;}
+  function writing(scope,target,part=''){return model.records('Analytical notes').find(n=>(n.scope??n._ids[0])===scope&&(n.target??n._ids[1])===target&&(n.sub??n._ids[2])===part)?.body;}
+  function codeChips(parent,codes){const row=el('div','chips');for(const code of [...new Set(codes)].filter(c=>c&&c!=='NA'))row.append(button(model.codeName(code),()=>navigate('codebook',{id:code}),'pill'));if(row.children.length)parent.append(row);}
+  function definition(parent,record,keys){for(const key of keys){if(record?.[key]!==undefined&&record[key]!==null&&M.text(record[key]).trim()){parent.append(el('h3','',labels[key]??key));prose(parent,valueLabels[record[key]]??record[key]);}}}
+  function unitLink(parent,interview,unit,label){parent.append(button(label??`${interview} · ${unit.replace(interview+'-','')}`,()=>navigate('interview',{id:interview,unit}),'plain'));}
+  function evidence(parent,p,kind){
+    const row=el('div','evidence');const line=el('div','row spread');unitLink(line,p.interview_id,p.unit_id);if(kind)line.append(el('span','pill',valueLabels[kind]??kind));row.append(line);
+    if(p.text!==undefined)row.append(el('blockquote','',p.text));else row.append(el('p','meta','Texte de l’extrait non inclus.'));
+    codeChips(row,p.codings.map(c=>c.code_id));
+    const verification=model.records('Audio verification').find(v=>(v.interview_id??v._ids[0])===p.interview_id&&(v.unit_id??v._ids[1])===p.unit_id);
+    row.append(el('div','meta',verification?.state?valueLabels[verification.state]??verification.state:'Vérification audio non renseignée dans cet export'));
+    parent.append(row);
+  }
+  function navigate(view,params={}){route={view,...params};if(view!=='search')$('search').value='';if(view==='interview'){selectedUnit=params.unit??'';selectedPassage='';unitFilter='';}render();$('fields').focus();}
+  function render(){
+    if(!model)return;
+    const parent=$('fields');parent.replaceChildren();$('navigation').replaceChildren();
+    const active=route.view==='interview'?'library':route.view;
+    for(const [id,label]of navs){const b=button(label,()=>navigate(id));b.setAttribute('aria-label',label);if(id===active)b.setAttribute('aria-current','page');const count=id==='library'?model.interviews.length:id==='people'?model.records('People').length:id==='codebook'?model.codes.size:null;if(count!==null)b.append(el('span','meta',count));$('navigation').append(b);}
+    $('count').textContent=model.interviews.length+' entretiens dans cette copie';
+    $('crumb').textContent=route.view==='interview'?'Bibliothèque / '+route.id:route.view==='search'?'Recherche dans le dossier':navs.find(n=>n[0]===route.view)?.[1]??'Dossier';
+    ({library:library,interview:interview,people:people,codebook:codebook,lexicon:lexicon,analysis:analysis,report:report,search:search}[route.view]??library)(parent);
+  }
+  function coverage(parent){const p=el('p','notice coverage','Cette copie contient uniquement les éléments choisis par le chercheur. Les calculs et recherches portent sur ces données, sans modifier le projet original.');parent.append(p);}
+  function library(parent){
+    head(parent,'Bibliothèque','Entrez dans un entretien pour lire le texte, ses passages codés et les notes du chercheur.');coverage(parent);
+    const body=table(parent,['Entretien','Secteur / témoignage','Texte inclus','Codage inclus']);
+    for(const i of model.interviews){const row=el('tr');const name=el('div');name.append(button(i.id,()=>navigate('interview',{id:i.id}),'plain'));if(i.meta.folder_name)name.append(el('div','meta',i.meta.folder_name));cell(row,name);
+      const attr=note(i,'attributes')??{};cell(row,attr.sector??attr.respondent_role??'Attributs non inclus');cell(row,i.units.length?quantity(i.units.length,'tour')+' de parole':'Transcription non incluse');const count=i.passages.filter(p=>p.codings.length).length;cell(row,`${count} passages codés · ${i.passages.filter(p=>!p.codings.length).length} surlignages`);body.append(row);}
+    if(!model.interviews.length)empty(parent,'Aucun entretien dans les données choisies. Consultez le codebook, l’analyse ou le rapport s’ils sont inclus.');
+    const info=el('details','notice');info.append(el('summary','','Contenu et confidentialité de cette copie'));const notice=el('p','',fields.export_info?.pseudonymised_text?'Copie avec pseudonymisation des textes. Les sources originales jointes, si présentes, ne sont pas nécessairement pseudonymisées.':'Le choix de pseudonymisation appartient au chercheur. Les citations restent présentées telles qu’elles ont été exportées.');info.append(notice);parent.append(info);
+  }
+  function interview(parent){
+    const i=model.interviewMap.get(route.id);head(parent,route.id,'Transcription et traces de lecture');if(!i){empty(parent);return;}
+    const toolbar=el('div','toolbar');const choose=el('select');choose.setAttribute('aria-label','Changer d’entretien');for(const other of model.interviews){const op=el('option','',other.id);op.value=other.id;op.selected=other.id===i.id;choose.append(op);}choose.addEventListener('change',()=>navigate('interview',{id:choose.value}));toolbar.append(choose);
+    const find=el('input');find.type='search';find.placeholder='Rechercher dans cet entretien…';find.setAttribute('aria-label','Rechercher dans cet entretien');find.value=unitFilter;find.addEventListener('input',()=>{unitFilter=find.value;paintTurns();});toolbar.append(find);parent.append(toolbar);
+    const layout=el('div','reader-layout'),transcript=el('div','transcript'),aside=el('aside','inspector');aside.setAttribute('aria-label','Inspecteur de l’entretien');layout.append(transcript,aside);parent.append(layout);
+    if(!selectedUnit)selectedUnit=i.units.find(u=>u.role!=='interviewer')?.unit_id??i.units[0]?.unit_id??'';
+    const chooseUnit=(unit,passage)=>{selectedUnit=unit;selectedPassage=passage??'';for(const turn of transcript.children)turn.classList.toggle('selected',turn.dataset.unit===unit);paintInspector();};
+    function paintTurns(){
+      transcript.replaceChildren();let visible=0;
+      for(const u of i.units){if(unitFilter&&!M.fold(u.text+' '+u.unit_id+' '+model.unitCodes(u).map(model.codeName).join(' ')).includes(M.fold(unitFilter)))continue;
+        visible++;const turn=el('section','turn'+(u.role==='interviewer'?' interviewer':'')+(u.unit_id===selectedUnit?' selected':''));turn.dataset.unit=u.unit_id;
+        const meta=el('div','turnmeta');meta.append(button(u.unit_id.replace(i.id+'-',''),()=>chooseUnit(u.unit_id),'unitpick'));if(u.timestamp)meta.append(el('span','',u.timestamp));meta.append(el('span','',u.speaker_raw??(u.role==='interviewer'?'Intervieweur':'Locuteur non inclus')));if(u.role==='interviewer')meta.append(el('span','pill','Contexte · intervieweur'));else if(!model.relevant(u))meta.append(el('span','pill','Hors périmètre'));turn.append(meta);
+        const text=el('div','turntext');const passages=model.unitPassages.get(M.key(i.id,u.unit_id))??[];
+        if(u.text===undefined)text.append(el('span','meta','Texte de ce tour non inclus.'));else for(const s of M.segments(u,passages)){
+          if(s.passages.length){const mark=el('mark',s.passages.some(p=>p.codings.length)?'coded':'',s.text);mark.tabIndex=0;mark.setAttribute('role','button');mark.setAttribute('aria-label','Examiner cet extrait : '+s.text+' · '+s.passages.flatMap(p=>p.codings.map(c=>model.codeName(c.code_id))).join(', '));const pick=()=>chooseUnit(u.unit_id,s.passages[0].passage_id);mark.addEventListener('click',event=>{event.stopPropagation();pick();});mark.addEventListener('keydown',event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();pick();}});text.append(mark);}else text.append(document.createTextNode(s.text));
+        }turn.append(text);codeChips(turn,model.unitCodes(u));turn.addEventListener('click',()=>chooseUnit(u.unit_id));transcript.append(turn);
       }
-      if (length !== file.size) throw new Error("Pièce jointe incomplète.");
-      const blob = new Blob(parts, {type:"application/octet-stream"});
-      const hash = Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", await blob.arrayBuffer())), b => b.toString(16).padStart(2,"0")).join("");
-      if (hash !== file.sha256) throw new Error("L’empreinte de la pièce jointe ne correspond pas.");
-      if (revision !== current) throw new Error("Dossier verrouillé.");
-      const url = URL.createObjectURL(blob), anchor = document.createElement("a");
-      anchor.href = url; anchor.download = file.download_name + ".bin"; anchor.click();
-      setTimeout(() => URL.revokeObjectURL(url), 10000);
-      parts.forEach(part => part.fill(0)); button.textContent = "Télécharger à nouveau";
-    } catch (error) { button.textContent = error.name === "OperationError" ? "Pièce jointe endommagée." : error.message; }
-    finally { button.disabled = false; }
+      if(!visible)empty(transcript,i.units.length?'Aucun tour ne correspond à cette recherche.':'La transcription n’est pas incluse. Les extraits et notes disponibles restent consultables ci-contre.');
+    }
+    function paintInspector(){
+      aside.replaceChildren();aside.append(el('h2','',selectedUnit?selectedUnit.replace(i.id+'-',''):'Détail de l’entretien'));
+      tabs(aside,[['codes','Codes'],['detail','Détail'],['lexicon','Lexique'],['notes','Notes']],inspector,id=>{inspector=id;paintInspector();});
+      const u=model.unitMap.get(M.key(i.id,selectedUnit)),passages=model.unitPassages.get(M.key(i.id,selectedUnit))??[];
+      if(inspector==='codes'){
+        if(u)codeChips(aside,model.unitCodes(u));
+        const ordered=[...passages].sort((a,b)=>Number(b.passage_id===selectedPassage)-Number(a.passage_id===selectedPassage));
+        for(const p of ordered){const item=el('div','listrow');item.append(el('div','eyebrow',p.codings.length?'Passage codé':'Surlignage'));if(p.text!==undefined)item.append(el('blockquote','',p.text));codeChips(item,p.codings.map(c=>c.code_id));for(const coding of p.codings){const code=model.codes.get(coding.code_id);if(code?.definition)item.append(el('p','meta',model.codeName(coding.code_id)+' : '+code.definition));if(coding.note)prose(item,coding.note);}if(u&&!M.anchor(u,p))item.append(el('p','meta','Position dans le texte non confirmée dans cette copie. L’extrait est présenté séparément.'));aside.append(item);}
+        if(!passages.length)empty(aside,'Aucun extrait sélectionné dans ce tour. Choisissez un passage surligné pour en examiner les codes.');
+        if(!i.units.length)for(const p of i.passages)evidence(aside,p);
+      }else if(inspector==='detail'){
+        if(!u){empty(aside);return;}
+        const decision=model.decisions.get(M.key(i.id,u.unit_id));
+        aside.append(el('h3','','Codes finaux inclus'));codeChips(aside,model.unitCodes(u));
+        const refs=model.records('AI phase 2 references').filter(r=>(r.interview_id??r._ids[0])===i.id&&r.codings?.[u.unit_id]).sort((a,b)=>Number(b.batch_id??0)-Number(a.batch_id??0));
+        if(refs.length){aside.append(el('h3','','Lecture initiale figée'));const original=M.ordered(refs[0].codings[u.unit_id]);if(original.includes('NA'))aside.append(el('p','meta','Aucun code'));else codeChips(aside,original);}
+        for(const response of model.records('AI phase 2 responses').filter(r=>(r.interview_id??r._ids[0])===i.id&&typeof r.raw_text==='string')){try{const raw=JSON.parse(response.raw_text),entries=raw.codings??raw.units;const item=Array.isArray(entries)?entries.find(v=>v.unit_id===u.unit_id):entries?.[u.unit_id];const assigned=Array.isArray(item)?item:item?.codes;if(assigned){const run=model.records('AI phase 2 runs').find(r=>r.run_id===response.run_id);aside.append(el('h3','',run?.run_label?'Revue IA · '+run.run_label:'Revue IA incluse'));if(assigned.includes('NA'))aside.append(el('p','meta','Aucun code'));else codeChips(aside,assigned);}}catch{/* Raw response remains available in the report. */}}
+        if(decision){aside.append(el('h3','','Arbitrage'));prose(aside,decision.rationale);if(decision.decided_at)aside.append(el('p','meta',decision.decided_at));}
+        const flags=model.records('Unit status').find(r=>(r.interview_id??r._ids[0])===i.id&&(r.unit_id??r._ids[1])===u.unit_id);
+        if(flags){aside.append(el('h3','','Points de vigilance'));for(const flag of M.ordered(flags.flags))aside.append(el('span','pill',flag));}
+        const mark=model.records('Unit marks').find(r=>(r.interview_id??r._ids[0])===i.id&&(r.unit_id??r._ids[1])===u.unit_id);if(mark?.note)prose(aside,mark.note);
+        const verification=model.records('Audio verification').find(r=>(r.interview_id??r._ids[0])===i.id&&(r.unit_id??r._ids[1])===u.unit_id);aside.append(el('h3','','Vérification audio'));prose(aside,verification?.state?valueLabels[verification.state]??verification.state:'Non renseignée dans cette copie.');if(verification?.note)prose(aside,verification.note);
+        for(const p of passages){definition(aside,p,['origin','role']);}
+        const claims=model.records('Quotations').filter(r=>r.interview_id===i.id&&r.unit_id===u.unit_id);for(const claim of claims){aside.append(el('h3','','Citation retenue'));if(claim.excerpt)aside.append(el('blockquote','',claim.excerpt));definition(aside,claim,['ev_level','provenance','role','nature']);if(claim.memo)prose(aside,claim.memo);}
+      }else if(inspector==='lexicon'){
+        if(!u?.text){empty(aside);return;}
+        aside.append(el('h3','','Mots de ce tour'));const freq=M.frequencies([u]);codeTerms(aside,freq.slice(0,12),i.id);aside.append(el('h3','','Passages proches'));aside.append(el('p','meta','Proximité de vocabulaire dans les textes inclus, sans mesure d’équivalence de sens.'));
+        const near=M.nearby(model,u);for(const hit of near){const row=el('div','listrow');unitLink(row,hit.unit.interview_id,hit.unit.unit_id);row.append(el('p','meta',hit.shared.slice(0,7).join(' · ')));row.append(el('p','prose',hit.unit.text?.slice(0,240)+(hit.unit.text?.length>240?'…':'')));aside.append(row);}if(!near.length)empty(aside,'Aucun passage proche dans les textes inclus.');
+      }else{
+        attributes(aside,note(i,'attributes'));
+        const memo=note(i,'memo');if(memo?.answers){aside.append(el('h3','','Notes de lecture'));for(const [id,a]of Object.entries(memo.answers)){aside.append(el('div','meta',({q1:'Ce que raconte le répondant',q2:'Ce qui surprend',q3:'Contradictions et limites',q4:'Questions à poursuivre'})[id]??id));prose(aside,a.text);}}
+        const checklist=note(i,'checklist');if(checklist?.note){aside.append(el('h3','','Fin d’entretien'));prose(aside,checklist.note);}sources(aside,i.id);
+      }
+    }
+    paintTurns();paintInspector();
+    if(route.unit){const target=[...transcript.children].find(t=>t.dataset.unit===route.unit);target?.scrollIntoView({block:'center'});}
   }
-  function render() {
-    const query = $("search").value.trim().toLocaleLowerCase();
-    const matches = fields.filter(f => !query || (f.path.join(" / ") + " " + valueText(f.value)).toLocaleLowerCase().includes(query));
-    const groups = new Map();
-    for (const f of matches) {
-      const k = keyFor(f);
-      if (!groups.has(k)) groups.set(k, {label:labelFor(f), fields:[]});
-      groups.get(k).fields.push(f);
+  function sources(parent,interview){const files=model.records('Source files').filter(f=>(f.interview_id??f._ids[0])===interview);if(!files.length)return;parent.append(el('h3','','Sources incluses'));for(const f of files){const row=el('div','attachment');row.append(el('p','meta',f.name??'Fichier source'));const file=f.download;if(file?.reviewer_file_v1){const b=button('Télécharger ('+(file.size/1024/1024).toFixed(1)+' Mio)',()=>download(file,b,f.name));row.append(b);}else row.append(el('p','meta','Fichier non inclus ; métadonnées seulement.'));parent.append(row);}
+    const local=el('details');local.append(el('summary','','Pièces jointes depuis un dossier local'));const input=el('input');input.type='file';input.multiple=true;input.setAttribute('webkitdirectory','');input.setAttribute('aria-label','Choisir le dossier data');input.addEventListener('change',()=>{localFiles.clear();for(const f of input.files)if(/^[a-f0-9]{64}-\d+\.bin$/.test(f.name))localFiles.set(f.name,f);});local.append(input,el('p','meta','Si les pièces jointes ne sont pas hébergées, choisissez le sous-dossier data de l’export.'));parent.append(local);
+  }
+  function people(parent){head(parent,'Personnes','Fiches et liens avec les entretiens, dans la limite des informations exportées.');const persons=model.records('People');if(!persons.length)parent.append(el('p','meta','Aucune fiche personnelle incluse ; les libellés des locuteurs sont repris des transcriptions ci-dessous.'));
+    for(const p of persons){const id=recordId(p,'person_id'),row=el('section','listrow');row.append(el('h2','',p.name??p.pseudonym??id));definition(row,p,['organisation','person_function','email','phone','consent_status','notes']);attributes(row,p.attributes);const groups=model.records('People memberships').filter(m=>(m.person_id??m._ids[0])===id).map(m=>model.records('People groups').find(g=>(g.group_id??g._ids[0])===(m.group_id??m._ids[1]))?.name).filter(Boolean);if(groups.length)row.append(el('p','meta',groups.join(' / ')));for(const r of model.records('People interviews').filter(r=>(r.person_id??r._ids[0])===id)){const iid=r.interview_id??r._ids[1];row.append(button(iid,()=>navigate('interview',{id:iid}),'pill'));}parent.append(row);}
+    const names=new Set(persons.flatMap(p=>[p.name,p.pseudonym]).filter(Boolean)),speakers=new Map();for(const u of model.units){if(u.role==='interviewer'||!u.speaker_raw||names.has(u.speaker_raw))continue;if(!speakers.has(u.speaker_raw))speakers.set(u.speaker_raw,new Set());speakers.get(u.speaker_raw).add(u.interview_id);}if(speakers.size){parent.append(el('h2','','Locuteurs des transcriptions'));parent.append(el('p','meta','Libellés présents dans les textes inclus, sans ajout de fiche personnelle.'));for(const [name,ids]of speakers){const row=el('div','listrow');row.append(el('h3','',name));for(const id of ids)row.append(button(id,()=>navigate('interview',{id}),'pill'));parent.append(row);}}
+  }
+  function descendants(id){const set=new Set([id]);let changed=true;while(changed){changed=false;for(const [key,c]of model.codes)if(set.has(c.parent_id)&&!set.has(key)){set.add(key);changed=true;}}return set;}
+  function codebook(parent){head(parent,'Codebook','Définitions, regroupements et extraits associés. Les compteurs décrivent cette copie.');const input=el('input');input.type='search';input.placeholder='Chercher un code ou une définition…';input.setAttribute('aria-label','Chercher dans le codebook');input.value=codeFilter;input.addEventListener('input',()=>{codeFilter=input.value;paintTree();});parent.append(input);const split=el('div','split');split.style.marginTop='20px';const tree=el('div','index'),detail=el('div');split.append(tree,detail);parent.append(split);
+    function paintTree(){tree.replaceChildren();const shown=new Set();const match=c=>!codeFilter||M.fold((c.name??'')+' '+(c.definition??'')).includes(M.fold(codeFilter));const visible=c=>[...descendants(recordId(c,'code_id'))].some(id=>match(model.codes.get(id)??{}));
+      function branch(c,target){const id=recordId(c,'code_id');if(shown.has(id)||!visible(c))return;shown.add(id);const children=[...model.codes.values()].filter(x=>x.parent_id===id);if(children.length){const d=el('details','treebranch');d.open=!!codeFilter||descendants(id).has(route.id);const s=el('summary','',c.name??id);d.append(s);const inner=el('div','treechild');inner.append(button('Voir les passages du groupe',()=>{route.id=id;paintDetail();},'plain'));for(const child of children)branch(child,inner);d.append(inner);target.append(d);}else{const b=button(c.name??id,()=>{route.id=id;paintDetail();});b.setAttribute('aria-current',String(route.id===id));target.append(b);}}
+      for(const c of model.codes.values())if(!c.parent_id||!model.codes.has(c.parent_id))branch(c,tree);for(const c of model.codes.values())branch(c,tree);
     }
-    if (!groups.has(active)) active = groups.keys().next().value || "";
-    $("navigation").replaceChildren();
-    for (const [key, group] of groups) {
-      const button = document.createElement("button");
-      button.type = "button";
-      button.textContent = group.label + " (" + group.fields.length + ")";
-      if (key === active) button.setAttribute("aria-current", "page");
-      button.addEventListener("click", () => { active = key; render(); });
-      $("navigation").append(button);
-    }
-    $("count").textContent = matches.length + " champ" + (matches.length === 1 ? "" : "s") + " sur " + fields.length;
-    $("fields").replaceChildren();
-    $("empty").hidden = groups.size !== 0;
-    $("heading").textContent = groups.get(active)?.label || "";
-    for (const f of groups.get(active)?.fields || []) {
-      const article = document.createElement("article"); article.className = "field";
-      const path = document.createElement("div"); path.className = "path"; path.textContent = f.path.join(" / ");
-      const value = document.createElement("div"); value.className = "value";
-      if (f.value?.reviewer_file_v1 === true) {
-        const button = document.createElement("button"); button.type = "button";
-        button.textContent = "Télécharger le fichier (" + (f.value.size / 1024 / 1024).toFixed(1) + " Mio)";
-        button.addEventListener("click", () => download(f.value, button)); value.append(button);
-      } else value.textContent = valueText(f.value);
-      article.append(path, value); $("fields").append(article);
+    function paintDetail(){detail.replaceChildren();const id=route.id??[...model.codes.keys()][0],c=model.codes.get(id)??model.inactive.get(id);if(!c){empty(detail,'Aucun code inclus. Les noms techniques apparaissent seulement lorsqu’aucune définition n’a été exportée.');return;}
+      detail.append(el('div','eyebrow',id),el('h2','',c.name??id));prose(detail,c.definition);const ids=descendants(id),passages=model.passages.filter(p=>p.codings.some(c=>ids.has(c.code_id)));const count=new Set(passages.map(p=>p.interview_id)).size;detail.append(el('p','meta',quantity(passages.length,'passage')+' · '+quantity(count,'entretien')+' dans cette copie'));for(const p of passages)evidence(detail,p);if(!passages.length)empty(detail,'Aucun passage associé n’est inclus. Cela ne signifie pas que ce code n’a pas été utilisé dans le projet.');}
+    paintTree();paintDetail();
+  }
+  function codeTerms(parent,terms,interview=''){const row=el('div','chips');for(const term of terms)row.append(button(term.word+' · '+term.count,()=>{lexTerm=term.word;lexInterview=interview;navigate('lexicon');},'pill'));parent.append(row);}
+  function lexicon(parent){head(parent,'Lexique','Rechercher en contexte et explorer les fréquences des textes inclus.');const form=el('form','toolbar');const input=el('input');input.type='search';input.value=lexTerm;input.placeholder='Mot ou expression…';input.setAttribute('aria-label','Mot ou expression du lexique');const scope=el('select');scope.setAttribute('aria-label','Périmètre du lexique');for(const id of ['',...model.interviews.map(i=>i.id)]){const op=el('option','',id||'Tous les entretiens');op.value=id;op.selected=id===lexInterview;scope.append(op);}const group=el('select');group.setAttribute('aria-label','Comparer par attribut');const attrs=new Set(model.interviews.flatMap(i=>Object.keys(note(i,'attributes')??{})).filter(k=>k!=='metadata_sources'));for(const id of ['',...attrs]){const op=el('option','',id?(attrLabels()[id]??labels[id]??id):'Sans comparaison par attribut');op.value=id;op.selected=id===lexAttribute;group.append(op);}form.append(input,scope,group,button('Rechercher',()=>{lexTerm=input.value;lexInterview=scope.value;lexAttribute=group.value;lexLimit=60;render();},'primary'));form.addEventListener('submit',e=>{e.preventDefault();lexTerm=input.value;lexInterview=scope.value;lexAttribute=group.value;lexLimit=60;render();});parent.append(form);
+    const units=model.units.filter(u=>u.role!=='interviewer'&&(!lexInterview||u.interview_id===lexInterview));parent.append(el('p','meta','Calcul local sur les tours du répondant inclus. Mots courants français/anglais exclus des fréquences ; pas de synonymes ni de pondération d’importance.'));
+    if(lexTerm.trim()){
+      if(lexAttribute){const stats=M.termStats(units,lexTerm.trim(),u=>note(model.interviewMap.get(u.interview_id),'attributes')?.[lexAttribute]);const tb=table(parent,['Attribut','Entretiens','Tours avec le terme','Occurrences','Pour 1 000 mots']);for(const stat of stats){const tr=el('tr');for(const v of [stat.value,stat.interviews,stat.units,stat.occurrences,stat.per1000.toFixed(2)])cell(tr,v);tb.append(tr);}}const hits=units.filter(u=>M.phrase(u.text,lexTerm.trim()));head(parent,'Recherche en contexte',`${hits.length} tours dans ${new Set(hits.map(u=>u.interview_id)).size} entretiens`);
+      for(const u of hits.slice(0,lexLimit)){const row=el('div','listrow');unitLink(row,u.interview_id,u.unit_id);const chars=Array.from(u.text??''),needle=M.fold(lexTerm.trim()),match=M.phrase(u.text,lexTerm.trim()),at=match?.start??0,matchEnd=match?.end??0,start=Math.max(0,at-90),end=Math.min(chars.length,matchEnd+120);const p=el('p','kwic');p.append(document.createTextNode((start?'…':'')+chars.slice(start,at).join('')),el('strong','',chars.slice(at,matchEnd).join('')),document.createTextNode(chars.slice(matchEnd,end).join('')+(end<chars.length?'…':'')));row.append(p);codeChips(row,model.unitCodes(u));parent.append(row);}
+      if(hits.length>lexLimit)parent.append(button(`Afficher plus (${lexLimit}/${hits.length})`,()=>{lexLimit+=60;render();}));if(!hits.length)empty(parent,'Aucune occurrence dans ce périmètre.');
+    }else{
+      const freq=M.frequencies(units);const tbody=table(parent,['Terme','Occurrences','Tours','Entretiens']);for(const term of freq.slice(0,lexLimit)){const tr=el('tr');cell(tr,button(term.word,()=>{lexTerm=term.word;render();},'plain'));cell(tr,term.count);cell(tr,term.units);cell(tr,term.interviews.size);tbody.append(tr);}if(freq.length>lexLimit)parent.append(button(`Afficher plus (${lexLimit}/${freq.length} termes)`,()=>{lexLimit+=60;render();}));if(!freq.length)empty(parent,'Pas assez de texte inclus pour calculer les fréquences.');
     }
   }
-  $("form").addEventListener("submit", async event => {
-    event.preventDefault();
-    const password = $("password").value;
-    $("password").value = "";
-    $("unlock").disabled = true;
-    $("status").textContent = "Ouverture du dossier…";
-    try {
-      if (!globalThis.crypto?.subtle) throw new Error("secure-context");
-      const e = JSON.parse(new TextDecoder().decode(decode($("encrypted").textContent)));
-      if (e.format !== "coding-studio-reviewer-aes256gcm-v1" || e.iterations !== 600000) throw new Error("format");
-      const salt = decode(e.salt), iv = decode(e.iv);
-      if (salt.length !== 16 || iv.length !== 12) throw new Error("format");
-      const material = await crypto.subtle.importKey("raw", new TextEncoder().encode(password), "PBKDF2", false, ["deriveKey"]);
-      const key = await crypto.subtle.deriveKey({name:"PBKDF2", salt, iterations:e.iterations, hash:"SHA-256"}, material, {name:"AES-GCM", length:256}, false, ["decrypt"]);
-      const plain = await crypto.subtle.decrypt({name:"AES-GCM", iv, additionalData:new TextEncoder().encode("CodingStudio reviewer export v1"), tagLength:128}, key, decode(e.ciphertext));
-      const payload = JSON.parse(new TextDecoder("utf-8", {fatal:true}).decode(plain));
-      new Uint8Array(plain).fill(0);
-      if (payload.format !== "coding-studio-reviewer-data-v1" || !Array.isArray(payload.fields) || !payload.fields.every(f => Array.isArray(f.path) && f.path.length && f.path.every(p => typeof p === "string") && Object.hasOwn(f, "value"))) throw new Error("format");
-      fields = payload.fields; active = ""; sessionKey = key; revision++;
-      $("export-note").hidden = !payload.export_info;
-      $("export-note").textContent = payload.export_info?.pseudonymised_text
-        ? "Copie avec pseudonymisation des textes (" + payload.export_info.replacements + " remplacements). Les fichiers originaux ne sont pas pseudonymisés. Les empreintes enregistrées concernent les originaux, avant remplacement des noms."
-        : "Copie sans pseudonymisation des textes. Les empreintes enregistrées concernent les originaux.";
-      $("local-files").hidden = !fields.some(f => f.value?.reviewer_file_v1 === true);
-      $("gate").hidden = true; $("reader").hidden = false; $("status").textContent = "";
-      render(); $("search").focus();
-    } catch (error) {
-      $("status").textContent = error.message === "secure-context"
-        ? "Le navigateur ne permet pas le déchiffrement ici. Ouvrez ce dossier depuis une adresse HTTPS ou un serveur local."
-        : "Impossible d’ouvrir le dossier : mot de passe incorrect ou fichier endommagé.";
-    } finally { $("unlock").disabled = false; }
+  function themes(){return model.records('Themes').sort((a,b)=>(Number(a.ord)||0)-(Number(b.ord)||0));}
+  function analysis(parent){head(parent,'Analyse','Les thèmes et leurs sources, les comparaisons et les décisions documentées.');tabs(parent,[['themes','Thèmes'],['matrix','Matrice'],['cases','Décisions documentées']],analysisTab,id=>{analysisTab=id;selectedCell=null;render();});
+    if(analysisTab==='themes'){
+      const all=themes(),split=el('div','split'),index=el('div','index'),detail=el('div');split.append(index,detail);parent.append(split);if(!all.length){empty(detail,'Aucun thème inclus.');return;}if(!all.some(t=>recordId(t,'theme_id')===selectedTheme))selectedTheme=recordId(all[0],'theme_id');
+      for(const t of all){const id=recordId(t,'theme_id');const b=button(t.title??id,()=>{selectedTheme=id;render();});b.setAttribute('aria-current',String(id===selectedTheme));index.append(b);}const t=all.find(t=>recordId(t,'theme_id')===selectedTheme);detail.append(el('span','pill',valueLabels[t.status]??'Statut non inclus'),el('h2','',t.title??selectedTheme));for(const [key,label]of [['proposition','Proposition'],['conditions','Conditions'],['alternative_interpretation','Interprétation alternative'],['limits','Limites'],['decision_memo','Note de décision']])if(t[key]){detail.append(el('h3','',label));prose(detail,t[key]);}
+      const codes=model.records('Theme codes').filter(r=>(r.theme_id??r._ids[0])===selectedTheme).map(r=>r.code_id??r._ids[1]);codeChips(detail,codes);detail.append(el('h3','','Passages retenus'));for(const id of M.ordered(t.main_passages)){const p=model.passageMap.get(id);if(p)evidence(detail,p);}if(!M.ordered(t.main_passages).length)empty(detail,'Aucun passage principal inclus pour ce thème.');
+    }else if(analysisTab==='matrix'){
+      const ts=themes(),rs=model.records('Matrix');if(!rs.length){empty(parent,'Aucune cellule de matrice enregistrée n’est incluse.');return;}const cols=[...new Set(rs.map(r=>r.col_key??r._ids[1]))],rows=[...new Set(rs.map(r=>r.row_key??r._ids[0]))];const colLabel=k=>ts.find(t=>'theme:'+recordId(t,'theme_id')===k)?.title??(k.startsWith('code:')?model.codeName(k.slice(5)):k.replace(/^theme:/,''));
+      const body=table(parent,['Entretien / cas',...cols.map(colLabel)]);body.parentElement.classList.add('matrix');for(const rowKey of rows){const tr=el('tr');const id=rowKey.replace(/^interview:/,'');const th=el('th','',id);th.scope='row';tr.append(th);for(const col of cols){const r=rs.find(r=>(r.row_key??r._ids[0])===rowKey&&(r.col_key??r._ids[1])===col);if(r){const b=button(valueLabels[r.value]??'Valeur non incluse',()=>{selectedCell={rowKey,col};paintCell();},r.value??'');if(r.summary)b.append(el('div','meta',r.summary));cell(tr,b);}else cell(tr,'Non incluse');}body.append(tr);}const detail=el('section');parent.append(detail);
+      function paintCell(){detail.replaceChildren();if(!selectedCell)return;const {rowKey,col}=selectedCell,r=rs.find(r=>(r.row_key??r._ids[0])===rowKey&&(r.col_key??r._ids[1])===col);detail.append(el('h3','',rowKey.replace(/^interview:/,'')+' / '+colLabel(col)));prose(detail,r?.summary);const links=model.records('Matrix passages').filter(r=>(r.row_key??r._ids[0])===rowKey&&(r.col_key??r._ids[1])===col);if(!links.length)empty(detail,'Aucun lien manuel de preuve inclus pour cette cellule.');for(const link of links){const p=model.passageMap.get(link.passage_id??link._ids[2]);if(p)evidence(detail,p);}detail.scrollIntoView({block:'nearest'});}paintCell();
+    }else{
+      const cases=model.records('Cases');if(!cases.length)empty(parent,'Aucune décision documentée incluse.');for(const c of cases){const row=el('section','listrow');row.append(el('h2','',c.label??recordId(c,'case_id')));for(const [key,label]of Object.entries({trigger:'Déclencheur',alternatives:'Alternatives',constraints:'Contraintes',choice:'Choix',result:'Résultat'})){const f=c.fields?.[key];if(f){row.append(el('h3','',label));prose(row,f.text);if(f.contradictions)prose(row,f.contradictions);if(f.missing)prose(row,'Non documenté : '+f.missing);}}definition(row,c,['notes','stage','outcome_status']);const units=model.records('Case units').filter(r=>(r.case_id??r._ids[0])===recordId(c,'case_id'));for(const u of units)unitLink(row,u.interview_id??u._ids[1],u.unit_id??u._ids[2]);parent.append(row);}
+    }
+  }
+  function report(parent){
+    const doc=el('div','document');parent.append(doc);const h=head(doc,'Rapport de recherche','Résultats enregistrés par le chercheur, avec les passages qui les étayent.');h.append(button('Imprimer / Enregistrer en PDF',()=>{const closed=[...doc.querySelectorAll('details:not([open])')];closed.forEach(d=>d.open=true);try{window.print();}finally{closed.forEach(d=>d.open=false);}}));coverage(doc);
+    const all=themes(),toc=el('div','toc');for(const t of all){const id=recordId(t,'theme_id');toc.append(button(t.title??id,()=>document.getElementById('report-'+id)?.scrollIntoView({block:'start'}),'plain'));}doc.append(toc);
+    for(const t of all){const id=recordId(t,'theme_id'),section=el('section','report-theme');section.id='report-'+id;section.append(el('span','eyebrow',valueLabels[t.status]??'Statut non inclus'),el('h2','',t.title??id));let has=false;for(const [part,label]of M.parts){const w=writing('theme_part',id,part);if(!w?.text)continue;has=true;section.append(el('h3','',label));prose(section,w.text);const links=model.records('Evidence links').filter(l=>l.target_kind==='theme_part'&&l.target_id===id&&l.part===part);if(links.length){const detail=el('details');detail.append(el('summary','',`Voir les sources (${links.length})`));for(const link of links){const p=model.passageMap.get(link.passage_id);if(p){evidence(detail,p,link.link_type);if(link.note)prose(detail,link.note);}else detail.append(el('p','meta','Extrait lié non inclus dans cette copie.'));}section.append(detail);}}
+      if(!has){if(t.proposition)prose(section,t.proposition);else empty(section,'Rédaction non incluse.');}doc.append(section);}
+    const questions=model.records('Research questions');if(questions.length){doc.append(el('h2','','Synthèse par question'));for(const q of questions){const id=recordId(q,'id');doc.append(el('h3','',id+' · '+(q.text??'')));const w=writing('rq_synthesis',id);if(w?.answer)prose(doc,w.answer);else empty(doc,'Synthèse non incluse.');if(w?.limits){doc.append(el('h3','','Limites'));prose(doc,w.limits);}}}
+    const framework=model.records('Analytical notes').filter(r=>(r.scope??r._ids[0])==='framework_theme');if(framework.length){doc.append(el('h2','','Lecture par le cadre'));for(const f of framework){const id=f.target??f._ids[1],t=all.find(t=>recordId(t,'theme_id')===id);doc.append(el('h3','',t?.title??id));for(const [key,v]of Object.entries(f.body?.cells??{})){doc.append(el('div','eyebrow',key));prose(doc,v.note);}if(f.body?.out_of_frame_note)prose(doc,f.body.out_of_frame_note);if(f.body?.evidence_limit)prose(doc,f.body.evidence_limit);}}
+    const runs=model.records('AI phase 2 runs');if(runs.length){doc.append(el('h2','','Méthode et revue IA'));doc.append(el('p','meta','La présence d’une revue IA ne constitue pas une validation humaine indépendante. Les métadonnées ci-dessous sont celles enregistrées par le chercheur.'));for(const run of runs){const d=el('details','listrow'),id=run.interview_id??run._ids[0];d.append(el('summary','',id+' · '+(run.run_label??'Revue')+' · '+(run.model_name??'Modèle non inclus')));for(const c of model.records('AI phase 2 prompts').filter(r=>(r.interview_id??r._ids[0])===id&&(!run.batch_id||r.batch_id===run.batch_id))){d.append(el('h3','','Prompt enregistré'));d.append(el('pre','prose',c.text));}for(const r of model.records('AI phase 2 responses').filter(r=>(r.interview_id??r._ids[0])===id&&(!run.run_id||r.run_id===run.run_id))){d.append(el('h3','','Réponse enregistrée'));d.append(el('pre','prose',r.raw_text));}doc.append(d);}}
+    if(!all.length&&!questions.length)empty(doc,'Aucun résultat rédigé n’est inclus dans cette copie.');
+  }
+  function search(parent){const q=M.fold($('search').value.trim());head(parent,'Recherche dans le dossier',$('search').value);if(!q){empty(parent,'Saisissez un mot, une citation ou un code.');return;}let total=0;
+    for(const u of model.units)if(M.fold((u.text??'')+' '+u.unit_id).includes(q)){const row=el('div','listrow');unitLink(row,u.interview_id,u.unit_id);row.append(el('p','prose',u.text));codeChips(row,model.unitCodes(u));parent.append(row);total++;}
+    for(const p of model.passages)if(!model.unitMap.get(M.key(p.interview_id,p.unit_id))?.text&&M.fold(p.text).includes(q)){evidence(parent,p);total++;}
+    for(const [id,c]of model.codes)if(M.fold((c.name??'')+' '+(c.definition??'')).includes(q)){const row=el('div','listrow');row.append(button(c.name??id,()=>navigate('codebook',{id}),'plain'));prose(row,c.definition);parent.append(row);total++;}
+    for(const t of themes())if(M.fold((t.title??'')+' '+(t.proposition??'')).includes(q)){parent.append(button(t.title??recordId(t,'theme_id'),()=>{selectedTheme=recordId(t,'theme_id');analysisTab='themes';navigate('analysis');},'plain'));total++;}
+    // Search the remaining selected content too, without exposing internal JSON paths.
+    for(const p of model.records('People'))if(M.fold((p.name??'')+' '+(p.organisation??'')).includes(q)){parent.append(button(p.name??p.pseudonym??recordId(p,'person_id'),()=>navigate('people'),'plain'));total++;}
+    for(const n of model.records('Analytical notes'))if(M.fold(n.body?.text??n.body?.answer??'').includes(q)){const row=el('div','listrow');row.append(button('Résultat rédigé · '+(n.target??n._ids[1]),()=>navigate('report'),'plain'));prose(row,n.body?.text??n.body?.answer);parent.append(row);total++;}
+    if(!total)empty(parent,'Aucun résultat dans les données incluses.');
+  }
+  async function download(file,b,name){
+    const current=revision,key=sessionKey;b.disabled=true;b.textContent='Déchiffrement…';const parts=[];
+    try{
+      if(!key||file.size>1024*1024*1024)throw new Error('Téléchargement indisponible ou fichier de plus de 1 Gio.');let length=0;
+      for(const chunk of file.chunks){if(revision!==current)throw new Error('Dossier verrouillé.');if(!/^[a-f0-9]{64}-\d+\.bin$/.test(chunk.name))throw new Error('Référence de fichier invalide.');let bytes;
+        if(localFiles.has(chunk.name))bytes=await localFiles.get(chunk.name).arrayBuffer();else if(['https:','http:'].includes(location.protocol)){const response=await fetch(new URL('data/'+chunk.name,location.href),{redirect:'error',credentials:'omit'});if(!response.ok)throw new Error('Pièce jointe absente. Choisissez le dossier data pour une copie locale.');bytes=await response.arrayBuffer();}else throw new Error('Choisissez le dossier data ci-dessous.');
+        if(revision!==current)throw new Error('Dossier verrouillé.');const plain=await crypto.subtle.decrypt({name:'AES-GCM',iv:decode(chunk.iv),additionalData:new TextEncoder().encode(chunk.aad),tagLength:128},key,bytes);parts.push(new Uint8Array(plain));length+=plain.byteLength;
+      }
+      if(length!==file.size)throw new Error('Pièce jointe incomplète.');const blob=new Blob(parts,{type:'application/octet-stream'}),hash=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',await blob.arrayBuffer())),v=>v.toString(16).padStart(2,'0')).join('');if(hash!==file.sha256)throw new Error('Empreinte de la pièce jointe incorrecte.');if(revision!==current)throw new Error('Dossier verrouillé.');
+      const url=URL.createObjectURL(blob),a=document.createElement('a');objectUrls.add(url);a.href=url;a.download=typeof name==='string'&&name?name.replace(/[\\/]/g,'_'):file.download_name+'.bin';a.click();setTimeout(()=>{URL.revokeObjectURL(url);objectUrls.delete(url);},10000);b.textContent='Télécharger à nouveau';
+    }catch(e){b.textContent=e.name==='OperationError'?'Pièce jointe endommagée.':e.message;}finally{parts.forEach(p=>p.fill(0));b.disabled=false;}
+  }
+  $('form').addEventListener('submit',async event=>{
+    event.preventDefault();const current=revision,password=$('password').value;$('password').value='';$('unlock').disabled=true;$('status').textContent='Ouverture du dossier…';
+    try{
+      if(!globalThis.crypto?.subtle)throw new Error('secure-context');const e=JSON.parse(new TextDecoder().decode(decode($('encrypted').textContent)));
+      if(e.format!=='coding-studio-reviewer-aes256gcm-v1'||e.iterations!==600000)throw new Error('format');const salt=decode(e.salt),iv=decode(e.iv);if(salt.length!==16||iv.length!==12)throw new Error('format');
+      const material=await crypto.subtle.importKey('raw',new TextEncoder().encode(password),'PBKDF2',false,['deriveKey']);const key=await crypto.subtle.deriveKey({name:'PBKDF2',salt,iterations:e.iterations,hash:'SHA-256'},material,{name:'AES-GCM',length:256},false,['decrypt']);
+      const plain=await crypto.subtle.decrypt({name:'AES-GCM',iv,additionalData:new TextEncoder().encode('CodingStudio reviewer export v1'),tagLength:128},key,decode(e.ciphertext));let payload;
+      try{payload=JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(plain));}finally{new Uint8Array(plain).fill(0);}
+      if(revision!==current)return;
+      if(payload.format!=='coding-studio-reviewer-data-v1'||!Array.isArray(payload.fields)||!payload.fields.every(f=>Array.isArray(f.path)&&f.path.length&&f.path.every(p=>typeof p==='string')&&Object.hasOwn(f,'value')))throw new Error('format');
+      fields=payload.fields;fields.export_info=payload.export_info;model=M.build(fields);sessionKey=key;revision++;route={view:'library'};
+      $('gate').hidden=true;$('reader').hidden=false;$('status').textContent='';render();$('fields').focus();
+    }catch(e){$('status').textContent=e.message==='secure-context'?'Ce navigateur ne permet pas le déchiffrement ici. Utilisez une adresse HTTPS ou un navigateur autorisant les fichiers locaux.':'Impossible d’ouvrir le dossier : mot de passe incorrect ou fichier endommagé.';}finally{$('unlock').disabled=false;}
   });
-  $("search").addEventListener("input", render);
-  $("source-folder").addEventListener("change", event => {
-    localFiles.clear();
-    for (const file of event.target.files) if (/^[a-f0-9]{64}-\d+\.bin$/.test(file.name)) localFiles.set(file.name, file);
-  });
-  $("lock").addEventListener("click", () => {
-    fields = []; active = ""; sessionKey = null; revision++; localFiles.clear(); $("source-folder").value = "";
-    $("fields").replaceChildren(); $("navigation").replaceChildren();
-    $("search").value = ""; $("heading").textContent = ""; $("count").textContent = "";
-    $("export-note").textContent = ""; $("reader").hidden = true; $("gate").hidden = false; $("password").focus();
-  });
+  $('search').addEventListener('input',()=>{clearTimeout(searchTimer);const current=revision;searchTimer=setTimeout(()=>{if(current===revision&&model){route={view:'search'};render();}},180);});
+  $('lock').addEventListener('click',()=>{clearTimeout(searchTimer);fields=[];model=null;sessionKey=null;revision++;localFiles.clear();for(const url of objectUrls)URL.revokeObjectURL(url);objectUrls.clear();route={view:'library'};selectedUnit='';selectedPassage='';unitFilter='';codeFilter='';lexTerm='';lexInterview='';lexAttribute='';selectedTheme='';selectedCell=null;$('fields').replaceChildren();$('navigation').replaceChildren();$('search').value='';$('crumb').textContent='';$('count').textContent='';$('reader').hidden=true;$('gate').hidden=false;$('password').focus();});
 })();

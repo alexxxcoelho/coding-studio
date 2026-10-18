@@ -248,7 +248,9 @@ Continuous integration (`.github/workflows/ci.yml`) runs formatting, clippy and 
 
 ## Licence
 
-MIT. See `LICENSE`.
+GNU LGPL 2.1 or later (`LGPL-2.1-or-later`). See `LICENSE`, `NOTICE` and [redistribution guidance](docs/LICENSING.md).
+
+Commercial use is permitted. Redistribution must preserve the applicable copyright/licence notices and comply with the LGPL's source and modification/relinking requirements. A proprietary combined work is not automatically required to become LGPL solely because it uses the library. These are distribution obligations, not a requirement to advertise the project in marketing. Research data keep their own rights and confidentiality conditions.
 
 ## Origin
 
