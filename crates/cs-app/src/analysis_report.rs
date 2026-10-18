@@ -97,6 +97,22 @@ pub(crate) fn document(store: &Store, actor: &str) -> Result<WriteupDoc> {
     heading(&mut doc, 1, "Analysis report and evidence register");
     para(&mut doc, "This report assembles the analysis and writing currently saved in Coding Studio. It introduces no new findings and uses no generative model at export time. Saved text may have been prepared with AI assistance. Exporting it does not establish independent researcher validation, audio verification, saturation or causal inference. The recorded provenance and verification states remain authoritative.");
     para(&mut doc, "Interview and unit identifiers provide pseudonymous references. Configured pseudonymisation rules are applied to prose and quotations. Masked quotations are not verbatim originals; consult the source before citation. Unlisted identifying details require a confidentiality review before circulation.");
+    {
+        let c = store.connection();
+        let mut query=c.prepare("SELECT substr(key,length('local_preparation:')+1),json_extract(value,'$.options.model'),json_extract(value,'$.accepted_variant'),json_extract(value,'$.options.target_language') FROM settings WHERE key LIKE 'local_preparation:%' AND json_valid(value) AND json_extract(value,'$.reviewed')=1")?;
+        let rows = query.query_map([], |r| {
+            Ok((
+                r.get::<_, String>(0)?,
+                r.get::<_, String>(1)?,
+                r.get::<_, String>(2)?,
+                r.get::<_, String>(3)?,
+            ))
+        })?;
+        for row in rows {
+            let (id, model, variant, language) = row?;
+            para(&mut doc,format!("Transcript preparation: {id}; local model {model}; researcher-approved version {variant}; requested target language {}. Quotations from a cleaned or translated version are derivatives, not verbatim original-language source text. Originals are retained locally.",if language.is_empty(){"unchanged"}else{&language}));
+        }
+    }
     heading(&mut doc, 2, "Corpus and analytical scope");
     let progress = store.library_progress()?;
     let totals = &progress.totals;

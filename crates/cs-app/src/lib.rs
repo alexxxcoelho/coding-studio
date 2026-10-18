@@ -17,6 +17,7 @@ mod export_v1;
 pub mod export_v2;
 mod export_verification;
 mod lexicon;
+mod local_preparation;
 mod persons;
 mod providers;
 mod qdpx;
@@ -253,6 +254,7 @@ pub fn router(state: AppState) -> Router {
         .merge(lexicon::routes())
         .merge(v1_review::routes())
         .merge(anonymisation::routes())
+        .merge(local_preparation::routes())
         .merge(persons::routes())
         .merge(qdpx::routes())
         .merge(v1_analysis::routes())
@@ -1685,4 +1687,9 @@ async fn audit(State(st): State<AppState>, Query(q): Query<AuditQuery>) -> ApiRe
 
 async fn audit_verify(State(st): State<AppState>) -> ApiResult {
     Ok(Json(json!(st.store().verify_chain()?)))
+}
+
+/// Stop local preparation between model calls when its project window closes.
+pub fn cancel_local_preparations(db: &std::path::Path) {
+    local_preparation::cancel_project(db);
 }

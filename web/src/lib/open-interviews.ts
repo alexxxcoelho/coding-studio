@@ -4,7 +4,8 @@
 
 import { useSyncExternalStore } from "react"
 
-const KEY = "cs-open-interviews"
+const projectKey = (window as Window & {__CS_PROJECT_KEY__?: string}).__CS_PROJECT_KEY__
+const KEY = projectKey ? `cs-open-interviews:${projectKey}` : "cs-open-interviews"
 export const MAX_OPEN = 6
 
 function read(): string[] {

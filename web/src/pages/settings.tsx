@@ -6,6 +6,7 @@
 // Réglages.
 
 import { useState } from "react"
+import {PreparationSettings} from "@/components/library/local-preparation"
 import { Anonymizer } from "@/components/anonymizer"
 
 import { PageTitle, Section } from "@/components/bits"
@@ -42,6 +43,7 @@ export function SettingsPage() {
         <ProjectListsSection />
       </Section>
       <Section title={t("anonymizer.title")}><p className="text-sm mb-3">{t("anonymizer.local")}</p><Anonymizer /></Section>
+      <Section title={t("preparation.settings")}><PreparationSettings/></Section>
       <CodebookImportSection />
       <Section title={t("settings.exports_et_verification")} aside={t("settings.ces_vues_sont_des_sorties")}>
         <ul className="m-0 flex list-none flex-col gap-2 p-0">

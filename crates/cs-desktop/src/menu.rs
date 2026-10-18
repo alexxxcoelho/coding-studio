@@ -8,11 +8,10 @@ use anyhow::{anyhow, Context, Result};
 use tauri::menu::{
     AboutMetadata, Menu, MenuItem, PredefinedMenuItem, Submenu, HELP_SUBMENU_ID, WINDOW_SUBMENU_ID,
 };
-use tauri::{AppHandle, Manager};
+use tauri::AppHandle;
 use tauri_plugin_dialog::DialogExt;
 
-use crate::config::DesktopConfig;
-use crate::{ask_new_db, config_path, error_dialog, MAIN};
+use crate::{ask_new_db, error_dialog, focused_database, focused_window, open_project};
 
 /// Menu ids that the web layer carries out; they are also the `detail` of the DOM event.
 const WEB_ACTIONS: [(&str, &str); 5] = [
@@ -66,8 +65,18 @@ pub fn build(app: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
         "Fichier",
         true,
         &[
-            &item(app, "db_open", "Ouvrir un projet…", Some("CmdOrCtrl+O"))?,
-            &item(app, "db_new", "Nouveau projet…", Some("CmdOrCtrl+N"))?,
+            &item(
+                app,
+                "db_open",
+                "Ouvrir un projet dans une nouvelle fenêtre…",
+                Some("CmdOrCtrl+O"),
+            )?,
+            &item(
+                app,
+                "db_new",
+                "Nouveau projet dans une nouvelle fenêtre…",
+                Some("CmdOrCtrl+N"),
+            )?,
             &item(app, "db_reveal", "Afficher le dossier du projet", None)?,
             &sep()?,
             &item(
@@ -154,7 +163,7 @@ pub fn on_event(app: &AppHandle, id: &str) {
 
 /// Dispatches `cs-menu` with the action name on the window of the web layer.
 fn notify_web(app: &AppHandle, action: &str) {
-    let Some(window) = app.get_webview_window(MAIN) else {
+    let Some(window) = focused_window(app) else {
         return;
     };
     let detail = serde_json::to_string(action).unwrap_or_else(|_| "\"\"".into());
@@ -165,8 +174,6 @@ fn notify_web(app: &AppHandle, action: &str) {
 }
 
 fn on_database_item(app: &AppHandle, id: &str) -> Result<()> {
-    let cfg_path = config_path(app)?;
-    let mut cfg = DesktopConfig::load(&cfg_path)?;
     let chosen = match id {
         "db_open" => app
             .dialog()
@@ -178,18 +185,21 @@ fn on_database_item(app: &AppHandle, id: &str) -> Result<()> {
             .transpose()?,
         "db_new" => ask_new_db(app)?,
         "db_reveal" => {
-            if let Some(dir) = cfg.db.as_ref().and_then(|d| d.parent()) {
-                open::that(dir).with_context(|| format!("opening {}", dir.display()))?;
+            if let Some(dir) =
+                focused_database(app).and_then(|d| d.parent().map(std::path::Path::to_path_buf))
+            {
+                open::that(&dir).with_context(|| format!("opening {}", dir.display()))?;
             }
             return Ok(());
         }
         _ => return Ok(()),
     };
     if let Some(db) = chosen {
-        cfg.db = Some(db);
-        cfg.save(&cfg_path)?;
-        // Restarting is the simplest way to guarantee a single open database.
-        app.restart();
+        open_project(app, db)?;
     }
     Ok(())
+}
+
+pub(crate) fn open_another(app: &AppHandle) -> Result<()> {
+    on_database_item(app, "db_open")
 }

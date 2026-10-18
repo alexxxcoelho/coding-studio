@@ -274,6 +274,7 @@ fn projection(store: &Store, pseudonymise: bool, actor: &str) -> Result<Projecti
     )?;
     rows(c, &mut records, "Project configuration", "SELECT 'attributes' AS name, json_extract(value,'$.attributes') AS body FROM settings WHERE key='project_config'", &["name"], true)?;
     rows(c, &mut records, "Project configuration", "SELECT 'memo_templates' AS name, json_extract(value,'$.memo_templates') AS body FROM settings WHERE key='project_config'", &["name"], true)?;
+    rows(c,&mut records,"Transcript preparation","SELECT substr(key,length('local_preparation:')+1) AS interview_id,json_extract(value,'$.version') AS version,json_extract(value,'$.options.model') AS local_model,json_extract(value,'$.options.anonymise') AS anonymisation_requested,json_extract(value,'$.options.cleanup') AS cleanup_requested,json_extract(value,'$.options.target_language') AS target_language,json_extract(value,'$.accepted_variant') AS accepted_variant,json_extract(value,'$.created_at') AS prepared_at FROM settings WHERE key LIKE 'local_preparation:%' AND json_valid(value) AND json_extract(value,'$.reviewed')=1",&["interview_id"],true)?;
     let mut sources = HashMap::new();
     let mut q = c.prepare("SELECT s.interview_id,i.folder_path,s.rel_path,s.sha256,s.size,s.kind FROM sources s JOIN interviews i USING(interview_id) ORDER BY s.interview_id,s.rel_path")?;
     let mut r = q.query([])?;

@@ -21,6 +21,7 @@ cs-lex.workspace = true
 cs-qdpx.workspace = true
 anyhow.workspace = true
 regex.workspace = true
+ureq = { version = "3", features = ["json", "rustls"] }
 serde.workspace = true
 serde_json.workspace = true
 chrono.workspace = true

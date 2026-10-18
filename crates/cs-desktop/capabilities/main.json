@@ -2,7 +2,18 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "main",
   "description": "The main window shows the web interface (Tauri assets, or the Vite dev server). It may start a window drag from the toolbar and zoom the window on a double click (data-tauri-drag-region), nothing else: the web layer reaches the API over HTTP, not through Tauri commands.",
-  "windows": ["main"],
-  "remote": { "urls": ["http://127.0.0.1:*"] },
-  "permissions": ["core:window:allow-start-dragging", "core:window:allow-internal-toggle-maximize", "core:window:allow-set-theme"]
+  "windows": [
+    "main",
+    "project-*"
+  ],
+  "remote": {
+    "urls": [
+      "http://127.0.0.1:*"
+    ]
+  },
+  "permissions": [
+    "core:window:allow-start-dragging",
+    "core:window:allow-internal-toggle-maximize",
+    "core:window:allow-set-theme"
+  ]
 }

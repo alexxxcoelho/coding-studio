@@ -17,9 +17,11 @@ mod config;
 mod cors;
 mod menu;
 
+use std::collections::BTreeMap;
 use std::net::TcpListener;
 use std::path::PathBuf;
-use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::{Arc, Mutex};
 
 use anyhow::{anyhow, Context, Result};
 use cs_app::{PickKind, Picker};
@@ -32,37 +34,51 @@ const MAIN: &str = "main";
 
 fn main() {
     tauri::Builder::default()
-        // First, so that a second launch hands over to the running app before anything else starts.
-        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
-            if let Some(window) = app.get_webview_window(MAIN) {
-                let _ = window.unminimize();
-                let _ = window.show();
-                let _ = window.set_focus();
-            }
+        .manage(Projects::default())
+        .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
+            let app = app.clone();
+            let db = args
+                .windows(2)
+                .find(|w| w[0] == "--db")
+                .map(|w| PathBuf::from(&w[1]));
+            std::thread::spawn(move || {
+                let result = match db {
+                    Some(db) => open_project_inner(&app, db, false),
+                    None => menu::open_another(&app),
+                };
+                if let Err(e) = result {
+                    error_dialog(&app, &format!("{e:#}"));
+                }
+            });
         }))
         .plugin(tauri_plugin_window_state::Builder::default().build())
         .plugin(tauri_plugin_dialog::init())
         .menu(menu::build)
         .on_menu_event(|app, event| menu::on_event(app, event.id().as_ref()))
+        .on_window_event(|window, event| {
+            if matches!(event, tauri::WindowEvent::Destroyed) {
+                if let Ok(mut projects) = window.app_handle().state::<Projects>().0.lock() {
+                    if let Some(key) = projects
+                        .iter()
+                        .find(|(_, p)| p.label == window.label())
+                        .map(|(k, _)| k.clone())
+                    {
+                        if let Some(p) = projects.remove(&key) {
+                            cs_app::cancel_local_preparations(&key);
+                            let _ = p.shutdown.send(());
+                        }
+                    }
+                }
+            }
+        })
         .setup(|app| {
-            // The port is bound now so that the page can be told the API address
-            // at once; requests wait in the backlog until the server runs.
-            let listener = TcpListener::bind(("127.0.0.1", 0)).context("no free local port")?;
-            listener.set_nonblocking(true)?;
-            let port = listener.local_addr()?.port();
-            let window = main_window_builder(app, port).build()?;
-            #[cfg(target_os = "macos")]
-            apply_sidebar_material(&window);
-            #[cfg(not(target_os = "macos"))]
-            let _ = window;
             let handle = app.handle().clone();
             std::thread::spawn(move || {
-                if let Err(err) = start(&handle, listener) {
+                if let Err(e) = start(&handle) {
                     error_dialog(
                         &handle,
-                        &format!("Coding Studio n'a pas pu démarrer.\n\n{err:#}"),
+                        &format!("Coding Studio n’a pas pu démarrer.\n\n{e:#}"),
                     );
-                    handle.exit(1);
                 }
             });
             Ok(())
@@ -73,8 +89,12 @@ fn main() {
 
 /// Script run in the page before its own scripts: the address of the API, and
 /// on macOS the flag that leaves the sidebar translucent over the window material.
-fn init_script(port: u16) -> String {
+fn init_script(port: u16, project_key: &str) -> String {
     let mut script = format!("window.__CS_API_BASE__ = \"http://127.0.0.1:{port}\";");
+    script.push_str(&format!(
+        " window.__CS_PROJECT_KEY__ = {};",
+        serde_json::to_string(project_key).unwrap()
+    ));
     if cfg!(target_os = "macos") {
         // Read by the web layer (web/src/lib/desktop.ts).
         script.push_str(" window.__CS_VIBRANCY__ = true;");
@@ -88,16 +108,19 @@ fn init_script(port: u16) -> String {
 /// transparent so that the sidebar material (see `apply_sidebar_material`)
 /// shows through. The theme follows the system. Size and position are restored
 /// by the window-state plugin.
-fn main_window_builder(
-    app: &tauri::App,
+fn main_window_builder<'a>(
+    app: &'a AppHandle,
     port: u16,
-) -> WebviewWindowBuilder<'_, tauri::Wry, tauri::App> {
-    let builder = WebviewWindowBuilder::new(app, MAIN, WebviewUrl::App("index.html".into()))
-        .title("Coding Studio")
-        .inner_size(1440.0, 920.0)
-        .min_inner_size(960.0, 600.0)
-        .theme(None)
-        .initialization_script(init_script(port));
+    label: &str,
+    project_key: &str,
+) -> WebviewWindowBuilder<'a, tauri::Wry, AppHandle> {
+    let builder =
+        WebviewWindowBuilder::new(app, label.to_string(), WebviewUrl::App("index.html".into()))
+            .title("Coding Studio")
+            .inner_size(1440.0, 920.0)
+            .min_inner_size(960.0, 600.0)
+            .theme(None)
+            .initialization_script(init_script(port, project_key));
     #[cfg(target_os = "macos")]
     let builder = builder
         .title_bar_style(tauri::TitleBarStyle::Overlay)
@@ -133,10 +156,43 @@ fn config_path(app: &AppHandle) -> Result<PathBuf> {
 
 /// Opens the database (asking where it lives on first launch) and serves the
 /// API on the listener that the page already knows.
-fn start(app: &AppHandle, listener: TcpListener) -> Result<()> {
-    let cfg_path = config_path(app)?;
-    let mut cfg = DesktopConfig::load(&cfg_path)?;
-    let db = match cfg.resolve_db(std::env::var(DB_ENV).ok()) {
+#[derive(Default)]
+struct Projects(Mutex<BTreeMap<PathBuf, Project>>);
+struct Project {
+    label: String,
+    shutdown: tokio::sync::oneshot::Sender<()>,
+}
+static NEXT_PROJECT: AtomicUsize = AtomicUsize::new(0);
+
+pub(crate) fn focused_window(app: &AppHandle) -> Option<tauri::WebviewWindow> {
+    let windows = app.webview_windows();
+    windows
+        .values()
+        .find(|w| w.is_focused().unwrap_or(false))
+        .cloned()
+        .or_else(|| windows.values().next().cloned())
+}
+pub(crate) fn focused_database(app: &AppHandle) -> Option<PathBuf> {
+    let label = focused_window(app)?.label().to_string();
+    app.state::<Projects>()
+        .0
+        .lock()
+        .ok()?
+        .iter()
+        .find(|(_, p)| p.label == label)
+        .map(|(db, _)| db.clone())
+}
+fn start(app: &AppHandle) -> Result<()> {
+    let path = config_path(app)?;
+    let cfg = DesktopConfig::load(&path)?;
+    let arg_db = std::env::args()
+        .collect::<Vec<_>>()
+        .windows(2)
+        .find(|w| w[0] == "--db")
+        .map(|w| PathBuf::from(&w[1]));
+    let explicit = arg_db.is_some() || std::env::var(DB_ENV).is_ok();
+    let db = arg_db.or_else(|| cfg.resolve_db(std::env::var(DB_ENV).ok()));
+    let db = match db {
         Some(db) => db,
         None => match ask_new_db(app)? {
             Some(db) => db,
@@ -146,13 +202,66 @@ fn start(app: &AppHandle, listener: TcpListener) -> Result<()> {
             }
         },
     };
-    if cfg.db.as_ref() != Some(&db) && std::env::var(DB_ENV).is_err() {
-        cfg.db = Some(db.clone());
-        cfg.save(&cfg_path)?;
+    open_project_inner(app, db, !explicit)
+}
+pub(crate) fn open_project(app: &AppHandle, db: PathBuf) -> Result<()> {
+    open_project_inner(app, db, true)
+}
+fn open_project_inner(app: &AppHandle, db: PathBuf, remember: bool) -> Result<()> {
+    // Canonical parent resolves aliases also for a newly created database.
+    let db = if db.is_absolute() {
+        db
+    } else {
+        std::env::current_dir()?.join(db)
+    };
+    let parent = db
+        .parent()
+        .ok_or_else(|| anyhow!("invalid database path"))?;
+    std::fs::create_dir_all(parent)?;
+    let key = if db.exists() {
+        db.canonicalize()?
+    } else {
+        parent.canonicalize()?.join(db.file_name().unwrap())
+    };
+    let registry = app.state::<Projects>();
+    let mut projects = registry
+        .0
+        .lock()
+        .map_err(|_| anyhow!("project registry unavailable"))?;
+    if let Some(p) = projects.get(&key) {
+        if let Some(w) = app.get_webview_window(&p.label) {
+            w.unminimize()?;
+            w.show()?;
+            w.set_focus()?;
+        }
+        return Ok(());
     }
-
-    let state = cs_app::prepare(cfg.startup(db.clone()), Some(native_picker(app)))?;
+    let cfg = DesktopConfig::load(&config_path(app)?)?;
+    // Library and codebook live in the project's database; never inherit another project's files.
+    let startup = DesktopConfig {
+        actor: cfg.actor.clone(),
+        ..Default::default()
+    }
+    .startup(key.clone());
+    let state = cs_app::prepare(startup, Some(native_picker(app)))?;
+    let listener = TcpListener::bind(("127.0.0.1", 0))?;
+    listener.set_nonblocking(true)?;
     let port = listener.local_addr()?.port();
+    let n = NEXT_PROJECT.fetch_add(1, Ordering::Relaxed);
+    let label = if n == 0 {
+        MAIN.to_string()
+    } else {
+        format!("project-{n}")
+    };
+    let project_key = format!("{}", key.display());
+    let window = main_window_builder(app, port, &label, &project_key).build()?;
+    window.set_title(&format!("Coding Studio · {}", key.display()))?;
+    #[cfg(target_os = "macos")]
+    {
+        let material_window = window.clone();
+        app.run_on_main_thread(move || apply_sidebar_material(&material_window))?;
+    }
+    let (send, receive) = tokio::sync::oneshot::channel();
     let router = cs_app::router(state).layer(axum::middleware::from_fn(cors::layer));
     tauri::async_runtime::spawn(async move {
         let listener = match tokio::net::TcpListener::from_std(listener) {
@@ -162,23 +271,31 @@ fn start(app: &AppHandle, listener: TcpListener) -> Result<()> {
                 return;
             }
         };
-        if let Err(e) = axum::serve(listener, router).await {
-            eprintln!("server stopped: {e}");
+        if let Err(e) = axum::serve(listener, router)
+            .with_graceful_shutdown(async {
+                let _ = receive.await;
+            })
+            .await
+        {
+            eprintln!("server: {e}");
         }
     });
-
-    println!(
-        "Coding Studio {} API on http://127.0.0.1:{port}/",
-        cs_app::VERSION
+    projects.insert(
+        key.clone(),
+        Project {
+            label,
+            shutdown: send,
+        },
     );
-    println!("Database: {}", db.display());
-    let window = app
-        .get_webview_window(MAIN)
-        .ok_or_else(|| anyhow!("main window missing"))?;
-    window.set_title(&format!(
-        "Coding Studio, {}",
-        db.file_name().unwrap_or_default().to_string_lossy()
-    ))?;
+    drop(projects);
+    // Persist only the last database; old global library/codebook defaults must not bleed into it.
+    let mut remembered = cfg;
+    remembered.db = Some(key);
+    remembered.library = None;
+    remembered.coding_db = None;
+    if remember {
+        remembered.save(&config_path(app)?)?;
+    }
     Ok(())
 }
 

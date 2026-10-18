@@ -127,3 +127,18 @@ Un nouvel entretien prolonge l'étude. Le codebook courant sert de point de dép
 - Les entretiens listés dans la Bibliothèque, découpés en unités, avec une fiche remplie.
 - Une liste de pseudonymisation prête.
 - Si vous le souhaitez, un modèle de projet JSON réutilisable.
+
+### Ouvrir deux projets à la fois
+
+Dans **Fichier → Ouvrir un projet dans une nouvelle fenêtre…**, choisissez une autre base SQLite. Le premier projet reste ouvert. Chaque fenêtre utilise son propre serveur local, sa base, ses réglages d’étude et son dossier d’entretiens. Le menu **Fenêtre** permet de les retrouver ; le titre indique le chemin de la base. Ouvrir une base déjà affichée ramène à sa fenêtre au lieu d’ouvrir une seconde connexion. Les actions de menu concernent la fenêtre active.
+
+### Préparer un entretien à l’import avec une IA locale
+
+1. Dans **Paramètres de l’étude → Préparation des transcriptions**, indiquez l’URL locale et le modèle. **Tester et lister les modèles** ne transmet aucune transcription. Exemple : `http://127.0.0.1:1234` pour LM Studio (le suffixe `/v1` est ajouté si nécessaire).
+2. Activez les opérations voulues : **anonymiser**, **nettoyer légèrement**, **traduire vers** une langue de votre choix. Laissez la langue vide pour conserver celle du fichier. L’anonymisation est distincte du nettoyage : sa copie fidèle conserve les hésitations et erreurs.
+3. Dans **Importer des transcriptions**, cochez la préparation locale puis choisissez les entretiens. Seuls les nouveaux sont présélectionnés ; les entretiens déjà codés, surlignés ou envoyés en revue IA sont protégés contre ce remplacement.
+4. Lancez la préparation. Le texte original part uniquement vers l’adresse locale ou l’IP privée explicitement choisie. Utilisez un serveur de confiance dont vous maîtrisez le fonctionnement : Coding Studio ne peut pas vérifier si ce serveur relaie lui-même les requêtes. L’application ne suit aucune redirection, n’utilise aucun proxy et ne bascule pas vers un service hébergé. L’avancement montre les groupes de tours ; **Arrêter** empêche l’envoi des groupes suivants (la requête en cours peut finir).
+5. Comparez tous les tours et les correspondances d’identités. Choisissez la **copie fidèle** ou la **version nettoyée / traduite**. Les tours, locuteurs, repères de temps et identifiants restent structurés. Les changements de nombres ou de labels, les tours supprimés et les réponses tronquées sont refusés. Ces contrôles ne garantissent pas la fidélité sémantique : vérifiez négations, conditions, incertitudes, répétitions significatives et termes techniques.
+6. Validez explicitement la version choisie pour le codage, ou rejetez-la. Avant validation, seule une proposition privée est enregistrée ; les sources et le codage ne changent pas. La source originale, l’ancienne segmentation et les corrections antérieures restent conservées après validation. Une proposition non validée peut être reprise à la réouverture du parcours. La revue IA de phase 2 conserve ses propres contrôles de confidentialité et de prompt.
+
+Une transcription nettoyée ou traduite est une version dérivée, même après relecture. Les exports indiquent le modèle local, les opérations demandées et la version choisie ; ne présentez pas une traduction comme un verbatim dans la langue originale.

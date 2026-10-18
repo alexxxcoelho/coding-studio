@@ -61,6 +61,9 @@
   }
   function interview(parent){
     const i=model.interviewMap.get(route.id);head(parent,route.id,'Transcription et traces de lecture');if(!i){empty(parent);return;}
+    const preparation=model.records('Transcript preparation').find(r=>(r.interview_id??r._ids[0])===i.id);
+    if(preparation){const info=el('p','notice');info.textContent=`Transcription préparée avec un modèle local (${preparation.local_model??'modèle non inclus'}), puis version validée : ${preparation.accepted_variant==='prepared'?'nettoyée / traduite':'copie fidèle'}. Langue cible demandée : ${preparation.target_language||'langue originale'}. Les citations de cette version peuvent être des traductions ou des textes nettoyés ; elles ne sont pas des verbatims du fichier original.`;parent.append(info);}
+
     const toolbar=el('div','toolbar');const choose=el('select');choose.setAttribute('aria-label','Changer d’entretien');for(const other of model.interviews){const op=el('option','',other.id);op.value=other.id;op.selected=other.id===i.id;choose.append(op);}choose.addEventListener('change',()=>navigate('interview',{id:choose.value}));toolbar.append(choose);
     const find=el('input');find.type='search';find.placeholder='Rechercher dans cet entretien…';find.setAttribute('aria-label','Rechercher dans cet entretien');find.value=unitFilter;find.addEventListener('input',()=>{unitFilter=find.value;paintTurns();});toolbar.append(find);parent.append(toolbar);
     const layout=el('div','reader-layout'),transcript=el('div','transcript'),aside=el('aside','inspector');aside.setAttribute('aria-label','Inspecteur de l’entretien');layout.append(transcript,aside);parent.append(layout);

@@ -960,6 +960,7 @@ dependencies = [
  "tokio",
  "tokio-util",
  "tower",
+ "ureq",
  "url",
  "zip",
 ]

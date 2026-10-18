@@ -454,7 +454,7 @@ impl Store {
             "settings.set",
             None,
             Some(key),
-            if key == "anonymisation_v1" {
+            if key == "anonymisation_v1" || key.starts_with("local_preparation:") {
                 json!({"key": key, "before_sha256": before.as_ref().map(|v| cs_model::sha256_hex(v.as_bytes())), "after_sha256": cs_model::sha256_hex(value.as_bytes())})
             } else {
                 json!({"key": key, "before": before, "after": value})
@@ -775,6 +775,23 @@ impl Store {
     /// (see `check_answered_units_kept`). A segmentation identical to the current
     /// one is a silent no-op.
     pub fn save_segmentation(&self, seg: &Segmentation, actor: &str) -> Result<()> {
+        self.save_segmentation_with_settings(seg, actor, &[])
+    }
+
+    /// Atomically commit a validated, uncoded import and its private preparation
+    /// receipt/rules. Never expose identity mappings in the audit payload.
+    pub fn save_segmentation_with_settings(
+        &self,
+        seg: &Segmentation,
+        actor: &str,
+        settings: &[(String, String)],
+    ) -> Result<()> {
+        if settings
+            .iter()
+            .any(|(key, _)| key != "anonymisation_v1" && !key.starts_with("local_preparation:"))
+        {
+            return Err(validation("invalid private preparation setting"));
+        }
         let id = seg.interview_id.as_str();
         self.require_interview(id)?;
         if Segmentation::units_hash(&seg.units) != seg.hash {
@@ -786,7 +803,7 @@ impl Store {
             return Err(validation("segmentation has no units"));
         }
         let current = self.segmentation(id)?;
-        if current.as_ref().is_some_and(|c| c.hash == seg.hash) {
+        if settings.is_empty() && current.as_ref().is_some_and(|c| c.hash == seg.hash) {
             return Ok(());
         }
         if self.has_ai_output(id)? {
@@ -818,6 +835,11 @@ impl Store {
                     u.text
                 ])
                 .map_err(|e| validation(format!("unit {}: {e}", u.unit_id)))?;
+                if !settings.is_empty() {
+                    // Preserve older corrections as history, then ensure their
+                    // overlay cannot undo the explicitly approved derivative.
+                    tx.execute("INSERT INTO unit_corrections(interview_id,unit_id,text,role,reason,created_at,created_by) SELECT ?1,?2,?3,?4,?5,?6,?7 WHERE EXISTS(SELECT 1 FROM unit_corrections WHERE interview_id=?1 AND unit_id=?2)",params![id,u.unit_id,u.text,enum_str(&u.role),seg.rule,now(),actor])?;
+                }
             }
         }
         append_event(
@@ -858,6 +880,17 @@ impl Store {
                     "n_context": filled.n_context,
                     "n_kept": filled.n_kept,
                 }),
+            )?;
+        }
+        for (key, value) in settings {
+            tx.execute("INSERT INTO settings(key,value,updated_at) VALUES(?1,?2,?3) ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=excluded.updated_at",params![key,value,now()])?;
+            append_event(
+                &tx,
+                actor,
+                "transcript.preparation",
+                Some(id),
+                Some(key),
+                json!({"key":key,"sha256":cs_model::sha256_hex(value.as_bytes()),"validated":true,"ai_assisted_local":true}),
             )?;
         }
         tx.commit()?;

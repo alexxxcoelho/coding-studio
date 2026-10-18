@@ -2,6 +2,8 @@
 // A scan records every added, removed or changed file with its SHA-256.
 
 import { useState } from "react"
+import {PreparationOptionsEditor,PreparationWizard,DEFAULT_PREPARATION,type PreparationOptions} from "./local-preparation"
+import {request} from "@/lib/api"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 
@@ -16,6 +18,12 @@ import { reportError } from "@/lib/notify"
 export function ImportDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
   const qc = useQueryClient()
   const state = useQuery({ queryKey: ["state"], queryFn: api.state })
+  const existing=useQuery({queryKey:["interviews"],queryFn:api.interviews})
+  const config=useQuery({queryKey:["local-preparation-config"],queryFn:()=>request<PreparationOptions>("GET","/api/local-preparation/config")})
+  const [prepareLocal,setPrepareLocal]=useState(false)
+  const [editedOptions,setOptions]=useState<PreparationOptions|null>(null)
+  const options=editedOptions??config.data??DEFAULT_PREPARATION
+  const [scanned,setScanned]=useState<{ids:string[];fresh:string[]}|null>(null)
   const [typed, setTyped] = useState<string | null>(null)
   const root = typed ?? state.data?.library_root ?? ""
 
@@ -28,7 +36,8 @@ export function ImportDialog({ open, onOpenChange }: { open: boolean; onOpenChan
       qc.invalidateQueries({ queryKey: keys.libraryProgress })
       qc.invalidateQueries({ queryKey: keys.corpusReviewState })
       toast.success(t("library.import_dialog.n_entretiens_trouves", { n: res.interviews.length }))
-      onOpenChange(false)
+      if(prepareLocal){const prior=new Set(existing.data?.map(i=>i.interview_id)??[]);const ids=res.interviews.map(i=>i.interview_id);setScanned({ids,fresh:ids.filter(id=>!prior.has(id))})}
+      else onOpenChange(false)
     },
     onError: (e) => reportError(e, t("common.le_scan_a_echoue")),
   })
@@ -42,9 +51,10 @@ export function ImportDialog({ open, onOpenChange }: { open: boolean; onOpenChan
     }
   }
 
+  if(scanned&&open)return <PreparationWizard ids={scanned.ids} initialSelected={scanned.fresh} options={options} onClose={()=>{setScanned(null);onOpenChange(false)}}/>
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent style={{maxHeight:"88vh",overflowY:"auto"}}>
         <DialogHeader>
           <DialogTitle>{t("library.import_dialog.importer_des_transcriptions")}</DialogTitle>
           <DialogDescription>
@@ -69,11 +79,13 @@ export function ImportDialog({ open, onOpenChange }: { open: boolean; onOpenChan
               )}
             </div>
           </label>
+          <label className="flex gap-2 text-sm"><input type="checkbox" checked={prepareLocal} onChange={e=>setPrepareLocal(e.target.checked)}/>{t("preparation.on_import")}</label>
+          {prepareLocal&&<PreparationOptionsEditor value={options} onChange={setOptions} disabled={scan.isPending}/>}
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               {t("common.annuler")}
             </Button>
-            <Button type="submit" disabled={scan.isPending}>
+            <Button type="submit" disabled={scan.isPending||existing.isLoading||(prepareLocal&&(!options.model.trim()||(!options.anonymise&&!options.cleanup&&!options.target_language.trim())))}>
               {scan.isPending ? t("library.import_dialog.scan_en_cours") : t("library.import_dialog.importer")}
             </Button>
           </DialogFooter>
