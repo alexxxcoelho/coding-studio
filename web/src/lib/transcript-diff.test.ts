@@ -1,0 +1,3 @@
+import {expect,it} from 'vitest'
+import {textDiff,reviewedText} from './transcript-diff'
+it('round trips accepted and rejected changes without losing spaces or Unicode',()=>{const a='😀 Sophie Martin, euh, oui.  3 magasins.\n',b='😀 [Person 1], oui.  3 magasins.\n',parts=textDiff(a,b,'U1');expect(parts.map(p=>p.before).join('')).toBe(a);expect(parts.map(p=>p.after).join('')).toBe(b);expect(reviewedText(parts,Object.fromEntries(parts.filter(p=>p.changed).map(p=>[p.key,'reject'])))).toBe(a);expect(reviewedText(parts,Object.fromEntries(parts.filter(p=>p.changed).map(p=>[p.key,'accept'])))).toBe(b)})

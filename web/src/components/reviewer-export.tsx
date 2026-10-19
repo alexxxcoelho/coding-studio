@@ -38,7 +38,7 @@ function Wizard({ onClose }: { onClose: () => void }) {
   const [step, setStep] = useState(0)
   const [catalogue, setCatalogue] = useState<ReviewerCatalogue | null>(null)
   const [selected, setSelected] = useState(new Set<string>())
-  const pseudonymise = true
+  const [pseudonymise,setPseudonymise] = useState(true)
   const [search, setSearch] = useState("")
   const [preview, setPreview] = useState<ReviewerField | null>(null)
   const [password, setPassword] = useState("")
@@ -97,7 +97,8 @@ function Wizard({ onClose }: { onClose: () => void }) {
           <p className="text-label2">{t("reviewer.password_separate")}</p>{result.url && <p className="break-all select-text">{t("reviewer.url_prepared", { url: result.url })}</p>}
         </div> : loading ? <p role="status">{t("reviewer.loading")}</p> : step === 0 ? <>
           <div className="flex flex-wrap items-center gap-3 mb-3">
-            <span>{t("anonymizer.export_only")}</span><Anonymizer />
+            <label className="block">{t("reviewer.privacy_mode")}<select aria-label={t("reviewer.privacy_mode")} value={pseudonymise?"masked":"identified"} onChange={e=>{initialized.current=false;setSelected(new Set());setAcknowledged(false);setPreview(null);setPseudonymise(e.target.value==="masked")}}><option value="masked">{t("reviewer.mode_masked")}</option><option value="identified">{t("reviewer.mode_identified")}</option></select></label>
+            {pseudonymise?<Anonymizer />:<p className="text-sm rounded border border-sep p-2">{t("reviewer.identified_help")}</p>}
             <span className="text-xs text-label2">{t("reviewer.rules", { n: catalogue?.pseudonym_rules ?? 0 })}</span>
           </div>
           {catalogue?.coverage && <p className="text-xs text-label2 mb-2">{t("reviewer.coverage", catalogue.coverage)}</p>}

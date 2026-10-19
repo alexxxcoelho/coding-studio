@@ -18,7 +18,9 @@ pub mod export_v2;
 mod export_verification;
 mod lexicon;
 mod local_preparation;
+mod participant_review;
 mod persons;
+mod persons_table;
 mod providers;
 mod qdpx;
 mod reviewer_export;
@@ -162,6 +164,10 @@ pub fn router(state: AppState) -> Router {
         .route(&format!("{I}/primary"), post(set_primary))
         .route(&format!("{I}/segment"), post(segment))
         .route(&format!("{I}/export"), post(export_package))
+        .route(
+            &format!("{I}/participant-review.docx"),
+            get(participant_review::export),
+        )
         .route(P, get(phase_state))
         .route(&format!("{I}/simple"), get(simple_progress))
         .route(&format!("{P}/units"), get(units))

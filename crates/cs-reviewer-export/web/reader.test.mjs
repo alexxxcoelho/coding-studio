@@ -62,3 +62,12 @@ test('attribute frequencies count occurrences and full-word denominators within 
  const stats=M.termStats([{interview_id:'A',text:'Stock stock and stockout'},{interview_id:'B',text:'Stock helps'}],'stock',u=>u.interview_id==='A'?'Retail':'Hospital');
  assert.deepEqual(pure(stats.map(x=>[x.value,x.interviews,x.units,x.occurrences,x.words,x.per1000])),[['Retail',1,1,2,4,500],['Hospital',1,1,1,2,500]]);
 });
+
+test('identified originals and prepared copies are readable without borrowing coded highlights',async()=>{
+ const e=environment();try{await e.submit(password);e.click('TEST-01');assert.match(e.text(),/Participant A/);
+ const versions=e.w.document.querySelector('select[aria-label="Version de la transcription"]');assert.ok(versions);
+ versions.value='original';versions.dispatchEvent(new e.w.Event('change'));assert.match(e.text(),/Original retained participant wording/);assert.equal(e.w.document.querySelectorAll('.turn mark').length,0);
+ versions.value='prepared';versions.dispatchEvent(new e.w.Event('change'));assert.match(e.text(),/Approved translated reading copy/);assert.equal(e.w.document.querySelectorAll('.turn mark').length,0);
+ versions.value='coded';versions.dispatchEvent(new e.w.Event('change'));assert.equal(e.w.document.querySelectorAll('.turn:first-child mark').length,3);
+ }finally{e.close();}
+});

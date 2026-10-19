@@ -1,3 +1,4 @@
+import {LibraryPreparation} from "@/components/library/local-preparation"
 import { ReviewerExport } from "@/components/reviewer-export"
 // Bibliothèque (design/macos/Main.dc.html): the interviews with their four
 // steps, filters En cours / Prêts / Tous, rescan, search, and the Fiche of the
@@ -61,6 +62,7 @@ export function LibraryPage() {
   const [search, setSearch] = useState("")
   const [picked, setPicked] = useState<string | null>(null)
   const [importOpen, setImportOpen] = useState(false)
+  const [preparationOpen,setPreparationOpen]=useState(false)
   const [verificationOpen, setVerificationOpen] = useState(false)
   // Fichier > Importer des transcriptions... of the desktop menu.
   useEffect(() => onMenuAction("import", () => setImportOpen(true)), [])
@@ -137,6 +139,8 @@ export function LibraryPage() {
           </CapsuleItem>
           <span className="vs" />
           <CapsuleItem onClick={() => setImportOpen(true)}>{t("library.importer_des_transcriptions")}</CapsuleItem>
+          <span className="vs" />
+          <CapsuleItem disabled={!rows.length} onClick={()=>setPreparationOpen(true)}>{t("preparation.library_action")}</CapsuleItem>
           <span className="vs" />
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -291,6 +295,7 @@ export function LibraryPage() {
           </aside>
         )}
       </div>
+      {preparationOpen&&<LibraryPreparation ids={rows.map(r=>r.interview_id)} initialId={selectedId} onClose={()=>setPreparationOpen(false)}/>}
       <ImportDialog open={importOpen} onOpenChange={setImportOpen} />
       {verificationOpen && <VerificationDialog open onClose={() => setVerificationOpen(false)} initialIds={selectedId ? [selectedId] : []} />}
     </>

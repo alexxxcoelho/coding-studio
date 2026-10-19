@@ -95,6 +95,25 @@ impl Job {
 }
 
 #[derive(Clone, Serialize, Deserialize)]
+struct Feedback {
+    unit_id: String,
+    instruction: String,
+}
+#[derive(Deserialize)]
+struct PrepareBody {
+    #[serde(flatten)]
+    options: Options,
+    #[serde(default = "all_stages")]
+    stage: String,
+    #[serde(default)]
+    feedback: Vec<Feedback>,
+    #[serde(default)]
+    draft_digest: Option<String>,
+}
+fn all_stages() -> String {
+    "all".into()
+}
+#[derive(Clone, Serialize, Deserialize)]
 pub struct Options {
     pub url: String,
     pub model: String,
@@ -104,6 +123,16 @@ pub struct Options {
     pub cleanup: bool,
     #[serde(default)]
     pub target_language: String,
+    #[serde(default = "default_context")]
+    pub context_tokens: usize,
+    #[serde(default = "default_reasoning")]
+    pub reasoning: String,
+}
+fn default_context() -> usize {
+    131_072
+}
+fn default_reasoning() -> String {
+    "server".into()
 }
 fn yes() -> bool {
     true
@@ -160,9 +189,28 @@ fn agent() -> ureq::Agent {
         .build()
         .new_agent()
 }
+const OUTPUT_TOKENS: usize = 4096;
+fn completion_request(opts: &Options, system: &str, input: &Value) -> Result<(String, Value)> {
+    let base = endpoint(&opts.url)?;
+    let input = serde_json::to_string(input)?;
+    if opts.reasoning == "server" {
+        Ok((
+            format!("{base}/chat/completions"),
+            json!({"model":opts.model,"temperature":0,"max_tokens":OUTPUT_TOKENS,"stream":false,"messages":[{"role":"system","content":system},{"role":"user","content":input}]}),
+        ))
+    } else {
+        // Native LM Studio explicitly supports on/off; never silently send an ignored flag.
+        let root = base.strip_suffix("/v1").ok_or_else(|| {
+            invalid("Le contrôle du thinking nécessite l’API LM Studio à la racine ou /v1")
+        })?;
+        Ok((
+            format!("{root}/api/v1/chat"),
+            json!({"model":opts.model,"temperature":0,"max_output_tokens":OUTPUT_TOKENS,"stream":false,"system_prompt":system,"input":input,"reasoning":opts.reasoning,"context_length":opts.context_tokens,"store":false,"integrations":[]}),
+        ))
+    }
+}
 fn complete(opts: &Options, system: &str, input: &Value) -> Result<Value> {
-    let endpoint = format!("{}/chat/completions", endpoint(&opts.url)?);
-    let body = json!({"model":opts.model,"temperature":0,"max_tokens":4096,"stream":false,"messages":[{"role":"system","content":system},{"role":"user","content":serde_json::to_string(input)?}]});
+    let (endpoint, body) = completion_request(opts, system, input)?;
     let mut r=agent().post(endpoint).send_json(&body).map_err(|_|invalid("Le modèle local ne répond pas : vérifiez l’URL, le modèle et sa capacité. Aucune bascule vers un service externe."))?;
     ensure!(
         r.status().as_u16() == 200,
@@ -174,17 +222,17 @@ fn complete(opts: &Options, system: &str, input: &Value) -> Result<Value> {
         .limit(4 * 1024 * 1024)
         .read_json()
         .map_err(|_| invalid("Réponse du serveur local illisible"))?;
-    ensure!(
-        v["choices"][0]["finish_reason"] != "length",
-        CsError::Validation(
-            "Réponse locale tronquée : utilisez un modèle avec une fenêtre de contexte plus grande"
-                .into()
-        )
-    );
-    let content = v["choices"][0]["message"]["content"]
-        .as_str()
-        .ok_or_else(|| invalid("Réponse du modèle local vide"))?
-        .trim();
+    let content = if opts.reasoning == "server" {
+        ensure!(v["choices"][0]["finish_reason"] != "length", CsError::Validation("Réponse locale tronquée : la limite de sortie est atteinte. Aucune modification appliquée.".into()));
+        v["choices"][0]["message"]["content"].as_str().ok_or_else(|| invalid("Réponse du modèle local vide"))?
+    } else {
+        ensure!(v["stats"]["total_output_tokens"].as_u64().unwrap_or(0) < OUTPUT_TOKENS as u64, CsError::Validation("Réponse locale potentiellement tronquée : aucune modification appliquée.".into()));
+        let output = v["output"].as_array().ok_or_else(|| invalid("Réponse LM Studio invalide : contrôlez le support du thinking"))?;
+        ensure!(output.iter().all(|o| matches!(o["type"].as_str(),Some("message"|"reasoning"))), CsError::Validation("Les appels d’outils sont interdits pour la préparation locale".into()));
+        let messages: Vec<_> = output.iter().filter(|o| o["type"] == "message").collect();
+        ensure!(messages.len()==1,CsError::Validation("Une seule réponse JSON complète est attendue".into()));
+        messages[0]["content"].as_str().ok_or_else(|| invalid("Réponse du modèle local vide"))?
+    }.trim();
     let content = content
         .strip_prefix("```json")
         .or_else(|| content.strip_prefix("``` "))
@@ -212,6 +260,18 @@ struct Draft {
     #[serde(default)]
     accepted_variant: Option<String>,
     created_at: String,
+    #[serde(default)]
+    coding_will_be_preserved: bool,
+    #[serde(default)]
+    applied_to_coding: Option<bool>,
+    #[serde(default = "all_stages")]
+    stage: String,
+    #[serde(default)]
+    anonymisation_approved: bool,
+    #[serde(default)]
+    transformation_approved: bool,
+    #[serde(default)]
+    feedback: Vec<Feedback>,
 }
 fn digest(seg: &Segmentation, entries: &[PseudonymEntry]) -> Result<String> {
     Ok(sha256_hex(&serde_json::to_vec(&(VERSION, seg, entries))?))
@@ -230,14 +290,20 @@ fn raw_seg(st: &AppState, id: &str) -> Result<Segmentation> {
         .ok_or_else(|| invalid("Choisissez une transcription source"))?;
     cs_ingest::build_segmentation_with(&crate::segmentation_config(&store, st)?, &entry, rel)
 }
-fn require_uncoded(store: &Store, id: &str) -> Result<()> {
-    let c = store.connection();
-    let count:i64=c.query_row("SELECT (SELECT COUNT(*) FROM human_codings WHERE interview_id=?1 AND (phase=2 OR COALESCE(modifier,'')!='auto'))+(SELECT COUNT(*) FROM passages WHERE interview_id=?1 AND deleted_at IS NULL)+(SELECT COUNT(*) FROM prompts WHERE interview_id=?1)",[id],|r|r.get(0))?;
-    ensure!(count==0,CsError::Guard("Cet entretien a déjà été codé ou revu. Préparez une copie dans un nouveau projet pour préserver ses ancrages.".into()));
-    Ok(())
+fn has_coding(store: &Store, id: &str) -> Result<bool> {
+    let count:i64=store.connection().query_row("SELECT (SELECT COUNT(*) FROM human_codings WHERE interview_id=?1 AND (phase=2 OR COALESCE(modifier,'')!='auto'))+(SELECT COUNT(*) FROM passages WHERE interview_id=?1 AND deleted_at IS NULL)+(SELECT COUNT(*) FROM prompts WHERE interview_id=?1)",[id],|r|r.get(0))?;
+    Ok(count > 0)
 }
 fn valid_options(o: &Options) -> Result<()> {
     endpoint(&o.url)?;
+    ensure!(
+        (8192..=1_048_576).contains(&o.context_tokens),
+        CsError::Validation("Contexte attendu entre 8192 et 1048576 tokens".into())
+    );
+    ensure!(
+        matches!(o.reasoning.as_str(), "server" | "on" | "off"),
+        CsError::Validation("Thinking attendu : server, on ou off".into())
+    );
     ensure!(
         !o.model.trim().is_empty() && o.model.len() < 256,
         CsError::Validation("Nom du modèle requis".into())
@@ -252,25 +318,72 @@ fn valid_options(o: &Options) -> Result<()> {
     );
     Ok(())
 }
+/// Conservative estimate, not a tokenizer: UTF-8 bytes / 3, with 10% context
+/// margin and a separate output reserve. Whole interviews are preferred.
+fn unit_batches(
+    units: &[cs_model::Unit],
+    context: usize,
+    overhead_bytes: usize,
+    transform: bool,
+) -> Result<Vec<std::ops::Range<usize>>> {
+    let available =
+        (context * 9 / 10).saturating_sub(OUTPUT_TOKENS + overhead_bytes.div_ceil(3) + 512);
+    // A derivative repeats the text: leave room for translation expansion and JSON.
+    let budget = if transform {
+        available.min(OUTPUT_TOKENS / 2)
+    } else {
+        available
+    };
+    let mut batches = Vec::new();
+    let mut start = 0;
+    let mut used = 0;
+    for (i, unit) in units.iter().enumerate() {
+        let cost = serde_json::to_vec(unit)?.len().div_ceil(3) + 1;
+        ensure!(cost <= budget, CsError::Validation("Un tour dépasse le budget de la requête. Augmentez le contexte ou vérifiez sa segmentation.".into()));
+        if used + cost > budget && i > start {
+            batches.push(start..i);
+            start = i;
+            used = 0;
+        }
+        used += cost;
+    }
+    if start < units.len() {
+        batches.push(start..units.len());
+    }
+    Ok(batches)
+}
 fn prepare_model(
     original: Segmentation,
     existing: Vec<PseudonymEntry>,
     opts: Options,
+    feedback: Vec<Feedback>,
     mut progress: impl FnMut(&str, usize, usize) -> Result<()>,
 ) -> Result<Draft> {
     valid_options(&opts)?;
     let source_digest = digest(&original, &existing)?;
-    let total = original.units.len().div_ceil(6);
+    let mut completed_groups = 0;
     let mut entries = existing;
     let mut used: BTreeSet<String> = entries.iter().map(|e| e.pseudonym.clone()).collect();
     let mut n = 1;
     if opts.anonymise {
-        for (index, chunk) in original.units.chunks(6).enumerate() {
-            progress("anonymisation", index, total)?;
+        let mut offset = 0;
+        let mut index = 0;
+        while offset < original.units.len() {
+            let ranges = unit_batches(
+                &original.units[offset..],
+                opts.context_tokens,
+                DETECT.len()
+                    + serde_json::to_vec(&entries)?.len()
+                    + serde_json::to_vec(&feedback)?.len(),
+                false,
+            )?;
+            let end = offset + ranges[0].end;
+            let chunk = &original.units[offset..end];
+            progress("anonymisation", index, index + ranges.len())?;
             let v = complete(
                 &opts,
                 DETECT,
-                &json!({"units":chunk,"existing_replacements":entries,"task":"Detect personal names only; preserve every other character by returning spans, not rewritten text."}),
+                &json!({"units":chunk,"existing_replacements":entries,"researcher_feedback":feedback,"task":"Detect personal names only; preserve every other character by returning spans, not rewritten text."}),
             )?;
             let list = v["entities"]
                 .as_array()
@@ -318,6 +431,9 @@ fn prepare_model(
                     pseudonym: label,
                 });
             }
+            offset = end;
+            index += 1;
+            completed_groups += 1;
         }
     }
     let rules = Pseudonymiser::new(&entries);
@@ -337,12 +453,19 @@ fn prepare_model(
     anonymised.hash = Segmentation::units_hash(&anonymised.units);
     let mut prepared = anonymised.clone();
     if opts.cleanup || !opts.target_language.trim().is_empty() {
-        for (index, chunk) in prepared.units.chunks_mut(6).enumerate() {
-            progress("transformation", index, total)?;
+        let ranges = unit_batches(
+            &prepared.units,
+            opts.context_tokens,
+            TRANSFORM.len() + opts.target_language.len() + serde_json::to_vec(&feedback)?.len(),
+            true,
+        )?;
+        for (index, range) in ranges.iter().enumerate() {
+            let chunk = &mut prepared.units[range.clone()];
+            progress("transformation", index, ranges.len())?;
             let v = complete(
                 &opts,
                 TRANSFORM,
-                &json!({"cleanup":opts.cleanup,"target_language":opts.target_language,"units":chunk}),
+                &json!({"cleanup":opts.cleanup,"target_language":opts.target_language,"units":chunk,"researcher_feedback":feedback}),
             )?;
             let returned = v["units"]
                 .as_array()
@@ -365,6 +488,7 @@ fn prepare_model(
                 check_fidelity(&u.text, text)?;
                 u.text = text.into();
             }
+            completed_groups += 1;
         }
     }
     // A model transform can invent an unmasked known identity; never accept it.
@@ -373,7 +497,7 @@ fn prepare_model(
             u.text = crate::anonymisation::mask_with(&rules, &u.text);
         }
     }
-    progress("complete", total, total)?;
+    progress("complete", completed_groups, completed_groups)?;
     prepared.hash = Segmentation::units_hash(&prepared.units);
     prepared.rule = format!(
         "{VERSION}; local model {}; cleanup={}; language={}",
@@ -390,6 +514,12 @@ fn prepare_model(
         reviewed: false,
         accepted_variant: None,
         created_at: crate::now(),
+        coding_will_be_preserved: false,
+        applied_to_coding: None,
+        stage: all_stages(),
+        anonymisation_approved: false,
+        transformation_approved: false,
+        feedback,
     })
 }
 fn check_fidelity(before: &str, after: &str) -> Result<()> {
@@ -443,6 +573,10 @@ pub(crate) fn routes() -> Router<AppState> {
             get(get_draft).post(prepare),
         )
         .route("/api/interviews/{id}/local-preparation/apply", post(apply))
+        .route(
+            "/api/interviews/{id}/local-preparation/review",
+            post(accept_stage),
+        )
 }
 async fn progress_view(State(st): State<AppState>, Path(id): Path<String>) -> ApiResult {
     let job = jobs()
@@ -471,10 +605,10 @@ async fn get_options(State(st): State<AppState>) -> ApiResult {
     let value = st
         .store()
         .setting(SETTINGS)?
-        .map(|s| serde_json::from_str::<Value>(&s))
+        .map(|s| serde_json::from_str::<Options>(&s))
         .transpose()
         .map_err(anyhow::Error::from)?;
-    Ok(Json(value.unwrap_or(json!({"url":"http://127.0.0.1:1234","model":"","anonymise":true,"cleanup":false,"target_language":""}))))
+    Ok(Json(value.map(|o| json!(o)).unwrap_or(json!({"url":"http://127.0.0.1:1234","model":"","anonymise":true,"cleanup":false,"target_language":"","context_tokens":default_context(),"reasoning":default_reasoning()}))))
 }
 async fn save_options(State(st): State<AppState>, Json(o): Json<Options>) -> ApiResult {
     valid_options(&o)?;
@@ -511,21 +645,109 @@ async fn get_draft(State(st): State<AppState>, Path(id): Path<String>) -> ApiRes
 async fn prepare(
     State(st): State<AppState>,
     Path(id): Path<String>,
-    Json(opts): Json<Options>,
+    Json(body): Json<PrepareBody>,
 ) -> ApiResult {
+    let opts = body.options;
     valid_options(&opts)?;
+    ensure_api!(
+        matches!(
+            body.stage.as_str(),
+            "all" | "anonymisation" | "transformation"
+        ),
+        CsError::Validation("Étape de préparation invalide".into())
+    );
     let original = raw_seg(&st, &id)?;
-    let existing = {
+    ensure_api!(
+        body.feedback.len() <= 100
+            && body
+                .feedback
+                .iter()
+                .all(|f| f.instruction.chars().count() <= 2000
+                    && original.units.iter().any(|u| u.unit_id == f.unit_id)),
+        CsError::Validation("Commentaires limités aux segments de cet entretien".into())
+    );
+    let (existing, prior) = {
         let store = st.store();
-        require_uncoded(&store, &id)?;
-        crate::anonymisation::entries(&store)?
+        (
+            crate::anonymisation::entries(&store)?,
+            store
+                .setting(&format!("{PREFIX}{id}"))?
+                .map(|s| serde_json::from_str::<Draft>(&s))
+                .transpose()
+                .map_err(anyhow::Error::from)?,
+        )
     };
+    if !body.feedback.is_empty() || (body.stage == "transformation" && opts.anonymise) {
+        let d = prior
+            .as_ref()
+            .ok_or_else(|| invalid("Relisez d’abord la proposition d’anonymisation"))?;
+        ensure_api!(
+            !d.reviewed
+                && body.draft_digest.as_deref()
+                    == Some(&sha256_hex(
+                        serde_json::to_string(d)
+                            .map_err(anyhow::Error::from)?
+                            .as_bytes()
+                    )),
+            CsError::Guard("La proposition a changé : rechargez la comparaison".into())
+        );
+        ensure_api!(
+            digest(&original, &existing)? == d.source_digest,
+            CsError::Guard("Source ou règles modifiées : recommencez la préparation".into())
+        );
+        if body.stage == "transformation" && opts.anonymise {
+            ensure_api!(
+                d.anonymisation_approved,
+                CsError::Guard(
+                    "Validez les différences d’anonymisation avant le nettoyage ou la traduction"
+                        .into()
+                )
+            );
+        }
+    }
+    let stage = body.stage;
+    let feedback = body.feedback;
     let job = register_job(job_key(&st, &id))?;
     let worker = job.clone();
-    let d = tokio::task::spawn_blocking(move || {
-        prepare_model(original, existing, opts, |stage, done, total| {
-            worker.update(stage, done, total)
-        })
+    let mut d = tokio::task::spawn_blocking(move || {
+        let mut operation = opts.clone();
+        let source = if stage == "transformation" && opts.anonymise {
+            prior.as_ref().unwrap().anonymised.clone()
+        } else {
+            original.clone()
+        };
+        if stage == "anonymisation" {
+            operation.cleanup = false;
+            operation.target_language.clear();
+            operation.anonymise = true;
+        }
+        if stage == "transformation" {
+            operation.anonymise = false;
+        }
+        let entries = if stage == "transformation" && opts.anonymise {
+            prior.as_ref().unwrap().entries.clone()
+        } else {
+            existing.clone()
+        };
+        let mut d = prepare_model(
+            source,
+            entries,
+            operation,
+            feedback,
+            |stage, done, total| worker.update(stage, done, total),
+        )?;
+        d.options = opts;
+        d.stage = stage;
+        d.source_digest = digest(&original, &existing)?;
+        if d.stage == "transformation" {
+            d.original = original;
+            if let Some(previous) = prior.filter(|_| d.options.anonymise) {
+                d.anonymised = previous.anonymised;
+                d.entries = previous.entries;
+                d.anonymisation_approved = previous.anonymisation_approved;
+            }
+        }
+        Ok::<_, anyhow::Error>(d)
     })
     .await
     .map_err(|_| invalid("Préparation locale interrompue"))??;
@@ -535,7 +757,7 @@ async fn prepare(
     );
     let current = raw_seg(&st, &id)?;
     let store = st.store();
-    require_uncoded(&store, &id)?;
+    d.coding_will_be_preserved = has_coding(&store, &id)?;
     ensure_api!(
         digest(&current, &crate::anonymisation::entries(&store)?)? == d.source_digest,
         CsError::Guard(
@@ -544,6 +766,104 @@ async fn prepare(
     );
     store.set_setting(
         &format!("{PREFIX}{id}"),
+        &serde_json::to_string(&d).map_err(anyhow::Error::from)?,
+        &st.actor,
+    )?;
+    Ok(Json(draft_view(&d)?))
+}
+#[derive(Deserialize)]
+struct ReviewedUnit {
+    unit_id: String,
+    text: String,
+    speaker_raw: String,
+}
+#[derive(Deserialize)]
+struct StageReview {
+    digest: String,
+    reviewed: bool,
+    pending_diffs: usize,
+    units: Vec<ReviewedUnit>,
+}
+async fn accept_stage(
+    State(st): State<AppState>,
+    Path(id): Path<String>,
+    Json(body): Json<StageReview>,
+) -> ApiResult {
+    ensure_api!(
+        body.reviewed && body.pending_diffs == 0,
+        CsError::Validation("Résolvez chaque différence avant de valider cette étape".into())
+    );
+    let current = raw_seg(&st, &id)?;
+    let store = st.store();
+    let key = format!("{PREFIX}{id}");
+    let mut d: Draft = serde_json::from_str(
+        &store
+            .setting(&key)?
+            .ok_or_else(|| invalid("Aucune proposition à relire"))?,
+    )
+    .map_err(anyhow::Error::from)?;
+    ensure_api!(
+        !d.reviewed
+            && body.digest
+                == sha256_hex(
+                    serde_json::to_string(&d)
+                        .map_err(anyhow::Error::from)?
+                        .as_bytes()
+                ),
+        CsError::Guard("Proposition modifiée : rechargez les différences".into())
+    );
+    ensure_api!(
+        digest(&current, &crate::anonymisation::entries(&store)?)? == d.source_digest,
+        CsError::Guard("Source ou règles modifiées : relancez la préparation".into())
+    );
+    ensure_api!(
+        matches!(d.stage.as_str(), "anonymisation" | "transformation"),
+        CsError::Validation("Cette proposition ne relève pas du parcours par étapes".into())
+    );
+    let target = if d.stage == "anonymisation" {
+        &mut d.anonymised
+    } else {
+        &mut d.prepared
+    };
+    ensure_api!(
+        target.units.len() == body.units.len(),
+        CsError::Validation("Tous les segments doivent être conservés".into())
+    );
+    for (u, reviewed) in target.units.iter_mut().zip(body.units) {
+        ensure_api!(
+            u.unit_id == reviewed.unit_id
+                && !reviewed.text.trim().is_empty()
+                && reviewed.text.len() <= 128000
+                && reviewed.speaker_raw.len() <= 1000,
+            CsError::Validation("Segment supprimé, déplacé ou trop volumineux".into())
+        );
+        if d.stage == "transformation" {
+            ensure_api!(
+                u.speaker_raw == reviewed.speaker_raw,
+                CsError::Validation("Les locuteurs restent ceux de l’anonymisation validée".into())
+            );
+        }
+        u.text = reviewed.text;
+        u.speaker_raw = reviewed.speaker_raw;
+    }
+    target.hash = Segmentation::units_hash(&target.units);
+    if d.stage == "anonymisation" {
+        d.anonymisation_approved = true;
+        d.transformation_approved = false;
+        d.prepared = d.anonymised.clone();
+        let inherited = crate::anonymisation::entries(&store)?;
+        d.entries.retain(|e| {
+            inherited.contains(e)
+                || d.anonymised
+                    .units
+                    .iter()
+                    .any(|u| u.text.contains(&e.pseudonym) || u.speaker_raw.contains(&e.pseudonym))
+        });
+    } else {
+        d.transformation_approved = true;
+    }
+    store.set_setting(
+        &key,
         &serde_json::to_string(&d).map_err(anyhow::Error::from)?,
         &st.actor,
     )?;
@@ -567,7 +887,7 @@ async fn apply(
     );
     let current = raw_seg(&st, &id)?;
     let store = st.store();
-    require_uncoded(&store, &id)?;
+    let preserve_coding = has_coding(&store, &id)?;
     let key = format!("{PREFIX}{id}");
     let mut d: Draft = serde_json::from_str(
         &store
@@ -589,6 +909,17 @@ async fn apply(
         digest(&current, &crate::anonymisation::entries(&store)?)? == d.source_digest,
         CsError::Guard("Source ou règles modifiées : relancez la préparation".into())
     );
+    if d.stage != "all" {
+        ensure_api!(
+            !d.options.anonymise || d.anonymisation_approved,
+            CsError::Guard("L’anonymisation doit être validée d’abord".into())
+        );
+        ensure_api!(
+            d.transformation_approved
+                || (!d.options.cleanup && d.options.target_language.trim().is_empty()),
+            CsError::Guard("Validez les différences du nettoyage et de la traduction".into())
+        );
+    }
     let mut cfg: Value = serde_json::from_str(
         &store
             .setting("anonymisation_v1")?
@@ -615,6 +946,7 @@ async fn apply(
         cfg["batches"] = json!({});
     }
     d.reviewed = true;
+    d.applied_to_coding = Some(!preserve_coding);
     d.accepted_variant = Some(
         if b.use_prepared {
             "prepared"
@@ -628,19 +960,20 @@ async fn apply(
     } else {
         &d.anonymised
     };
-    store.save_segmentation_with_settings(
-        seg,
-        &st.actor,
-        &[
-            (
-                "anonymisation_v1".into(),
-                serde_json::to_string(&cfg).map_err(anyhow::Error::from)?,
-            ),
-            (key, serde_json::to_string(&d).map_err(anyhow::Error::from)?),
-        ],
-    )?;
+    let settings = [
+        (
+            "anonymisation_v1".into(),
+            serde_json::to_string(&cfg).map_err(anyhow::Error::from)?,
+        ),
+        (key, serde_json::to_string(&d).map_err(anyhow::Error::from)?),
+    ];
+    if preserve_coding {
+        store.save_preparation_copy(&id, &st.actor, &settings)?;
+    } else {
+        store.save_segmentation_with_settings(seg, &st.actor, &settings)?;
+    }
     Ok(Json(
-        json!({"applied":true,"anonymised":d.options.anonymise,"cleanup":b.use_prepared&&d.options.cleanup,"target_language":if b.use_prepared{&d.options.target_language}else{""},"original_retained":true,"ai_review_still_requires_approval":true}),
+        json!({"applied":true,"coding_preserved":preserve_coding,"applied_to_coding":!preserve_coding,"anonymised":d.options.anonymise,"cleanup":b.use_prepared&&d.options.cleanup,"target_language":if b.use_prepared{&d.options.target_language}else{""},"original_retained":true,"ai_review_still_requires_approval":true}),
     ))
 }
 
@@ -658,6 +991,59 @@ mod tests {
             hash: Segmentation::units_hash(&units),
             units,
             warnings: vec![],
+        }
+    }
+    #[test]
+    fn context_batches_prefer_whole_interviews_not_six_turns() {
+        let mut units = synthetic().units;
+        units = (0..100)
+            .map(|i| {
+                let mut u = units[i % 2].clone();
+                u.unit_id = format!("SYN-U{i}");
+                u
+            })
+            .collect();
+        assert_eq!(
+            unit_batches(&units, 131_072, 2000, false).unwrap(),
+            vec![0..100]
+        );
+        let transform = unit_batches(&units, 131_072, 2000, true).unwrap();
+        assert!(
+            transform.len() > 1,
+            "Output budget, not number of turns, bounds a derivative"
+        );
+        for u in &mut units {
+            u.text = "fictional text ".repeat(100);
+        }
+        let small = unit_batches(&units, 8192, 2000, false).unwrap();
+        let large = unit_batches(&units, 131_072, 2000, false).unwrap();
+        assert!(small.len() > large.len());
+        assert_eq!(large, vec![0..100]);
+        assert_eq!(
+            small.iter().flat_map(|r| r.clone()).collect::<Vec<_>>(),
+            (0..100).collect::<Vec<_>>()
+        );
+    }
+    #[test]
+    fn explicit_thinking_uses_native_control_without_chat_storage_or_tools() {
+        let mut opts: Options = serde_json::from_value(
+            json!({"url":"http://127.0.0.1:1234","model":"test","target_language":""}),
+        )
+        .unwrap();
+        assert_eq!(opts.context_tokens, 131_072);
+        assert_eq!(opts.reasoning, "server");
+        assert!(completion_request(&opts, "system", &json!({}))
+            .unwrap()
+            .0
+            .ends_with("/v1/chat/completions"));
+        for mode in ["off", "on"] {
+            opts.reasoning = mode.into();
+            let (url, body) = completion_request(&opts, "system", &json!({"units":[]})).unwrap();
+            assert_eq!(url, "http://127.0.0.1:1234/api/v1/chat");
+            assert_eq!(body["reasoning"], mode);
+            assert_eq!(body["store"], false);
+            assert_eq!(body["integrations"], json!([]));
+            assert_eq!(body["context_length"], 131_072);
         }
     }
     #[test]
@@ -701,7 +1087,10 @@ mod tests {
                 anonymise: true,
                 cleanup: true,
                 target_language: "English".into(),
+                context_tokens: default_context(),
+                reasoning: default_reasoning(),
             },
+            vec![],
             |_, _, _| Ok(()),
         )
         .unwrap();

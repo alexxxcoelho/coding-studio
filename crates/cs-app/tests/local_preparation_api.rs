@@ -49,8 +49,20 @@ fn fake_model(bad: bool) -> (String, Arc<AtomicUsize>) {
             }
             counter.fetch_add(1, Ordering::SeqCst);
             let request: Value = serde_json::from_slice(&raw[head..head + len]).unwrap();
-            let input: Value =
-                serde_json::from_str(request["messages"][1]["content"].as_str().unwrap()).unwrap();
+            let native = request.get("reasoning").is_some();
+            let input: Value = serde_json::from_str(if native {
+                request["input"].as_str().unwrap()
+            } else {
+                request["messages"][1]["content"].as_str().unwrap()
+            })
+            .unwrap();
+            if native {
+                assert_eq!(request["store"], false);
+                assert_eq!(request["integrations"], json!([]));
+                assert_eq!(request["reasoning"], "off");
+                assert_eq!(request["context_length"], 131072);
+            }
+
             let output = if input.get("existing_replacements").is_some() {
                 json!({"entities":[{"original":"Sophie","same_as":""}]})
             } else {
@@ -60,7 +72,12 @@ fn fake_model(bad: bool) -> (String, Arc<AtomicUsize>) {
                 }
                 json!({"units":units})
             };
-            let bytes=serde_json::to_vec(&json!({"choices":[{"finish_reason":"stop","message":{"content":serde_json::to_string(&output).unwrap()}}]})).unwrap();
+            let response = if native {
+                json!({"output":[{"type":"message","content":serde_json::to_string(&output).unwrap()}],"stats":{"total_output_tokens":50,"reasoning_output_tokens":0}})
+            } else {
+                json!({"choices":[{"finish_reason":"stop","message":{"content":serde_json::to_string(&output).unwrap()}}]})
+            };
+            let bytes = serde_json::to_vec(&response).unwrap();
             write!(s,"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",bytes.len()).unwrap();
             s.write_all(&bytes).unwrap();
         }
@@ -180,7 +197,7 @@ async fn malformed_output_leaves_no_draft_or_active_change() {
     );
 }
 #[tokio::test]
-async fn hosted_destinations_and_coded_interviews_are_refused_before_any_model_call() {
+async fn hosted_destinations_are_refused_and_coded_interviews_keep_their_anchors() {
     let c = fixture().await;
     let body = json!({"url":"https://api.openai.com/v1","model":"fake","anonymise":true,"cleanup":false,"target_language":""});
     assert_eq!(
@@ -202,16 +219,208 @@ async fn hosted_destinations_and_coded_interviews_are_refused_before_any_model_c
         Some(json!({"unit_id":"INT-01-U002","start":0,"end":3,"code":code})),
     )
     .await;
-    let body = json!({"url":"http://127.0.0.1:1","model":"fake","anonymise":true,"cleanup":false,"target_language":""});
+    let before = ok(&c.app, "GET", "/api/interviews/INT-01", None).await;
+    let passages = ok(&c.app, "GET", "/api/interviews/INT-01/passages", None).await;
+    let (url, calls) = fake_model(false);
+    let d = ok(
+        &c.app,
+        "POST",
+        "/api/interviews/INT-01/local-preparation",
+        Some(
+            json!({"url":url,"model":"fake","anonymise":true,"cleanup":true,"target_language":""}),
+        ),
+    )
+    .await;
+    assert_eq!(calls.load(Ordering::SeqCst), 2);
+    assert_eq!(d["coding_will_be_preserved"], true);
+    let answer = ok(
+        &c.app,
+        "POST",
+        "/api/interviews/INT-01/local-preparation/apply",
+        Some(json!({"digest":d["draft_digest"],"reviewed":true,"use_prepared":true})),
+    )
+    .await;
+    assert_eq!(answer["coding_preserved"], true);
+    assert_eq!(answer["applied_to_coding"], false);
+    assert_eq!(
+        ok(&c.app, "GET", "/api/interviews/INT-01", None).await,
+        before
+    );
+    assert_eq!(
+        ok(&c.app, "GET", "/api/interviews/INT-01/passages", None).await,
+        passages
+    );
+    let private = ok(
+        &c.app,
+        "GET",
+        "/api/interviews/INT-01/local-preparation",
+        None,
+    )
+    .await;
+    assert_eq!(private["reviewed"], true);
+    assert_eq!(private["applied_to_coding"], false);
+    let catalog = ok(
+        &c.app,
+        "GET",
+        "/api/export/reviewer/catalogue?pseudonymise=false",
+        None,
+    )
+    .await;
+    assert!(catalog["fields"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|f| f["path"][0] == "Original transcript"));
+    assert!(catalog["fields"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|f| f["path"][0] == "Prepared transcript"));
+    assert_eq!(
+        ok(&c.app, "GET", "/api/audit/verify", None).await["ok"],
+        true
+    );
+}
+
+#[tokio::test]
+async fn native_lm_studio_thinking_off_prepares_a_private_draft_without_applying_it() {
+    let c = fixture().await;
+    let before = ok(&c.app, "GET", "/api/interviews/INT-01", None).await;
+    let (url, calls) = fake_model(false);
+    let d=ok(&c.app,"POST","/api/interviews/INT-01/local-preparation",Some(json!({"url":url,"model":"fictional-model","anonymise":true,"cleanup":true,"target_language":"","context_tokens":131072,"reasoning":"off"}))).await;
+    assert_eq!(calls.load(Ordering::SeqCst), 2);
+    assert_eq!(d["reviewed"], false);
+    assert_eq!(d["options"]["reasoning"], "off");
+    assert_eq!(
+        ok(&c.app, "GET", "/api/interviews/INT-01", None).await,
+        before
+    );
+}
+
+#[tokio::test]
+async fn staged_flow_refuses_transform_before_review_and_keeps_the_original_until_final_acceptance()
+{
+    let c = fixture().await;
+    let before = ok(&c.app, "GET", "/api/interviews/INT-01", None).await;
+    let (url, calls) = fake_model(false);
+    let opts = json!({"url":url,"model":"fictional-model","anonymise":true,"cleanup":true,"target_language":"","stage":"anonymisation"});
+    let first = ok(
+        &c.app,
+        "POST",
+        "/api/interviews/INT-01/local-preparation",
+        Some(opts.clone()),
+    )
+    .await;
+    assert_eq!(calls.load(Ordering::SeqCst), 1);
+    assert_eq!(first["stage"], "anonymisation");
+    let mut transform = opts.clone();
+    transform["stage"] = json!("transformation");
+    transform["draft_digest"] = first["draft_digest"].clone();
     assert_eq!(
         call(
             &c.app,
             "POST",
             "/api/interviews/INT-01/local-preparation",
-            Some(body)
+            Some(transform.clone())
         )
         .await
         .0,
         409
+    );
+    assert_eq!(calls.load(Ordering::SeqCst), 1);
+    let units = first["anonymised"]["units"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|u| json!({"unit_id":u["unit_id"],"text":u["text"],"speaker_raw":u["speaker_raw"]}))
+        .collect::<Vec<_>>();
+    let body =
+        json!({"digest":first["draft_digest"],"reviewed":true,"pending_diffs":1,"units":units});
+    assert_eq!(
+        call(
+            &c.app,
+            "POST",
+            "/api/interviews/INT-01/local-preparation/review",
+            Some(body.clone())
+        )
+        .await
+        .0,
+        400
+    );
+    let mut reviewed = body;
+    reviewed["pending_diffs"] = json!(0);
+    let approved = ok(
+        &c.app,
+        "POST",
+        "/api/interviews/INT-01/local-preparation/review",
+        Some(reviewed),
+    )
+    .await;
+    assert_eq!(approved["anonymisation_approved"], true);
+    assert_eq!(
+        ok(&c.app, "GET", "/api/interviews/INT-01", None).await,
+        before
+    );
+    transform["draft_digest"] = approved["draft_digest"].clone();
+    let second = ok(
+        &c.app,
+        "POST",
+        "/api/interviews/INT-01/local-preparation",
+        Some(transform),
+    )
+    .await;
+    assert_eq!(calls.load(Ordering::SeqCst), 2);
+    assert_eq!(
+        call(
+            &c.app,
+            "POST",
+            "/api/interviews/INT-01/local-preparation/apply",
+            Some(json!({"digest":second["draft_digest"],"reviewed":true,"use_prepared":true}))
+        )
+        .await
+        .0,
+        409
+    );
+    let reviewed=ok(&c.app,"POST","/api/interviews/INT-01/local-preparation/review",Some(json!({"digest":second["draft_digest"],"reviewed":true,"pending_diffs":0,"units":second["prepared"]["units"]}))).await;
+    ok(
+        &c.app,
+        "POST",
+        "/api/interviews/INT-01/local-preparation/apply",
+        Some(json!({"digest":reviewed["draft_digest"],"reviewed":true,"use_prepared":true})),
+    )
+    .await;
+    assert_ne!(
+        ok(&c.app, "GET", "/api/interviews/INT-01", None).await,
+        before
+    );
+}
+#[tokio::test]
+async fn feedback_revises_a_stage_without_applying_it() {
+    let c = fixture().await;
+    let before = ok(&c.app, "GET", "/api/interviews/INT-01", None).await;
+    let (url, calls) = fake_model(false);
+    let mut opts = json!({"url":url,"model":"fictional-model","anonymise":true,"cleanup":true,"target_language":"","stage":"anonymisation"});
+    let first = ok(
+        &c.app,
+        "POST",
+        "/api/interviews/INT-01/local-preparation",
+        Some(opts.clone()),
+    )
+    .await;
+    opts["draft_digest"] = first["draft_digest"].clone();
+    opts["feedback"] = json!([{"unit_id":"INT-01-U002","instruction":"Vérifier le prénom Sophie dans ce segment."}]);
+    let revised = ok(
+        &c.app,
+        "POST",
+        "/api/interviews/INT-01/local-preparation",
+        Some(opts),
+    )
+    .await;
+    assert_eq!(calls.load(Ordering::SeqCst), 2);
+    assert_eq!(revised["anonymisation_approved"], false);
+    assert_eq!(revised["feedback"][0]["unit_id"], "INT-01-U002");
+    assert_eq!(
+        ok(&c.app, "GET", "/api/interviews/INT-01", None).await,
+        before
     );
 }

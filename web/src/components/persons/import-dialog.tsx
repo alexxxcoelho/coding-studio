@@ -1,3 +1,6 @@
+import {TableMapping} from "./table-mapping"
+import type {WorkbookPreview} from "@/lib/persons-table"
+import {request} from "@/lib/api"
 // Import of persons and organisations from a CSV file: paste or choose the
 // file, a dry run reports what would be created, updated and linked (and every
 // problem, row by row), then "Appliquer" writes it in one transaction. A file
@@ -24,6 +27,8 @@ export function ImportDialog({ open, onClose }: { open: boolean; onClose: () => 
   const qc = useQueryClient()
   const config = useProjectConfig()
   const [csv, setCsv] = useState("")
+  const [book,setBook]=useState<WorkbookPreview|null>(null)
+  const [reading,setReading]=useState(false)
   const [fileName, setFileName] = useState<string | null>(null)
   const [report, setReport] = useState<{ csv: string; r: ImportReport } | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -48,10 +53,14 @@ export function ImportDialog({ open, onClose }: { open: boolean; onClose: () => 
 
   const readFile = async (file: File | undefined) => {
     if (!file) return
-    setFileName(file.name)
-    setCsv(await file.text())
-    setReport(null)
-    setError(null)
+    setFileName(file.name);setReport(null);setError(null);setBook(null);setCsv("");setReading(true)
+    try {
+      if(/\.xls[xm]$/i.test(file.name)) {
+        if(file.size>5*1024*1024)throw new Error(t("persons.excel_too_large"))
+        const data=Array.from(new Uint8Array(await file.arrayBuffer()));setBook(await request<WorkbookPreview>("POST","/api/persons/import-table",{data}))
+      } else if(/\.xls$/i.test(file.name))throw new Error(t("persons.excel_old_format"))
+      else setCsv(await file.text())
+    } catch(e){setError(e instanceof Error?e.message:String(e))} finally {setReading(false)}
   }
 
   const download = () => {
@@ -61,7 +70,7 @@ export function ImportDialog({ open, onClose }: { open: boolean; onClose: () => 
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="sm:max-w-2xl">
+      <DialogContent className="sm:max-w-2xl" style={{maxHeight:"90vh",overflowY:"auto"}}>
         <DialogHeader>
           <DialogTitle>{t("persons.import_title")}</DialogTitle>
           <DialogDescription>{t("persons.import_help")}</DialogDescription>
@@ -74,10 +83,12 @@ export function ImportDialog({ open, onClose }: { open: boolean; onClose: () => 
           <Button variant="outline" onClick={() => fileRef.current?.click()}>
             {t("persons.choose_csv")}
           </Button>
-          <input ref={fileRef} type="file" accept=".csv,text/csv,text/plain" hidden aria-label={t("persons.csv_file_input")} onChange={(e) => void readFile(e.target.files?.[0])} />
+          <input ref={fileRef} type="file" accept=".xlsx,.xlsm,.csv,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden aria-label={t("persons.csv_file_input")} onChange={(e) => void readFile(e.target.files?.[0])} />
           {fileName && <span className="small l2">{fileName}</span>}
         </div>
 
+        {book&&<TableMapping key={fileName} book={book} onCsv={setCsv}/>}
+        {reading&&<p role="status">{t("persons.excel_reading")}</p>}
         <textarea
           className={TEXTAREA}
           style={{ fontFamily: "ui-monospace, Menlo, monospace", fontSize: 12 }}
@@ -99,7 +110,7 @@ export function ImportDialog({ open, onClose }: { open: boolean; onClose: () => 
           <Button variant="outline" onClick={onClose}>
             {applied ? t("common.fermer") : t("common.annuler")}
           </Button>
-          <Button variant="outline" disabled={!csv.trim() || run.isPending} onClick={() => run.mutate(true)}>
+          <Button variant="outline" disabled={reading||!csv.trim() || run.isPending} onClick={() => run.mutate(true)}>
             {t("persons.check_file")}
           </Button>
           <Button disabled={!canApply} onClick={() => run.mutate(false)}>

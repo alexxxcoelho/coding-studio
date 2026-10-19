@@ -165,7 +165,7 @@ async fn export_anonymised(
     Ok(Json(json!(r)))
 }
 
-fn attachment(bytes: Vec<u8>, content_type: &'static str, file_name: &str) -> Response {
+pub(crate) fn attachment(bytes: Vec<u8>, content_type: &'static str, file_name: &str) -> Response {
     let mut res = (
         [(header::CONTENT_TYPE, HeaderValue::from_static(content_type))],
         bytes,

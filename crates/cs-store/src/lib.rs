@@ -464,6 +464,36 @@ impl Store {
         Ok(())
     }
 
+    /// Accept a reading derivative without touching coded units or their anchors.
+    pub fn save_preparation_copy(
+        &self,
+        id: &str,
+        actor: &str,
+        settings: &[(String, String)],
+    ) -> Result<()> {
+        self.require_interview(id)?;
+        if settings
+            .iter()
+            .any(|(k, _)| k != "anonymisation_v1" && k != &format!("local_preparation:{id}"))
+        {
+            return Err(validation("invalid private preparation setting"));
+        }
+        let tx = self.conn.unchecked_transaction()?;
+        for (key, value) in settings {
+            tx.execute("INSERT INTO settings (key,value,updated_at) VALUES (?1,?2,?3) ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=excluded.updated_at",params![key,value,now()])?;
+        }
+        append_event(
+            &tx,
+            actor,
+            "transcript.preparation.copy",
+            Some(id),
+            None,
+            json!({"ai_assisted_local":true,"coding_preserved":true,"settings":settings.iter().map(|(k,v)|json!({"key":k,"sha256":cs_model::sha256_hex(v.as_bytes())})).collect::<Vec<_>>()}),
+        )?;
+        tx.commit()?;
+        Ok(())
+    }
+
     pub fn setting(&self, key: &str) -> Result<Option<String>> {
         Ok(self
             .conn

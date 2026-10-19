@@ -36,9 +36,10 @@ zip.workspace = true
 rusqlite.workspace = true
 tower = { version = "0.5", features = ["util"] }
 
+roxmltree.workspace = true
+
 [dev-dependencies]
 tempfile.workspace = true
 http-body-util = "0.1"
 sha2.workspace = true
 hex.workspace = true
-roxmltree.workspace = true

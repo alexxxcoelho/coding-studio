@@ -2,7 +2,7 @@
  * Copyright (c) 2026 Alexandre Dos Santos Coelho */
 const ReviewerData = (() => {
   'use strict';
-  const depths = {'Interviews':1,'Interview notes':2,'Transcript':2,'Transcript preparation':1,'Codebook':1,'Inactive codes':1,'Passages':2,'Passage coding':2,'Coding decisions':3,'Arbitration':3,'Unit status':2,'Unit marks':2,'Audio verification':2,'Themes':1,'Theme codes':2,'Theme questions':2,'Research questions':1,'Question notes':1,'Cases':1,'Case units':3,'Matrix':2,'Matrix passages':3,'Matrix views':1,'Analytical notes':3,'Quotations':2,'Evidence links':1,'People':1,'People groups':1,'People interviews':2,'People memberships':2,'AI phase 2 prompts':2,'AI phase 2 responses':2,'AI phase 2 runs':2,'AI phase 2 references':2,'AI review samples':1,'Source files':2,'Project configuration':1};
+  const depths = {'Interviews':1,'Interview notes':2,'Transcript':2,'Original transcript':2,'Prepared transcript':2,'Transcript preparation':1,'Codebook':1,'Inactive codes':1,'Passages':2,'Passage coding':2,'Coding decisions':3,'Arbitration':3,'Unit status':2,'Unit marks':2,'Audio verification':2,'Themes':1,'Theme codes':2,'Theme questions':2,'Research questions':1,'Question notes':1,'Cases':1,'Case units':3,'Matrix':2,'Matrix passages':3,'Matrix views':1,'Analytical notes':3,'Quotations':2,'Evidence links':1,'People':1,'People groups':1,'People interviews':2,'People memberships':2,'AI phase 2 prompts':2,'AI phase 2 responses':2,'AI phase 2 runs':2,'AI phase 2 references':2,'AI review samples':1,'Source files':2,'Project configuration':1};
   const ordered = object => Array.isArray(object) ? object.filter(x=>x!==undefined) : object && typeof object==='object' ? Object.keys(object).sort((a,b)=>a.localeCompare(b,undefined,{numeric:true})).map(k=>object[k]) : [];
   const text = value => typeof value==='string' ? value : value==null ? '' : String(value);
   const fold = value => text(value).normalize('NFD').replace(/\p{M}/gu,'').toLocaleLowerCase();
@@ -40,7 +40,7 @@ const ReviewerData = (() => {
     const initial=new Map(records('Coding decisions').map(r=>[key(text(r.interview_id??r._ids[0]),text(r.phase??r._ids[1]),text(r.unit_id??r._ids[2])),r]));
     const decisions=new Map(records('Arbitration').map(r=>[key(text(r.interview_id??r._ids[0]),text(r.unit_id??r._ids[2])),r]));
     const notes=records('Interview notes'), ids=new Set();
-    for(const cat of ['Interviews','Interview notes','Transcript','Passages','Coding decisions','Arbitration','Quotations','Source files'])for(const r of records(cat))ids.add(text(r.interview_id??r._ids[0]));
+    for(const cat of ['Interviews','Interview notes','Transcript','Original transcript','Prepared transcript','People interviews','Passages','Coding decisions','Arbitration','Quotations','Source files'])for(const r of records(cat))ids.add(text(r.interview_id??r._ids[0]));
     const interviews=Array.from(ids).sort().map(id=>({id,meta:records('Interviews').find(r=>(r.interview_id??r._ids[0])===id)??{},units:units.filter(u=>u.interview_id===id),passages:passages.filter(p=>p.interview_id===id),notes:notes.filter(r=>(r.interview_id??r._ids[0])===id)}));
     const interviewMap=new Map(interviews.map(i=>[i.id,i]));
     const codeName=id=>text(codes.get(id)?.name??inactive.get(id)?.name??id);

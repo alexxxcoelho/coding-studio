@@ -274,7 +274,12 @@ fn projection(store: &Store, pseudonymise: bool, actor: &str) -> Result<Projecti
     )?;
     rows(c, &mut records, "Project configuration", "SELECT 'attributes' AS name, json_extract(value,'$.attributes') AS body FROM settings WHERE key='project_config'", &["name"], true)?;
     rows(c, &mut records, "Project configuration", "SELECT 'memo_templates' AS name, json_extract(value,'$.memo_templates') AS body FROM settings WHERE key='project_config'", &["name"], true)?;
-    rows(c,&mut records,"Transcript preparation","SELECT substr(key,length('local_preparation:')+1) AS interview_id,json_extract(value,'$.version') AS version,json_extract(value,'$.options.model') AS local_model,json_extract(value,'$.options.anonymise') AS anonymisation_requested,json_extract(value,'$.options.cleanup') AS cleanup_requested,json_extract(value,'$.options.target_language') AS target_language,json_extract(value,'$.accepted_variant') AS accepted_variant,json_extract(value,'$.created_at') AS prepared_at FROM settings WHERE key LIKE 'local_preparation:%' AND json_valid(value) AND json_extract(value,'$.reviewed')=1",&["interview_id"],true)?;
+    rows(c,&mut records,"Transcript preparation","SELECT substr(key,length('local_preparation:')+1) AS interview_id,json_extract(value,'$.version') AS version,json_extract(value,'$.options.model') AS local_model,json_extract(value,'$.options.anonymise') AS anonymisation_requested,json_extract(value,'$.options.cleanup') AS cleanup_requested,json_extract(value,'$.options.target_language') AS target_language,json_extract(value,'$.accepted_variant') AS accepted_variant,json_extract(value,'$.created_at') AS prepared_at,COALESCE(json_extract(value,'$.applied_to_coding'),1) AS applied_to_coding,json_extract(value,'$.options.context_tokens') AS context_tokens,json_extract(value,'$.options.reasoning') AS thinking FROM settings WHERE key LIKE 'local_preparation:%' AND json_valid(value) AND json_extract(value,'$.reviewed')=1",&["interview_id"],true)?;
+    // Explicitly whitelisted reading versions, never the private identity table.
+    if !pseudonymise {
+        rows(c,&mut records,"Original transcript","SELECT substr(s.key,length('local_preparation:')+1) AS interview_id,json_extract(j.value,'$.unit_id') AS unit_id,json_extract(j.value,'$.seq') AS seq,json_extract(j.value,'$.speaker_raw') AS speaker_raw,json_extract(j.value,'$.role') AS role,json_extract(j.value,'$.timestamp') AS timestamp,json_extract(j.value,'$.text') AS text FROM settings s,json_each(s.value,'$.original.units') j WHERE s.key LIKE 'local_preparation:%' AND json_valid(s.value) AND json_extract(s.value,'$.reviewed')=1",&["interview_id","unit_id"],false)?;
+    }
+    rows(c,&mut records,"Prepared transcript","SELECT substr(s.key,length('local_preparation:')+1) AS interview_id,json_extract(j.value,'$.unit_id') AS unit_id,json_extract(j.value,'$.seq') AS seq,json_extract(j.value,'$.speaker_raw') AS speaker_raw,json_extract(j.value,'$.role') AS role,json_extract(j.value,'$.timestamp') AS timestamp,json_extract(j.value,'$.text') AS text FROM settings s,json_each(s.value,CASE WHEN json_extract(s.value,'$.accepted_variant')='prepared' THEN '$.prepared.units' ELSE '$.anonymised.units' END) j WHERE s.key LIKE 'local_preparation:%' AND json_valid(s.value) AND json_extract(s.value,'$.reviewed')=1",&["interview_id","unit_id"],false)?;
     let mut sources = HashMap::new();
     let mut q = c.prepare("SELECT s.interview_id,i.folder_path,s.rel_path,s.sha256,s.size,s.kind FROM sources s JOIN interviews i USING(interview_id) ORDER BY s.interview_id,s.rel_path")?;
     let mut r = q.query([])?;
@@ -406,13 +411,6 @@ pub(crate) struct CatalogueQuery {
     #[serde(default = "yes")]
     pseudonymise: bool,
 }
-fn ensure_anonymised(value: bool) -> Result<()> {
-    anyhow::ensure!(
-        value,
-        "Seule la copie anonymisée est disponible pour les correcteurs"
-    );
-    Ok(())
-}
 fn yes() -> bool {
     true
 }
@@ -421,8 +419,7 @@ pub(crate) async fn get_catalogue(
     Query(q): Query<CatalogueQuery>,
 ) -> Result<Json<Value>, ApiError> {
     let store = st.store();
-    ensure_anonymised(q.pseudonymise)?;
-    let p = projection(&store, true, &st.actor)?;
+    let p = projection(&store, q.pseudonymise, &st.actor)?;
     let interviews = store
         .connection()
         .query_row("SELECT COUNT(*) FROM interviews", [], |r| {
@@ -499,14 +496,12 @@ fn source_path(source: &Source) -> Result<PathBuf> {
 }
 
 fn package(store: &Store, actor: &str, db: &Path, body: ExportBody) -> Result<Value> {
-    anyhow::ensure!(
-        body.pseudonymise,
-        "L’export correcteurs accepte uniquement une copie anonymisée"
-    );
-    crate::anonymisation::require_all(store)?;
+    if body.pseudonymise {
+        crate::anonymisation::require_all(store)?;
+    }
     anyhow::ensure!(
         body.privacy_reviewed,
-        "Confirmez la relecture des champs anonymisés sélectionnés"
+        "Confirmez la vérification des données sélectionnées et du mode de confidentialité"
     );
     let public_url = checked_url(&body.url)?;
     let p = projection(store, body.pseudonymise, actor)?;
@@ -591,7 +586,7 @@ fn package(store: &Store, actor: &str, db: &Path, body: ExportBody) -> Result<Va
             replacements = counts.person + counts.organisation + counts.researcher;
         }
         payload.export_info = Some(
-            json!({"pseudonymised_text":body.pseudonymise,"replacements":replacements,"stored_digests_refer_to_originals":true,"original_files_pseudonymised":false}),
+            json!({"pseudonymised_text":body.pseudonymise,"replacements":replacements,"stored_digests_refer_to_originals":true,"original_files_pseudonymised":false,"identified_copy":!body.pseudonymise}),
         );
         let envelope = session.payload(&payload).map_err(anyhow::Error::msg)?;
         fs::write(

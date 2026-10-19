@@ -1,3 +1,4 @@
+import {ParticipantExport} from "@/components/interview/participant-export"
 // Coder (design/macos/Coder.dc.html): the transcript with its turns, the
 // filters and the progress, the inspector (Codes, Détail, Mémo), the panel
 // "Fin d'entretien" and the bar of shortcuts.
@@ -383,6 +384,7 @@ export function CoderPage({ id, unit: askedUnit = null }: { id: string; unit?: s
       <ToolbarActions>
         <StepsCapsule id={id} current="coder" highlights={nHighlights} />
         <AudioCapsule />
+        <ParticipantExport id={id}/>
         <nav className="cap" aria-label={t("coder.texte_de_l_entretien")}>
           <button type="button" className="ci" onClick={() => setReviewOpen(true)} title={t("common.versions_du_texte_et_passages")}>
             {t("common.versions")}{nReview > 0 && <span className="n" aria-label={t("coder.n_passages_a_revoir", { n: nReview })}>{nReview}</span>}

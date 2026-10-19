@@ -41,3 +41,11 @@ it("requires a new password after a failed generation", async () => {
   expect(screen.getByLabelText("Mot de passe du dossier")).toHaveValue("")
   expect(screen.getByRole("button",{name:"Continuer"})).toBeDisabled()
 })
+
+it("requires a password for identified copies and reloads their field selection",async()=>{
+ vi.mocked(request).mockImplementation(async method=>method==="GET"?catalogue:{});
+ render(<ReviewerExport open onOpenChange={vi.fn()}/>);await screen.findByRole("button",{name:"Continuer"});
+ fireEvent.change(screen.getByRole("combobox",{name:"Version du dossier"}),{target:{value:"identified"}});
+ await waitFor(()=>expect(request).toHaveBeenCalledWith("GET","/api/export/reviewer/catalogue?pseudonymise=false"));
+ fireEvent.click(screen.getByRole("button",{name:"Continuer"}));expect(screen.getByRole("button",{name:"Continuer"})).toBeDisabled();
+})

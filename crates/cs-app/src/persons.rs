@@ -18,6 +18,11 @@ pub(crate) fn routes() -> Router<AppState> {
         .route("/api/persons", get(list_persons).post(create_person))
         .route("/api/persons/import", post(import_persons))
         .route(
+            "/api/persons/import-table",
+            post(crate::persons_table::preview)
+                .layer(axum::extract::DefaultBodyLimit::max(24 * 1024 * 1024)),
+        )
+        .route(
             "/api/persons/{pid}",
             get(get_person).put(update_person).delete(delete_person),
         )

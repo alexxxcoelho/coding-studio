@@ -68,14 +68,18 @@ async fn original_sources_are_excluded_from_anonymised_catalogue() {
         .unwrap()
         .iter()
         .all(|f| f["path"][0] != "Source files"));
-    let (status, _) = call(
+    let original = ok(
         &ctx.app,
         "GET",
         "/api/export/reviewer/catalogue?pseudonymise=false",
         None,
     )
     .await;
-    assert_ne!(status, axum::http::StatusCode::OK);
+    assert!(original["fields"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|f| f["path"][0] == "Source files"));
 }
 
 #[tokio::test]
@@ -129,4 +133,62 @@ async fn real_https_address_generates_a_qr_without_publishing() {
         .unwrap()
         .contains("<svg"));
     assert_eq!(r["published"], false);
+}
+
+#[tokio::test]
+async fn identified_review_exports_names_links_and_originals_only_inside_the_encrypted_package() {
+    let ctx = setup().await;
+    let person = ok(
+        &ctx.app,
+        "POST",
+        "/api/persons",
+        Some(json!({"name":"Sophie PRIVATE Reviewer Test","kind":"person"})),
+    )
+    .await;
+    ok(
+        &ctx.app,
+        "POST",
+        "/api/interviews/INT-01/persons",
+        Some(json!({"person_id":person["person_id"],"role":"respondent"})),
+    )
+    .await;
+    let c = ok(
+        &ctx.app,
+        "GET",
+        "/api/export/reviewer/catalogue?pseudonymise=false",
+        None,
+    )
+    .await;
+    let mut ids = vec![
+        selected(&c, "People", "name"),
+        selected(&c, "People interviews", "person_id"),
+    ];
+    let file = c["file_ids"]
+        .as_object()
+        .unwrap()
+        .keys()
+        .next()
+        .unwrap()
+        .clone();
+    ids.push(file);
+    for password in ["", "short"] {
+        let (status,_)=call(&ctx.app,"POST","/api/export/reviewer",Some(json!({"pseudonymise":false,"snapshot":c["snapshot"],"selected":ids,"privacy_reviewed":true,"password":password}))).await;
+        assert_ne!(status, 200);
+    }
+    let r=ok(&ctx.app,"POST","/api/export/reviewer",Some(json!({"pseudonymise":false,"snapshot":c["snapshot"],"selected":ids,"privacy_reviewed":true,"password":"synthetic identified access test 12345"}))).await;
+    assert_eq!(r["files"], 1);
+    assert_eq!(r["published"], false);
+    let dir = std::path::Path::new(r["dir"].as_str().unwrap());
+    let html = std::fs::read_to_string(dir.join("index.html")).unwrap();
+    assert!(!html.contains("Sophie PRIVATE Reviewer Test"));
+    assert!(!html.contains("synthetic identified access test 12345"));
+    let zip = zip::ZipArchive::new(std::fs::File::open(dir.join("upload.zip")).unwrap()).unwrap();
+    assert!(zip
+        .file_names()
+        .map(Result::unwrap)
+        .all(|p| p == "index.html"
+            || p == "README.txt"
+            || p == "COPYING.LESSER"
+            || p == "NOTICE.txt"
+            || p.starts_with("data/")));
 }

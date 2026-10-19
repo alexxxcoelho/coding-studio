@@ -22,6 +22,8 @@ fn main() {
         record("Transcript", &["TEST-01","TEST-01-U002"], json!({"interview_id":"TEST-01","unit_id":"TEST-01-U002","seq":2,"role":"interviewer","speaker_raw":"Chercheur","text":"Que faites-vous de cette information ?","timestamp":"00:00:20"})),
         record("Transcript", &["TEST-01","TEST-01-U003"], json!({"interview_id":"TEST-01","unit_id":"TEST-01-U003","seq":3,"role":"respondent","speaker_raw":"Participant A","text":"<img src=x onerror=alert(1)> Ceci est du texte, sans exécution."})),
         record("Transcript", &["TEST-02","TEST-02-U001"], json!({"interview_id":"TEST-02","unit_id":"TEST-02-U001","seq":1,"role":"respondent","text":"Le stock est contrôlé avant de préparer les commandes."})),
+        record("Original transcript", &["TEST-01","TEST-01-U001"], json!({"interview_id":"TEST-01","unit_id":"TEST-01-U001","seq":1,"speaker_raw":"Sophie Fictional","role":"respondent","text":"Original retained participant wording."})),
+        record("Prepared transcript", &["TEST-01","TEST-01-U001"], json!({"interview_id":"TEST-01","unit_id":"TEST-01-U001","seq":1,"speaker_raw":"Participant A","role":"respondent","text":"Approved translated reading copy."})),
         record("Codebook", &["C-GROUP"], json!({"code_id":"C-GROUP","name":"Operational purposes","definition":"A group of operational purposes."})),
         record("Codebook", &["C-0001"], json!({"code_id":"C-0001","name":"Stock visibility","definition":"Knowing stock quantities and availability.","parent_id":"C-GROUP"})),
         record("Codebook", &["C-0002"], json!({"code_id":"C-0002","name":"Stated business value","definition":"A benefit or a reason for the solution.","parent_id":"C-GROUP"})),

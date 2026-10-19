@@ -1,3 +1,4 @@
+import {ParticipantExport} from "@/components/interview/participant-export"
 import { useQuery } from "@tanstack/react-query"
 
 import { Banner, EmptyState, PageTitle } from "@/components/bits"
@@ -55,6 +56,7 @@ function OtherTabs({ id, tab, phase }: { id: string; tab: Tab; phase: Phase }) {
       <PageTitle title={d.entry.interview_id} sub={`${label} · ${d.entry.folder_name}`} />
       <ToolbarActions>
         <StepsCapsule id={id} current={null} />
+        <ParticipantExport id={id}/>
       </ToolbarActions>
 
       <nav aria-label={t("interview.sections_de_l_entretien")} className="seg self-start">
