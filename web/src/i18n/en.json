@@ -2152,7 +2152,7 @@
   "anonymizer.remove": "Remove local rule",
   "anonymizer.sidebar": "Local anonymisation",
   "anonymizer.sidebar_help": "Mandatory masking. Review the interview copy and complete prompt before copying or sending it to an AI.",
-  "preparation.local_help": "Original text is sent only to your configured server: localhost, private IP or cluster DNS name. No proxy, redirects or fallback service. Use a trusted address.",
+  "preparation.local_help": "Original text is sent to the server you configure, by DNS name or IP address, without network restrictions. No proxy, redirects or fallback service.",
   "preparation.url": "Local server URL",
   "preparation.model": "Model",
   "preparation.test": "Test and list models",

@@ -205,9 +205,9 @@ async fn malformed_output_leaves_no_draft_or_active_change() {
     );
 }
 #[tokio::test]
-async fn public_ip_literals_are_refused_and_coded_interviews_keep_their_anchors() {
+async fn invalid_url_schemes_are_refused_and_coded_interviews_keep_their_anchors() {
     let c = fixture().await;
-    let body = json!({"url":"https://8.8.8.8/v1","model":"fake","anonymise":true,"cleanup":false,"target_language":""});
+    let body = json!({"url":"file:///tmp/model","model":"fake","anonymise":true,"cleanup":false,"target_language":""});
     assert_eq!(
         call(
             &c.app,

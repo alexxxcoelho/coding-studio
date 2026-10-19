@@ -167,4 +167,4 @@ Dans l’entretien, utilisez **Export pour l’intervenant…**. Le Word reprend
 
 **Serveur protégé.** Dans les réglages du modèle local, renseignez l’URL et le champ « Jeton Bearer ». Le préfixe « Bearer » est facultatif. Le jeton sert aux propositions et à la liste des modèles. Il reste uniquement en mémoire pour cette session et doit être ressaisi après redémarrage ; il ne figure pas dans la base ni dans les exports.
 
-Le serveur peut être désigné par son nom DNS, par exemple `https://ia.cluster.example.org/v1`, avec son jeton Bearer. Le nom DNS est résolu par le système et doit pointer vers des adresses du réseau privé.
+Le serveur peut être désigné par son nom DNS, par exemple `https://ia.cluster.example.org/v1`, avec son jeton Bearer. Les noms DNS et toutes les adresses IP sont acceptés, sans restriction au réseau privé.

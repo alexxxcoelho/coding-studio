@@ -2152,7 +2152,7 @@
   "anonymizer.remove": "Retirer la règle locale",
   "anonymizer.sidebar": "Anonymisation locale",
   "anonymizer.sidebar_help": "Masquage obligatoire. Relisez la copie de l’entretien puis le prompt complet pour autoriser sa copie ou son envoi IA.",
-  "preparation.local_help": "Le texte original est transmis uniquement au serveur configuré : localhost, adresse IP privée ou nom DNS de votre cluster. Aucun proxy, redirection ou service de secours. Utilisez une adresse de confiance.",
+  "preparation.local_help": "Le texte original est transmis au serveur que vous configurez, par son nom DNS ou son adresse IP, sans restriction de réseau. Aucun proxy, redirection ou service de secours.",
   "preparation.url": "URL du serveur local",
   "preparation.model": "Modèle",
   "preparation.test": "Tester et lister les modèles",

@@ -16,7 +16,6 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::{
     collections::{BTreeMap, BTreeSet},
-    net::IpAddr,
     sync::{
         atomic::{AtomicBool, Ordering},
         Arc, Mutex, OnceLock, Weak,
@@ -181,25 +180,10 @@ pub fn endpoint(base: &str) -> Result<String> {
             && u.fragment().is_none(),
         CsError::Validation("URL locale sans identifiants ni paramètres requise".into())
     );
-    let host = u
-        .host_str()
-        .ok_or_else(|| invalid("Hôte local requis"))?
-        .trim_matches(['[', ']']);
-    if host.eq_ignore_ascii_case("localhost") {
-        u.set_host(Some("127.0.0.1"))?;
-    } else if let Ok(ip) = host.parse::<IpAddr>() {
-        let local = match ip {
-            IpAddr::V4(a) => a.is_loopback() || a.is_private(),
-            IpAddr::V6(a) => a.is_loopback() || a.is_unique_local(),
-        };
-        ensure!(
-            local,
-            CsError::Validation(
-                "Les services hébergés publics sont interdits pour les transcriptions originales"
-                    .into()
-            )
-        );
-    }
+    ensure!(
+        u.host_str().is_some(),
+        CsError::Validation("Hôte du serveur requis".into())
+    );
     if u.path() == "/" {
         u.set_path("/v1");
     }
@@ -208,48 +192,13 @@ pub fn endpoint(base: &str) -> Result<String> {
         .trim_end_matches("/chat/completions")
         .into())
 }
-fn private_address(ip: IpAddr) -> bool {
-    match ip {
-        IpAddr::V4(a) => a.is_loopback() || a.is_private(),
-        IpAddr::V6(a) => a
-            .to_ipv4_mapped()
-            .map(|v| private_address(IpAddr::V4(v)))
-            .unwrap_or_else(|| a.is_loopback() || a.is_unique_local()),
-    }
-}
-#[derive(Debug)]
-struct PrivateResolver;
-impl ureq::unversioned::resolver::Resolver for PrivateResolver {
-    fn resolve(
-        &self,
-        uri: &ureq::http::Uri,
-        config: &ureq::config::Config,
-        timeout: ureq::unversioned::transport::NextTimeout,
-    ) -> std::result::Result<ureq::unversioned::resolver::ResolvedSocketAddrs, ureq::Error> {
-        use ureq::unversioned::resolver::DefaultResolver;
-        let addresses = DefaultResolver::default().resolve(uri, config, timeout)?;
-        if addresses
-            .iter()
-            .all(|address| private_address(address.ip()))
-        {
-            Ok(addresses)
-        } else {
-            Err(ureq::Error::HostNotFound)
-        }
-    }
-}
 fn agent() -> ureq::Agent {
-    let config = ureq::Agent::config_builder()
+    ureq::Agent::config_builder()
         .proxy(None)
         .max_redirects(0)
         .timeout_global(Some(Duration::from_secs(180)))
-        .build();
-    // Connect to these checked addresses directly, preserving the DNS hostname for TLS.
-    ureq::Agent::with_parts(
-        config,
-        ureq::unversioned::transport::DefaultConnector::default(),
-        PrivateResolver,
-    )
+        .build()
+        .new_agent()
 }
 const OUTPUT_TOKENS: usize = 4096;
 fn completion_request(opts: &Options, system: &str, input: &Value) -> Result<(String, Value)> {
@@ -1206,52 +1155,29 @@ mod tests {
         }
     }
     #[test]
-    fn configured_dns_names_and_private_addresses_are_accepted() {
-        assert_eq!(
-            endpoint("http://127.0.0.1:1234").unwrap(),
-            "http://127.0.0.1:1234/v1"
-        );
-        assert_eq!(
-            endpoint("http://localhost:1234/v1/").unwrap(),
-            "http://127.0.0.1:1234/v1"
-        );
-        assert!(endpoint("http://[::1]:1234/v1").is_ok());
-        for ip in [
-            "127.0.0.1",
-            "10.20.30.40",
-            "192.168.2.1",
-            "fd00::1",
-            "::ffff:192.168.1.2",
+    fn configured_dns_names_and_all_ip_addresses_are_accepted() {
+        for u in [
+            "http://localhost:1234",
+            "http://127.0.0.1:1234/v1",
+            "http://192.168.1.2/v1",
+            "https://ai.cluster.example.org/v1",
+            "http://cluster-ia:8080",
+            "https://8.8.8.8/v1",
+            "http://169.254.169.254/v1",
+            "http://[::1]/v1",
+            "http://[2606:4700:4700::1111]/v1",
         ] {
-            assert!(private_address(ip.parse().unwrap()));
+            assert!(endpoint(u).is_ok(), "{u}");
         }
-        for ip in [
-            "8.8.8.8",
-            "169.254.169.254",
-            "2606:4700:4700::1111",
-            "::ffff:8.8.8.8",
-        ] {
-            assert!(!private_address(ip.parse().unwrap()));
-        }
-        assert!(endpoint("http://192.168.1.2:1234/v1").is_ok());
-        assert_eq!(
-            endpoint("https://ai.cluster.example.org/v1").unwrap(),
-            "https://ai.cluster.example.org/v1"
-        );
-        assert_eq!(
-            endpoint("http://cluster-ia:8080").unwrap(),
-            "http://cluster-ia:8080/v1"
-        );
         assert_eq!(
             endpoint("https://ai.cluster.example.org/custom/v1/chat/completions").unwrap(),
             "https://ai.cluster.example.org/custom/v1"
         );
         for u in [
-            "https://8.8.8.8/v1",
-            "http://user:secret@localhost:1234/v1",
-            "http://localhost:1234/v1?token=x",
-            "http://169.254.169.254/v1",
-            "ftp://127.0.0.1/v1",
+            "http://user:secret@localhost/v1",
+            "http://localhost/v1?token=x",
+            "ftp://localhost/v1",
+            "file:///tmp/model",
         ] {
             assert!(endpoint(u).is_err(), "{u}");
         }
