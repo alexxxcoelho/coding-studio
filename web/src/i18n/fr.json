@@ -2246,5 +2246,20 @@
   "staged.anon_approved": "Anonymisation validée. Le nettoyage et la traduction n’ont pas encore été lancés.",
   "staged.run_transform": "Lancer le nettoyage et la traduction",
   "staged.review_again": "Revoir cette étape",
-  "staged.finish": "Valider cette étape et conserver la version"
+  "staged.finish": "Valider cette étape et conserver la version",
+  "batch.help": "Sélectionnez les entretiens. Toutes les propositions sont préparées avant l’ouverture des résultats ; vous validez ensuite chaque entretien et chaque différence.",
+  "batch.select_all": "Tout sélectionner",
+  "batch.select_none": "Tout désélectionner",
+  "batch.not_processed": "Non traité : lot interrompu.",
+  "batch.progress": "Préparation du lot : {done}/{total}",
+  "batch.ready": "{n} entretien(s) à traiter. Les résultats seront présentés une fois le lot terminé.",
+  "batch.results": "Résultats disponibles : {done}/{total}. Choisissez un entretien pour le vérifier.",
+  "batch.retry": "Reprendre les entretiens non traités",
+  "batch.results_label": "Résultats par entretien",
+  "batch.reviewed": "Version validée et conservée.",
+  "batch.skipped": "Résultat écarté ; aucune version appliquée.",
+  "preparation.bearer": "Jeton Bearer (facultatif)",
+  "preparation.bearer_present": "Jeton configuré pour cette session",
+  "preparation.bearer_empty": "Sans authentification",
+  "preparation.bearer_help": "Collez le jeton, avec ou sans « Bearer ». Conservé uniquement pendant cette session ; à ressaisir après redémarrage. Vider le champ puis enregistrer retire le jeton."
 }

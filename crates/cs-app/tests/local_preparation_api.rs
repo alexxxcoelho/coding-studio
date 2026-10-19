@@ -10,6 +10,9 @@ use std::{
     },
 };
 fn fake_model(bad: bool) -> (String, Arc<AtomicUsize>) {
+    fake_model_auth(bad, None)
+}
+fn fake_model_auth(bad: bool, token: Option<String>) -> (String, Arc<AtomicUsize>) {
     let listener = TcpListener::bind("127.0.0.1:0").unwrap();
     let port = listener.local_addr().unwrap().port();
     let calls = Arc::new(AtomicUsize::new(0));
@@ -47,6 +50,11 @@ fn fake_model(bad: bool) -> (String, Arc<AtomicUsize>) {
                 }
                 raw.extend_from_slice(&buf[..n]);
             }
+            if let Some(token) = &token {
+                assert!(String::from_utf8_lossy(&raw[..head])
+                    .to_lowercase()
+                    .contains(&format!("authorization: bearer {}", token.to_lowercase())));
+            }
             counter.fetch_add(1, Ordering::SeqCst);
             let request: Value = serde_json::from_slice(&raw[head..head + len]).unwrap();
             let native = request.get("reasoning").is_some();
@@ -64,7 +72,7 @@ fn fake_model(bad: bool) -> (String, Arc<AtomicUsize>) {
             }
 
             let output = if input.get("existing_replacements").is_some() {
-                json!({"entities":[{"original":"Sophie","same_as":""}]})
+                json!({"entities":[{"original":if input["units"].to_string().contains("Sophie"){"Sophie"}else{"Paul"},"same_as":""}]})
             } else {
                 let mut units:Vec<_>=input["units"].as_array().unwrap().iter().map(|u|json!({"unit_id":u["unit_id"],"text":u["text"].as_str().unwrap().replace("euh, ","")})).collect();
                 if bad {
@@ -423,4 +431,123 @@ async fn feedback_revises_a_stage_without_applying_it() {
         ok(&c.app, "GET", "/api/interviews/INT-01", None).await,
         before
     );
+}
+
+#[tokio::test]
+async fn batch_drafts_have_distinct_labels_and_remain_reviewable_after_another_is_applied() {
+    let c = fixture().await;
+    ok(&c.app,"POST","/api/interviews/INT-02/units/INT-02-U002/corrections",Some(json!({"text":"Paul checks 3 stores.","role":"respondent","reason":"Synthetic batch fixture"}))).await;
+    let (url, _) = fake_model(false);
+    let opts = json!({"url":url,"model":"fictional-model","anonymise":true,"cleanup":false,"target_language":"","stage":"anonymisation"});
+    let a = ok(
+        &c.app,
+        "POST",
+        "/api/interviews/INT-01/local-preparation",
+        Some(opts.clone()),
+    )
+    .await;
+    let mut second = opts.clone();
+    second["batch_entries"] = a["entries"].clone();
+    let b = ok(
+        &c.app,
+        "POST",
+        "/api/interviews/INT-02/local-preparation",
+        Some(second),
+    )
+    .await;
+    assert_eq!(
+        a["anonymised"]["units"][1]["text"],
+        "euh, [Person 1] checks 3 stores."
+    );
+    assert_eq!(
+        b["anonymised"]["units"][1]["text"],
+        "[Person 2] checks 3 stores."
+    );
+    for (id, d) in [("INT-01", a), ("INT-02", b)] {
+        let path = format!("/api/interviews/{id}/local-preparation");
+        let approved=ok(&c.app,"POST",&format!("{path}/review"),Some(json!({"digest":d["draft_digest"],"reviewed":true,"pending_diffs":0,"units":d["anonymised"]["units"]}))).await;
+        ok(
+            &c.app,
+            "POST",
+            &format!("{path}/apply"),
+            Some(json!({"digest":approved["draft_digest"],"reviewed":true,"use_prepared":false})),
+        )
+        .await;
+    }
+}
+#[tokio::test]
+async fn bearer_is_sent_to_the_model_and_never_persisted_in_settings_drafts_or_audit() {
+    let c = fixture().await;
+    let token = "fictional-test-secret-123";
+    let (url, _) = fake_model_auth(false, Some(token.into()));
+    let opts = json!({"url":url,"model":"fictional-model","anonymise":true,"cleanup":false,"target_language":"","bearer_token":format!("Bearer {token}")});
+    let saved = ok(
+        &c.app,
+        "PUT",
+        "/api/local-preparation/config",
+        Some(opts.clone()),
+    )
+    .await;
+    assert!(!saved.to_string().contains(token));
+    let mut without = opts;
+    without.as_object_mut().unwrap().remove("bearer_token");
+    let d = ok(
+        &c.app,
+        "POST",
+        "/api/interviews/INT-01/local-preparation",
+        Some(without),
+    )
+    .await;
+    assert!(!d.to_string().contains(token));
+    let config = ok(&c.app, "GET", "/api/local-preparation/config", None).await;
+    assert_eq!(config["has_bearer_token"], true);
+    assert!(!config.to_string().contains(token));
+    let conn = rusqlite::Connection::open(&c.db).unwrap();
+    for table in ["settings", "audit_log"] {
+        let mut stmt = conn.prepare(&format!("SELECT * FROM {table}")).unwrap();
+        let count = stmt.column_count();
+        let mut rows = stmt.query([]).unwrap();
+        while let Some(row) = rows.next().unwrap() {
+            for i in 0..count {
+                if let Ok(text) = row.get::<_, String>(i) {
+                    assert!(!text.contains(token));
+                }
+            }
+        }
+    }
+}
+#[tokio::test]
+async fn model_discovery_sends_the_supplied_bearer_header() {
+    let c = fixture().await;
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let port = listener.local_addr().unwrap().port();
+    let server = std::thread::spawn(move || {
+        let (mut stream, _) = listener.accept().unwrap();
+        stream
+            .set_read_timeout(Some(std::time::Duration::from_secs(5)))
+            .unwrap();
+        let mut raw = Vec::new();
+        let mut buf = [0; 1024];
+        while !raw.windows(4).any(|w| w == b"\r\n\r\n") {
+            let n = stream.read(&mut buf).unwrap();
+            assert!(n > 0);
+            raw.extend_from_slice(&buf[..n]);
+        }
+        let headers = String::from_utf8(raw).unwrap().to_lowercase();
+        assert!(headers.starts_with("get /v1/models "));
+        assert!(headers.contains("authorization: bearer synthetic-model-discovery"));
+        let body = r#"{"data":[{"id":"fictional-model"}]}"#;
+        write!(stream,"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",body.len(),body).unwrap();
+    });
+    let result=ok(&c.app,"POST","/api/local-preparation/models",Some(json!({"url":format!("http://127.0.0.1:{port}"),"bearer_token":"Bearer synthetic-model-discovery"}))).await;
+    assert_eq!(result["models"], json!(["fictional-model"]));
+    server.join().unwrap();
+    let (status, _) = call(
+        &c.app,
+        "POST",
+        "/api/local-preparation/models",
+        Some(json!({"url":format!("http://127.0.0.1:{port}"),"bearer_token":"bad\r\nheader"})),
+    )
+    .await;
+    assert_ne!(status, 200);
 }

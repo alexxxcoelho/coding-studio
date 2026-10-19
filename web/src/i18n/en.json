@@ -2246,5 +2246,20 @@
   "staged.anon_approved": "Anonymisation approved. Cleanup and translation have not been run yet.",
   "staged.run_transform": "Run cleanup and translation",
   "staged.review_again": "Review this step again",
-  "staged.finish": "Approve this step and keep the version"
+  "staged.finish": "Approve this step and keep the version",
+  "batch.help": "Select interviews. All proposals are prepared before results open; then review each interview and each difference.",
+  "batch.select_all": "Select all",
+  "batch.select_none": "Deselect all",
+  "batch.not_processed": "Not processed: batch stopped.",
+  "batch.progress": "Preparing batch: {done}/{total}",
+  "batch.ready": "{n} interview(s) to process. Results will appear once the batch finishes.",
+  "batch.results": "Results available: {done}/{total}. Choose an interview to review.",
+  "batch.retry": "Retry interviews without results",
+  "batch.results_label": "Results by interview",
+  "batch.reviewed": "Version approved and saved.",
+  "batch.skipped": "Result dismissed; no version applied.",
+  "preparation.bearer": "Bearer token (optional)",
+  "preparation.bearer_present": "Token configured for this session",
+  "preparation.bearer_empty": "No authentication",
+  "preparation.bearer_help": "Paste the token, with or without “Bearer”. Kept for this session only; enter it again after restart. Clear the field and save to remove the token."
 }

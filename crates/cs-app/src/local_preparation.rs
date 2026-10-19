@@ -109,6 +109,8 @@ struct PrepareBody {
     feedback: Vec<Feedback>,
     #[serde(default)]
     draft_digest: Option<String>,
+    #[serde(default)]
+    batch_entries: Vec<PseudonymEntry>,
 }
 fn all_stages() -> String {
     "all".into()
@@ -117,6 +119,8 @@ fn all_stages() -> String {
 pub struct Options {
     pub url: String,
     pub model: String,
+    #[serde(default, skip_serializing)]
+    pub bearer_token: Option<String>,
     #[serde(default = "yes")]
     pub anonymise: bool,
     #[serde(default)]
@@ -127,6 +131,32 @@ pub struct Options {
     pub context_tokens: usize,
     #[serde(default = "default_reasoning")]
     pub reasoning: String,
+}
+// Secrets stay in process memory; never in drafts, SQLite settings or audit payloads.
+static TOKENS: OnceLock<Mutex<BTreeMap<String, String>>> = OnceLock::new();
+fn token_key(st: &AppState, url: &str) -> Result<String> {
+    Ok(job_key(st, &endpoint(url)?))
+}
+fn session_token(st: &AppState, url: &str, supplied: Option<&str>) -> Result<Option<String>> {
+    if let Some(token) = supplied {
+        return validate_token(token);
+    }
+    let key = token_key(st, url)?;
+    Ok(TOKENS
+        .get_or_init(Mutex::default)
+        .lock()
+        .map_err(|_| invalid("Jeton local indisponible"))?
+        .get(&key)
+        .cloned())
+}
+fn validate_token(token: &str) -> Result<Option<String>> {
+    let token = token.trim();
+    ensure!(
+        token.len() <= 8192 && token.bytes().all(|b| b.is_ascii_graphic() || b == b' '),
+        CsError::Validation("Jeton Bearer invalide".into())
+    );
+    let token = token.strip_prefix("Bearer ").unwrap_or(token).trim();
+    Ok((!token.is_empty()).then(|| token.to_owned()))
 }
 fn default_context() -> usize {
     131_072
@@ -211,7 +241,13 @@ fn completion_request(opts: &Options, system: &str, input: &Value) -> Result<(St
 }
 fn complete(opts: &Options, system: &str, input: &Value) -> Result<Value> {
     let (endpoint, body) = completion_request(opts, system, input)?;
-    let mut r=agent().post(endpoint).send_json(&body).map_err(|_|invalid("Le modèle local ne répond pas : vérifiez l’URL, le modèle et sa capacité. Aucune bascule vers un service externe."))?;
+    let mut call = agent().post(endpoint);
+    if let Some(token) = opts.bearer_token.as_deref() {
+        if let Some(token) = validate_token(token)? {
+            call = call.header("Authorization", format!("Bearer {token}"));
+        }
+    }
+    let mut r=call.send_json(&body).map_err(|_|invalid("Le modèle local ne répond pas : vérifiez l’URL, le modèle et sa capacité. Aucune bascule vers un service externe."))?;
     ensure!(
         r.status().as_u16() == 200,
         CsError::Validation("Réponse locale refusée (redirection ou statut inattendu)".into())
@@ -251,6 +287,8 @@ const TRANSFORM: &str = include_str!("../../../docs/prompts/local-transform-tran
 struct Draft {
     version: String,
     source_digest: String,
+    #[serde(default)]
+    source_entries: Option<Vec<PseudonymEntry>>,
     options: Options,
     original: Segmentation,
     anonymised: Segmentation,
@@ -275,6 +313,33 @@ struct Draft {
 }
 fn digest(seg: &Segmentation, entries: &[PseudonymEntry]) -> Result<String> {
     Ok(sha256_hex(&serde_json::to_vec(&(VERSION, seg, entries))?))
+}
+// Accept only compatible additions from other reviewed interviews in a batch.
+// Edits/removals of inherited rules, source edits and conflicting new rules stay stale.
+fn source_matches(seg: &Segmentation, current: &[PseudonymEntry], draft: &Draft) -> Result<bool> {
+    let Some(snapshot) = &draft.source_entries else {
+        return Ok(digest(seg, current)? == draft.source_digest);
+    };
+    if digest(seg, snapshot)? != draft.source_digest
+        || snapshot.iter().any(|e| !current.contains(e))
+    {
+        return Ok(false);
+    }
+    for e in current.iter().filter(|e| !snapshot.contains(e)) {
+        let name = e.original.to_lowercase();
+        let occurs = seg.units.iter().any(|u| {
+            u.text.to_lowercase().contains(&name) || u.speaker_raw.to_lowercase().contains(&name)
+        });
+        if occurs && !draft.entries.contains(e) {
+            return Ok(false);
+        }
+        if draft.entries.iter().any(|other| {
+            other.original.eq_ignore_ascii_case(&e.original) && other.pseudonym != e.pseudonym
+        }) {
+            return Ok(false);
+        }
+    }
+    Ok(true)
 }
 fn raw_seg(st: &AppState, id: &str) -> Result<Segmentation> {
     let store = st.store();
@@ -357,13 +422,16 @@ fn prepare_model(
     existing: Vec<PseudonymEntry>,
     opts: Options,
     feedback: Vec<Feedback>,
+    reserved_labels: Vec<String>,
     mut progress: impl FnMut(&str, usize, usize) -> Result<()>,
 ) -> Result<Draft> {
     valid_options(&opts)?;
     let source_digest = digest(&original, &existing)?;
     let mut completed_groups = 0;
+    let source_entries = Some(existing.clone());
     let mut entries = existing;
     let mut used: BTreeSet<String> = entries.iter().map(|e| e.pseudonym.clone()).collect();
+    used.extend(reserved_labels);
     let mut n = 1;
     if opts.anonymise {
         let mut offset = 0;
@@ -506,6 +574,7 @@ fn prepare_model(
     Ok(Draft {
         version: VERSION.into(),
         source_digest,
+        source_entries,
         options: opts,
         original,
         anonymised,
@@ -608,10 +677,29 @@ async fn get_options(State(st): State<AppState>) -> ApiResult {
         .map(|s| serde_json::from_str::<Options>(&s))
         .transpose()
         .map_err(anyhow::Error::from)?;
-    Ok(Json(value.map(|o| json!(o)).unwrap_or(json!({"url":"http://127.0.0.1:1234","model":"","anonymise":true,"cleanup":false,"target_language":"","context_tokens":default_context(),"reasoning":default_reasoning()}))))
+    let mut result=value.map(|o| json!(o)).unwrap_or(json!({"url":"http://127.0.0.1:1234","model":"","anonymise":true,"cleanup":false,"target_language":"","context_tokens":default_context(),"reasoning":default_reasoning()}));
+    result["has_bearer_token"] = json!(session_token(
+        &st,
+        result["url"].as_str().unwrap_or("http://127.0.0.1:1234"),
+        None
+    )?
+    .is_some());
+    Ok(Json(result))
 }
 async fn save_options(State(st): State<AppState>, Json(o): Json<Options>) -> ApiResult {
     valid_options(&o)?;
+    if let Some(token) = &o.bearer_token {
+        let key = token_key(&st, &o.url)?;
+        let mut tokens = TOKENS
+            .get_or_init(Mutex::default)
+            .lock()
+            .map_err(|_| invalid("Jeton local indisponible"))?;
+        if let Some(token) = validate_token(token)? {
+            tokens.insert(key, token);
+        } else {
+            tokens.remove(&key);
+        }
+    }
     let value = serde_json::to_string(&o).map_err(anyhow::Error::from)?;
     st.store().set_setting(SETTINGS, &value, &st.actor)?;
     Ok(Json(json!(o)))
@@ -619,10 +707,13 @@ async fn save_options(State(st): State<AppState>, Json(o): Json<Options>) -> Api
 #[derive(Deserialize)]
 struct Models {
     url: String,
+    #[serde(default)]
+    bearer_token: Option<String>,
 }
-async fn models(Json(body): Json<Models>) -> ApiResult {
+async fn models(State(st): State<AppState>, Json(body): Json<Models>) -> ApiResult {
     let endpoint = format!("{}/models", endpoint(&body.url)?);
-    let list=tokio::task::spawn_blocking(move||->Result<Value>{let mut r=agent().get(endpoint).call().map_err(|_|invalid("Serveur local inaccessible"))?;ensure!(r.status().as_u16()==200,CsError::Validation("Réponse locale inattendue".into()));let v:Value=r.body_mut().with_config().limit(1024*1024).read_json()?;Ok(json!({"models":v["data"].as_array().ok_or_else(||invalid("Liste de modèles invalide"))?.iter().filter_map(|m|m["id"].as_str()).collect::<Vec<_>>()}))}).await.map_err(|_|invalid("Le test local a échoué"))??;
+    let token = session_token(&st, &body.url, body.bearer_token.as_deref())?;
+    let list=tokio::task::spawn_blocking(move||->Result<Value>{let mut call=agent().get(endpoint);if let Some(token)=token {call=call.header("Authorization",format!("Bearer {token}"));}let mut r=call.call().map_err(|_|invalid("Serveur local inaccessible"))?;ensure!(r.status().as_u16()==200,CsError::Validation("Réponse locale inattendue".into()));let v:Value=r.body_mut().with_config().limit(1024*1024).read_json()?;Ok(json!({"models":v["data"].as_array().ok_or_else(||invalid("Liste de modèles invalide"))?.iter().filter_map(|m|m["id"].as_str()).collect::<Vec<_>>()}))}).await.map_err(|_|invalid("Le test local a échoué"))??;
     Ok(Json(list))
 }
 fn draft_view(d: &Draft) -> Result<Value> {
@@ -647,7 +738,8 @@ async fn prepare(
     Path(id): Path<String>,
     Json(body): Json<PrepareBody>,
 ) -> ApiResult {
-    let opts = body.options;
+    let mut opts = body.options;
+    opts.bearer_token = session_token(&st, &opts.url, opts.bearer_token.as_deref())?;
     valid_options(&opts)?;
     ensure_api!(
         matches!(
@@ -655,6 +747,19 @@ async fn prepare(
             "all" | "anonymisation" | "transformation"
         ),
         CsError::Validation("Étape de préparation invalide".into())
+    );
+    ensure_api!(
+        body.batch_entries.len() <= 20000,
+        CsError::Validation("Lot de correspondances trop volumineux".into())
+    );
+    ensure_api!(
+        body.batch_entries
+            .iter()
+            .all(|e| !e.original.trim().is_empty()
+                && e.original.chars().count() <= 200
+                && !e.pseudonym.trim().is_empty()
+                && e.pseudonym.len() <= 200),
+        CsError::Validation("Correspondance du lot invalide".into())
     );
     let original = raw_seg(&st, &id)?;
     ensure_api!(
@@ -692,7 +797,7 @@ async fn prepare(
             CsError::Guard("La proposition a changé : rechargez la comparaison".into())
         );
         ensure_api!(
-            digest(&original, &existing)? == d.source_digest,
+            source_matches(&original, &existing, d)?,
             CsError::Guard("Source ou règles modifiées : recommencez la préparation".into())
         );
         if body.stage == "transformation" && opts.anonymise {
@@ -724,21 +829,43 @@ async fn prepare(
         if stage == "transformation" {
             operation.anonymise = false;
         }
-        let entries = if stage == "transformation" && opts.anonymise {
+        let mut entries = if stage == "transformation" && opts.anonymise {
             prior.as_ref().unwrap().entries.clone()
         } else {
             existing.clone()
         };
+        let reserved_labels = body
+            .batch_entries
+            .iter()
+            .map(|e| e.pseudonym.clone())
+            .collect();
+        if stage == "anonymisation" {
+            for e in &body.batch_entries {
+                let name = e.original.to_lowercase();
+                if !entries
+                    .iter()
+                    .any(|old| old.original.eq_ignore_ascii_case(&e.original))
+                    && original.units.iter().any(|u| {
+                        u.text.to_lowercase().contains(&name)
+                            || u.speaker_raw.to_lowercase().contains(&name)
+                    })
+                {
+                    entries.push(e.clone());
+                }
+            }
+        }
         let mut d = prepare_model(
             source,
             entries,
             operation,
             feedback,
+            reserved_labels,
             |stage, done, total| worker.update(stage, done, total),
         )?;
         d.options = opts;
         d.stage = stage;
         d.source_digest = digest(&original, &existing)?;
+        d.source_entries = Some(existing.clone());
         if d.stage == "transformation" {
             d.original = original;
             if let Some(previous) = prior.filter(|_| d.options.anonymise) {
@@ -759,7 +886,7 @@ async fn prepare(
     let store = st.store();
     d.coding_will_be_preserved = has_coding(&store, &id)?;
     ensure_api!(
-        digest(&current, &crate::anonymisation::entries(&store)?)? == d.source_digest,
+        source_matches(&current, &crate::anonymisation::entries(&store)?, &d)?,
         CsError::Guard(
             "La transcription ou les règles ont changé pendant la préparation : relancez-la".into()
         )
@@ -813,7 +940,7 @@ async fn accept_stage(
         CsError::Guard("Proposition modifiée : rechargez les différences".into())
     );
     ensure_api!(
-        digest(&current, &crate::anonymisation::entries(&store)?)? == d.source_digest,
+        source_matches(&current, &crate::anonymisation::entries(&store)?, &d)?,
         CsError::Guard("Source ou règles modifiées : relancez la préparation".into())
     );
     ensure_api!(
@@ -906,7 +1033,7 @@ async fn apply(
         CsError::Guard("Proposition modifiée ou déjà appliquée : rechargez la comparaison".into())
     );
     ensure_api!(
-        digest(&current, &crate::anonymisation::entries(&store)?)? == d.source_digest,
+        source_matches(&current, &crate::anonymisation::entries(&store)?, &d)?,
         CsError::Guard("Source ou règles modifiées : relancez la préparation".into())
     );
     if d.stage != "all" {
@@ -1084,12 +1211,14 @@ mod tests {
             Options {
                 url: "http://127.0.0.1:1234".into(),
                 model: "google/gemma-4-12b-qat".into(),
+                bearer_token: None,
                 anonymise: true,
                 cleanup: true,
                 target_language: "English".into(),
                 context_tokens: default_context(),
                 reasoning: default_reasoning(),
             },
+            vec![],
             vec![],
             |_, _, _| Ok(()),
         )
