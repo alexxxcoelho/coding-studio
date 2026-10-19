@@ -168,3 +168,11 @@ Dans l’entretien, utilisez **Export pour l’intervenant…**. Le Word reprend
 **Serveur protégé.** Dans les réglages du modèle local, renseignez l’URL et le champ « Jeton Bearer ». Le préfixe « Bearer » est facultatif. Le jeton sert aux propositions et à la liste des modèles. Il reste uniquement en mémoire pour cette session et doit être ressaisi après redémarrage ; il ne figure pas dans la base ni dans les exports.
 
 Le serveur peut être désigné par son nom DNS, par exemple `https://ia.cluster.example.org/v1`, avec son jeton Bearer. Les noms DNS et toutes les adresses IP sont acceptés, sans restriction au réseau privé.
+
+### Préparation par prompt et réponse collée
+
+- Dans « Anonymiser / nettoyer / traduire… », choisissez « Prompt à copier et réponse à coller » (mode proposé par défaut), puis les opérations et les entretiens.
+- Cliquez sur « Générer les prompts ». Chaque prompt contient l’entretien complet. Copiez-le dans votre outil IA, puis collez sa réponse JSON dans le champ de l’entretien correspondant. Coding Studio n’appelle aucun modèle dans ce mode.
+- Cliquez sur « Afficher tous les résultats ». Vérifiez les différences et validez l’anonymisation. Une réponse invalide peut être corrigée puis recollée.
+- Pour le nettoyage et la traduction, générez ensuite le prompt correspondant, collez la réponse et vérifiez les différences avant validation. Pour signaler un oubli, utilisez les indications par segment puis régénérez le prompt.
+- Les prompts et réponses sont conservés dans les données privées de préparation. Le fichier original et le codage restent inchangés jusqu’à la validation finale.

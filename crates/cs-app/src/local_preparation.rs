@@ -110,6 +110,12 @@ struct PrepareBody {
     draft_digest: Option<String>,
     #[serde(default)]
     batch_entries: Vec<PseudonymEntry>,
+    #[serde(default)]
+    prompt_only: bool,
+    #[serde(default)]
+    pasted_response: Option<String>,
+    #[serde(default)]
+    prompt_digest: Option<String>,
 }
 fn all_stages() -> String {
     "all".into()
@@ -291,6 +297,12 @@ struct Draft {
     transformation_approved: bool,
     #[serde(default)]
     feedback: Vec<Feedback>,
+    #[serde(default)]
+    manual_prompt: Option<String>,
+    #[serde(default)]
+    manual_exchanges: Vec<Value>,
+    #[serde(default)]
+    pasted_response: Option<String>,
 }
 fn digest(seg: &Segmentation, entries: &[PseudonymEntry]) -> Result<String> {
     Ok(sha256_hex(&serde_json::to_vec(&(VERSION, seg, entries))?))
@@ -398,15 +410,55 @@ fn unit_batches(
     }
     Ok(batches)
 }
+enum PreparationMode {
+    Model,
+    Prompt,
+    Pasted(Value),
+}
+#[derive(Debug)]
+struct PromptReady(String);
+impl std::fmt::Display for PromptReady {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("Prompt ready")
+    }
+}
+impl std::error::Error for PromptReady {}
+fn proposal(mode: &PreparationMode, opts: &Options, system: &str, input: &Value) -> Result<Value> {
+    match mode {
+        PreparationMode::Model=>complete(opts,system,input),
+        PreparationMode::Pasted(v)=>Ok(v.clone()),
+        PreparationMode::Prompt=>Err(PromptReady(format!("{}\n\nProcess the COMPLETE interview below in a single response. Return only the complete JSON object; do not truncate it or omit any required item.\n\n<research_data>\n{}\n</research_data>",system.replace("This request runs only on the researcher's explicitly selected local server. ",""),serde_json::to_string_pretty(input)?)).into()),
+    }
+}
+fn pasted_json(raw: &str) -> Result<Value> {
+    ensure!(
+        raw.len() <= 8 * 1024 * 1024,
+        CsError::Validation("Réponse collée trop volumineuse".into())
+    );
+    let raw = raw
+        .trim()
+        .strip_prefix("```json")
+        .or_else(|| raw.trim().strip_prefix("```"))
+        .unwrap_or(raw.trim())
+        .trim()
+        .trim_end_matches("```")
+        .trim();
+    serde_json::from_str(raw).map_err(|_| {
+        invalid("Collez une réponse JSON complète. Aucun résultat partiel n’a été appliqué.")
+    })
+}
 fn prepare_model(
     original: Segmentation,
     existing: Vec<PseudonymEntry>,
     opts: Options,
     feedback: Vec<Feedback>,
     reserved_labels: Vec<String>,
+    mode: PreparationMode,
     mut progress: impl FnMut(&str, usize, usize) -> Result<()>,
 ) -> Result<Draft> {
-    valid_options(&opts)?;
+    if matches!(mode, PreparationMode::Model) {
+        valid_options(&opts)?;
+    }
     let source_digest = digest(&original, &existing)?;
     let mut completed_groups = 0;
     let source_entries = Some(existing.clone());
@@ -418,18 +470,23 @@ fn prepare_model(
         let mut offset = 0;
         let mut index = 0;
         while offset < original.units.len() {
-            let ranges = unit_batches(
-                &original.units[offset..],
-                opts.context_tokens,
-                DETECT.len()
-                    + serde_json::to_vec(&entries)?.len()
-                    + serde_json::to_vec(&feedback)?.len(),
-                false,
-            )?;
+            let ranges = if !matches!(mode, PreparationMode::Model) {
+                std::iter::once(0..original.units.len() - offset).collect()
+            } else {
+                unit_batches(
+                    &original.units[offset..],
+                    opts.context_tokens,
+                    DETECT.len()
+                        + serde_json::to_vec(&entries)?.len()
+                        + serde_json::to_vec(&feedback)?.len(),
+                    false,
+                )?
+            };
             let end = offset + ranges[0].end;
             let chunk = &original.units[offset..end];
             progress("anonymisation", index, index + ranges.len())?;
-            let v = complete(
+            let v = proposal(
+                &mode,
                 &opts,
                 DETECT,
                 &json!({"units":chunk,"existing_replacements":entries,"researcher_feedback":feedback,"task":"Detect personal names only; preserve every other character by returning spans, not rewritten text."}),
@@ -502,16 +559,21 @@ fn prepare_model(
     anonymised.hash = Segmentation::units_hash(&anonymised.units);
     let mut prepared = anonymised.clone();
     if opts.cleanup || !opts.target_language.trim().is_empty() {
-        let ranges = unit_batches(
-            &prepared.units,
-            opts.context_tokens,
-            TRANSFORM.len() + opts.target_language.len() + serde_json::to_vec(&feedback)?.len(),
-            true,
-        )?;
+        let ranges = if !matches!(mode, PreparationMode::Model) {
+            std::iter::once(0..prepared.units.len()).collect()
+        } else {
+            unit_batches(
+                &prepared.units,
+                opts.context_tokens,
+                TRANSFORM.len() + opts.target_language.len() + serde_json::to_vec(&feedback)?.len(),
+                true,
+            )?
+        };
         for (index, range) in ranges.iter().enumerate() {
             let chunk = &mut prepared.units[range.clone()];
             progress("transformation", index, ranges.len())?;
-            let v = complete(
+            let v = proposal(
+                &mode,
                 &opts,
                 TRANSFORM,
                 &json!({"cleanup":opts.cleanup,"target_language":opts.target_language,"units":chunk,"researcher_feedback":feedback}),
@@ -570,6 +632,9 @@ fn prepare_model(
         anonymisation_approved: false,
         transformation_approved: false,
         feedback,
+        manual_prompt: None,
+        manual_exchanges: vec![],
+        pasted_response: None,
     })
 }
 fn check_fidelity(before: &str, after: &str) -> Result<()> {
@@ -720,8 +785,26 @@ async fn prepare(
     Json(body): Json<PrepareBody>,
 ) -> ApiResult {
     let mut opts = body.options;
-    opts.bearer_token = session_token(&st, &opts.url, opts.bearer_token.as_deref())?;
-    valid_options(&opts)?;
+    let manual = body.prompt_only || body.pasted_response.is_some();
+    if manual {
+        opts.bearer_token = None;
+        opts.model = "manual-prompt".into();
+        ensure_api!(
+            matches!(body.stage.as_str(), "anonymisation" | "transformation"),
+            CsError::Validation("Choisissez une étape pour le prompt manuel".into())
+        );
+        ensure_api!(
+            opts.anonymise || opts.cleanup || !opts.target_language.trim().is_empty(),
+            CsError::Validation("Choisissez une opération".into())
+        );
+        ensure_api!(
+            opts.target_language.chars().count() <= 80,
+            CsError::Validation("Langue cible trop longue".into())
+        );
+    } else {
+        opts.bearer_token = session_token(&st, &opts.url, opts.bearer_token.as_deref())?;
+        valid_options(&opts)?;
+    }
     ensure_api!(
         matches!(
             body.stage.as_str(),
@@ -791,11 +874,54 @@ async fn prepare(
             );
         }
     }
+    let prompt_digest = sha256_hex(
+        &serde_json::to_vec(&(
+            &original,
+            &existing,
+            &opts,
+            &body.stage,
+            &body.feedback,
+            &body.draft_digest,
+        ))
+        .map_err(anyhow::Error::from)?,
+    );
+    let prompt_key = format!("{PREFIX}prompt:{id}");
+    let mut manual_prompt = None;
+    if body.pasted_response.is_some() {
+        let stored: Value = serde_json::from_str(
+            &st.store()
+                .setting(&prompt_key)?
+                .ok_or_else(|| invalid("Générez d’abord le prompt"))?,
+        )
+        .map_err(anyhow::Error::from)?;
+        ensure_api!(
+            body.prompt_digest.as_deref() == Some(&prompt_digest)
+                && stored["prompt_digest"] == prompt_digest,
+            CsError::Guard("Source, réglages ou proposition modifiés : régénérez le prompt".into())
+        );
+        manual_prompt = stored["prompt"].as_str().map(str::to_owned);
+    }
+    let history = if body.draft_digest.is_some() {
+        prior
+            .as_ref()
+            .map(|d| d.manual_exchanges.clone())
+            .unwrap_or_default()
+    } else {
+        vec![]
+    };
+    let raw_response = body.pasted_response.clone();
+    let mode = if body.prompt_only {
+        PreparationMode::Prompt
+    } else if let Some(raw) = &body.pasted_response {
+        PreparationMode::Pasted(pasted_json(raw)?)
+    } else {
+        PreparationMode::Model
+    };
     let stage = body.stage;
     let feedback = body.feedback;
     let job = register_job(job_key(&st, &id))?;
     let worker = job.clone();
-    let mut d = tokio::task::spawn_blocking(move || {
+    let result = tokio::task::spawn_blocking(move || {
         let mut operation = opts.clone();
         let source = if stage == "transformation" && opts.anonymise {
             prior.as_ref().unwrap().anonymised.clone()
@@ -841,9 +967,20 @@ async fn prepare(
             operation,
             feedback,
             reserved_labels,
+            mode,
             |stage, done, total| worker.update(stage, done, total),
         )?;
         d.options = opts;
+        d.manual_prompt = manual_prompt;
+        d.pasted_response = raw_response;
+        d.manual_exchanges = history;
+        if let (Some(prompt), Some(response)) = (&d.manual_prompt, &d.pasted_response) {
+            d.manual_exchanges
+                .push(json!({"stage":stage,"prompt":prompt,"response":response}));
+        }
+        if manual {
+            d.prepared.rule = "manual prompt response; researcher review required".into();
+        }
         d.stage = stage;
         d.source_digest = digest(&original, &existing)?;
         d.source_entries = Some(existing.clone());
@@ -858,7 +995,19 @@ async fn prepare(
         Ok::<_, anyhow::Error>(d)
     })
     .await
-    .map_err(|_| invalid("Préparation locale interrompue"))??;
+    .map_err(|_| invalid("Préparation locale interrompue"))?;
+    let mut d = match result {
+        Ok(d) => d,
+        Err(e) => {
+            if let Some(prompt) = e.downcast_ref::<PromptReady>() {
+                let package = json!({"prompt":prompt.0,"prompt_digest":prompt_digest});
+                st.store()
+                    .set_setting(&prompt_key, &package.to_string(), &st.actor)?;
+                return Ok(Json(package));
+            }
+            return Err(e.into());
+        }
+    };
     ensure_api!(
         !job.cancel.load(Ordering::SeqCst),
         CsError::Guard("Préparation arrêtée sans modification des sources".into())
@@ -1206,6 +1355,7 @@ mod tests {
             },
             vec![],
             vec![],
+            PreparationMode::Model,
             |_, _, _| Ok(()),
         )
         .unwrap();

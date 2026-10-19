@@ -551,3 +551,87 @@ async fn model_discovery_sends_the_supplied_bearer_header() {
     .await;
     assert_ne!(status, 200);
 }
+#[tokio::test]
+async fn manual_prompts_and_pasted_responses_review_both_stages_without_a_model() {
+    let c = fixture().await;
+    let before = ok(&c.app, "GET", "/api/interviews/INT-01", None).await;
+    let path = "/api/interviews/INT-01/local-preparation";
+    let opts = json!({"url":"not-an-endpoint","model":"","anonymise":true,"cleanup":true,"target_language":"English","context_tokens":8192,"stage":"anonymisation"});
+    let mut generate = opts.clone();
+    generate["prompt_only"] = json!(true);
+    let prompt = ok(&c.app, "POST", path, Some(generate)).await;
+    assert!(prompt["prompt"]
+        .as_str()
+        .unwrap()
+        .contains("euh, Sophie checks 3 stores."));
+    assert!(prompt["prompt"].as_str().unwrap().contains("entities"));
+    assert!(ok(&c.app, "GET", path, None).await.is_null());
+    let mut paste = opts.clone();
+    paste["pasted_response"] =
+        json!("```json\n{\"entities\":[{\"original\":\"Sophie\",\"same_as\":\"\"}]}\n```");
+    paste["prompt_digest"] = prompt["prompt_digest"].clone();
+    let d = ok(&c.app, "POST", path, Some(paste)).await;
+    assert_eq!(
+        d["anonymised"]["units"][1]["text"],
+        "euh, [Person 1] checks 3 stores."
+    );
+    assert!(d["manual_prompt"].as_str().unwrap().contains("Sophie"));
+    assert!(d["pasted_response"].is_string());
+    assert_eq!(
+        ok(&c.app, "GET", "/api/interviews/INT-01", None).await,
+        before
+    );
+    let a=ok(&c.app,"POST",&format!("{path}/review"),Some(json!({"digest":d["draft_digest"],"reviewed":true,"pending_diffs":0,"units":d["anonymised"]["units"]}))).await;
+    let mut transform = opts.clone();
+    transform["stage"] = json!("transformation");
+    transform["draft_digest"] = a["draft_digest"].clone();
+    transform["prompt_only"] = json!(true);
+    let p2 = ok(&c.app, "POST", path, Some(transform.clone())).await;
+    assert!(p2["prompt"].as_str().unwrap().contains("[Person 1]"));
+    assert!(!p2["prompt"].as_str().unwrap().contains("Sophie"));
+    transform.as_object_mut().unwrap().remove("prompt_only");
+    transform["prompt_digest"] = p2["prompt_digest"].clone();
+    let units:Vec<_>=a["anonymised"]["units"].as_array().unwrap().iter().map(|u|json!({"unit_id":u["unit_id"],"text":u["text"].as_str().unwrap().replace("euh, ","")})).collect();
+    transform["pasted_response"] = json!(json!({"units":units}).to_string());
+    let second = ok(&c.app, "POST", path, Some(transform)).await;
+    assert_eq!(second["manual_exchanges"].as_array().unwrap().len(), 2);
+    assert_eq!(second["options"]["model"], "manual-prompt");
+    assert_eq!(
+        second["prepared"]["units"][1]["text"],
+        "[Person 1] checks 3 stores."
+    );
+    assert_eq!(
+        ok(&c.app, "GET", "/api/interviews/INT-01", None).await,
+        before
+    );
+    let approved=ok(&c.app,"POST",&format!("{path}/review"),Some(json!({"digest":second["draft_digest"],"reviewed":true,"pending_diffs":0,"units":second["prepared"]["units"]}))).await;
+    ok(
+        &c.app,
+        "POST",
+        &format!("{path}/apply"),
+        Some(json!({"digest":approved["draft_digest"],"reviewed":true,"use_prepared":true})),
+    )
+    .await;
+}
+#[tokio::test]
+async fn manual_paste_refuses_invented_names_incomplete_json_and_stale_sources() {
+    let c = fixture().await;
+    let path = "/api/interviews/INT-01/local-preparation";
+    let opts = json!({"url":"","model":"","anonymise":true,"cleanup":false,"target_language":"","stage":"anonymisation"});
+    let mut generate = opts.clone();
+    generate["prompt_only"] = json!(true);
+    let prompt = ok(&c.app, "POST", path, Some(generate)).await;
+    let mut paste = opts;
+    paste["prompt_digest"] = prompt["prompt_digest"].clone();
+    for raw in [
+        "{\"entities\":[",
+        "{\"entities\":[{\"original\":\"Invented Person\"}]}",
+    ] {
+        paste["pasted_response"] = json!(raw);
+        assert_ne!(call(&c.app, "POST", path, Some(paste.clone())).await.0, 200);
+        assert!(ok(&c.app, "GET", path, None).await.is_null());
+    }
+    ok(&c.app,"POST","/api/interviews/INT-01/units/INT-01-U002/corrections",Some(json!({"text":"Sophie checks 4 stores.","role":"respondent","reason":"Synthetic source changed"}))).await;
+    paste["pasted_response"] = json!("{\"entities\":[]}");
+    assert_eq!(call(&c.app, "POST", path, Some(paste)).await.0, 409);
+}
