@@ -1,4 +1,4 @@
-//! User-selected local model preparation. Raw input never goes to a public host,
+//! User-selected model preparation. Raw input goes only to the configured endpoint,
 //! redirects or environment proxies. Models propose; only the researcher commits.
 use crate::{ApiResult, AppState};
 use anyhow::{ensure, Result};
@@ -187,10 +187,7 @@ pub fn endpoint(base: &str) -> Result<String> {
         .trim_matches(['[', ']']);
     if host.eq_ignore_ascii_case("localhost") {
         u.set_host(Some("127.0.0.1"))?;
-    } else {
-        let ip: IpAddr = host
-            .parse()
-            .map_err(|_| invalid("Utilisez localhost ou une adresse IP locale explicite"))?;
+    } else if let Ok(ip) = host.parse::<IpAddr>() {
         let local = match ip {
             IpAddr::V4(a) => a.is_loopback() || a.is_private(),
             IpAddr::V6(a) => a.is_loopback() || a.is_unique_local(),
@@ -211,13 +208,48 @@ pub fn endpoint(base: &str) -> Result<String> {
         .trim_end_matches("/chat/completions")
         .into())
 }
+fn private_address(ip: IpAddr) -> bool {
+    match ip {
+        IpAddr::V4(a) => a.is_loopback() || a.is_private(),
+        IpAddr::V6(a) => a
+            .to_ipv4_mapped()
+            .map(|v| private_address(IpAddr::V4(v)))
+            .unwrap_or_else(|| a.is_loopback() || a.is_unique_local()),
+    }
+}
+#[derive(Debug)]
+struct PrivateResolver;
+impl ureq::unversioned::resolver::Resolver for PrivateResolver {
+    fn resolve(
+        &self,
+        uri: &ureq::http::Uri,
+        config: &ureq::config::Config,
+        timeout: ureq::unversioned::transport::NextTimeout,
+    ) -> std::result::Result<ureq::unversioned::resolver::ResolvedSocketAddrs, ureq::Error> {
+        use ureq::unversioned::resolver::DefaultResolver;
+        let addresses = DefaultResolver::default().resolve(uri, config, timeout)?;
+        if addresses
+            .iter()
+            .all(|address| private_address(address.ip()))
+        {
+            Ok(addresses)
+        } else {
+            Err(ureq::Error::HostNotFound)
+        }
+    }
+}
 fn agent() -> ureq::Agent {
-    ureq::Agent::config_builder()
+    let config = ureq::Agent::config_builder()
         .proxy(None)
         .max_redirects(0)
         .timeout_global(Some(Duration::from_secs(180)))
-        .build()
-        .new_agent()
+        .build();
+    // Connect to these checked addresses directly, preserving the DNS hostname for TLS.
+    ureq::Agent::with_parts(
+        config,
+        ureq::unversioned::transport::DefaultConnector::default(),
+        PrivateResolver,
+    )
 }
 const OUTPUT_TOKENS: usize = 4096;
 fn completion_request(opts: &Options, system: &str, input: &Value) -> Result<(String, Value)> {
@@ -1174,7 +1206,7 @@ mod tests {
         }
     }
     #[test]
-    fn only_explicit_local_destinations_are_accepted() {
+    fn configured_dns_names_and_private_addresses_are_accepted() {
         assert_eq!(
             endpoint("http://127.0.0.1:1234").unwrap(),
             "http://127.0.0.1:1234/v1"
@@ -1184,10 +1216,38 @@ mod tests {
             "http://127.0.0.1:1234/v1"
         );
         assert!(endpoint("http://[::1]:1234/v1").is_ok());
+        for ip in [
+            "127.0.0.1",
+            "10.20.30.40",
+            "192.168.2.1",
+            "fd00::1",
+            "::ffff:192.168.1.2",
+        ] {
+            assert!(private_address(ip.parse().unwrap()));
+        }
+        for ip in [
+            "8.8.8.8",
+            "169.254.169.254",
+            "2606:4700:4700::1111",
+            "::ffff:8.8.8.8",
+        ] {
+            assert!(!private_address(ip.parse().unwrap()));
+        }
         assert!(endpoint("http://192.168.1.2:1234/v1").is_ok());
+        assert_eq!(
+            endpoint("https://ai.cluster.example.org/v1").unwrap(),
+            "https://ai.cluster.example.org/v1"
+        );
+        assert_eq!(
+            endpoint("http://cluster-ia:8080").unwrap(),
+            "http://cluster-ia:8080/v1"
+        );
+        assert_eq!(
+            endpoint("https://ai.cluster.example.org/custom/v1/chat/completions").unwrap(),
+            "https://ai.cluster.example.org/custom/v1"
+        );
         for u in [
-            "https://api.openai.com/v1",
-            "http://127.0.0.1.evil.test/v1",
+            "https://8.8.8.8/v1",
             "http://user:secret@localhost:1234/v1",
             "http://localhost:1234/v1?token=x",
             "http://169.254.169.254/v1",
