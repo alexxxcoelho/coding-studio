@@ -91,3 +91,14 @@ it('uses manual prompts for cleanup only after anonymisation is approved',async(
  fireEvent.change(screen.getByLabelText('Réponse JSON pour I1'),{target:{value:'{"units":[]}'}});fireEvent.click(screen.getByRole('button',{name:'Afficher les différences'}));await screen.findByText('[Person 1] has 3 stores.',{selector:'p'})
  expect(mock.to('POST',/\/apply$/)).toHaveLength(0)
 })
+it('exposes an independent output budget and OpenAI thinking effort',()=>{
+ const change=vi.fn();const value={...DEFAULT_PREPARATION,model:'fictional-model',reasoning:'on',reasoning_effort:'medium'}
+ renderWithClient(<PreparationOptionsEditor value={value} onChange={change}/>)
+ expect(screen.getByLabelText('Effort de thinking')).toBeEnabled()
+ fireEvent.change(screen.getByLabelText('Effort de thinking'),{target:{value:'high'}})
+ expect(change).toHaveBeenLastCalledWith({...value,reasoning_effort:'high'})
+ fireEvent.change(screen.getByLabelText('Thinking (API OpenAI compatible)'),{target:{value:'off'}})
+ expect(change).toHaveBeenLastCalledWith({...value,reasoning:'off'})
+ fireEvent.change(screen.getByLabelText('Budget de sortie initial (tokens)'),{target:{value:'65536'}})
+ expect(change).toHaveBeenLastCalledWith({...value,output_tokens:65536})
+})

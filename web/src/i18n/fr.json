@@ -2177,10 +2177,10 @@
   "preparation.stop": "Arrêter la préparation",
   "preparation.context": "Contexte du modèle (tokens)",
   "preparation.context_help": "Réglez la même valeur que dans le serveur. L’anonymisation envoie l’entretien entier s’il tient dans ce contexte estimé, avec une marge. Le nettoyage et la traduction tiennent aussi compte de la limite de sortie.",
-  "preparation.reasoning": "Thinking (contrôle direct avec LM Studio)",
+  "preparation.reasoning": "Thinking (API OpenAI compatible)",
   "preparation.reasoning_server": "Réglage du serveur / autre serveur compatible",
-  "preparation.reasoning_off": "Désactivé · LM Studio",
-  "preparation.reasoning_on": "Activé · LM Studio",
+  "preparation.reasoning_off": "Désactivé (reasoning_effort: none)",
+  "preparation.reasoning_on": "Activé (effort choisi ci-dessous)",
   "preparation.library_action": "Anonymiser / nettoyer / traduire…",
   "preparation.from_library_help": "Choisissez les opérations, puis les entretiens. Les entretiens déjà codés gardent leur transcription et leurs surlignages ; une copie de consultation est préparée séparément.",
   "preparation.choose_interviews": "Choisir les entretiens",
@@ -2279,5 +2279,9 @@
   "manual.mode_manual": "Prompt à copier et réponse à coller",
   "manual.mode_direct": "Connexion directe au modèle",
   "manual.generate_transform": "Générer le prompt de nettoyage et traduction",
-  "manual.regenerate": "Régénérer le prompt avec mes indications"
+  "manual.regenerate": "Régénérer le prompt avec mes indications",
+  "preparation.output_tokens": "Budget de sortie initial (tokens)",
+  "preparation.output_help": "32 768 par défaut, adapté au contexte disponible. En cas de troncature, Coding Studio réessaie avec un budget supérieur, sans appliquer de réponse partielle. La limite propre au serveur et son thinking peuvent aussi limiter la réponse.",
+  "preparation.effort": "Effort de thinking",
+  "preparation.effort_help": "Envoyé dans reasoning_effort via /chat/completions. Le serveur et le modèle doivent accepter le niveau choisi."
 }

@@ -2177,10 +2177,10 @@
   "preparation.stop": "Stop preparation",
   "preparation.context": "Model context (tokens)",
   "preparation.context_help": "Use the same value as the server. Anonymisation sends the whole interview when it fits the estimated context, with a safety margin. Cleanup and translation also respect the output limit.",
-  "preparation.reasoning": "Thinking (direct control with LM Studio)",
+  "preparation.reasoning": "Thinking (OpenAI-compatible API)",
   "preparation.reasoning_server": "Server setting / another compatible server",
-  "preparation.reasoning_off": "Disabled · LM Studio",
-  "preparation.reasoning_on": "Enabled · LM Studio",
+  "preparation.reasoning_off": "Off (reasoning_effort: none)",
+  "preparation.reasoning_on": "On (effort selected below)",
   "preparation.library_action": "Anonymise / clean / translate…",
   "preparation.from_library_help": "Choose operations and interviews. Already coded interviews keep their reference transcript and highlights; a separate reading copy is prepared.",
   "preparation.choose_interviews": "Choose interviews",
@@ -2279,5 +2279,9 @@
   "manual.mode_manual": "Copy prompt and paste response",
   "manual.mode_direct": "Direct model connection",
   "manual.generate_transform": "Generate cleanup and translation prompt",
-  "manual.regenerate": "Regenerate prompt with my feedback"
+  "manual.regenerate": "Regenerate prompt with my feedback",
+  "preparation.output_tokens": "Initial output budget (tokens)",
+  "preparation.output_help": "32,768 by default, fitted to available context. If truncated, Coding Studio retries with a larger budget without applying partial responses. Server limits and thinking may also limit the response.",
+  "preparation.effort": "Thinking effort",
+  "preparation.effort_help": "Sent as reasoning_effort via /chat/completions. The server and model must support the selected level."
 }

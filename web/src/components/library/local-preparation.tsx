@@ -6,8 +6,8 @@ import {Button} from "@/components/ui/button"
 import {Input} from "@/components/ui/input"
 import {request} from "@/lib/api"
 import {t} from "@/i18n"
-export type PreparationOptions={url:string;model:string;bearer_token?:string;has_bearer_token?:boolean;anonymise:boolean;cleanup:boolean;target_language:string;context_tokens:number;reasoning:string}
-export const DEFAULT_PREPARATION:PreparationOptions={url:"http://127.0.0.1:1234",model:"",anonymise:true,cleanup:false,target_language:"",context_tokens:131072,reasoning:"server"}
+export type PreparationOptions={url:string;model:string;bearer_token?:string;has_bearer_token?:boolean;anonymise:boolean;cleanup:boolean;target_language:string;context_tokens:number;output_tokens?:number;reasoning:string;reasoning_effort?:string}
+export const DEFAULT_PREPARATION:PreparationOptions={url:"http://127.0.0.1:1234",model:"",anonymise:true,cleanup:false,target_language:"",context_tokens:131072,output_tokens:32768,reasoning:"server",reasoning_effort:"medium"}
 export function PreparationOptionsEditor({value,onChange,disabled=false,manualMode=false}:{value:PreparationOptions;onChange:(v:PreparationOptions)=>void;disabled?:boolean;manualMode?:boolean}){
  const [models,setModels]=useState<string[]>([]);const [busy,setBusy]=useState(false);const [error,setError]=useState("")
  const set=(patch:Partial<PreparationOptions>)=>onChange({...value,...patch})
@@ -18,7 +18,9 @@ export function PreparationOptionsEditor({value,onChange,disabled=false,manualMo
  {models.length>0&&<p role="status" className="text-xs">{models.join(" · ")}</p>}{error&&<p role="alert" className="text-destructive text-sm">{error}</p>}
  <label className="block text-sm">{t("preparation.context")}<Input type="number" min={8192} max={1048576} disabled={disabled} value={value.context_tokens??131072} onChange={e=>set({context_tokens:Number(e.target.value)})}/></label>
  <p className="text-xs text-label2">{t("preparation.context_help")}</p>
+ <label className="block text-sm">{t("preparation.output_tokens")}<Input type="number" min={256} max={262144} disabled={disabled} value={value.output_tokens??32768} onChange={e=>set({output_tokens:Number(e.target.value)})}/></label><p className="text-xs text-label2">{t("preparation.output_help")}</p>
  <label className="block text-sm">{t("preparation.reasoning")}<select className="block w-full rounded border border-sep p-1.5 bg-background" disabled={disabled} value={value.reasoning??"server"} onChange={e=>set({reasoning:e.target.value})}><option value="server">{t("preparation.reasoning_server")}</option><option value="off">{t("preparation.reasoning_off")}</option><option value="on">{t("preparation.reasoning_on")}</option></select></label>
+ <label className="block text-sm">{t("preparation.effort")}<select className="block w-full rounded border p-1.5 bg-background" disabled={disabled||value.reasoning!=="on"} value={value.reasoning_effort??"medium"} onChange={e=>set({reasoning_effort:e.target.value})}>{["minimal","low","medium","high","xhigh","max"].map(e=><option key={e} value={e}>{e}</option>)}</select></label><p className="text-xs text-label2">{t("preparation.effort_help")}</p>
  </>}<label className="flex gap-2 text-sm"><input type="checkbox" disabled={disabled} checked={value.anonymise} onChange={e=>set({anonymise:e.target.checked})}/>{t("preparation.anonymise")}</label>
  <label className="flex gap-2 text-sm"><input type="checkbox" disabled={disabled} checked={value.cleanup} onChange={e=>set({cleanup:e.target.checked})}/>{t("preparation.cleanup")}</label>
  <label className="block text-sm">{t("preparation.language")}<Input disabled={disabled} value={value.target_language} onChange={e=>set({target_language:e.target.value})} placeholder={t("preparation.language_help")} list="preparation-languages"/><datalist id="preparation-languages">{["English","Français","Deutsch","Italiano","Español"].map(l=><option value={l} key={l}/>)}</datalist></label>

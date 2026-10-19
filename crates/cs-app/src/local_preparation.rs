@@ -134,8 +134,12 @@ pub struct Options {
     pub target_language: String,
     #[serde(default = "default_context")]
     pub context_tokens: usize,
+    #[serde(default = "default_output_tokens")]
+    pub output_tokens: usize,
     #[serde(default = "default_reasoning")]
     pub reasoning: String,
+    #[serde(default = "default_reasoning_effort")]
+    pub reasoning_effort: String,
 }
 // Secrets stay in process memory; never in drafts, SQLite settings or audit payloads.
 static TOKENS: OnceLock<Mutex<BTreeMap<String, String>>> = OnceLock::new();
@@ -163,8 +167,17 @@ fn validate_token(token: &str) -> Result<Option<String>> {
     let token = token.strip_prefix("Bearer ").unwrap_or(token).trim();
     Ok((!token.is_empty()).then(|| token.to_owned()))
 }
+fn default_output_tokens() -> usize {
+    32768
+}
+fn output_budget(o: &Options) -> usize {
+    o.output_tokens.min(o.context_tokens / 2)
+}
 fn default_context() -> usize {
     131_072
+}
+fn default_reasoning_effort() -> String {
+    "medium".into()
 }
 fn default_reasoning() -> String {
     "server".into()
@@ -202,39 +215,77 @@ fn agent() -> ureq::Agent {
     ureq::Agent::config_builder()
         .proxy(None)
         .max_redirects(0)
-        .timeout_global(Some(Duration::from_secs(180)))
+        .timeout_global(Some(Duration::from_secs(600)))
         .build()
         .new_agent()
 }
-const OUTPUT_TOKENS: usize = 4096;
-fn completion_request(opts: &Options, system: &str, input: &Value) -> Result<(String, Value)> {
+fn completion_request(
+    opts: &Options,
+    system: &str,
+    input: &Value,
+    output_tokens: usize,
+) -> Result<(String, Value)> {
     let base = endpoint(&opts.url)?;
     let input = serde_json::to_string(input)?;
-    if opts.reasoning == "server" {
-        Ok((
-            format!("{base}/chat/completions"),
-            json!({"model":opts.model,"temperature":0,"max_tokens":OUTPUT_TOKENS,"stream":false,"messages":[{"role":"system","content":system},{"role":"user","content":input}]}),
-        ))
-    } else {
-        // Native LM Studio explicitly supports on/off; never silently send an ignored flag.
-        let root = base.strip_suffix("/v1").ok_or_else(|| {
-            invalid("Le contrôle du thinking nécessite l’API LM Studio à la racine ou /v1")
-        })?;
-        Ok((
-            format!("{root}/api/v1/chat"),
-            json!({"model":opts.model,"temperature":0,"max_output_tokens":OUTPUT_TOKENS,"stream":false,"system_prompt":system,"input":input,"reasoning":opts.reasoning,"context_length":opts.context_tokens,"store":false,"integrations":[]}),
-        ))
+    let mut body = json!({"model":opts.model,"temperature":0,"max_completion_tokens":output_tokens,"stream":false,"store":false,"messages":[{"role":"system","content":system},{"role":"user","content":input}]});
+    match opts.reasoning.as_str() {
+        "off" => body["reasoning_effort"] = json!("none"),
+        "on" => body["reasoning_effort"] = json!(opts.reasoning_effort),
+        _ => {}
+    }
+    Ok((format!("{base}/chat/completions"), body))
+}
+#[derive(Debug)]
+struct OutputTruncated;
+impl std::fmt::Display for OutputTruncated {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("Model output truncated")
     }
 }
-fn complete(opts: &Options, system: &str, input: &Value) -> Result<Value> {
-    let (endpoint, body) = completion_request(opts, system, input)?;
+impl std::error::Error for OutputTruncated {}
+fn complete(
+    opts: &Options,
+    system: &str,
+    input: &Value,
+    mut check: impl FnMut() -> Result<()>,
+) -> Result<Value> {
+    let input_tokens = (serde_json::to_vec(input)?.len() + system.len()).div_ceil(3) + 512;
+    let available = (opts.context_tokens * 9 / 10).saturating_sub(input_tokens);
+    let mut budget = output_budget(opts).min(available);
+    ensure!(
+        budget >= 256,
+        CsError::Validation("Contexte insuffisant pour une réponse complète".into())
+    );
+    for attempt in 0..3 {
+        check()?;
+        match complete_with_budget(opts, system, input, budget) {
+            Ok(value) => return Ok(value),
+            Err(e) if e.downcast_ref::<OutputTruncated>().is_some() => {
+                let larger = (budget * 2).min(available);
+                if larger == budget || attempt == 2 {
+                    return Err(invalid(&format!("Le serveur a tronqué la réponse malgré un budget de sortie de {budget} tokens. Augmentez sa limite de génération ou désactivez son thinking, puis reprenez ce résultat. Le mode prompt à copier reste disponible. Aucune modification appliquée.")));
+                }
+                budget = larger;
+            }
+            Err(e) => return Err(e),
+        }
+    }
+    unreachable!()
+}
+fn complete_with_budget(
+    opts: &Options,
+    system: &str,
+    input: &Value,
+    output_tokens: usize,
+) -> Result<Value> {
+    let (endpoint, body) = completion_request(opts, system, input, output_tokens)?;
     let mut call = agent().post(endpoint);
     if let Some(token) = opts.bearer_token.as_deref() {
         if let Some(token) = validate_token(token)? {
             call = call.header("Authorization", format!("Bearer {token}"));
         }
     }
-    let mut r=call.send_json(&body).map_err(|_|invalid("Le modèle local ne répond pas : vérifiez l’URL, le modèle et sa capacité. Aucune bascule vers un service externe."))?;
+    let mut r=call.send_json(&body).map_err(|e|match e {ureq::Error::StatusCode(400|422)=>invalid("Le serveur refuse les paramètres OpenAI : vérifiez le modèle, max_completion_tokens et reasoning_effort (none ou l’effort choisi)."),_=>invalid("Le modèle ne répond pas : vérifiez l’URL, le Bearer, le modèle et sa capacité. Aucune bascule vers un service externe.")})?;
     ensure!(
         r.status().as_u16() == 200,
         CsError::Validation("Réponse locale refusée (redirection ou statut inattendu)".into())
@@ -245,17 +296,17 @@ fn complete(opts: &Options, system: &str, input: &Value) -> Result<Value> {
         .limit(4 * 1024 * 1024)
         .read_json()
         .map_err(|_| invalid("Réponse du serveur local illisible"))?;
-    let content = if opts.reasoning == "server" {
-        ensure!(v["choices"][0]["finish_reason"] != "length", CsError::Validation("Réponse locale tronquée : la limite de sortie est atteinte. Aucune modification appliquée.".into()));
-        v["choices"][0]["message"]["content"].as_str().ok_or_else(|| invalid("Réponse du modèle local vide"))?
-    } else {
-        ensure!(v["stats"]["total_output_tokens"].as_u64().unwrap_or(0) < OUTPUT_TOKENS as u64, CsError::Validation("Réponse locale potentiellement tronquée : aucune modification appliquée.".into()));
-        let output = v["output"].as_array().ok_or_else(|| invalid("Réponse LM Studio invalide : contrôlez le support du thinking"))?;
-        ensure!(output.iter().all(|o| matches!(o["type"].as_str(),Some("message"|"reasoning"))), CsError::Validation("Les appels d’outils sont interdits pour la préparation locale".into()));
-        let messages: Vec<_> = output.iter().filter(|o| o["type"] == "message").collect();
-        ensure!(messages.len()==1,CsError::Validation("Une seule réponse JSON complète est attendue".into()));
-        messages[0]["content"].as_str().ok_or_else(|| invalid("Réponse du modèle local vide"))?
-    }.trim();
+    if v["choices"][0]["finish_reason"] == "length" {
+        return Err(OutputTruncated.into());
+    }
+    let message = &v["choices"][0]["message"];
+    ensure!(
+        message["tool_calls"]
+            .as_array()
+            .is_none_or(|calls| calls.is_empty()),
+        CsError::Validation("Les appels d’outils sont interdits pour la préparation".into())
+    );
+    let content=message["content"].as_str().ok_or_else(||invalid("Réponse Chat Completions vide : vérifiez la compatibilité OpenAI et les réglages de thinking du serveur"))?.trim();
     let content = content
         .strip_prefix("```json")
         .or_else(|| content.strip_prefix("``` "))
@@ -353,7 +404,18 @@ fn has_coding(store: &Store, id: &str) -> Result<bool> {
     Ok(count > 0)
 }
 fn valid_options(o: &Options) -> Result<()> {
+    ensure!(
+        (256..=262144).contains(&o.output_tokens),
+        CsError::Validation("Budget de sortie attendu entre 256 et 262144 tokens".into())
+    );
     endpoint(&o.url)?;
+    ensure!(
+        matches!(
+            o.reasoning_effort.as_str(),
+            "minimal" | "low" | "medium" | "high" | "xhigh" | "max"
+        ),
+        CsError::Validation("Effort attendu : minimal, low, medium, high, xhigh ou max".into())
+    );
     ensure!(
         (8192..=1_048_576).contains(&o.context_tokens),
         CsError::Validation("Contexte attendu entre 8192 et 1048576 tokens".into())
@@ -381,14 +443,15 @@ fn valid_options(o: &Options) -> Result<()> {
 fn unit_batches(
     units: &[cs_model::Unit],
     context: usize,
+    output_tokens: usize,
     overhead_bytes: usize,
     transform: bool,
 ) -> Result<Vec<std::ops::Range<usize>>> {
     let available =
-        (context * 9 / 10).saturating_sub(OUTPUT_TOKENS + overhead_bytes.div_ceil(3) + 512);
+        (context * 9 / 10).saturating_sub(output_tokens + overhead_bytes.div_ceil(3) + 512);
     // A derivative repeats the text: leave room for translation expansion and JSON.
     let budget = if transform {
-        available.min(OUTPUT_TOKENS / 2)
+        available.min(output_tokens / 2)
     } else {
         available
     };
@@ -423,9 +486,15 @@ impl std::fmt::Display for PromptReady {
     }
 }
 impl std::error::Error for PromptReady {}
-fn proposal(mode: &PreparationMode, opts: &Options, system: &str, input: &Value) -> Result<Value> {
+fn proposal(
+    mode: &PreparationMode,
+    opts: &Options,
+    system: &str,
+    input: &Value,
+    check: impl FnMut() -> Result<()>,
+) -> Result<Value> {
     match mode {
-        PreparationMode::Model=>complete(opts,system,input),
+        PreparationMode::Model=>complete(opts,system,input,check),
         PreparationMode::Pasted(v)=>Ok(v.clone()),
         PreparationMode::Prompt=>Err(PromptReady(format!("{}\n\nProcess the COMPLETE interview below in a single response. Return only the complete JSON object; do not truncate it or omit any required item.\n\n<research_data>\n{}\n</research_data>",system.replace("This request runs only on the researcher's explicitly selected local server. ",""),serde_json::to_string_pretty(input)?)).into()),
     }
@@ -476,6 +545,7 @@ fn prepare_model(
                 unit_batches(
                     &original.units[offset..],
                     opts.context_tokens,
+                    output_budget(&opts),
                     DETECT.len()
                         + serde_json::to_vec(&entries)?.len()
                         + serde_json::to_vec(&feedback)?.len(),
@@ -490,6 +560,7 @@ fn prepare_model(
                 &opts,
                 DETECT,
                 &json!({"units":chunk,"existing_replacements":entries,"researcher_feedback":feedback,"task":"Detect personal names only; preserve every other character by returning spans, not rewritten text."}),
+                || progress("anonymisation", index, index + ranges.len()),
             )?;
             let list = v["entities"]
                 .as_array()
@@ -565,6 +636,7 @@ fn prepare_model(
             unit_batches(
                 &prepared.units,
                 opts.context_tokens,
+                output_budget(&opts),
                 TRANSFORM.len() + opts.target_language.len() + serde_json::to_vec(&feedback)?.len(),
                 true,
             )?
@@ -577,6 +649,7 @@ fn prepare_model(
                 &opts,
                 TRANSFORM,
                 &json!({"cleanup":opts.cleanup,"target_language":opts.target_language,"units":chunk,"researcher_feedback":feedback}),
+                || progress("transformation", index, ranges.len()),
             )?;
             let returned = v["units"]
                 .as_array()
@@ -723,7 +796,7 @@ async fn get_options(State(st): State<AppState>) -> ApiResult {
         .map(|s| serde_json::from_str::<Options>(&s))
         .transpose()
         .map_err(anyhow::Error::from)?;
-    let mut result=value.map(|o| json!(o)).unwrap_or(json!({"url":"http://127.0.0.1:1234","model":"","anonymise":true,"cleanup":false,"target_language":"","context_tokens":default_context(),"reasoning":default_reasoning()}));
+    let mut result=value.map(|o| json!(o)).unwrap_or(json!({"url":"http://127.0.0.1:1234","model":"","anonymise":true,"cleanup":false,"target_language":"","context_tokens":default_context(),"output_tokens":default_output_tokens(),"reasoning":default_reasoning(),"reasoning_effort":default_reasoning_effort()}));
     result["has_bearer_token"] = json!(session_token(
         &st,
         result["url"].as_str().unwrap_or("http://127.0.0.1:1234"),
@@ -1261,19 +1334,19 @@ mod tests {
             })
             .collect();
         assert_eq!(
-            unit_batches(&units, 131_072, 2000, false).unwrap(),
+            unit_batches(&units, 131_072, 32768, 2000, false).unwrap(),
             vec![0..100]
-        );
-        let transform = unit_batches(&units, 131_072, 2000, true).unwrap();
-        assert!(
-            transform.len() > 1,
-            "Output budget, not number of turns, bounds a derivative"
         );
         for u in &mut units {
             u.text = "fictional text ".repeat(100);
         }
-        let small = unit_batches(&units, 8192, 2000, false).unwrap();
-        let large = unit_batches(&units, 131_072, 2000, false).unwrap();
+        let transform = unit_batches(&units, 131_072, 32768, 2000, true).unwrap();
+        assert!(
+            transform.len() > 1,
+            "Output budget, not number of turns, bounds a derivative"
+        );
+        let small = unit_batches(&units, 8192, 4096, 2000, false).unwrap();
+        let large = unit_batches(&units, 131_072, 32768, 2000, false).unwrap();
         assert!(small.len() > large.len());
         assert_eq!(large, vec![0..100]);
         assert_eq!(
@@ -1282,25 +1355,30 @@ mod tests {
         );
     }
     #[test]
-    fn explicit_thinking_uses_native_control_without_chat_storage_or_tools() {
+    fn explicit_thinking_uses_openai_reasoning_effort_and_completion_budget() {
         let mut opts: Options = serde_json::from_value(
-            json!({"url":"http://127.0.0.1:1234","model":"test","target_language":""}),
+            json!({"url":"https://cluster.example.org/v1","model":"test","target_language":""}),
         )
         .unwrap();
-        assert_eq!(opts.context_tokens, 131_072);
-        assert_eq!(opts.reasoning, "server");
-        assert!(completion_request(&opts, "system", &json!({}))
-            .unwrap()
-            .0
-            .ends_with("/v1/chat/completions"));
-        for mode in ["off", "on"] {
-            opts.reasoning = mode.into();
-            let (url, body) = completion_request(&opts, "system", &json!({"units":[]})).unwrap();
-            assert_eq!(url, "http://127.0.0.1:1234/api/v1/chat");
-            assert_eq!(body["reasoning"], mode);
-            assert_eq!(body["store"], false);
-            assert_eq!(body["integrations"], json!([]));
-            assert_eq!(body["context_length"], 131_072);
+        assert_eq!(opts.output_tokens, 32768);
+        let (url, body) =
+            completion_request(&opts, "system", &json!({}), output_budget(&opts)).unwrap();
+        assert!(url.ends_with("/v1/chat/completions"));
+        assert!(body.get("reasoning_effort").is_none());
+        assert_eq!(body["max_completion_tokens"], 32768);
+        assert_eq!(body["store"], false);
+        opts.reasoning = "off".into();
+        let (_, body) =
+            completion_request(&opts, "system", &json!({}), output_budget(&opts)).unwrap();
+        assert_eq!(body["reasoning_effort"], "none");
+        opts.reasoning = "on".into();
+        for effort in ["minimal", "low", "medium", "high", "xhigh", "max"] {
+            opts.reasoning_effort = effort.into();
+            let (url, body) =
+                completion_request(&opts, "system", &json!({}), output_budget(&opts)).unwrap();
+            assert!(url.ends_with("/v1/chat/completions"));
+            assert_eq!(body["reasoning_effort"], effort);
+            assert!(body.get("reasoning").is_none());
         }
     }
     #[test]
@@ -1351,7 +1429,9 @@ mod tests {
                 cleanup: true,
                 target_language: "English".into(),
                 context_tokens: default_context(),
+                output_tokens: default_output_tokens(),
                 reasoning: default_reasoning(),
+                reasoning_effort: default_reasoning_effort(),
             },
             vec![],
             vec![],

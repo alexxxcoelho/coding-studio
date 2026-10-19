@@ -291,7 +291,7 @@ async fn invalid_url_schemes_are_refused_and_coded_interviews_keep_their_anchors
 }
 
 #[tokio::test]
-async fn native_lm_studio_thinking_off_prepares_a_private_draft_without_applying_it() {
+async fn openai_thinking_off_prepares_a_private_draft_without_applying_it() {
     let c = fixture().await;
     let before = ok(&c.app, "GET", "/api/interviews/INT-01", None).await;
     let (url, calls) = fake_model(false);
@@ -634,4 +634,102 @@ async fn manual_paste_refuses_invented_names_incomplete_json_and_stale_sources()
     ok(&c.app,"POST","/api/interviews/INT-01/units/INT-01-U002/corrections",Some(json!({"text":"Sophie checks 4 stores.","role":"respondent","reason":"Synthetic source changed"}))).await;
     paste["pasted_response"] = json!("{\"entities\":[]}");
     assert_eq!(call(&c.app, "POST", path, Some(paste)).await.0, 409);
+}
+
+fn truncating_model(always: bool) -> (String, Arc<std::sync::Mutex<Vec<usize>>>) {
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let port = listener.local_addr().unwrap().port();
+    let budgets = Arc::new(std::sync::Mutex::new(Vec::new()));
+    let recorded = budgets.clone();
+    std::thread::spawn(move || {
+        for (index, stream) in listener
+            .incoming()
+            .take(if always { 3 } else { 2 })
+            .enumerate()
+        {
+            let mut stream = stream.unwrap();
+            stream
+                .set_read_timeout(Some(std::time::Duration::from_secs(5)))
+                .unwrap();
+            let mut raw = Vec::new();
+            let mut buf = [0; 4096];
+            let (head, len) = loop {
+                let n = stream.read(&mut buf).unwrap();
+                assert!(n > 0);
+                raw.extend_from_slice(&buf[..n]);
+                if let Some(i) = raw.windows(4).position(|w| w == b"\r\n\r\n") {
+                    let h = String::from_utf8_lossy(&raw[..i]);
+                    let len = h
+                        .lines()
+                        .find_map(|l| {
+                            l.to_lowercase()
+                                .strip_prefix("content-length:")
+                                .and_then(|s| s.trim().parse::<usize>().ok())
+                        })
+                        .unwrap();
+                    break (i + 4, len);
+                }
+            };
+            while raw.len() < head + len {
+                let n = stream.read(&mut buf).unwrap();
+                assert!(n > 0);
+                raw.extend_from_slice(&buf[..n]);
+            }
+            assert!(String::from_utf8_lossy(&raw[..head]).starts_with("POST /v1/chat/completions "));
+            let request: Value = serde_json::from_slice(&raw[head..head + len]).unwrap();
+            assert_eq!(request["reasoning_effort"], "none");
+            assert!(request.get("reasoning").is_none());
+            recorded
+                .lock()
+                .unwrap()
+                .push(request["max_completion_tokens"].as_u64().unwrap() as usize);
+            let truncated = always || index == 0;
+            let content = if truncated {
+                r#"{"entities":["#
+            } else {
+                r#"{"entities":[{"original":"Sophie","same_as":""}]}"#
+            };
+            let body = json!({"choices":[{"finish_reason":if truncated{"length"}else{"stop"},"message":{"content":content}}]});
+            let bytes = serde_json::to_vec(&body).unwrap();
+            write!(stream,"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",bytes.len()).unwrap();
+            stream.write_all(&bytes).unwrap();
+        }
+    });
+    (format!("http://127.0.0.1:{port}"), budgets)
+}
+#[tokio::test]
+async fn output_limit_retries_a_larger_openai_budget_without_applying_partial_results() {
+    let c = fixture().await;
+    let before = ok(&c.app, "GET", "/api/interviews/INT-01", None).await;
+    let (url, budgets) = truncating_model(false);
+    let d=ok(&c.app,"POST","/api/interviews/INT-01/local-preparation",Some(json!({"url":url,"model":"fictional-model","anonymise":true,"cleanup":false,"target_language":"","reasoning":"off","stage":"anonymisation"}))).await;
+    assert_eq!(*budgets.lock().unwrap(), vec![32768, 65536]);
+    assert_eq!(
+        d["anonymised"]["units"][1]["text"],
+        "euh, [Person 1] checks 3 stores."
+    );
+    assert_eq!(
+        ok(&c.app, "GET", "/api/interviews/INT-01", None).await,
+        before
+    );
+}
+#[tokio::test]
+async fn repeated_server_truncation_is_bounded_and_does_not_create_a_partial_draft() {
+    let c = fixture().await;
+    let (url, budgets) = truncating_model(true);
+    let (status,error)=call(&c.app,"POST","/api/interviews/INT-01/local-preparation",Some(json!({"url":url,"model":"fictional-model","anonymise":true,"cleanup":false,"target_language":"","reasoning":"off","stage":"anonymisation"}))).await;
+    assert_ne!(status, 200);
+    assert!(error.to_string().contains("tronqué"));
+    let b = budgets.lock().unwrap().clone();
+    assert_eq!(b.len(), 3);
+    assert!(b[0] < b[1] && b[1] < b[2]);
+    assert!(b[2] < 131072);
+    assert!(ok(
+        &c.app,
+        "GET",
+        "/api/interviews/INT-01/local-preparation",
+        None
+    )
+    .await
+    .is_null());
 }
