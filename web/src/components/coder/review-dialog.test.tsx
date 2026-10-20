@@ -14,6 +14,7 @@ const ITEM = {
 let mock: MockApi
 beforeEach(() => {
   mock = mockApi()
+  mock.on("GET", "/api/interviews/INT-01/local-preparation/history", {body:{versions:[]}})
   mock.on("GET", /^\/api\/transcript\/review\?/, { body: { interview_id: "INT-01", status: "needs_review", open: 1, items: [ITEM] } })
   mock.on("GET", "/api/interviews/INT-01/transcript/versions", {
     body: { interview_id: "INT-01", current: 2, versions: [
@@ -45,4 +46,20 @@ describe("review dialog", () => {
     renderWithClient(<ReviewDialog interviewId="INT-01" open onClose={() => {}} />)
     expect(await screen.findByRole("button", { name: "Accepter" })).toBeDisabled()
   })
+})
+
+it("shows historical text and activates a previously validated reading copy", async () => {
+  const d = {draft_digest:"approved-copy",created_at:"2026-10-20T10:00:00Z",reviewed:true,applied_to_coding:false,accepted_variant:"prepared",original:{units:[{unit_id:"U1",speaker_raw:"RESP",text:"euh texte original"}]},anonymised:{units:[{unit_id:"U1",speaker_raw:"RESP",text:"texte anonymisé"}]},prepared:{units:[{unit_id:"U1",speaker_raw:"RESP",text:"Cleaned translated text"}]}}
+  mock.on("GET", "/api/interviews/INT-01/local-preparation/history", {body:{versions:[d]}})
+  mock.on("GET", "/api/interviews/INT-01/transcript/versions/1", {body:{units:[{unit_id:"U1",speaker_raw:"RESP",text:"Archived text"}]}})
+  mock.on("POST", "/api/interviews/INT-01/local-preparation/apply", {body:{applied:true}})
+  renderWithClient(<ReviewDialog interviewId="INT-01" open onClose={() => {}} />)
+  expect(await screen.findByText("Historique des préparations validées")).toBeInTheDocument()
+  fireEvent.click(screen.getByRole("button",{name:"Utiliser la version validée pour coder"}))
+  await waitFor(()=>expect(mock.to("POST","/api/interviews/INT-01/local-preparation/apply")).toHaveLength(1))
+  expect(mock.to("POST","/api/interviews/INT-01/local-preparation/apply")[0].body).toEqual({digest:"approved-copy",reviewed:true,use_prepared:true})
+  const details=screen.getAllByText("Voir le texte de cette version").at(-1)!.closest("details")!
+  details.open = true
+  fireEvent(details, new Event("toggle"))
+  expect(await screen.findByText("Archived text")).toBeInTheDocument()
 })

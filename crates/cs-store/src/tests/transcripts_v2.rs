@@ -516,3 +516,46 @@ fn words_found_twice_are_not_guessed() {
     assert_eq!(items[0].reason, "unit_removed");
     assert!(items[0].proposed.is_none());
 }
+
+#[test]
+fn approved_preparation_changes_working_text_without_rewriting_frozen_ai_evidence() {
+    let (s, _d) = ready();
+    let run = challenged(&s);
+    let raw = s.ai_raw_outputs(run).unwrap();
+    let frozen = serde_json::to_value(s.human_snapshots(ID).unwrap()).unwrap();
+    let mut prepared = s.segmentation(ID).unwrap().unwrap();
+    prepared
+        .units
+        .iter_mut()
+        .find(|u| u.unit_id == U2)
+        .unwrap()
+        .text = "Validated translated working text.".into();
+    prepared.hash = cs_model::Segmentation::units_hash(&prepared.units);
+    assert!(s.save_segmentation(&prepared, ACTOR).is_err());
+    let settings = vec![(
+        format!("local_preparation:{ID}"),
+        "{\"reviewed\":true}".into(),
+    )];
+    s.save_segmentation_with_settings(&prepared, ACTOR, &settings)
+        .unwrap();
+    assert_eq!(
+        s.current_unit(ID, U2).unwrap().text,
+        "Validated translated working text."
+    );
+    assert_eq!(s.ai_raw_outputs(run).unwrap(), raw);
+    assert_eq!(
+        serde_json::to_value(s.human_snapshots(ID).unwrap()).unwrap(),
+        frozen
+    );
+    let current = s.current_transcript_version(ID).unwrap().unwrap();
+    assert!(s
+        .transcript_units_at(ID, current - 1)
+        .unwrap()
+        .iter()
+        .any(|u| u.unit_id == U2 && u.text == T2));
+    prepared.units.reverse();
+    prepared.hash = cs_model::Segmentation::units_hash(&prepared.units);
+    assert!(s
+        .save_segmentation_with_settings(&prepared, ACTOR, &settings)
+        .is_err());
+}

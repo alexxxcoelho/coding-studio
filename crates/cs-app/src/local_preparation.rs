@@ -329,6 +329,8 @@ struct Draft {
     source_entries: Option<Vec<PseudonymEntry>>,
     options: Options,
     original: Segmentation,
+    #[serde(default)]
+    source_original: Option<Segmentation>,
     anonymised: Segmentation,
     prepared: Segmentation,
     entries: Vec<PseudonymEntry>,
@@ -688,6 +690,7 @@ fn prepare_model(
         opts.model, opts.cleanup, opts.target_language
     );
     Ok(Draft {
+        source_original: None,
         version: VERSION.into(),
         source_digest,
         source_entries,
@@ -761,6 +764,10 @@ pub(crate) fn routes() -> Router<AppState> {
             get(get_draft).post(prepare),
         )
         .route("/api/interviews/{id}/local-preparation/apply", post(apply))
+        .route(
+            "/api/interviews/{id}/local-preparation/history",
+            get(preparation_history),
+        )
         .route(
             "/api/interviews/{id}/local-preparation/review",
             post(accept_stage),
@@ -839,6 +846,36 @@ fn draft_view(d: &Draft) -> Result<Value> {
     let mut v = json!(d);
     v["draft_digest"] = json!(sha256_hex(serde_json::to_string(d)?.as_bytes()));
     Ok(v)
+}
+async fn preparation_history(State(st): State<AppState>, Path(id): Path<String>) -> ApiResult {
+    let store = st.store();
+    ensure_api!(
+        store.interview(&id)?.is_some(),
+        CsError::NotFound("Entretien introuvable".into())
+    );
+    let prefix = format!("transcript_preparation_history:{id}:");
+    let mut stmt = store
+        .connection()
+        .prepare(
+            "SELECT value FROM settings WHERE substr(key,1,length(?1))=?1 ORDER BY updated_at,key",
+        )
+        .map_err(anyhow::Error::from)?;
+    let records = stmt
+        .query_map([prefix], |row| row.get::<_, String>(0))
+        .map_err(anyhow::Error::from)?;
+    let mut versions = Vec::new();
+    for record in records {
+        let d: Draft = serde_json::from_str(&record.map_err(anyhow::Error::from)?)
+            .map_err(anyhow::Error::from)?;
+        versions.push(draft_view(&d)?);
+    }
+    if let Some(d) = store.setting(&format!("{PREFIX}{id}"))? {
+        let d: Draft = serde_json::from_str(&d).map_err(anyhow::Error::from)?;
+        if d.reviewed {
+            versions.push(draft_view(&d)?);
+        }
+    }
+    Ok(Json(json!({"versions":versions})))
 }
 async fn get_draft(State(st): State<AppState>, Path(id): Path<String>) -> ApiResult {
     let d = st
@@ -1088,12 +1125,37 @@ async fn prepare(
     let current = raw_seg(&st, &id)?;
     let store = st.store();
     d.coding_will_be_preserved = has_coding(&store, &id)?;
+    if d.source_original.is_none() {
+        let previous = store
+            .setting(&format!("{PREFIX}{id}"))?
+            .and_then(|s| serde_json::from_str::<Draft>(&s).ok());
+        d.source_original = Some(
+            previous
+                .map(|p| p.source_original.unwrap_or(p.original))
+                .unwrap_or_else(|| d.original.clone()),
+        );
+    }
     ensure_api!(
         source_matches(&current, &crate::anonymisation::entries(&store)?, &d)?,
         CsError::Guard(
             "La transcription ou les règles ont changé pendant la préparation : relancez-la".into()
         )
     );
+    if let Some(previous) = store.setting(&format!("{PREFIX}{id}"))? {
+        if serde_json::from_str::<Value>(&previous)
+            .ok()
+            .is_some_and(|v| v["reviewed"] == true)
+        {
+            store.set_setting(
+                &format!(
+                    "transcript_preparation_history:{id}:{}",
+                    sha256_hex(previous.as_bytes())
+                ),
+                &previous,
+                &st.actor,
+            )?;
+        }
+    }
     store.set_setting(
         &format!("{PREFIX}{id}"),
         &serde_json::to_string(&d).map_err(anyhow::Error::from)?,
@@ -1226,7 +1288,7 @@ async fn apply(
     )
     .map_err(anyhow::Error::from)?;
     ensure_api!(
-        !d.reviewed
+        (!d.reviewed || d.applied_to_coding == Some(false))
             && b.digest
                 == sha256_hex(
                     serde_json::to_string(&d)
@@ -1276,7 +1338,7 @@ async fn apply(
         cfg["batches"] = json!({});
     }
     d.reviewed = true;
-    d.applied_to_coding = Some(!preserve_coding);
+    d.applied_to_coding = Some(true);
     d.accepted_variant = Some(
         if b.use_prepared {
             "prepared"
@@ -1297,13 +1359,9 @@ async fn apply(
         ),
         (key, serde_json::to_string(&d).map_err(anyhow::Error::from)?),
     ];
-    if preserve_coding {
-        store.save_preparation_copy(&id, &st.actor, &settings)?;
-    } else {
-        store.save_segmentation_with_settings(seg, &st.actor, &settings)?;
-    }
+    store.save_segmentation_with_settings(seg, &st.actor, &settings)?;
     Ok(Json(
-        json!({"applied":true,"coding_preserved":preserve_coding,"applied_to_coding":!preserve_coding,"anonymised":d.options.anonymise,"cleanup":b.use_prepared&&d.options.cleanup,"target_language":if b.use_prepared{&d.options.target_language}else{""},"original_retained":true,"ai_review_still_requires_approval":true}),
+        json!({"applied":true,"coding_preserved":preserve_coding,"applied_to_coding":true,"anonymised":d.options.anonymise,"cleanup":b.use_prepared&&d.options.cleanup,"target_language":if b.use_prepared{&d.options.target_language}else{""},"original_retained":true,"ai_review_still_requires_approval":true}),
     ))
 }
 

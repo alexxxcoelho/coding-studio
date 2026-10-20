@@ -12,6 +12,8 @@ Avant de coder, lisez l'entretien en entier, puis répondez aux questions du mod
 
 **Dans Coding Studio.** Dans la Bibliothèque, double-cliquez sur l'entretien, ou cliquez sur Coder dans sa fiche. Lors de la première visite, le panneau Mémo de familiarisation (modèle : Par défaut) s'ouvre en premier, avant tout codage. Il affiche les questions du modèle choisi dans la fiche : avec le modèle générique, que raconte le répondant, qu'est-ce qui m'a surpris, quelles contradictions. Chaque réponse est un champ de texte enregistré avec sa date. Le bouton + question pour cet entretien ajoute une question (par exemple « Qui décide de quoi ? ») ; vous pouvez aussi reformuler ou retirer une question. Ces changements ne valent que pour cet entretien, et le modèle lui-même se modifie dans Réglages. Changer de modèle bascule sur un autre modèle de l'étude. Le mémo ne bloque rien : vous pouvez coder sans l'avoir rempli.
 
+Après validation de l’anonymisation, du nettoyage ou de la traduction, cette version devient le texte de travail affiché dans Coder. Les unités et les codes sont conservés ; les passages dont l’ancrage a changé sont signalés dans **Versions** pour vérification. Les transcriptions sources et les réponses de la phase 2 restent conservées dans leur version d’origine. Dans **Versions**, **Voir le texte de cette version** donne accès au texte de chaque état précédent et à l’historique des préparations. Une ancienne copie de lecture déjà validée peut être activée avec **Utiliser la version validée pour coder**.
+
 ### 2. Parcourir les tours {#coder-parcourir}
 
 L'entretien est découpé en tours de parole. Le tour est le conteneur et l'unité de navigation. Le passage que vous sélectionnez dans un tour est l'unité de codage.

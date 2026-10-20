@@ -4,6 +4,14 @@ All notable changes to Coding Studio are listed here. The format follows [Keep a
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-10-21
+
+### Changed
+
+- Validated transcript preparation becomes the working text for coding, including already coded interviews. Unit identities and code assignments are retained; uncertain passage anchors require review.
+- Activate previously validated reading copies from Versions, inspect the text of every transcript version, and retain prior preparation variants and their private prompt exchanges.
+- Clarify that phase 2 uses the existing codebook first and can propose genuinely missing concepts for researcher arbitration, with an explanation and verbatim evidence.
+
 ## [0.2.0] - 2026-10-20
 
 ### Added

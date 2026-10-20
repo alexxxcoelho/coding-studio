@@ -205,7 +205,8 @@ async fn malformed_output_leaves_no_draft_or_active_change() {
     );
 }
 #[tokio::test]
-async fn invalid_url_schemes_are_refused_and_coded_interviews_keep_their_anchors() {
+async fn invalid_url_schemes_are_refused_and_prepared_versions_become_working_text_with_coding_retained(
+) {
     let c = fixture().await;
     let body = json!({"url":"file:///tmp/model","model":"fake","anonymise":true,"cleanup":false,"target_language":""});
     assert_eq!(
@@ -249,15 +250,23 @@ async fn invalid_url_schemes_are_refused_and_coded_interviews_keep_their_anchors
     )
     .await;
     assert_eq!(answer["coding_preserved"], true);
-    assert_eq!(answer["applied_to_coding"], false);
+    assert_eq!(answer["applied_to_coding"], true);
+    let current = ok(&c.app, "GET", "/api/interviews/INT-01", None).await;
+    assert_ne!(current, before);
+    let after_passages = ok(&c.app, "GET", "/api/interviews/INT-01/passages", None).await;
+    assert_eq!(after_passages[0]["passage_id"], passages[0]["passage_id"]);
     assert_eq!(
-        ok(&c.app, "GET", "/api/interviews/INT-01", None).await,
-        before
+        after_passages[0]["codings"][0]["code_id"],
+        passages[0]["codings"][0]["code_id"]
     );
-    assert_eq!(
-        ok(&c.app, "GET", "/api/interviews/INT-01/passages", None).await,
-        passages
-    );
+    let history = ok(
+        &c.app,
+        "GET",
+        "/api/interviews/INT-01/transcript/versions",
+        None,
+    )
+    .await;
+    assert!(history["versions"].as_array().unwrap().len() >= 2);
     let private = ok(
         &c.app,
         "GET",
@@ -266,7 +275,8 @@ async fn invalid_url_schemes_are_refused_and_coded_interviews_keep_their_anchors
     )
     .await;
     assert_eq!(private["reviewed"], true);
-    assert_eq!(private["applied_to_coding"], false);
+    assert_eq!(private["applied_to_coding"], true);
+    assert_eq!(after_passages[0]["stale"], true);
     let catalog = ok(
         &c.app,
         "GET",
@@ -732,4 +742,61 @@ async fn repeated_server_truncation_is_bounded_and_does_not_create_a_partial_dra
     )
     .await
     .is_null());
+}
+
+#[tokio::test]
+async fn a_previously_validated_reading_copy_can_become_working_text_and_keeps_its_history() {
+    let c = fixture().await;
+    let (url, _) = fake_model(false);
+    let path = "/api/interviews/INT-01/local-preparation";
+    let d = ok(
+        &c.app,
+        "POST",
+        path,
+        Some(
+            json!({"url":url,"model":"fake","anonymise":true,"cleanup":true,"target_language":""}),
+        ),
+    )
+    .await;
+    let mut legacy = d.clone();
+    legacy.as_object_mut().unwrap().remove("draft_digest");
+    legacy["reviewed"] = json!(true);
+    legacy["applied_to_coding"] = json!(false);
+    legacy["accepted_variant"] = json!("prepared");
+    cs_store::Store::open(&c.db)
+        .unwrap()
+        .set_setting("local_preparation:INT-01", &legacy.to_string(), "candidate")
+        .unwrap();
+    let before = ok(&c.app, "GET", "/api/interviews/INT-01", None).await;
+    let legacy = ok(&c.app, "GET", path, None).await;
+    let applied = ok(
+        &c.app,
+        "POST",
+        &format!("{path}/apply"),
+        Some(json!({"digest":legacy["draft_digest"],"reviewed":true,"use_prepared":true})),
+    )
+    .await;
+    assert_eq!(applied["applied_to_coding"], true);
+    assert_ne!(
+        ok(&c.app, "GET", "/api/interviews/INT-01", None).await,
+        before
+    );
+    let (url, _) = fake_model(false);
+    ok(
+        &c.app,
+        "POST",
+        path,
+        Some(
+            json!({"url":url,"model":"fake","anonymise":false,"cleanup":true,"target_language":""}),
+        ),
+    )
+    .await;
+    let history = ok(&c.app, "GET", &format!("{path}/history"), None).await;
+    assert_eq!(history["versions"].as_array().unwrap().len(), 1);
+    assert!(history["versions"][0]["original"]["units"]
+        .to_string()
+        .contains("Sophie"));
+    assert!(history["versions"][0]["prepared"]["units"]
+        .to_string()
+        .contains("[Person"));
 }

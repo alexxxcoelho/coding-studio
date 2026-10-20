@@ -420,6 +420,9 @@ fn render(
         .codebook_intro
         .replace(CODE_COUNT_PLACEHOLDER, &listed.len().to_string());
     let _ = writeln!(t, "{intro}");
+    if ctx.is_some() {
+        let _ = writeln!(t, "Use existing codes first. The closed list constrains only the codes array; it does not forbid proposing a genuinely missing concept in candidate_concepts. Do not invent a new code in codes. Propose a candidate only after checking all existing definitions: narrower wording, a synonym or a combination of existing codes is not a gap. Explain the distinct meaning and why the closest existing code cannot cover it, identify the units and provide verbatim evidence. Candidates remain proposals until the researcher creates, links or rejects them.");
+    }
     // A codebook with sub-codes is shown as a tree; a flat one keeps the
     // grouping by TOE attachment, with the same fields on each line.
     match ctx.filter(|c| c.tree.iter().any(|n| n.parent.is_some())) {

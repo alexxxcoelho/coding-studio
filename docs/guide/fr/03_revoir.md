@@ -56,7 +56,7 @@ Un accord n'est pas une preuve : vous et le modèle pouvez vous tromper de la m�
 
 ### 8. Traiter les concepts absents du codebook {#revoir-concepts}
 
-Le modèle peut signaler un concept que votre codebook ne couvre pas : c'est un candidat, jamais un code appliqué seul.
+Le modèle utilise d’abord les codes existants. Si aucun ne couvre une idée distincte, il peut proposer un candidat dans `candidate_concepts`, avec les unités, une citation exacte et la raison pour laquelle les définitions existantes ne conviennent pas. Un synonyme ou une combinaison de codes déjà disponibles ne justifie pas un ajout. Le candidat est créé, rattaché ou écarté lors de votre arbitrage ; il ne devient jamais automatiquement un code appliqué.
 
 **Dans Coding Studio.** La section Concepts absents du codebook liste chaque proposition avec les unités qui la motivent. Pour chacune, choisissez Créer un code, Rattacher à un code existant ou Écarter. La décision est motivée et datée, comme pour un désaccord.
 

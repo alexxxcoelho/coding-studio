@@ -4,7 +4,7 @@
 // current text) or Détacher.
 
 import { useRef, useState } from "react"
-import { useMutation, useQuery } from "@tanstack/react-query"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 
 import { Alerts } from "@/components/settings/fields"
@@ -15,10 +15,12 @@ import { t } from "@/i18n"
 import { dateTime } from "@/lib/format"
 import { rangeOffsets, type Offsets } from "@/lib/selection"
 import { trKeys, useRefreshReview } from "@/lib/transcript-review"
+import { request } from "@/lib/api"
 import { v2, type ProjectionItem, type ProjectionReason, type TranscriptVersion } from "@/lib/v2-api"
 import { explainReviewError, piecesAround } from "@/lib/v2-text"
 
 const CAUSE: Record<TranscriptVersion["cause"], string> = {
+  get preparation() { return t("working.validated") },
   get baseline() { return t("coder.review_dialog.texte_importe") },
   get segmentation() { return t("common.segmentation") },
   get correction() { return t("coder.review_dialog.correction_d_un_tour") },
@@ -140,6 +142,23 @@ function ReviewCard({ item, interviewId }: { item: ProjectionItem; interviewId: 
   )
 }
 
+type TextUnit = { unit_id: string; speaker_raw: string; text: string }
+type PreparationVersion = { draft_digest: string; created_at: string; reviewed: boolean; applied_to_coding?: boolean; accepted_variant?: string; original: { units: TextUnit[] }; anonymised: { units: TextUnit[] }; prepared: { units: TextUnit[] } }
+function SavedVersionText({ interviewId, version }: { interviewId: string; version: number }) {
+  const [open, setOpen] = useState(false)
+  const q = useQuery({ queryKey: ["transcript-version-text", interviewId, version], queryFn: () => request<{ units: TextUnit[] }>("GET", `/api/interviews/${encodeURIComponent(interviewId)}/transcript/versions/${version}`), enabled: open })
+  return <details onToggle={e => setOpen(e.currentTarget.open)}><summary>{t("working.show_text")}</summary>{q.error && <Alerts messages={[q.error.message]} />}{q.data?.units.map(u => <p key={u.unit_id} className="whitespace-pre-wrap small"><strong>{u.unit_id} · {u.speaker_raw}</strong><br />{u.text}</p>)}</details>
+}
+function PreparedVersions({ interviewId }: { interviewId: string }) {
+  const qc = useQueryClient()
+  const base = `/api/interviews/${encodeURIComponent(interviewId)}/local-preparation`
+  const q = useQuery({ queryKey: ["preparation-history", interviewId], queryFn: () => request<{versions: PreparationVersion[]}>("GET", `${base}/history`) })
+  const activate = useMutation({ mutationFn: (d: PreparationVersion) => request("POST", `${base}/apply`, { digest: d.draft_digest, reviewed: true, use_prepared: d.accepted_variant === "prepared" }), onSuccess: () => qc.invalidateQueries() })
+  const versions = q.data?.versions ?? []
+  if (!versions.length) return null
+  return <section className="space-y-2"><div className="hs">{t("working.preparation_history")}</div><p className="small l2">{t("working.help")}</p>{activate.error && <Alerts messages={[activate.error.message]} />}{versions.map((d, i) => <details className="grp p-2" key={d.draft_digest}><summary>{dateTime(d.created_at)}</summary>{([["original", t("working.original")], ["anonymised", t("working.anonymised")], ["prepared", t("working.prepared")]] as const).map(([variant, label]) => <details key={variant}><summary>{label}</summary>{d[variant].units.map(u => <p className="whitespace-pre-wrap small" key={u.unit_id}><strong>{u.unit_id} · {u.speaker_raw}</strong><br />{u.text}</p>)}</details>)}{i === versions.length - 1 && d.applied_to_coding === false && <Button disabled={activate.isPending} onClick={() => activate.mutate(d)}>{t("working.activate")}</Button>}</details>)}</section>
+}
+
 function VersionList({ interviewId }: { interviewId: string }) {
   const q = useQuery({ queryKey: trKeys.versions(interviewId), queryFn: () => v2.versions(interviewId) })
   if (q.isLoading) return <Skeleton className="h-16 w-full" />
@@ -160,6 +179,7 @@ function VersionList({ interviewId }: { interviewId: string }) {
             {v.reanchored > 0 && t("coder.review_dialog.n_passages_replaces_seuls", { n: v.reanchored })}
             {v.flagged > 0 && t("coder.review_dialog.flagged_a_revoir", { flagged: v.flagged })}
           </span>
+          <SavedVersionText interviewId={interviewId} version={v.version} />
           {v.reason && <span className="small l2">{t("coder.review_dialog.motif_reason", { reason: v.reason })}</span>}
         </li>
       ))}
@@ -194,6 +214,7 @@ export function ReviewDialog({ interviewId, open, onClose }: { interviewId: stri
         </ul>
         <div className="hs">{t("common.versions")}</div>
         <VersionList interviewId={interviewId} />
+        <PreparedVersions interviewId={interviewId} />
       </DialogContent>
     </Dialog>
   )

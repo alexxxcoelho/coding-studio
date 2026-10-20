@@ -47,8 +47,11 @@ pub(crate) fn document(store: &Store, id: &str, options: &Options) -> Result<Wri
     let original = if let Some(v) = draft
         .as_ref()
         .filter(|d| d["reviewed"] == true)
-        .and_then(|d| d.get("original"))
-    {
+        .and_then(|d| {
+            d.get("source_original")
+                .filter(|v| !v.is_null())
+                .or_else(|| d.get("original"))
+        }) {
         serde_json::from_value::<Segmentation>(v.clone())?
     } else {
         let rel = entry

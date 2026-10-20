@@ -281,7 +281,7 @@ export interface CoEvidence {
 
 export interface TranscriptVersion {
   version: number
-  cause: "baseline" | "segmentation" | "correction"
+  cause: "baseline" | "segmentation" | "correction" | "preparation"
   text_sha256: string
   n_units: number
   target: string | null

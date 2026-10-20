@@ -808,7 +808,7 @@ impl Store {
         self.save_segmentation_with_settings(seg, actor, &[])
     }
 
-    /// Atomically commit a validated, uncoded import and its private preparation
+    /// Atomically commit a validated working transcript and its private preparation
     /// receipt/rules. Never expose identity mappings in the audit payload.
     pub fn save_segmentation_with_settings(
         &self,
@@ -836,8 +836,23 @@ impl Store {
         if settings.is_empty() && current.as_ref().is_some_and(|c| c.hash == seg.hash) {
             return Ok(());
         }
-        if self.has_ai_output(id)? {
-            self.check_answered_units_kept(id, current.as_ref(), &seg.units)?;
+        if settings.is_empty() {
+            if self.has_ai_output(id)? {
+                self.check_answered_units_kept(id, current.as_ref(), &seg.units)?;
+            }
+        } else if let Some(before) = &current {
+            // A validated derivative changes wording, never the identity or
+            // order of units. Frozen AI inputs remain in their original runs.
+            if before
+                .units
+                .iter()
+                .map(|u| &u.unit_id)
+                .ne(seg.units.iter().map(|u| &u.unit_id))
+            {
+                return Err(validation(
+                    "prepared transcript must preserve unit identities and order",
+                ));
+            }
         }
         let categories = self.study_config()?.effective_categories();
         let tx = self.conn.unchecked_transaction()?;
@@ -892,7 +907,11 @@ impl Store {
         self.version_after_change_in(
             &tx,
             id,
-            "segmentation",
+            if settings.is_empty() {
+                "segmentation"
+            } else {
+                "preparation"
+            },
             Some(&seg.source_rel_path),
             None,
             actor,
