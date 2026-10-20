@@ -194,10 +194,11 @@ async fn analysis_package_keeps_versioned_files_and_matching_hashes() {
         .collect();
     assert_eq!(exports.len(), 2);
     let event = serde_json::to_value(exports[0]).unwrap();
-    assert!(event
-        .to_string()
-        .contains(first["files"][0]["sha256"].as_str().unwrap()));
-    assert!(event.to_string().contains(first["dir"].as_str().unwrap()));
+    assert_eq!(
+        event["detail"]["files"][0]["sha256"],
+        first["files"][0]["sha256"]
+    );
+    assert_eq!(event["detail"]["dir"], first["dir"]);
 
     let dir = std::path::PathBuf::from(first["dir"].as_str().unwrap());
     for f in first["files"].as_array().unwrap() {
