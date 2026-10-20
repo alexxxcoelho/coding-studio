@@ -5,7 +5,10 @@
 
 import { useMemo, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
-import { Check } from "lucide-react"
+import { Check, Download } from "lucide-react"
+import { toast } from "sonner"
+import { downloadText } from "@/lib/download"
+import { disagreementFilename, disagreementMarkdown } from "@/lib/review-markdown"
 
 import { Banner, EmptyState } from "@/components/bits"
 import { ConceptCard } from "@/components/revoir/concept-card"
@@ -90,6 +93,12 @@ export function Decisions({ id, review, runList }: { id: string; review: ReviewA
           ))}
           <Step ok={prog.complete && prog.disagreements > 0} n={3} title={t("revoir.decisions.arbitrage")} sub={t("revoir.decisions.items_sur_disagreements", { items: t("revoir.decisions.n_decisions", { n: prog.disagreementsDecided }), disagreements: prog.disagreements })} />
         </div>
+
+        <Button variant="outline" onClick={() => {
+          if (!downloadText(disagreementFilename(id), disagreementMarkdown(id, review, bookQ.data?.codes))) {
+            toast.error(t("review_export.failed"))
+          }
+        }}><Download size={14} aria-hidden />{t("review_export.download")}</Button>
 
         <div className="seg" role="group" aria-label={t("revoir.decisions.filtre_de_la_file")} style={{ alignSelf: "flex-start" }}>
           {FILTERS.map((f) => (

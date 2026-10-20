@@ -1,6 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react"
 
+import { downloadText } from "@/lib/download"
+vi.mock("@/lib/download", () => ({ downloadText: vi.fn(() => true) }))
+
 import { RevoirPage } from "@/pages/revoir"
 import { mockApi, renderWithClient, type MockApi } from "@/test-utils"
 import type { AiRun, ProviderEntry, PromptPart, ReviewAnswer, ReviewItem, Unit } from "@/lib/types"
@@ -357,6 +360,14 @@ describe("Décisions", () => {
   })
 
   const card = async (name = "Unité U002") => within(await screen.findByRole("article", { name }))
+
+  it("exports every disagreement even when the queue hides decided items", async () => {
+    review = reviewAnswer([item(2), item(5, { decision: {unit_id: "INT-01-U005", phase: 2, choice: {type: "human"}, final_codes: ["FINAL"], rationale: "Reviewed", decided_by: "researcher", decided_at: "today"} })])
+    renderWithClient(<RevoirPage id={ID} part="review" />)
+    fireEvent.click(await screen.findByRole("button", {name: "Exporter les désaccords (.md)"}))
+    expect(downloadText).toHaveBeenLastCalledWith("INT-01-disagreements.md", expect.stringContaining("Réponse numéro 5"))
+    expect(vi.mocked(downloadText).mock.calls.at(-1)?.[1]).toContain("Réponse numéro 2")
+  })
 
   it("shows the unit with the interviewer question, and both readings", async () => {
     renderWithClient(<RevoirPage id={ID} part="review" />)
