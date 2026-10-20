@@ -3,7 +3,7 @@ resolver = "2"
 members = ["crates/cs-reviewer-export", "crates/cs-model", "crates/cs-ingest", "crates/cs-store", "crates/cs-ai", "crates/cs-lex", "crates/cs-qdpx", "crates/cs-app", "crates/cs-desktop"]
 
 [workspace.package]
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 license = "LGPL-2.1-or-later"
 authors = ["Alexandre Dos Santos Coelho"]

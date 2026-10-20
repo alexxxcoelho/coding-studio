@@ -117,7 +117,7 @@ jobs:
           fi
           pre=""
           if [ "$PRERELEASE" = "true" ]; then pre="--prerelease"; fi
-          gh release create "$TAG" --target "$GITHUB_SHA" $pre --title "Coding Studio $TAG" --notes-file "$notes"
+          gh release create "$TAG" --draft --target "$GITHUB_SHA" $pre --title "Coding Studio $TAG" --notes-file "$notes"
 
   macos:
     name: macOS (${{ matrix.target }})
@@ -315,13 +315,12 @@ jobs:
           done
           gh release upload "$TAG" "$out"/* --clobber
 
-  # Optional: the job may fail without failing the release.
+  # Required: a release must contain both requested desktop platforms.
   windows:
     name: Windows (msi)
     needs: prepare
     runs-on: windows-latest
     timeout-minutes: 60
-    continue-on-error: true
     defaults:
       run:
         shell: bash
@@ -392,3 +391,24 @@ jobs:
             cp "$f" "$out/${name// /-}"
           done
           gh release upload "$TAG" "$out"/* --clobber
+
+  publish:
+    name: Publish verified desktop packages
+    needs: [prepare, macos, windows]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      TAG: ${{ needs.prepare.outputs.tag }}
+    steps:
+      - name: Verify both platforms and publish
+        run: |
+          set -euo pipefail
+          gh release view "$TAG" --json assets > "$RUNNER_TEMP/assets.json"
+          jq -e '.assets | any(.[]; (.name | endswith(".dmg")) and .size > 0)' "$RUNNER_TEMP/assets.json"
+          jq -e '.assets | any(.[]; (.name | endswith(".app.zip")) and .size > 0)' "$RUNNER_TEMP/assets.json"
+          jq -e '.assets | any(.[]; (.name | endswith(".msi")) and .size > 0)' "$RUNNER_TEMP/assets.json"
+          gh release edit "$TAG" --draft=false --latest

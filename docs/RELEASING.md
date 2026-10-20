@@ -15,16 +15,17 @@ A release is a version number in the tree and a run of the release workflow, sta
 
 There is no tag to push. On GitHub, open Actions, then Release, then "Run workflow", choose the branch (main) and start it. From a terminal: `gh workflow run release.yml` (add `-f prerelease=true` for a pre-release).
 
-The `prepare` job reads the version from `Cargo.toml` and `crates/cs-desktop/tauri.conf.json` (both must agree), then creates the release and its tag `vX.Y.Z` on the commit the run started from. If that release already exists, the run stops; to rebuild it and replace its files, run again with "rebuild" checked (`-f rebuild=true`).
+The `prepare` job reads the version from `Cargo.toml` and `crates/cs-desktop/tauri.conf.json` (both must agree), then creates a draft release and its tag `vX.Y.Z` on the commit the run started from. If that release already exists, the run stops; to rebuild it and replace its files, run again with "rebuild" checked (`-f rebuild=true`).
 
 ## 3. What the workflow produces
 
 | Job | Runner | Output | Blocks the release |
 |---|---|---|---|
-| Create release | ubuntu-latest | The release, with notes | Yes |
+| Create release | ubuntu-latest | A draft release, with notes | Yes |
 | macOS (Apple silicon, aarch64 only; Intel is not built) | macos-latest | `Coding-Studio_X.Y.Z_<arch>.dmg` and `Coding-Studio_X.Y.Z_<arch>.app.zip` | Yes |
 | Linux | ubuntu-latest | `.AppImage` and `.deb` | No (`continue-on-error`) |
-| Windows | windows-latest | `.msi` | No (`continue-on-error`) |
+| Windows | windows-latest | `.msi` | Yes |
+| Publish | ubuntu-latest | Publishes after verifying the macOS and Windows assets | Yes |
 
 The web interface is built from `web/` during the workflow and embedded in the app, so the release always contains the current sources. The committed `crates/cs-app/web-dist` is still checked by the CI web job.
 

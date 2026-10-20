@@ -4,6 +4,26 @@ All notable changes to Coding Studio are listed here. The format follows [Keep a
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-20
+
+### Added
+
+- Independent project windows for working with different databases.
+- Staged transcript preparation: anonymisation, optional cleanup and translation, per-change review, and manual prompt/response exchange.
+- OpenAI-compatible model endpoints with optional session-only Bearer authentication, reasoning controls and bounded retries for truncated responses.
+- Participant spreadsheet import, interview links, and participant validation exports.
+- Navigable reviewer workspace exports with optional password protection.
+- Column sorting and filters throughout the application, with drag and drop for codebook hierarchy changes.
+- Keyboard code search with C, arrow navigation, repeat coding, and creation of a new code from the last search result.
+
+### Changed
+
+- Restore keyboard focus to the current verbatim when code search or code creation closes.
+- Simplify codebook and analysis workflows and adopt LGPL-2.1-or-later.
+- Publish releases only after macOS and Windows packages have both been attached.
+
+## [0.1.0] - 2026-10-13
+
 ### Added
 
 - Library scan of a folder with one sub-folder per interview, with an inventory of every source file and its SHA-256 digest, and detection of the primary transcript.
