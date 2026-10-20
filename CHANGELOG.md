@@ -14,6 +14,7 @@ All notable changes to Coding Studio are listed here. The format follows [Keep a
 - Participant spreadsheet import, interview links, and participant validation exports.
 - Navigable reviewer workspace exports with optional password protection.
 - Column sorting and filters throughout the application, with drag and drop for codebook hierarchy changes.
+- Recently used codes first in the coding lists, persisted independently in each database.
 - Keyboard code search with C, arrow navigation, repeat coding, and creation of a new code from the last search result.
 
 ### Changed
@@ -21,6 +22,10 @@ All notable changes to Coding Studio are listed here. The format follows [Keep a
 - Restore keyboard focus to the current verbatim when code search or code creation closes.
 - Simplify codebook and analysis workflows and adopt LGPL-2.1-or-later.
 - Publish releases only after macOS and Windows packages have both been attached.
+
+### Fixed
+
+- Avoid collisions between temporary database snapshots when project exports run concurrently.
 
 ## [0.1.0] - 2026-10-13
 

@@ -76,7 +76,7 @@ async fn filled() -> Ctx {
 
 async fn bundle_of(ctx: &Ctx) -> Vec<u8> {
     let (st, bytes) = raw(&ctx.app, "GET", "/api/project/bundle", Vec::new()).await;
-    assert_eq!(st, 200);
+    assert_eq!(st, 200, "{}", String::from_utf8_lossy(&bytes));
     bytes
 }
 

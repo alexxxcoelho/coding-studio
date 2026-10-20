@@ -189,6 +189,21 @@ async fn scan_segment_export_and_verify_commands() {
         3,
         "two interviews and cross-case"
     );
+    // The anonymised export requires explicit fidelity review for each source.
+    let app = router(st.clone());
+    for id in ["INT-01", "INT-02"] {
+        let path = format!("/api/anonymisation/interviews/{id}");
+        let (status, preview) = http(&app, "GET", &path, None).await;
+        assert_eq!(status, StatusCode::OK, "{preview}");
+        let (status, approval) = http(
+            &app,
+            "PUT",
+            &path,
+            Some(json!({"digest":preview["digest"],"reviewed":true})),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{approval}");
+    }
     let o = run(&st, export("all", true, Format::Md)).await;
     assert_eq!(o.value["exports"].as_array().unwrap().len(), 3);
     assert!(o.text.contains("anonymised"));

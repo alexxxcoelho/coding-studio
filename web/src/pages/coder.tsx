@@ -29,7 +29,7 @@ import { ToolbarActions } from "@/components/toolbar"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { api } from "@/lib/api"
-import { codeForNumber, firstApplicable, LATER_ID, numberKeys } from "@/lib/code-tree"
+import { codeForNumber, firstApplicable, LATER_ID, numberKeys, recentCodesFirst } from "@/lib/code-tree"
 import { useCodeSearchRows } from "@/lib/code-search"
 import { resolveKey, isTypingTarget } from "@/lib/coder-keys"
 import {
@@ -130,7 +130,8 @@ export function CoderPage({ id, unit: askedUnit = null }: { id: string; unit?: s
   const counts = useMemo(() => countStates(units, byUnit, marked), [units, byUnit, marked])
   const shown = useMemo(() => applyFilter(units, byUnit, filter, search, marked), [units, byUnit, filter, search, marked])
   const found = useCodeSearchRows(codes, query)
-  const rows = found.rows
+  const recentIds = codesQ.data?.recent_code_ids ?? []
+  const rows = query.trim() ? found.rows : recentCodesFirst(found.rows.map(row => ({ ...row, code_id: row.node.code_id })), recentIds)
   const keyMap = useMemo(() => numberKeys(rows), [rows])
   const nameById = useMemo(() => new Map(codes.map((c) => [c.code_id, c.name])), [codes])
 
@@ -470,6 +471,7 @@ export function CoderPage({ id, unit: askedUnit = null }: { id: string; unit?: s
           {menu && pending && current && (
             <SelectionMenu
               codes={codes}
+              recentIds={recentIds}
               keyOf={(cid) => keyMap.get(cid)}
               x={menu.x}
               y={menu.y}
@@ -597,7 +599,7 @@ export function CoderPage({ id, unit: askedUnit = null }: { id: string; unit?: s
           if (!newCode) focusCurrent()
         }}>
           <DialogTitle>{t("common.chercher_un_code")}</DialogTitle>
-          <CodeFinder codes={codes} applicableOnly autoFocus max={30} onCreate={(name) => {
+          <CodeFinder codes={codes} recentIds={recentIds} applicableOnly autoFocus max={30} onCreate={(name) => {
             if (!current || !requireCodable()) return
             setCodeSearchOpen(false)
             setMenu(null)

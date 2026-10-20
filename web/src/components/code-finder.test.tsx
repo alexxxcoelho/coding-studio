@@ -41,6 +41,12 @@ describe("CodeFinder keyboard", () => {
     fireEvent.click(screen.getByRole("button", { name: /Créer un code/ }))
     expect(create).toHaveBeenCalledTimes(3)
   })
+  it("prioritises recent codes without duplicates only while the query is empty", () => {
+    render(<CodeFinder codes={codes} recentIds={["2", "missing", "0", "2"]} onPick={vi.fn()} onCreate={vi.fn()} />)
+    expect(screen.getAllByRole("option").map(e => e.textContent)).toEqual(["Gamma", "Alpha", "Beta", "+ Créer un code"])
+    fireEvent.change(screen.getByRole("combobox"), { target: { value: "a" } })
+    expect(screen.getAllByRole("option").map(e => e.textContent)).toEqual(["Alpha", "Beta", "Gamma", "+ Créer un code"])
+  })
   it("does not apply anything for empty results, composition or modified Enter", () => {
     const pick = vi.fn()
     render(<CodeFinder codes={codes} onPick={pick} />)

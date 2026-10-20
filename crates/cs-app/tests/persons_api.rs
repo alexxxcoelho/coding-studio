@@ -390,7 +390,7 @@ async fn the_pseudonymisation_view_marks_where_each_entry_comes_from() {
 }
 
 #[tokio::test]
-async fn a_flagged_name_and_its_aliases_never_reach_a_prompt_and_an_unflagged_one_stays() {
+async fn all_personal_names_and_aliases_are_masked_even_when_the_record_is_unflagged() {
     let ctx = named_project().await;
     register(&ctx).await;
     // A person attribute shared with the model, holding a name of the list.
@@ -437,11 +437,11 @@ async fn a_flagged_name_and_its_aliases_never_reach_a_prompt_and_an_unflagged_on
         text.contains("Parcours: Dirige la Organisation 01, connue sous le nom de Répondant 01"),
         "{text}"
     );
-    // Unflagged people and organisations are left as they are.
-    assert!(text.contains("Luc Favre"), "{text}");
-    assert!(text.contains("Eva Roth"), "{text}");
+    // Personal names are always masked; unflagged organisations remain unchanged.
+    assert!(!text.contains("Luc Favre"), "{text}");
+    assert!(!text.contains("Eva Roth"), "{text}");
     assert!(text.contains("Cave Beta"), "{text}");
-    // Unflagging Anna puts her name back; flagging again removes it again.
+    // Opting out in the register never bypasses personal-name masking for AI.
     ok(
         &ctx.app,
         "PUT",
@@ -456,7 +456,7 @@ async fn a_flagged_name_and_its_aliases_never_reach_a_prompt_and_an_unflagged_on
         Some(json!({"batch_size": 5})),
     )
     .await;
-    assert!(parts[0]["text"].as_str().unwrap().contains("Anna Muller"));
+    assert!(!parts[0]["text"].as_str().unwrap().contains("Anna Muller"));
 }
 
 // ---------------------------------------------------------------- exports
@@ -491,6 +491,20 @@ async fn packages_hold_persons_and_groups_and_the_anonymised_one_has_no_flagged_
         .collect();
     assert!(names.contains(&"persons.csv") && names.contains(&"groups.csv"));
 
+    let preview = ok(
+        &ctx.app,
+        "GET",
+        "/api/anonymisation/interviews/INT-01",
+        None,
+    )
+    .await;
+    ok(
+        &ctx.app,
+        "PUT",
+        "/api/anonymisation/interviews/INT-01",
+        Some(json!({"digest":preview["digest"],"reviewed":true})),
+    )
+    .await;
     let r = ok(
         &ctx.app,
         "POST",
@@ -509,10 +523,12 @@ async fn packages_hold_persons_and_groups_and_the_anonymised_one_has_no_flagged_
     ] {
         assert!(!text.contains(gone), "{gone} is in the anonymised export");
     }
-    assert!(text.contains("Luc Favre") && text.contains("Eva Roth") && text.contains("Cave Beta"));
+    assert!(
+        !text.contains("Luc Favre") && !text.contains("Eva Roth") && text.contains("Cave Beta")
+    );
     let public = std::fs::read_to_string(adir.join("persons.csv")).unwrap();
     assert!(public.starts_with("person_id,kind,name,anonymise,pseudonym,"));
-    assert!(public.contains("Répondant 01") && public.contains("Luc Favre"));
+    assert!(public.contains("Répondant 01") && !public.contains("Luc Favre"));
     assert!(!public.contains("secret.ch"));
     // The cross-case package has the whole register.
     let cc = ok(&ctx.app, "POST", "/api/export/cross-case", None).await;

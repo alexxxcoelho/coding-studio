@@ -6,7 +6,7 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react"
 
 import { SearchIcon } from "@/components/icons"
 import { t } from "@/i18n"
-import { codeColor, codeName, isApplicable, topCodes } from "@/lib/code-tree"
+import { codeColor, codeName, isApplicable, topCodes, recentCodesFirst } from "@/lib/code-tree"
 import { useCodeSearchRows } from "@/lib/code-search"
 import { matchedLine } from "@/lib/v2-text"
 import { isMac } from "@/lib/nav"
@@ -14,6 +14,7 @@ import type { CodeNode } from "@/lib/types"
 
 export function SelectionMenu({
   codes,
+  recentIds = [],
   keyOf,
   x,
   y,
@@ -24,6 +25,7 @@ export function SelectionMenu({
   onClose,
 }: {
   codes: CodeNode[]
+  recentIds?: string[]
   /** Number key of a code in the inspector list, when it has one. */
   keyOf: (id: string) => number | undefined
   x: number
@@ -42,8 +44,8 @@ export function SelectionMenu({
   const found = useCodeSearchRows(codes, q, { limit: 20 })
   const list = useMemo(() => {
     if (q.trim()) return found.rows.map((r) => r.node).filter(isApplicable).slice(0, 8)
-    return topCodes(codes, 3)
-  }, [codes, q, found.rows])
+    return recentIds.length ? recentCodesFirst(codes.filter(isApplicable), recentIds).slice(0, 10) : topCodes(codes, 3)
+  }, [codes, q, found.rows, recentIds])
 
   useEffect(() => {
     input.current?.focus()

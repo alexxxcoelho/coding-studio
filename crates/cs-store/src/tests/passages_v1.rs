@@ -690,3 +690,24 @@ fn every_passage_write_is_audited_and_the_chain_holds() {
     }
     assert!(s.verify_chain().unwrap().ok);
 }
+
+#[test]
+fn recent_codes_follow_application_order_without_duplicates_and_exclude_removed_codings() {
+    let (s, _dir) = ready();
+    assert!(s.recent_code_ids().unwrap().is_empty());
+    let adv = code_id(&s, "TECH-ADV");
+    let skills = code_id(&s, "ORG-SKILLS");
+    s.code_span(&span(U2, 4, 8), "TECH-ADV", "", ACTOR).unwrap();
+    let (p, _) = s
+        .code_span(&span(U2, 4, 8), "ORG-SKILLS", "", ACTOR)
+        .unwrap();
+    s.code_span(&span(U2, 9, 13), "TECH-ADV", "", ACTOR)
+        .unwrap();
+    assert_eq!(
+        s.recent_code_ids().unwrap(),
+        vec![adv.clone(), skills.clone()]
+    );
+    s.uncode_passage(&p.passage_id, &skills, "test", ACTOR)
+        .unwrap();
+    assert_eq!(s.recent_code_ids().unwrap(), vec![adv]);
+}

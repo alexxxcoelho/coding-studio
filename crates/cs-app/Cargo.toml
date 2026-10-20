@@ -38,8 +38,9 @@ tower = { version = "0.5", features = ["util"] }
 
 roxmltree.workspace = true
 
-[dev-dependencies]
 tempfile.workspace = true
+
+[dev-dependencies]
 http-body-util = "0.1"
 sha2.workspace = true
 hex.workspace = true

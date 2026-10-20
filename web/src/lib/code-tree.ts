@@ -185,3 +185,14 @@ export function topCodes(codes: CodeNode[], n = 3): CodeNode[] {
 export function codeName(c: CodeNode): string {
   return c.name || c.label || c.code_id
 }
+
+/** Put recent codes first without duplicates; retain the remaining order. */
+export function recentCodesFirst<T extends { code_id: string }>(codes: T[], recent: readonly string[]): T[] {
+  const byId = new Map(codes.map(c => [c.code_id, c]))
+  const ordered: T[] = []
+  for (const id of recent) {
+    const code = byId.get(id)
+    if (code) { ordered.push(code); byId.delete(id) }
+  }
+  return [...ordered, ...codes.filter(c => byId.has(c.code_id))]
+}

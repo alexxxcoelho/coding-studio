@@ -2297,5 +2297,6 @@
   "table.code_root": "Déposer ici pour déplacer à la racine",
   "table.drag_code": "Glisser sur un code pour en faire un enfant",
   "table.revision": "Version",
-  "table.reason": "Motif"
+  "table.reason": "Motif",
+  "coder.recent_codes_first": "Derniers codes utilisés en premier"
 }

@@ -71,6 +71,7 @@ async fn list_codes(State(st): State<AppState>, Query(q): Query<CodesQuery>) -> 
             "attribute": q.attribute, "value": q.value, "interviews": s,
         })),
         "codes": store.code_nodes_filtered(only.as_ref())?,
+        "recent_code_ids": store.recent_code_ids()?,
     })))
 }
 

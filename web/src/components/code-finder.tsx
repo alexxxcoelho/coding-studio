@@ -7,7 +7,7 @@ import { useId, useRef, useState, type CSSProperties } from "react"
 import { Input } from "@/components/ui/input"
 import { t } from "@/i18n"
 import { useCodeSearchRows } from "@/lib/code-search"
-import { codeColor, codeName, isApplicable } from "@/lib/code-tree"
+import { codeColor, codeName, isApplicable, recentCodesFirst } from "@/lib/code-tree"
 import type { CodeNode } from "@/lib/types"
 import { matchedLine } from "@/lib/v2-text"
 
@@ -15,6 +15,7 @@ export function CodeFinder({
   codes,
   onPick,
   onCreate,
+  recentIds = [],
   applicableOnly = false,
   placeholder = t("common.chercher_un_code"),
   label = t("common.chercher_un_code"),
@@ -24,6 +25,7 @@ export function CodeFinder({
   codes: CodeNode[]
   onPick: (c: CodeNode) => void
   onCreate?: (query: string) => void
+  recentIds?: string[]
   /** Only the codes that can be put on a passage. */
   applicableOnly?: boolean
   placeholder?: string
@@ -35,10 +37,10 @@ export function CodeFinder({
   const [active, setActive] = useState(0)
   const [q, setQ] = useState("")
   const found = useCodeSearchRows(codes, q, { limit: 30 })
-  const list = found.rows
+  const candidates = found.rows
     .map((r) => r.node)
     .filter((c) => !c.system && (applicableOnly ? isApplicable(c) : !c.merged_into))
-    .slice(0, q.trim() ? max : 6)
+  const list = (q.trim() ? candidates : recentCodesFirst(candidates, recentIds)).slice(0, q.trim() ? max : 10)
   const resultCount = list.length + (onCreate ? 1 : 0)
   const activeIndex = Math.min(active, Math.max(0, resultCount - 1))
   const input = useRef<HTMLInputElement>(null)
@@ -79,6 +81,7 @@ export function CodeFinder({
           }
         }}
       />
+      {!q.trim() && recentIds.length > 0 && <p className="small l2">{t("coder.recent_codes_first")}</p>}
       <ul id={listId} role="listbox" className="cl" aria-label={t("code_finder.codes_trouves")} style={{ padding: 0, maxHeight: "55vh", overflowY: "auto" }}>
         {list.length === 0 && <li className="l2" style={{ display: "block", cursor: "default" }}>{t("common.aucun_code_ne_correspond")}</li>}
         {list.map((c, index) => {

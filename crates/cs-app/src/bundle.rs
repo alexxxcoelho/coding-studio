@@ -128,14 +128,10 @@ pub fn export_bundle(store: &Store, actor: &str) -> Result<BundleOut> {
     let counts = project_counts(store)?;
 
     let mut entries: Vec<(String, Vec<u8>)> = Vec::new();
-    let tmp = std::env::temp_dir().join(format!(
-        "cs-bundle-{}-{}.sqlite",
-        std::process::id(),
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map(|d| d.as_nanos())
-            .unwrap_or(0)
-    ));
+    // Concurrent exports can observe the same clock tick. Reserve an isolated
+    // directory instead of deriving a shared SQLite path from the timestamp.
+    let snapshot_dir = tempfile::tempdir()?;
+    let tmp = snapshot_dir.path().join("database.sqlite");
     crate::export::write_snapshot(store, &tmp)?;
     let db_bytes = fs::read(&tmp);
     let _ = fs::remove_file(&tmp);

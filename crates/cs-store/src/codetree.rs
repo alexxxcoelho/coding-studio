@@ -415,6 +415,23 @@ impl Store {
         Ok(nodes)
     }
 
+    /// Last applied active codes, scoped to this database and ordered by the
+    /// monotonic coding id (timestamps can share a clock tick).
+    pub fn recent_code_ids(&self) -> Result<Vec<String>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT pc.code_id FROM passage_codings pc
+             JOIN codes c ON c.code_id = pc.code_id
+             JOIN passages p ON p.passage_id = pc.passage_id
+             WHERE pc.removed_at IS NULL AND p.deleted_at IS NULL
+               AND c.active = 1 AND c.merged_into IS NULL
+             GROUP BY pc.code_id ORDER BY MAX(pc.coding_id) DESC LIMIT 10",
+        )?;
+        let ids = stmt
+            .query_map([], |row| row.get(0))?
+            .collect::<rusqlite::Result<Vec<String>>>()?;
+        Ok(ids)
+    }
+
     pub fn code_tree(&self) -> Result<CodeTree> {
         Ok(CodeTree {
             codebook_version: self.codebook_version()?,

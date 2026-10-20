@@ -865,6 +865,7 @@ export interface CodeNode {
 }
 
 export interface CodeTreeAnswer {
+  recent_code_ids?: string[]
   codebook_version: number
   filter?: unknown
   codes: CodeNode[]

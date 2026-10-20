@@ -107,8 +107,8 @@ pub fn load(st: &AppState, library: Option<&Path>) -> anyhow::Result<ExampleRepo
     let (interview_id, seg) = first
         .ok_or_else(|| anyhow::anyhow!("the example transcripts were not found after the copy"))?;
 
-    let csv =
-        std::env::temp_dir().join(format!("coding-studio-example-{}.csv", std::process::id()));
+    let codebook_dir = tempfile::tempdir()?;
+    let csv = codebook_dir.path().join("codebook.csv");
     std::fs::write(&csv, CODEBOOK_CSV)?;
     let imported = store.import_codebook_csv_reported(&csv, &st.actor);
     let _ = std::fs::remove_file(&csv);

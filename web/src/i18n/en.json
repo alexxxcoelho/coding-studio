@@ -2297,5 +2297,6 @@
   "table.code_root": "Drop here to move to the root",
   "table.drag_code": "Drag onto a code to make it a child",
   "table.revision": "Version",
-  "table.reason": "Reason"
+  "table.reason": "Reason",
+  "coder.recent_codes_first": "Recently used codes first"
 }
