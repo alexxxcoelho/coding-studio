@@ -14,6 +14,7 @@ import { matchedLine } from "@/lib/v2-text"
 export function CodeFinder({
   codes,
   onPick,
+  onCreate,
   applicableOnly = false,
   placeholder = t("common.chercher_un_code"),
   label = t("common.chercher_un_code"),
@@ -22,6 +23,7 @@ export function CodeFinder({
 }: {
   codes: CodeNode[]
   onPick: (c: CodeNode) => void
+  onCreate?: (query: string) => void
   /** Only the codes that can be put on a passage. */
   applicableOnly?: boolean
   placeholder?: string
@@ -37,6 +39,8 @@ export function CodeFinder({
     .map((r) => r.node)
     .filter((c) => !c.system && (applicableOnly ? isApplicable(c) : !c.merged_into))
     .slice(0, q.trim() ? max : 6)
+  const resultCount = list.length + (onCreate ? 1 : 0)
+  const activeIndex = Math.min(active, Math.max(0, resultCount - 1))
   const input = useRef<HTMLInputElement>(null)
   const pick = (c: CodeNode) => {
     onPick(c)
@@ -55,7 +59,7 @@ export function CodeFinder({
         aria-expanded={true}
         aria-autocomplete="list"
         aria-controls={listId}
-        aria-activedescendant={list.length ? `${listId}-${Math.min(active, list.length - 1)}` : undefined}
+        aria-activedescendant={resultCount ? `${listId}-${activeIndex}` : undefined}
         placeholder={placeholder}
         aria-label={label}
         onKeyDown={(e) => {
@@ -63,14 +67,15 @@ export function CodeFinder({
           if (e.key === "ArrowDown" || e.key === "ArrowUp") {
             e.preventDefault()
             e.stopPropagation()
-            const next = Math.max(0, Math.min(list.length - 1, active + (e.key === "ArrowDown" ? 1 : -1)))
+            const next = Math.max(0, Math.min(resultCount - 1, activeIndex + (e.key === "ArrowDown" ? 1 : -1)))
             setActive(next)
             document.getElementById(`${listId}-${next}`)?.scrollIntoView?.({ block: "nearest" })
           }
-          if (e.key === "Enter" && list[Math.min(active, list.length - 1)]) {
+          if (e.key === "Enter" && resultCount) {
             e.preventDefault()
             e.stopPropagation()
-            pick(list[Math.min(active, list.length - 1)])
+            if (activeIndex === list.length) onCreate?.(q.trim())
+            else pick(list[activeIndex])
           }
         }}
       />
@@ -84,11 +89,11 @@ export function CodeFinder({
               key={c.code_id}
               id={`${listId}-${index}`}
               role="option"
-              aria-selected={index === Math.min(active, list.length - 1)}
+              aria-selected={index === activeIndex}
               tabIndex={0}
               aria-label={codeName(c)}
               onMouseMove={() => setActive(index)}
-              style={{ background: index === Math.min(active, list.length - 1) ? "var(--fill)" : undefined, outline: index === Math.min(active, list.length - 1) ? "1px solid var(--tint)" : undefined, "--k": codeColor(c.code_id), gridTemplateColumns: "10px minmax(0,1fr)" } as CSSProperties}
+              style={{ background: index === activeIndex ? "var(--fill)" : undefined, outline: index === activeIndex ? "1px solid var(--tint)" : undefined, "--k": codeColor(c.code_id), gridTemplateColumns: "10px minmax(0,1fr)" } as CSSProperties}
               onClick={() => pick(c)}
               onKeyDown={(e) => {
                 if (e.key === "Enter" || e.key === " ") {
@@ -108,6 +113,12 @@ export function CodeFinder({
             </li>
           )
         })}
+        {onCreate && <li id={`${listId}-${list.length}`} role="option" aria-selected={activeIndex === list.length}
+          onMouseMove={() => setActive(list.length)} style={{ display: "block", borderTop: "1px solid var(--sep)", background: activeIndex === list.length ? "var(--fill)" : undefined }}>
+          <button type="button" style={{ width: "100%", textAlign: "left", padding: 8 }} onClick={() => onCreate(q.trim())}>
+            + {t("revoir.concept_card.creer_un_code")}
+          </button>
+        </li>}
       </ul>
     </div>
   )

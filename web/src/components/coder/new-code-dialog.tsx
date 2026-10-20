@@ -39,6 +39,7 @@ export function NewCodeDialog({
   codes,
   undo,
   onClose,
+  onReturnFocus,
 }: {
   interviewId: string
   target: NewCodeTarget | null
@@ -46,6 +47,7 @@ export function NewCodeDialog({
   /** Where the reverse of the creation goes (Cmd or Ctrl and Z in the Coder). */
   undo?: UndoStack
   onClose: () => void
+  onReturnFocus?: () => void
 }) {
   const qc = useQueryClient()
   const [name, setName] = useState("")
@@ -100,7 +102,7 @@ export function NewCodeDialog({
   const ready = name.trim() !== "" && definition.trim() !== ""
   return (
     <Dialog open={target !== null} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent>
+      <DialogContent onCloseAutoFocus={onReturnFocus ? (e) => { e.preventDefault(); onReturnFocus() } : undefined}>
         <DialogHeader>
           <DialogTitle>{t("common.nouveau_code")}</DialogTitle>
           <DialogDescription>

@@ -191,12 +191,21 @@ export function CoderPage({ id, unit: askedUnit = null }: { id: string; unit?: s
     [selected],
   )
 
+  const focusCurrent = useCallback(() => {
+    const node = sectionRef.current?.querySelector<HTMLElement>('[data-unit][aria-current="true"]')
+    ;(node ?? sectionRef.current)?.focus({ preventScroll: true })
+  }, [])
+
   const move = useCallback(
     (dir: 1 | -1) => {
       const next = neighbour(shown, selected, dir)
       if (next) {
         select(next)
-        requestAnimationFrame(() => document.querySelector(`[data-unit="${CSS.escape(next)}"]`)?.scrollIntoView({ block: "nearest" }))
+        requestAnimationFrame(() => {
+          const node = sectionRef.current?.querySelector<HTMLElement>(`[data-unit="${CSS.escape(next)}"]`)
+          node?.focus({ preventScroll: true })
+          node?.scrollIntoView({ block: "nearest" })
+        })
       }
     },
     [shown, selected, select],
@@ -472,7 +481,7 @@ export function CoderPage({ id, unit: askedUnit = null }: { id: string; unit?: s
                 chooseTab("detail")
               }}
               onNewCode={openNewCode}
-              onClose={clearSelection}
+              onClose={() => { clearSelection(); focusCurrent() }}
             />
           )}
           {end && <EndPanel ref={endRef} interviewId={id} />}
@@ -585,17 +594,22 @@ export function CoderPage({ id, unit: askedUnit = null }: { id: string; unit?: s
       <Dialog open={codeSearchOpen} onOpenChange={setCodeSearchOpen}>
         <DialogContent aria-describedby={undefined} onCloseAutoFocus={(e) => {
           e.preventDefault()
-          sectionRef.current?.focus({ preventScroll: true })
+          if (!newCode) focusCurrent()
         }}>
           <DialogTitle>{t("common.chercher_un_code")}</DialogTitle>
-          <CodeFinder codes={codes} applicableOnly autoFocus max={30} onPick={(c) => {
+          <CodeFinder codes={codes} applicableOnly autoFocus max={30} onCreate={(name) => {
+            if (!current || !requireCodable()) return
+            setCodeSearchOpen(false)
+            setMenu(null)
+            setNewCode({ unitId: current.unit_id, range, text: range ? current.text.slice(range.start, range.end) : current.text, name })
+          }} onPick={(c) => {
             void applyCode(c, true)
           }} />
         </DialogContent>
       </Dialog>
       <CorrectTextDialog interviewId={id} unit={current ?? null} open={correctOpen} onClose={() => setCorrectOpen(false)} onReview={() => setReviewOpen(true)} />
       <ReviewDialog interviewId={id} open={reviewOpen} onClose={() => setReviewOpen(false)} />
-      <NewCodeDialog interviewId={id} target={newCode} codes={codes} undo={undo} onClose={() => setNewCode(null)} />
+      <NewCodeDialog interviewId={id} target={newCode} codes={codes} undo={undo} onReturnFocus={focusCurrent} onClose={() => setNewCode(null)} />
     </AudioProvider>
   )
 }

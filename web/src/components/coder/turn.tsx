@@ -87,6 +87,7 @@ export function Turn({ unit, passages, selected, codeName, marked = false, pendi
   return (
     <div
       className={cn("u", interviewer ? "int" : "resp", selected && "sel", audio?.playing && audio.current === unit.unit_id && "hear", state === "non_pertinent" && "na")}
+      tabIndex={-1}
       data-unit={unit.unit_id}
       data-state={state}
       aria-current={selected ? "true" : undefined}
