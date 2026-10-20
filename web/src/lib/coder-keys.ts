@@ -11,6 +11,7 @@ export type CoderAction =
   | { type: "prev" }
   | { type: "undo" }
   | { type: "search" }
+  | { type: "codeSearch" }
   | { type: "newCode" }
   | { type: "escape" }
 
@@ -34,7 +35,7 @@ export interface KeyContext {
 /** True for the elements that take text. */
 export function isTypingTarget(el: EventTarget | null): boolean {
   if (!(el instanceof HTMLElement)) return false
-  if (el.isContentEditable) return true
+  if (el.isContentEditable || el.closest('[contenteditable]:not([contenteditable="false"])')) return true
   const tag = el.tagName
   return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT"
 }
@@ -62,6 +63,8 @@ export function resolveKey(e: KeyLike, ctx: KeyContext): CoderAction | null {
   if (e.shiftKey) return null
   if (/^[1-9]$/.test(key)) return { type: "code", n: Number(key) }
   switch (key.toLowerCase()) {
+    case "c":
+      return { type: "codeSearch" }
     case "n":
       return { type: "notRelevant" }
     case "r":

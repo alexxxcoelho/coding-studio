@@ -17,6 +17,13 @@ describe("resolveKey", () => {
     expect(resolveKey({ key: "d" }, free)).toEqual({ type: "detail" })
     expect(resolveKey({ key: "/" }, free)).toEqual({ type: "search" })
   })
+  it("opens code search with C only outside fields and dialogs", () => {
+    expect(resolveKey({ key: "c" }, free)).toEqual({ type: "codeSearch" })
+    expect(resolveKey({ key: "C" }, free)).toEqual({ type: "codeSearch" })
+    expect(resolveKey({ key: "c" }, { typing: true })).toBeNull()
+    expect(resolveKey({ key: "c" }, { typing: false, modalOpen: true })).toBeNull()
+    expect(resolveKey({ key: "c", ctrlKey: true }, free)).toBeNull()
+  })
   it("moves with the arrows, and Enter goes to the next turn", () => {
     expect(resolveKey({ key: "ArrowDown" }, free)).toEqual({ type: "next" })
     expect(resolveKey({ key: "ArrowUp" }, free)).toEqual({ type: "prev" })

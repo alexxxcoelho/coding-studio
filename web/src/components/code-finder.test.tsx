@@ -1,0 +1,39 @@
+import { fireEvent, render, screen } from "@testing-library/react"
+import { describe, expect, it, vi } from "vitest"
+import { CodeFinder } from "./code-finder"
+import type { CodeNode } from "@/lib/types"
+vi.mock("@/lib/code-search", () => ({
+  useCodeSearchRows: (codes: CodeNode[], q: string) => ({ rows: codes.filter(c => c.name.includes(q)).map(node => ({ node })), matched: new Map(), paths: new Map() }),
+}))
+const codes = ["Alpha", "Beta", "Gamma"].map((name, i) => ({ code_id: String(i), name, active: true, system: false, merged_into: null } as CodeNode))
+describe("CodeFinder keyboard", () => {
+  it("focuses the filter, navigates and picks the active result, then clears and refocuses", () => {
+    const pick = vi.fn()
+    render(<CodeFinder codes={codes} onPick={pick} autoFocus />)
+    const input = screen.getByRole("combobox")
+    expect(input).toHaveFocus()
+    fireEvent.keyDown(input, { key: "ArrowDown" })
+    expect(screen.getByRole("option", { name: "Beta" })).toHaveAttribute("aria-selected", "true")
+    fireEvent.keyDown(input, { key: "Enter" })
+    expect(pick).toHaveBeenLastCalledWith(codes[1])
+    fireEvent.change(input, { target: { value: "Gamma" } })
+    fireEvent.click(screen.getByRole("option", { name: "Gamma" }))
+    expect(input).toHaveValue("")
+    expect(input).toHaveFocus()
+    expect(screen.getAllByRole("option")).toHaveLength(3)
+    fireEvent.keyDown(input, { key: "ArrowUp" })
+    fireEvent.keyDown(input, { key: "Enter" })
+    expect(pick).toHaveBeenLastCalledWith(codes[0])
+  })
+  it("does not apply anything for empty results, composition or modified Enter", () => {
+    const pick = vi.fn()
+    render(<CodeFinder codes={codes} onPick={pick} />)
+    const input = screen.getByRole("combobox")
+    fireEvent.keyDown(input, { key: "Enter", ctrlKey: true })
+    fireEvent.keyDown(input, { key: "Enter", isComposing: true })
+    fireEvent.change(input, { target: { value: "missing" } })
+    fireEvent.keyDown(input, { key: "ArrowDown" })
+    fireEvent.keyDown(input, { key: "Enter" })
+    expect(pick).not.toHaveBeenCalled()
+  })
+})

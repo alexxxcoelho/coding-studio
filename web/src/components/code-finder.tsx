@@ -2,7 +2,7 @@
 // screen (code filter, "Coder la sélection"). It uses GET /api/codes/search through
 // useCodeSearchRows and says which field matched.
 
-import { useRef, useState, type CSSProperties } from "react"
+import { useId, useRef, useState, type CSSProperties } from "react"
 
 import { Input } from "@/components/ui/input"
 import { t } from "@/i18n"
@@ -29,6 +29,8 @@ export function CodeFinder({
   autoFocus?: boolean
   max?: number
 }) {
+  const listId = useId()
+  const [active, setActive] = useState(0)
   const [q, setQ] = useState("")
   const found = useCodeSearchRows(codes, q, { limit: 30 })
   const list = found.rows
@@ -36,39 +38,62 @@ export function CodeFinder({
     .filter((c) => !c.system && (applicableOnly ? isApplicable(c) : !c.merged_into))
     .slice(0, q.trim() ? max : 6)
   const input = useRef<HTMLInputElement>(null)
+  const pick = (c: CodeNode) => {
+    onPick(c)
+    setQ("")
+    setActive(0)
+    input.current?.focus()
+  }
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 0 }}>
       <Input
         ref={input}
         value={q}
         autoFocus={autoFocus}
-        onChange={(e) => setQ(e.target.value)}
+        onChange={(e) => { setQ(e.target.value); setActive(0) }}
+        role="combobox"
+        aria-expanded={true}
+        aria-autocomplete="list"
+        aria-controls={listId}
+        aria-activedescendant={list.length ? `${listId}-${Math.min(active, list.length - 1)}` : undefined}
         placeholder={placeholder}
         aria-label={label}
         onKeyDown={(e) => {
-          if (e.key === "Enter" && list[0]) {
+          if (e.nativeEvent.isComposing || e.metaKey || e.ctrlKey || e.altKey) return
+          if (e.key === "ArrowDown" || e.key === "ArrowUp") {
             e.preventDefault()
-            onPick(list[0])
+            e.stopPropagation()
+            const next = Math.max(0, Math.min(list.length - 1, active + (e.key === "ArrowDown" ? 1 : -1)))
+            setActive(next)
+            document.getElementById(`${listId}-${next}`)?.scrollIntoView?.({ block: "nearest" })
+          }
+          if (e.key === "Enter" && list[Math.min(active, list.length - 1)]) {
+            e.preventDefault()
+            e.stopPropagation()
+            pick(list[Math.min(active, list.length - 1)])
           }
         }}
       />
-      <ul className="cl" aria-label={t("code_finder.codes_trouves")} style={{ padding: 0 }}>
+      <ul id={listId} role="listbox" className="cl" aria-label={t("code_finder.codes_trouves")} style={{ padding: 0, maxHeight: "55vh", overflowY: "auto" }}>
         {list.length === 0 && <li className="l2" style={{ display: "block", cursor: "default" }}>{t("common.aucun_code_ne_correspond")}</li>}
-        {list.map((c) => {
+        {list.map((c, index) => {
           const why = matchedLine(found.matched.get(c.code_id), 60)
           const path = found.paths.get(c.code_id) ?? []
           return (
             <li
               key={c.code_id}
-              role="button"
+              id={`${listId}-${index}`}
+              role="option"
+              aria-selected={index === Math.min(active, list.length - 1)}
               tabIndex={0}
               aria-label={codeName(c)}
-              style={{ "--k": codeColor(c.code_id), gridTemplateColumns: "10px minmax(0,1fr)" } as CSSProperties}
-              onClick={() => onPick(c)}
+              onMouseMove={() => setActive(index)}
+              style={{ background: index === Math.min(active, list.length - 1) ? "var(--fill)" : undefined, outline: index === Math.min(active, list.length - 1) ? "1px solid var(--tint)" : undefined, "--k": codeColor(c.code_id), gridTemplateColumns: "10px minmax(0,1fr)" } as CSSProperties}
+              onClick={() => pick(c)}
               onKeyDown={(e) => {
                 if (e.key === "Enter" || e.key === " ") {
                   e.preventDefault()
-                  onPick(c)
+                  pick(c)
                 }
               }}
             >

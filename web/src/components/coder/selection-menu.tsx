@@ -34,6 +34,7 @@ export function SelectionMenu({
   onNewCode: () => void
   onClose: () => void
 }) {
+  const [active, setActive] = useState(0)
   const [q, setQ] = useState("")
   const ref = useRef<HTMLDivElement>(null)
   const input = useRef<HTMLInputElement>(null)
@@ -53,6 +54,13 @@ export function SelectionMenu({
     return () => document.removeEventListener("mousedown", away)
   }, [onClose])
 
+  const pick = (c: CodeNode) => {
+    onPick(c)
+    setQ("")
+    setActive(0)
+    input.current?.focus()
+  }
+
   return (
     <div ref={ref} className="menu" role="menu" aria-label={t("common.coder_la_selection")} style={{ position: "absolute", left: x, top: y, width: 270, zIndex: 20 }}>
       <label className="mi" style={{ color: "var(--label2)", cursor: "text" }}>
@@ -60,13 +68,20 @@ export function SelectionMenu({
         <input
           ref={input}
           value={q}
-          onChange={(e) => setQ(e.target.value)}
+          onChange={(e) => { setQ(e.target.value); setActive(0) }}
           placeholder={t("common.coder_la_selection_2")}
           aria-label={t("common.coder_la_selection")}
           onKeyDown={(e) => {
-            if (e.key === "Enter" && list[0]) {
+            if (e.nativeEvent.isComposing || e.metaKey || e.ctrlKey || e.altKey) return
+            if (e.key === "ArrowDown" || e.key === "ArrowUp") {
               e.preventDefault()
-              onPick(list[0])
+              e.stopPropagation()
+              setActive(Math.max(0, Math.min(list.length - 1, active + (e.key === "ArrowDown" ? 1 : -1))))
+            }
+            if (e.key === "Enter" && list[Math.min(active, list.length - 1)]) {
+              e.preventDefault()
+              e.stopPropagation()
+              pick(list[Math.min(active, list.length - 1)])
             }
             if (e.key === "Escape") {
               e.preventDefault()
@@ -84,8 +99,8 @@ export function SelectionMenu({
           {t("coder.selection_menu.aucun_code_ne_correspond")}
         </div>
       )}
-      {list.map((c) => (
-        <button key={c.code_id} type="button" role="menuitem" className="mi" style={{ "--k": codeColor(c.code_id), height: found.matched.get(c.code_id) && matchedLine(found.matched.get(c.code_id)) ? 36 : undefined } as CSSProperties} onClick={() => onPick(c)}>
+      {list.map((c, index) => (
+        <button key={c.code_id} type="button" role="menuitem" className="mi" onMouseMove={() => setActive(index)} style={{ background: index === Math.min(active, list.length - 1) ? "var(--fill)" : undefined, "--k": codeColor(c.code_id), height: found.matched.get(c.code_id) && matchedLine(found.matched.get(c.code_id)) ? 36 : undefined } as CSSProperties} onClick={() => pick(c)}>
           <span className="sw" style={{ background: "var(--k)" }} />
           <span style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", minWidth: 0, lineHeight: 1.15 }}>
             <span>{codeName(c)}</span>

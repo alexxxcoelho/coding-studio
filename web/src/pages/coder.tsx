@@ -7,6 +7,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 
+import { CodeFinder } from "@/components/code-finder"
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
 import { CodeList } from "@/components/coder/code-list"
 import { DetailPanel } from "@/components/coder/detail-panel"
 import { EndPanel } from "@/components/coder/end-panel"
@@ -99,6 +101,7 @@ export function CoderPage({ id, unit: askedUnit = null }: { id: string; unit?: s
   const [undo] = useState(() => new UndoStack())
   const actions = useCodingActions(id, undo)
 
+  const [codeSearchOpen, setCodeSearchOpen] = useState(false)
   const [reviewOpen, setReviewOpen] = useState(false)
   const [correctOpen, setCorrectOpen] = useState(false)
   // Number(): keeps React Compiler from tying the count to the Map it comes from once t() receives it.
@@ -209,10 +212,10 @@ export function CoderPage({ id, unit: askedUnit = null }: { id: string; unit?: s
   }, [current])
 
   const applyCode = useCallback(
-    async (c: (typeof codes)[number]) => {
+    async (c: (typeof codes)[number], keepSelection = false) => {
       if (!current || !requireCodable()) return
       const r = range
-      clearSelection()
+      if (!keepSelection) clearSelection()
       await actions.toggleCode(current, r, c)
     },
     [current, range, actions, clearSelection, requireCodable],
@@ -281,10 +284,10 @@ export function CoderPage({ id, unit: askedUnit = null }: { id: string; unit?: s
   }, [current, range, requireCodable])
 
   // Keyboard.
-  const modalOpen = newCode !== null
+  const modalOpen = newCode !== null || codeSearchOpen || reviewOpen || correctOpen || menu !== null
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      const action = resolveKey(e, { typing: isTypingTarget(e.target), modalOpen })
+      const action = resolveKey(e, { typing: isTypingTarget(e.target), modalOpen: modalOpen || !!document.querySelector('[role="dialog"], [role="alertdialog"], [data-state="open"][role="menu"]') })
       if (!action) return
       switch (action.type) {
         case "code": {
@@ -325,6 +328,13 @@ export function CoderPage({ id, unit: askedUnit = null }: { id: string; unit?: s
         case "undo":
           e.preventDefault()
           void doUndo()
+          return
+        case "codeSearch":
+          if (current && requireCodable()) {
+            e.preventDefault()
+            setMenu(null)
+            setCodeSearchOpen(true)
+          }
           return
         case "search":
           e.preventDefault()
@@ -397,7 +407,7 @@ export function CoderPage({ id, unit: askedUnit = null }: { id: string; unit?: s
       </ToolbarActions>
 
       <div className="content">
-        <section ref={sectionRef} className="tx" aria-label={t("coder.transcription")} style={{ position: "relative" }}>
+        <section ref={sectionRef} className="tx" tabIndex={-1} aria-label={t("coder.transcription")} style={{ position: "relative" }}>
           <div className="fbar">
             <div className="seg" role="tablist" aria-label={t("coder.filtrer_les_unites")}>
               {FILTER_LABELS.map(({ key, label }) => (
@@ -454,7 +464,7 @@ export function CoderPage({ id, unit: askedUnit = null }: { id: string; unit?: s
               keyOf={(cid) => keyMap.get(cid)}
               x={menu.x}
               y={menu.y}
-              onPick={(c) => void applyCode(c)}
+              onPick={(c) => void applyCode(c, true)}
               onHighlight={() => void doHighlight()}
               onQuote={async () => {
                 const p = await doHighlight()
@@ -496,7 +506,7 @@ export function CoderPage({ id, unit: askedUnit = null }: { id: string; unit?: s
                 paths={found.paths}
                 onQuery={setQuery}
                 searchRef={searchRef}
-                onPick={(c) => void applyCode(c)}
+                onPick={(c) => { void applyCode(c); setQuery(""); searchRef.current?.focus() }}
                 onPickLater={() => {
                   if (!current || !requireCodable()) return
                   const r = range
@@ -506,7 +516,7 @@ export function CoderPage({ id, unit: askedUnit = null }: { id: string; unit?: s
                 laterApplied={laterApplied}
                 onEnter={() => {
                   const c = firstApplicable(rows)
-                  if (c) void applyCode(c)
+                  if (c) { void applyCode(c); setQuery(""); searchRef.current?.focus() }
                 }}
               />
               <div className="insp-in" style={{ marginTop: "auto" }}>
@@ -549,6 +559,9 @@ export function CoderPage({ id, unit: askedUnit = null }: { id: string; unit?: s
           <span className="kbd">↑ ↓</span> {t("common.unite")}
         </span>
         <span>
+          <span className="kbd">C</span> {t("common.chercher_un_code")}
+        </span>
+        <span>
           <span className="kbd">1–9</span> {t("coder.coder")}
         </span>
         <span>
@@ -569,6 +582,17 @@ export function CoderPage({ id, unit: askedUnit = null }: { id: string; unit?: s
         <span style={{ marginLeft: "auto" }}>{t("coder.sans_selection_le_code_couvre")}</span>
       </div>
 
+      <Dialog open={codeSearchOpen} onOpenChange={setCodeSearchOpen}>
+        <DialogContent aria-describedby={undefined} onCloseAutoFocus={(e) => {
+          e.preventDefault()
+          sectionRef.current?.focus({ preventScroll: true })
+        }}>
+          <DialogTitle>{t("common.chercher_un_code")}</DialogTitle>
+          <CodeFinder codes={codes} applicableOnly autoFocus max={30} onPick={(c) => {
+            void applyCode(c, true)
+          }} />
+        </DialogContent>
+      </Dialog>
       <CorrectTextDialog interviewId={id} unit={current ?? null} open={correctOpen} onClose={() => setCorrectOpen(false)} onReview={() => setReviewOpen(true)} />
       <ReviewDialog interviewId={id} open={reviewOpen} onClose={() => setReviewOpen(false)} />
       <NewCodeDialog interviewId={id} target={newCode} codes={codes} undo={undo} onClose={() => setNewCode(null)} />
