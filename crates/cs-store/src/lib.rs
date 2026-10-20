@@ -454,7 +454,10 @@ impl Store {
             "settings.set",
             None,
             Some(key),
-            if key == "anonymisation_v1" || key.starts_with("local_preparation:") {
+            if key == "anonymisation_v1"
+                || key.starts_with("local_preparation:")
+                || key.starts_with("transcript_preparation_history:")
+            {
                 json!({"key": key, "before_sha256": before.as_ref().map(|v| cs_model::sha256_hex(v.as_bytes())), "after_sha256": cs_model::sha256_hex(value.as_bytes())})
             } else {
                 json!({"key": key, "before": before, "after": value})

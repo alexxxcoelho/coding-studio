@@ -799,4 +799,8 @@ async fn a_previously_validated_reading_copy_can_become_working_text_and_keeps_i
     assert!(history["versions"][0]["prepared"]["units"]
         .to_string()
         .contains("[Person"));
+    let db = rusqlite::Connection::open(&c.db).unwrap();
+    let audit: String = db.query_row("SELECT group_concat(detail) FROM audit_log WHERE action='settings.set' AND target LIKE 'transcript_preparation_history:%'", [], |r| r.get(0)).unwrap();
+    assert!(audit.contains("after_sha256"));
+    assert!(!audit.contains("Sophie"));
 }
