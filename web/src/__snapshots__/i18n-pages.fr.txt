@@ -15,8 +15,8 @@ Rédiger
 Étude
 Paramètres de l'étude
 Guide
-[title] 1 nom remplacé avant tout envoi à un modèle. Le texte libre n'est pas couvert. Les textes ne quittent jamais la machine sans un geste explicite.
-Pseudonymisation active
+[title] Masquage obligatoire. Relisez la copie de l’entretien puis le prompt complet pour autoriser sa copie ou son envoi IA.
+Anonymisation locale
 [aria-label] Réglages
 Réglages
 Ctrl+,
@@ -33,6 +33,7 @@ Tous
 [aria-label] Rescanner le dossier
 [title] Rescanner le dossier
 Importer des transcriptions…
+Anonymiser / nettoyer / traduire…
 [aria-label] Exporter
 [title] Exporter
 [aria-label] Rechercher
@@ -67,8 +68,8 @@ Rédiger
 Étude
 Paramètres de l'étude
 Guide
-[title] 1 nom remplacé avant tout envoi à un modèle. Le texte libre n'est pas couvert. Les textes ne quittent jamais la machine sans un geste explicite.
-Pseudonymisation active
+[title] Masquage obligatoire. Relisez la copie de l’entretien puis le prompt complet pour autoriser sa copie ou son envoi IA.
+Anonymisation locale
 [aria-label] Réglages
 Réglages
 Ctrl+,
@@ -107,8 +108,8 @@ Rédiger
 Étude
 Paramètres de l'étude
 Guide
-[title] 1 nom remplacé avant tout envoi à un modèle. Le texte libre n'est pas couvert. Les textes ne quittent jamais la machine sans un geste explicite.
-Pseudonymisation active
+[title] Masquage obligatoire. Relisez la copie de l’entretien puis le prompt complet pour autoriser sa copie ou son envoi IA.
+Anonymisation locale
 [aria-label] Réglages
 Réglages
 Ctrl+,
@@ -117,7 +118,7 @@ Personnes
 0 personne, 0 organisation, 0 groupe
 + Personne
 + Groupe
-Importer un CSV
+Importer Excel ou CSV
 [aria-label] Filtrer les personnes
 [placeholder] Filtrer les personnes
 [aria-label] Aide pour cet écran
@@ -126,7 +127,13 @@ Importer un CSV
 [aria-label] Groupes
 [aria-label] Arbre des groupes
 Groupes
+[aria-label] Trier Groupes A-Z
+[aria-label] Trier Groupes Z-A
+[aria-label] Filtrer Groupes
 Personnes
+[aria-label] Trier Personnes A-Z
+[aria-label] Trier Personnes Z-A
+[aria-label] Filtrer Personnes
 Toutes les personnes
 0
 Sans groupe
@@ -144,9 +151,9 @@ Anonymisées ou non
 Anonymisées
 Non anonymisées
 Aucune personne dans le registre
-Créez une fiche, ou importez un fichier CSV. Une fiche anonymisée remplace son nom par un pseudonyme dans tout ce qui part vers un modèle.
+Créez une fiche ou importez un fichier Excel ou CSV. Une fiche anonymisée remplace son nom par un pseudonyme dans ce qui part vers un modèle.
 + Personne
-Importer un CSV
+Importer Excel ou CSV
 
 == #/to-clarify ==
 [aria-label] Barre latérale
@@ -165,8 +172,8 @@ Rédiger
 Étude
 Paramètres de l'étude
 Guide
-[title] 1 nom remplacé avant tout envoi à un modèle. Le texte libre n'est pas couvert. Les textes ne quittent jamais la machine sans un geste explicite.
-Pseudonymisation active
+[title] Masquage obligatoire. Relisez la copie de l’entretien puis le prompt complet pour autoriser sa copie ou son envoi IA.
+Anonymisation locale
 [aria-label] Réglages
 Réglages
 Ctrl+,
@@ -196,8 +203,8 @@ Rédiger
 Étude
 Paramètres de l'étude
 Guide
-[title] 1 nom remplacé avant tout envoi à un modèle. Le texte libre n'est pas couvert. Les textes ne quittent jamais la machine sans un geste explicite.
-Pseudonymisation active
+[title] Masquage obligatoire. Relisez la copie de l’entretien puis le prompt complet pour autoriser sa copie ou son envoi IA.
+Anonymisation locale
 [aria-label] Réglages
 Réglages
 Ctrl+,
@@ -229,8 +236,8 @@ Rédiger
 Étude
 Paramètres de l'étude
 Guide
-[title] 1 nom remplacé avant tout envoi à un modèle. Le texte libre n'est pas couvert. Les textes ne quittent jamais la machine sans un geste explicite.
-Pseudonymisation active
+[title] Masquage obligatoire. Relisez la copie de l’entretien puis le prompt complet pour autoriser sa copie ou son envoi IA.
+Anonymisation locale
 [aria-label] Réglages
 Réglages
 Ctrl+,
@@ -329,31 +336,39 @@ Ce que le passage fait dans la décision : déclencheur, contrainte…
 Modifier…
 Les valeurs de cellule de la matrice (présent, non évoqué, contredit, incertain) restent fixes : elles font partie de la méthode.
 Enregistrer les modèles et listes
-Pseudonymisation avant envoi
-ce qui part vers un modèle
-[aria-label] Remplacer les noms avant tout envoi à un modèle
-Pseudonymisation active
-: les noms de la liste sont remplacés dans chaque prompt et chaque envoi.
-Noms saisis à la main
-[aria-label] Liste des noms
-Type
-Nom réel
-Pseudonyme
-Actions
-[aria-label] Type du nom 1
-Personne
-Organisation
-[aria-label] Nom réel 1
-[aria-label] Pseudonyme 1
-[aria-label] Retirer le nom 1
-Retirer
-Ajouter un nom
-Enregistrer la liste
-Liste de 1 nom (personnes), empreinte SHA-256
-dddddddddddddddd
-, enregistrée avec chaque prompt. Le journal garde l'empreinte et les nombres, jamais les noms.
-Le texte libre n'est pas couvert.
-Le texte libre n'est pas couvert.
+Anonymiser
+Dictionnaire manuel, sans modèle. Les originaux et le codage sont conservés. Pour détecter les noms avec votre modèle local à l’import, utilisez la préparation des transcriptions ci-dessous.
+Anonymiser
+Préparation des transcriptions · modèle local
+Le texte original est transmis au serveur que vous configurez, par son nom DNS ou son adresse IP, sans restriction de réseau. Aucun proxy, redirection ou service de secours.
+URL du serveur local
+Jeton Bearer (facultatif)
+[placeholder] Sans authentification
+Collez le jeton, avec ou sans « Bearer ». Conservé uniquement pendant cette session ; à ressaisir après redémarrage. Vider le champ puis enregistrer retire le jeton.
+Modèle
+Tester et lister les modèles
+Contexte du modèle (tokens)
+Réglez la même valeur que dans le serveur. L’anonymisation envoie l’entretien entier s’il tient dans ce contexte estimé, avec une marge. Le nettoyage et la traduction tiennent aussi compte de la limite de sortie.
+Budget de sortie initial (tokens)
+32 768 par défaut, adapté au contexte disponible. En cas de troncature, Coding Studio réessaie avec un budget supérieur, sans appliquer de réponse partielle. La limite propre au serveur et son thinking peuvent aussi limiter la réponse.
+Thinking (API OpenAI compatible)
+Réglage du serveur / autre serveur compatible
+Désactivé (reasoning_effort: none)
+Activé (effort choisi ci-dessous)
+Effort de thinking
+minimal
+low
+medium
+high
+xhigh
+max
+Envoyé dans reasoning_effort via /chat/completions. Le serveur et le modèle doivent accepter le niveau choisi.
+Anonymiser les noms de personnes, y compris dans les locuteurs
+Nettoyer légèrement : orthographe, ponctuation et hésitations sans contenu
+Traduire vers (facultatif)
+[placeholder] Vide : garder la langue originale. Sinon : English, Français…
+Enregistrer ces réglages pour ce projet
+unmocked GET /api/local-preparation/config
 Import du codebook
 les codes sont ajoutés ou mis à jour, jamais supprimés
 Type d'import
@@ -393,8 +408,8 @@ Rédiger
 Étude
 Paramètres de l'étude
 Guide
-[title] 1 nom remplacé avant tout envoi à un modèle. Le texte libre n'est pas couvert. Les textes ne quittent jamais la machine sans un geste explicite.
-Pseudonymisation active
+[title] Masquage obligatoire. Relisez la copie de l’entretien puis le prompt complet pour autoriser sa copie ou son envoi IA.
+Anonymisation locale
 [aria-label] Réglages
 Réglages
 Ctrl+,
@@ -406,12 +421,33 @@ Vérifier la chaîne
 [title] Aide pour cet écran
 ?
 N°
+[aria-label] Trier N° A-Z
+[aria-label] Trier N° Z-A
+[aria-label] Filtrer N°
 Date
+[aria-label] Trier Date A-Z
+[aria-label] Trier Date Z-A
+[aria-label] Filtrer Date
 Auteur
+[aria-label] Trier Auteur A-Z
+[aria-label] Trier Auteur Z-A
+[aria-label] Filtrer Auteur
 Action
+[aria-label] Trier Action A-Z
+[aria-label] Trier Action Z-A
+[aria-label] Filtrer Action
 Entretien
+[aria-label] Trier Entretien A-Z
+[aria-label] Trier Entretien Z-A
+[aria-label] Filtrer Entretien
 Cible
+[aria-label] Trier Cible A-Z
+[aria-label] Trier Cible Z-A
+[aria-label] Filtrer Cible
 Empreinte
+[aria-label] Trier Empreinte A-Z
+[aria-label] Trier Empreinte Z-A
+[aria-label] Filtrer Empreinte
 
 == #/analyser ==
 [aria-label] Barre latérale
@@ -430,8 +466,8 @@ Rédiger
 Étude
 Paramètres de l'étude
 Guide
-[title] 1 nom remplacé avant tout envoi à un modèle. Le texte libre n'est pas couvert. Les textes ne quittent jamais la machine sans un geste explicite.
-Pseudonymisation active
+[title] Masquage obligatoire. Relisez la copie de l’entretien puis le prompt complet pour autoriser sa copie ou son envoi IA.
+Anonymisation locale
 [aria-label] Réglages
 Réglages
 Ctrl+,
@@ -481,8 +517,8 @@ Rédiger
 Étude
 Paramètres de l'étude
 Guide
-[title] 1 nom remplacé avant tout envoi à un modèle. Le texte libre n'est pas couvert. Les textes ne quittent jamais la machine sans un geste explicite.
-Pseudonymisation active
+[title] Masquage obligatoire. Relisez la copie de l’entretien puis le prompt complet pour autoriser sa copie ou son envoi IA.
+Anonymisation locale
 [aria-label] Réglages
 Réglages
 Ctrl+,
@@ -521,8 +557,8 @@ Rédiger
 Étude
 Paramètres de l'étude
 Guide
-[title] 1 nom remplacé avant tout envoi à un modèle. Le texte libre n'est pas couvert. Les textes ne quittent jamais la machine sans un geste explicite.
-Pseudonymisation active
+[title] Masquage obligatoire. Relisez la copie de l’entretien puis le prompt complet pour autoriser sa copie ou son envoi IA.
+Anonymisation locale
 [aria-label] Réglages
 Réglages
 Ctrl+,
@@ -539,6 +575,7 @@ Tous
 [aria-label] Rescanner le dossier
 [title] Rescanner le dossier
 Importer des transcriptions…
+Anonymiser / nettoyer / traduire…
 [aria-label] Exporter
 [title] Exporter
 [aria-label] Rechercher
@@ -573,8 +610,8 @@ Rédiger
 Étude
 Paramètres de l'étude
 Guide
-[title] 1 nom remplacé avant tout envoi à un modèle. Le texte libre n'est pas couvert. Les textes ne quittent jamais la machine sans un geste explicite.
-Pseudonymisation active
+[title] Masquage obligatoire. Relisez la copie de l’entretien puis le prompt complet pour autoriser sa copie ou son envoi IA.
+Anonymisation locale
 [aria-label] Réglages
 Réglages
 Ctrl+,
@@ -612,8 +649,8 @@ Rédiger
 Étude
 Paramètres de l'étude
 Guide
-[title] 1 nom remplacé avant tout envoi à un modèle. Le texte libre n'est pas couvert. Les textes ne quittent jamais la machine sans un geste explicite.
-Pseudonymisation active
+[title] Masquage obligatoire. Relisez la copie de l’entretien puis le prompt complet pour autoriser sa copie ou son envoi IA.
+Anonymisation locale
 [aria-label] Réglages
 Réglages
 Ctrl+,
@@ -734,8 +771,8 @@ Rédiger
 Étude
 Paramètres de l'étude
 Guide
-[title] 1 nom remplacé avant tout envoi à un modèle. Le texte libre n'est pas couvert. Les textes ne quittent jamais la machine sans un geste explicite.
-Pseudonymisation active
+[title] Masquage obligatoire. Relisez la copie de l’entretien puis le prompt complet pour autoriser sa copie ou son envoi IA.
+Anonymisation locale
 [aria-label] Réglages
 Réglages
 Ctrl+,
@@ -827,10 +864,17 @@ examples/library
 La fiche réunit ce que vous savez de l'entretien avant de le coder.
 Dans Coding Studio.
 Dans la Bibliothèque, un clic sur une ligne ouvre la Fiche à droite ; un double-clic, ou le bouton Coder de la fiche, ouvre l'écran Coder. La fiche contient trois blocs. Attributs : les champs que vous avez définis (les listes sont des menus), à remplir avant de coder car ils servent ensuite de filtres dans l'Analyser. Mémo de familiarisation : le choix du modèle de mémo, avec le décompte des questions ajoutées ou retirées pour cet entretien. Source : le fichier de transcription, le nombre de tours et la mention des tours de l'intervieweur, grisés et jamais codés (par exemple 84 tours dont 61 du répondant, 23 grisés).
-11. Régler la pseudonymisation
-La pseudonymisation protège les répondants et leurs organisations. Elle intervient dans vos transcriptions avant l'import, et dans ce qui part vers un modèle.
-Dans Coding Studio.
-Dans Réglages, bloc Fournisseurs IA, cochez Pseudonymiser les noms de personnes et d'organisations avant tout envoi, puis complétez la liste de remplacement (nom réel vers pseudonyme). Elle s'applique à chaque prompt généré. Elle complète la pseudonymisation de vos transcriptions sans la remplacer : une forme de nom que vous n'avez pas listée ne sera pas remplacée. Relisez un prompt avant de l'envoyer à un fournisseur hébergé. Aucune clé de fournisseur n'est stockée : elle se nomme par sa variable d'environnement.
+11. Anonymiser localement avant toute revue IA
+Dans
+Paramètres de l’étude → Anonymiser
+, choisissez un entretien. Comparez l’original local et la copie, tour par tour. Les noms connus du registre et les règles existantes sont repris. Ajoutez les personnes mentionnées et leurs différentes formes ; réutilisez le même label seulement si vous avez établi qu’il s’agit de la même personne. Examinez aussi les noms dans les locuteurs.
+Le repérage par majuscules propose des mots à examiner, sans IA. Il manque des noms et propose aussi des mots ordinaires.
+Le texte hors des remplacements est conservé : hésitations, répétitions, ponctuation, espaces et erreurs. Le plan de remplacement garde les positions source, y compris en Unicode.
+Une protection séparée masque les emails, numéros internationaux et URL ; ajoutez manuellement les autres coordonnées, adresses et détails identifiants. Les organisations restent telles quelles sauf règle de confidentialité explicite, notamment celles déjà définies dans le projet.
+Relisez toute la copie puis validez-la. Toute modification du texte ou des règles annule cette validation. L’outil ne certifie pas une anonymisation automatique complète.
+Exporter la copie anonymisée
+produit le texte segmenté, le JSON par unités et un manifeste. Les originaux et le codage restent intacts. La table des identités reste dans la base locale et n’est jamais jointe à cet export.
+Le prompt de référence amélioré est consultable dans ce même écran. Il est destiné à un environnement local de confiance : n’envoyez pas l’original ou la table à un service IA pour les anonymiser. Les sauvegardes complètes du projet contiennent toujours les données privées et ne sont pas des exports pour correcteurs.
 12. Exporter ou importer un modèle de projet
 Un modèle de projet réutilise vos choix pour une nouvelle étude, sans les données.
 Dans Coding Studio.
@@ -858,6 +902,113 @@ Un cadre d'interprétation choisi ou, le plus souvent, aucun.
 Les entretiens listés dans la Bibliothèque, découpés en unités, avec une fiche remplie.
 Une liste de pseudonymisation prête.
 Si vous le souhaitez, un modèle de projet JSON réutilisable.
+Ouvrir deux projets à la fois
+Dans
+Fichier → Ouvrir un projet dans une nouvelle fenêtre…
+, choisissez une autre base SQLite. Le premier projet reste ouvert. Chaque fenêtre utilise son propre serveur local, sa base, ses réglages d’étude et son dossier d’entretiens. Le menu
+Fenêtre
+permet de les retrouver ; le titre indique le chemin de la base. Ouvrir une base déjà affichée ramène à sa fenêtre au lieu d’ouvrir une seconde connexion. Les actions de menu concernent la fenêtre active.
+Préparer un entretien à l’import avec une IA locale
+Dans
+Paramètres de l’étude → Préparation des transcriptions
+, indiquez l’URL locale et le modèle.
+Tester et lister les modèles
+ne transmet aucune transcription. Exemple :
+http://127.0.0.1:1234
+pour LM Studio (le suffixe
+/v1
+est ajouté si nécessaire).
+Activez les opérations voulues :
+anonymiser
+,
+nettoyer légèrement
+,
+traduire vers
+une langue de votre choix. Laissez la langue vide pour conserver celle du fichier. L’anonymisation est distincte du nettoyage : sa copie fidèle conserve les hésitations et erreurs.
+Dans
+Importer des transcriptions
+, cochez la préparation locale puis choisissez les entretiens. Seuls les nouveaux sont présélectionnés ; les entretiens déjà codés, surlignés ou envoyés en revue IA reçoivent une copie de consultation, sans remplacer leur texte codé.
+Lancez la préparation. Le texte original part uniquement vers l’adresse locale ou l’IP privée explicitement choisie. Utilisez un serveur de confiance dont vous maîtrisez le fonctionnement : Coding Studio ne peut pas vérifier si ce serveur relaie lui-même les requêtes. L’application ne suit aucune redirection, n’utilise aucun proxy et ne bascule pas vers un service hébergé. L’avancement montre les groupes de tours ;
+Arrêter
+empêche l’envoi des groupes suivants (la requête en cours peut finir).
+Comparez tous les tours et les correspondances d’identités. Choisissez la
+copie fidèle
+ou la
+version nettoyée / traduite
+. Les tours, locuteurs, repères de temps et identifiants restent structurés. Les changements de nombres ou de labels, les tours supprimés et les réponses tronquées sont refusés. Ces contrôles ne garantissent pas la fidélité sémantique : vérifiez négations, conditions, incertitudes, répétitions significatives et termes techniques.
+Validez explicitement la version choisie pour le codage, ou rejetez-la. Avant validation, seule une proposition privée est enregistrée ; les sources et le codage ne changent pas. La source originale, l’ancienne segmentation et les corrections antérieures restent conservées après validation. Une proposition non validée peut être reprise à la réouverture du parcours. La revue IA de phase 2 conserve ses propres contrôles de confidentialité et de prompt.
+Une transcription nettoyée ou traduite est une version dérivée, même après relecture. Les exports indiquent le modèle local, les opérations demandées et la version choisie ; ne présentez pas une traduction comme un verbatim dans la langue originale.
+Contexte et thinking du modèle local.
+Indiquez la fenêtre effectivement chargée dans votre serveur (par exemple 131072 tokens). L’anonymisation privilégie l’entretien entier : seuls les noms sont retournés, puis les remplacements sont appliqués localement. Le découpage intervient si le budget estimé dépasse ce contexte ; une marge couvre les instructions, le dictionnaire et la réponse. Pour le nettoyage et la traduction, la réponse doit répéter le texte : leur découpage dépend aussi de la limite de sortie, indépendamment de la grande fenêtre d’entrée. Le compteur porte sur ces requêtes, plus sur des groupes fixes de six tours. Avec une API compatible OpenAI, Thinking peut être désactivé (
+reasoning_effort: none
+) ou activé avec un effort choisi (
+minimal
+,
+low
+,
+medium
+,
+high
+,
+xhigh
+,
+max
+). Le choix « réglage du serveur » ne force aucun effort. Le serveur et le modèle doivent accepter les réglages choisis. Désactiver le thinking ne garantit pas l’exhaustivité de la détection : relisez toujours les noms et les rapprochements d’identités.
+Préparer depuis la bibliothèque, importer les intervenants et partager les originaux
+Dans
+Bibliothèque → Anonymiser / nettoyer / traduire…
+, choisissez les opérations puis un ou plusieurs entretiens. Pour un entretien déjà codé, la validation conserve une copie de consultation : ses passages, codes et ancrages restent attachés au texte de référence. Le lecteur d’export distingue les versions.
+Dans
+Personnes → Importer
+, choisissez un
+Excel .xlsx/.xlsm ou un CSV
+. Pour Excel, choisissez la feuille et associez ses colonnes aux champs ; les colonnes Prénom et Nom peuvent être réunies. Les formules ne sont pas recalculées, les macros et liens externes ne sont pas exécutés. Préférez une copie du fichier limitée aux données utiles.
+La colonne
+Entretiens liés
+peut contenir un identifiant d’entretien existant (ex.
+ECO-42
+), plusieurs séparés par
+;
+, ou
+INT-01:interviewer
+pour préciser le rôle. Cliquez
+Vérifier
+puis
+Appliquer
+: l’import du registre et des liens se fait en une transaction. Un identifiant d’entretien inconnu doit être corrigé ; il n’est pas deviné. Les liens sont aussi modifiables dans
+Bibliothèque → fiche de l’entretien → Personnes
+.
+Dans
+Export correcteurs
+, choisissez
+Copie anonymisée
+ou
+Copie identifiée · accès par mot de passe
+. Cette dernière peut inclure les noms des intervenants, leurs liens et les transcriptions originales, sélectionnés dans l’arbre. Les copies originales conservées et les versions préparées sont des catégories distinctes. Vérifiez chaque champ utile avant de générer.
+Les deux versions sont chiffrées et exigent un mot de passe d’au moins 16 caractères. Transmettez ce mot de passe séparément du lien ou du QR. La base privée, les secrets et la table des correspondances ne sont pas ajoutés automatiquement. L’outil prépare le dossier local ; l’hébergement et les droits des destinataires restent à organiser.
+Faire relire son entretien à l’intervenant
+Dans l’entretien, utilisez
+Export pour l’intervenant…
+. Le Word reprend la transcription originale puis la traduction si elle a été acceptée. Choisissez d’ajouter les codes et passages, les thèmes liés et les commentaires de cet entretien. Les extraits codés sont présentés dans une section distincte : leur texte de référence peut avoir été corrigé. Le document invite l’intervenant à préciser les corrections par identifiant de tour et distingue fidélité des propos, traduction et interprétation du chercheur. Relisez-le avant transmission ; rien n’est envoyé automatiquement, aucun autre entretien n’est ajouté et la génération ne vaut pas validation. Enregistrez ensuite les retours et leurs décisions dans le projet, en conservant les versions et en examinant les passages affectés.
+Validation par étapes
+Validez d’abord l’anonymisation : chaque différence peut être acceptée ou refusée. Signalez un passage oublié ou incorrect dans son champ de consigne, puis relancez la proposition et vérifiez les nouvelles différences. Une correction manuelle reste possible.
+Après validation de l’anonymisation, lancez le nettoyage et la traduction ensemble si souhaité. Décidez à nouveau chaque différence, corrigez ou relancez les passages concernés, puis validez cette étape.
+Les validations intermédiaires conservent un brouillon privé. La version finale n’est appliquée qu’après validation de toutes les étapes demandées. Les entretiens déjà codés conservent leurs passages et leur codage ; la version préparée sert de copie de lecture et d’export.
+Préparation d’un lot.
+Depuis la bibliothèque, utilisez « Anonymiser / nettoyer / traduire… », puis sélectionnez les entretiens (ou « Tout sélectionner »). Le logiciel prépare toutes les anonymisations avant d’ouvrir la revue des résultats. Choisissez ensuite un entretien dans les onglets : vos décisions restent conservées lorsque vous passez à un autre résultat. Aucun résultat n’est validé automatiquement. Si un entretien échoue, les autres continuent ; « Reprendre les entretiens non traités » ne relance que les résultats manquants. Le nettoyage et la traduction d’un entretien restent conditionnés à la validation de son anonymisation.
+Serveur protégé.
+Dans les réglages du modèle local, renseignez l’URL et le champ « Jeton Bearer ». Le préfixe « Bearer » est facultatif. Le jeton sert aux propositions et à la liste des modèles. Il reste uniquement en mémoire pour cette session et doit être ressaisi après redémarrage ; il ne figure pas dans la base ni dans les exports.
+Le serveur peut être désigné par son nom DNS, par exemple
+https://ia.cluster.example.org/v1
+, avec son jeton Bearer. Les noms DNS et toutes les adresses IP sont acceptés, sans restriction au réseau privé.
+Préparation par prompt et réponse collée
+Dans « Anonymiser / nettoyer / traduire… », choisissez « Prompt à copier et réponse à coller » (mode proposé par défaut), puis les opérations et les entretiens.
+Cliquez sur « Générer les prompts ». Chaque prompt contient l’entretien complet. Copiez-le dans votre outil IA, puis collez sa réponse JSON dans le champ de l’entretien correspondant. Coding Studio n’appelle aucun modèle dans ce mode.
+Cliquez sur « Afficher tous les résultats ». Vérifiez les différences et validez l’anonymisation. Une réponse invalide peut être corrigée puis recollée.
+Pour le nettoyage et la traduction, générez ensuite le prompt correspondant, collez la réponse et vérifiez les différences avant validation. Pour signaler un oubli, utilisez les indications par segment puis régénérez le prompt.
+Les prompts et réponses sont conservés dans les données privées de préparation. Le fichier original et le codage restent inchangés jusqu’à la validation finale.
+Réponses longues en connexion directe.
+Le budget de sortie initial est réglable (32768 tokens par défaut). Il est adapté au contexte disponible, indépendamment du nombre de tours. En cas de troncature signalée par le serveur, Coding Studio réessaie jusqu’à deux fois avec un budget supérieur, sans dépasser le contexte estimé. Une réponse toujours tronquée est refusée avec un message invitant à ajuster le serveur ou son thinking ; aucun extrait partiel n’est appliqué.
 [aria-label] Sur cette page
 Sur cette page
 Pourquoi cette étape
@@ -885,8 +1036,8 @@ Rédiger
 Étude
 Paramètres de l'étude
 Guide
-[title] 1 nom remplacé avant tout envoi à un modèle. Le texte libre n'est pas couvert. Les textes ne quittent jamais la machine sans un geste explicite.
-Pseudonymisation active
+[title] Masquage obligatoire. Relisez la copie de l’entretien puis le prompt complet pour autoriser sa copie ou son envoi IA.
+Anonymisation locale
 [aria-label] Réglages
 Réglages
 Ctrl+,
@@ -919,8 +1070,8 @@ Rédiger
 Étude
 Paramètres de l'étude
 Guide
-[title] 1 nom remplacé avant tout envoi à un modèle. Le texte libre n'est pas couvert. Les textes ne quittent jamais la machine sans un geste explicite.
-Pseudonymisation active
+[title] Masquage obligatoire. Relisez la copie de l’entretien puis le prompt complet pour autoriser sa copie ou son envoi IA.
+Anonymisation locale
 [aria-label] Réglages
 Réglages
 Ctrl+,
@@ -950,8 +1101,8 @@ Rédiger
 Étude
 Paramètres de l'étude
 Guide
-[title] 1 nom remplacé avant tout envoi à un modèle. Le texte libre n'est pas couvert. Les textes ne quittent jamais la machine sans un geste explicite.
-Pseudonymisation active
+[title] Masquage obligatoire. Relisez la copie de l’entretien puis le prompt complet pour autoriser sa copie ou son envoi IA.
+Anonymisation locale
 [aria-label] Réglages
 Réglages
 Ctrl+,
@@ -1004,8 +1155,8 @@ Rédiger
 Étude
 Paramètres de l'étude
 Guide
-[title] 1 nom remplacé avant tout envoi à un modèle. Le texte libre n'est pas couvert. Les textes ne quittent jamais la machine sans un geste explicite.
-Pseudonymisation active
+[title] Masquage obligatoire. Relisez la copie de l’entretien puis le prompt complet pour autoriser sa copie ou son envoi IA.
+Anonymisation locale
 [aria-label] Réglages
 Réglages
 Ctrl+,
@@ -1046,8 +1197,8 @@ Rédiger
 Étude
 Paramètres de l'étude
 Guide
-[title] 1 nom remplacé avant tout envoi à un modèle. Le texte libre n'est pas couvert. Les textes ne quittent jamais la machine sans un geste explicite.
-Pseudonymisation active
+[title] Masquage obligatoire. Relisez la copie de l’entretien puis le prompt complet pour autoriser sa copie ou son envoi IA.
+Anonymisation locale
 [aria-label] Réglages
 Réglages
 Ctrl+,
@@ -1088,8 +1239,8 @@ Rédiger
 Étude
 Paramètres de l'étude
 Guide
-[title] 1 nom remplacé avant tout envoi à un modèle. Le texte libre n'est pas couvert. Les textes ne quittent jamais la machine sans un geste explicite.
-Pseudonymisation active
+[title] Masquage obligatoire. Relisez la copie de l’entretien puis le prompt complet pour autoriser sa copie ou son envoi IA.
+Anonymisation locale
 [aria-label] Réglages
 Réglages
 Ctrl+,
@@ -1129,8 +1280,8 @@ Rédiger
 Étude
 Paramètres de l'étude
 Guide
-[title] 1 nom remplacé avant tout envoi à un modèle. Le texte libre n'est pas couvert. Les textes ne quittent jamais la machine sans un geste explicite.
-Pseudonymisation active
+[title] Masquage obligatoire. Relisez la copie de l’entretien puis le prompt complet pour autoriser sa copie ou son envoi IA.
+Anonymisation locale
 [aria-label] Réglages
 Réglages
 Ctrl+,
@@ -1163,8 +1314,8 @@ Rédiger
 Étude
 Paramètres de l'étude
 Guide
-[title] 1 nom remplacé avant tout envoi à un modèle. Le texte libre n'est pas couvert. Les textes ne quittent jamais la machine sans un geste explicite.
-Pseudonymisation active
+[title] Masquage obligatoire. Relisez la copie de l’entretien puis le prompt complet pour autoriser sa copie ou son envoi IA.
+Anonymisation locale
 [aria-label] Réglages
 Réglages
 Ctrl+,
@@ -1197,8 +1348,8 @@ Rédiger
 Étude
 Paramètres de l'étude
 Guide
-[title] 1 nom remplacé avant tout envoi à un modèle. Le texte libre n'est pas couvert. Les textes ne quittent jamais la machine sans un geste explicite.
-Pseudonymisation active
+[title] Masquage obligatoire. Relisez la copie de l’entretien puis le prompt complet pour autoriser sa copie ou son envoi IA.
+Anonymisation locale
 [aria-label] Réglages
 Réglages
 Ctrl+,

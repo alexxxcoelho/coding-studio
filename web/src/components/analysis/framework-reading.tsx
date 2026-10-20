@@ -1,3 +1,4 @@
+import {TableRow} from '@/components/ui/table'
 // Reading of the themes by the interpretive framework of the study, if it has
 // one. It appears in Analyser (a selector on the theme sheet) and in Rédiger (a
 // table) and nowhere else: never in the coding screens nor in the codebook.
@@ -51,7 +52,7 @@ export function FrameworkRow({ themeId, title, framework }: { themeId: string; t
   const { reading, patch } = useFrameworkEditor(themeId)
   const save = <K extends keyof Body>(key: K) => (v: Body[K]) => patch((r) => ({ ...r, [key]: v }))
   return (
-    <tr className="align-top">
+    <TableRow className="align-top">
       <th scope="row" className="min-w-48 border-b px-3 py-2 text-left text-sm font-medium">
         {title}
       </th>
@@ -91,6 +92,6 @@ export function FrameworkRow({ themeId, title, framework }: { themeId: string; t
       <td className="min-w-44 border-b px-3 py-2">
         <AutoInput label={t("analysis.framework_reading.title_limite_de_preuve", { title })} hideLabel placeholder={t("common.limite_de_preuve")} value={reading.evidence_limit} onSave={save("evidence_limit")} />
       </td>
-    </tr>
+    </TableRow>
   )
 }

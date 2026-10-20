@@ -2283,5 +2283,19 @@
   "preparation.output_tokens": "Budget de sortie initial (tokens)",
   "preparation.output_help": "32 768 par défaut, adapté au contexte disponible. En cas de troncature, Coding Studio réessaie avec un budget supérieur, sans appliquer de réponse partielle. La limite propre au serveur et son thinking peuvent aussi limiter la réponse.",
   "preparation.effort": "Effort de thinking",
-  "preparation.effort_help": "Envoyé dans reasoning_effort via /chat/completions. Le serveur et le modèle doivent accepter le niveau choisi."
+  "preparation.effort_help": "Envoyé dans reasoning_effort via /chat/completions. Le serveur et le modèle doivent accepter le niveau choisi.",
+  "table.column": "Colonne {n}",
+  "table.asc": "Trier {column} A-Z",
+  "table.desc": "Trier {column} Z-A",
+  "table.filter": "Filtrer {column}",
+  "table.filter_input": "Filtre de colonne : {column}",
+  "table.contains": "Contient…",
+  "table.filter_help": "Texte ; =valeur exacte ; >=5 ou <10 pour les nombres ; ∅ vide, !∅ non vide. Les filtres se combinent.",
+  "table.clear": "Effacer ce filtre",
+  "table.reset": "Réinitialiser tri et filtres",
+  "table.empty": "Aucune ligne ne correspond aux filtres.",
+  "table.code_root": "Déposer ici pour déplacer à la racine",
+  "table.drag_code": "Glisser sur un code pour en faire un enfant",
+  "table.revision": "Version",
+  "table.reason": "Motif"
 }

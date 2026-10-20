@@ -1,3 +1,4 @@
+import {Table, TableHeader, TableBody, TableRow} from '@/components/ui/table'
 // The matrix of Analyser: rows and columns chosen among the lists of the study,
 // an attribute filter, saved views, cells that show a closed value, the passage
 // count and a one-line summary, and the panel of the selected cell.
@@ -297,20 +298,20 @@ export function MatrixTab({ project }: { project: ProjectConfig | undefined }) {
       )}
       {m && m.rows.length > 0 && m.cols.length > 0 && (
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[540px] border-separate border-spacing-1.5" aria-label={t("common.matrice")}>
-            <thead>
-              <tr>
+          <Table className="w-full min-w-[540px] border-separate border-spacing-1.5" aria-label={t("common.matrice")}>
+            <TableHeader>
+              <TableRow>
                 <th />
                 {m.cols.map((c) => (
                   <th key={c.key} scope="col" className="text-muted-foreground px-1.5 pb-0.5 text-left text-[11.5px] font-medium">
                     {c.label}
                   </th>
                 ))}
-              </tr>
-            </thead>
-            <tbody>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {m.rows.map((r) => (
-                <tr key={r.key}>
+                <TableRow key={r.key}>
                   <th scope="row" className={cn("mono w-[90px] px-1.5 text-left font-semibold whitespace-nowrap", !r.coded && "text-muted-foreground")}>
                     {r.label}
                   </th>
@@ -332,10 +333,10 @@ export function MatrixTab({ project }: { project: ProjectConfig | undefined }) {
                       <div className="text-muted-foreground flex min-h-10 items-center justify-center rounded-lg text-xs shadow-[inset_0_0_0_.5px_var(--sep)]">{t("analysis.matrix_view.pas_encore_code_exclu_de")}</div>
                     </td>
                   )}
-                </tr>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </div>
       )}
       <p className="text-muted-foreground text-[11.5px]">

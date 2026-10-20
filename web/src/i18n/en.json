@@ -2283,5 +2283,19 @@
   "preparation.output_tokens": "Initial output budget (tokens)",
   "preparation.output_help": "32,768 by default, fitted to available context. If truncated, Coding Studio retries with a larger budget without applying partial responses. Server limits and thinking may also limit the response.",
   "preparation.effort": "Thinking effort",
-  "preparation.effort_help": "Sent as reasoning_effort via /chat/completions. The server and model must support the selected level."
+  "preparation.effort_help": "Sent as reasoning_effort via /chat/completions. The server and model must support the selected level.",
+  "table.column": "Column {n}",
+  "table.asc": "Sort {column} A-Z",
+  "table.desc": "Sort {column} Z-A",
+  "table.filter": "Filter {column}",
+  "table.filter_input": "Column filter: {column}",
+  "table.contains": "Contains…",
+  "table.filter_help": "Text; =exact value; >=5 or <10 for numbers; ∅ empty, !∅ nonempty. Filters combine.",
+  "table.clear": "Clear this filter",
+  "table.reset": "Reset sorting and filters",
+  "table.empty": "No rows match the filters.",
+  "table.code_root": "Drop here to move to the root",
+  "table.drag_code": "Drag onto a code to make it a child",
+  "table.revision": "Version",
+  "table.reason": "Reason"
 }

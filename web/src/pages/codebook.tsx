@@ -1,3 +1,4 @@
+import {Table, TableHeader, TableBody, TableRow} from '@/components/ui/table'
 // Codebook (design/macos/Codebook.dc.html): the tree of codes with counts
 // (roll-up to the parent), and the inspector of the selected code. A code is
 // moved by dragging it onto its future parent or with "Parent"; renaming,
@@ -66,7 +67,8 @@ export function CodebookPage() {
   const [worklist, setWorklist] = useState<number | null>(null)
 
   const codes = useMemo(() => codesQ.data?.codes ?? [], [codesQ.data])
-  const found = useCodeSearchRows(codes, search, { layout: "tree", collapsed })
+  const [columnFiltering,setColumnFiltering]=useState(false)
+  const found = useCodeSearchRows(codes, search, { layout: "tree", collapsed:columnFiltering?new Set<string>():collapsed })
   const rows = found.rows
   const selected = codes.find((c) => c.code_id === selectedId) ?? null
   const nActive = codes.filter((c) => c.active && !c.system && !c.merged_into).length
@@ -75,20 +77,19 @@ export function CodebookPage() {
 
   const move = useMutation({
     mutationFn: (v: { id: string; parent: string | null }) => api.moveCode(v.id, v.parent, "Déplacé dans l'arbre"),
-    onSuccess: () => refresh(),
+    onSuccess: async (_,v) => {setCollapsed(old=>new Set([...old].filter(id=>id!==v.parent)));await refresh();setSelectedId(v.id)},
     onError: (e) => reportError(e, t("codebook.deplacement_refuse")),
   })
 
-  const drop = (target: CodeNode) => {
-    const id = dragId
-    setDragId(null)
-    setDropId(null)
-    if (!id || id === target.code_id) return
-    if (wouldCycle(codes, id, target.code_id)) {
-      toast.error(t("codebook.un_code_ne_peut_pas"))
-      return
-    }
-    move.mutate({ id, parent: target.code_id })
+  const canDrop=(id:string|null,parent:string|null)=>{
+    const source=codes.find(c=>c.code_id===id),target=parent?codes.find(c=>c.code_id===parent):null
+    return !!source&&!source.system&&!source.merged_into&&!move.isPending&&source.parent_id!==parent&&(!parent||(!!target&&!target.system&&!target.merged_into))&&!wouldCycle(codes,source.code_id,parent)
+  }
+  const drop=(e:React.DragEvent,parent:string|null)=>{
+    e.preventDefault();const id=e.dataTransfer.getData('application/x-coding-studio-code')||dragId
+    setDragId(null);setDropId(null)
+    if(id&&wouldCycle(codes,id,parent)){toast.error(t("codebook.un_code_ne_peut_pas"));return}
+    if(id&&canDrop(id,parent))move.mutate({id,parent})
   }
 
   const toggle = (id: string) =>
@@ -134,44 +135,49 @@ export function CodebookPage() {
             </EmptyState>
           ) : (
             <>
-              <table className="tbl ol">
-                <thead>
-                  <tr>
+              <div role="region" aria-label={t('table.code_root')} className={cn('rounded border border-dashed border-sep px-3 py-2 text-xs text-label2 mb-2',dropId==='__root__'&&'bg-fill text-accent')} onDragOver={e=>{if(canDrop(dragId,null)){e.preventDefault();e.dataTransfer.dropEffect='move';setDropId('__root__')}}} onDragLeave={()=>setDropId(null)} onDrop={e=>drop(e,null)}>{t('table.code_root')}</div>
+              <Table className="tbl ol" onFiltersActiveChange={setColumnFiltering}>
+                <TableHeader>
+                  <TableRow>
                     <th>{t("common.code")}</th>
                     <th>{t("common.origine")}</th>
                     <th>{t("codebook.questions")}</th>
                     <th>{t("codebook.passages")}</th>
-                  </tr>
-                </thead>
-                <tbody>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
                   {rows.map(({ node: c, depth, hasChildren }) => {
                     const on = c.code_id === selectedId
                     const open = !collapsed.has(c.code_id)
                     return (
-                      <tr
+                      <TableRow
                         key={c.code_id}
+                        data-tree-id={c.code_id}
+                        data-tree-parent={c.parent_id??undefined}
+                        data-table-fixed={c.system?"bottom":undefined}
                         className={cn("row-click", on && "sel", dropId === c.code_id && "drop", depth > 0 && "child")}
                         data-state={on ? "selected" : undefined}
                         aria-selected={on}
                         draggable={!c.system}
-                        onDragStart={() => setDragId(c.code_id)}
+                        onDragStart={e=>{if(c.system||move.isPending){e.preventDefault();return}e.dataTransfer.setData('application/x-coding-studio-code',c.code_id);e.dataTransfer.setData('text/plain',c.code_id);e.dataTransfer.effectAllowed='move';setDragId(c.code_id)}}
                         onDragEnd={() => {
                           setDragId(null)
                           setDropId(null)
                         }}
                         onDragOver={(e) => {
-                          if (dragId && dragId !== c.code_id) {
+                          if (canDrop(dragId,c.code_id)) {
                             e.preventDefault()
+                            e.dataTransfer.dropEffect="move"
                             setDropId(c.code_id)
                           }
                         }}
                         onDrop={(e) => {
                           e.preventDefault()
-                          drop(c)
+                          drop(e,c.code_id)
                         }}
                         onClick={() => setSelectedId(c.code_id)}
                       >
-                        <td>
+                        <td data-sort-value={c.name}>
                           <span className="nm" style={{ paddingLeft: depth * 18, opacity: c.active ? 1 : 0.5 }}>
                             <button
                               type="button"
@@ -191,6 +197,7 @@ export function CodebookPage() {
                                 </svg>
                               )}
                             </button>
+                            {!c.system&&<span aria-hidden="true" title={t("table.drag_code")} className="cursor-grab text-label3 mr-1">⠿</span>}
                             <span className="sw" style={{ ["--k" as string]: codeColor(c.code_id) }} />
                             <span style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
                               <span>
@@ -211,7 +218,7 @@ export function CodebookPage() {
                             ))}
                           </span>
                         </td>
-                        <td>
+                        <td data-sort-value={c.counts.passages_rollup}>
                           {c.system ? (
                             <span className="l2">{t("codebook.passages_rollup_a_revoir", { passages_rollup: c.counts.passages_rollup })}</span>
                           ) : (
@@ -224,11 +231,11 @@ export function CodebookPage() {
                             </span>
                           )}
                         </td>
-                      </tr>
+                      </TableRow>
                     )
                   })}
-                </tbody>
-              </table>
+                </TableBody>
+              </Table>
               {rows.length === 0 && <p className="small l2">{t("codebook.aucun_code_ne_correspond_a", { search })}</p>}
               <p className="small l2" style={{ margin: "2px 10px" }}>
                 {t("codebook.glisser_un_code_sur_un")}
@@ -613,18 +620,18 @@ function HistoryDialog({ open, onClose }: { open: boolean; onClose: () => void }
         </DialogHeader>
         <div style={{ maxHeight: 360, overflow: "auto" }}>
           {revisions.length === 0 && !q.isLoading && <p className="small l2">{t("codebook.aucun_changement_enregistre")}</p>}
-          <table className="tbl">
-            <tbody>
+          <Table className="tbl"><TableHeader><TableRow><th>{t('table.revision')}</th><th>{t('audit_table.date')}</th><th>{t('audit_table.cible')}</th><th>{t('table.reason')}</th></TableRow></TableHeader>
+            <TableBody>
               {revisions.map((r) => (
-                <tr key={r.rev}>
+                <TableRow key={r.rev}>
                   <td className="mono">v{r.rev}</td>
                   <td className="l2">{r.ts.slice(0, 16).replace("T", " ")}</td>
                   <td>{r.target}</td>
                   <td>{r.reason}</td>
-                </tr>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </div>
       </DialogContent>
     </Dialog>

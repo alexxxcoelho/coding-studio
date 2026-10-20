@@ -1,3 +1,4 @@
+import {Table, TableHeader, TableBody, TableRow} from '@/components/ui/table'
 // Term frequency per value of an interview attribute: a small table, never a
 // word cloud. With words, their occurrences per 1000 words in each group of
 // interviews; without, the most frequent words of each group.
@@ -82,9 +83,9 @@ export function TermFrequency() {
 
       {table && res.data?.mode === "terms" && (
         <>
-          <table className="tbl" aria-label={t("lexicon.term_frequency.frequence_des_mots_par_valeur")}>
-            <thead>
-              <tr>
+          <Table className="tbl" aria-label={t("lexicon.term_frequency.frequence_des_mots_par_valeur")}>
+            <TableHeader>
+              <TableRow>
                 <th>{attributes.find((a) => a.id === res.data!.attribute)?.label ?? res.data.attribute}</th>
                 <th style={{ textAlign: "right" }}>{t("common.entretiens")}</th>
                 <th style={{ textAlign: "right" }}>{t("lexicon.term_frequency.mots")}</th>
@@ -93,11 +94,11 @@ export function TermFrequency() {
                     {t}
                   </th>
                 ))}
-              </tr>
-            </thead>
-            <tbody>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {table.rows.map((r) => (
-                <tr key={r.label}>
+                <TableRow key={r.label}>
                   <td>{r.label}</td>
                   <td style={{ textAlign: "right" }}>{r.n_interviews}</td>
                   <td style={{ textAlign: "right" }}>{num(r.n_words)}</td>
@@ -112,10 +113,10 @@ export function TermFrequency() {
                       )}
                     </td>
                   ))}
-                </tr>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
           <p className="small l2" style={{ margin: 0 }}>
             {res.data.note || t("lexicon.term_frequency.occurrences_et_occurrences_pour_1000")}
           </p>
@@ -123,16 +124,16 @@ export function TermFrequency() {
       )}
 
       {res.data?.mode === "top_terms" && (
-        <table className="tbl" aria-label={t("lexicon.term_frequency.mots_les_plus_frequents_par")}>
-          <thead>
-            <tr>
+        <Table className="tbl" aria-label={t("lexicon.term_frequency.mots_les_plus_frequents_par")}>
+          <TableHeader>
+            <TableRow>
               <th>{attributes.find((a) => a.id === res.data!.attribute)?.label ?? res.data.attribute}</th>
               <th>{t("lexicon.term_frequency.mots_les_plus_frequents")}</th>
-            </tr>
-          </thead>
-          <tbody>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {res.data.values.map((v) => (
-              <tr key={v.value ?? ""}>
+              <TableRow key={v.value ?? ""}>
                 <td>{valueLabel(v.value)}</td>
                 <td>
                   {v.terms.length === 0 ? (
@@ -146,10 +147,10 @@ export function TermFrequency() {
                     ))
                   )}
                 </td>
-              </tr>
+              </TableRow>
             ))}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       )}
     </div>
   )

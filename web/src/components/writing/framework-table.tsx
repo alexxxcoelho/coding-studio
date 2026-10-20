@@ -1,3 +1,4 @@
+import {Table, TableHeader, TableBody, TableRow} from '@/components/ui/table'
 // Lecture par le cadre: retained themes against the dimensions of the framework
 // of the study. What the framework explains, what it does not, what stays
 // outside it, a complementary dimension and the limit of the evidence. The tab
@@ -19,9 +20,9 @@ export function FrameworkTableTab({ themes, framework }: { themes: ThemeSummary[
         {t("writing.framework_table.pour_chaque_theme_retenu_ce")}
       </p>
       <div className="overflow-x-auto">
-        <table className="w-full border-collapse text-sm" aria-label={t("common.lecture_par_le_cadre")}>
-          <thead>
-            <tr>
+        <Table className="w-full border-collapse text-sm" aria-label={t("common.lecture_par_le_cadre")}>
+          <TableHeader>
+            <TableRow>
               <th scope="col" className="border-b px-3 py-2 text-left text-xs font-semibold">
                 {t("common.theme")}
               </th>
@@ -39,14 +40,14 @@ export function FrameworkTableTab({ themes, framework }: { themes: ThemeSummary[
               <th scope="col" className="border-b px-3 py-2 text-left text-xs font-semibold">
                 {t("common.limite_de_preuve")}
               </th>
-            </tr>
-          </thead>
-          <tbody>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {themes.map((t) => (
               <FrameworkRow key={t.theme_id} themeId={t.theme_id} title={t.title} framework={framework} />
             ))}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       </div>
     </div>
   )

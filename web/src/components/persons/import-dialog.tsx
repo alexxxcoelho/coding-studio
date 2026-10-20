@@ -1,3 +1,4 @@
+import {Table, TableHeader, TableBody, TableRow} from '@/components/ui/table'
 import {TableMapping} from "./table-mapping"
 import type {WorkbookPreview} from "@/lib/persons-table"
 import {request} from "@/lib/api"
@@ -135,46 +136,46 @@ function Report({ r }: { r: ImportReport }) {
         </p>
       )}
       {r.problems.length > 0 && (
-        <table className="tbl" aria-label={t("persons.report_problems")}>
-          <thead>
-            <tr>
+        <Table className="tbl" aria-label={t("persons.report_problems")}>
+          <TableHeader>
+            <TableRow>
               <th style={{ width: 70 }}>{t("persons.report_row")}</th>
               <th>{t("persons.report_problem")}</th>
-            </tr>
-          </thead>
-          <tbody>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {r.problems.map((p, i) => (
-              <tr key={i}>
+              <TableRow key={i}>
                 <td>{p.row === 0 ? t("persons.report_file") : p.row === 1 ? t("persons.report_header") : p.row}</td>
                 <td>{plainImportMessage(p.message)}</td>
-              </tr>
+              </TableRow>
             ))}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       )}
       {r.warnings.length > 0 && <Alerts messages={r.warnings.map(plainImportMessage)} />}
       {r.problems.length === 0 && r.rows.length > 0 && (
         <div style={{ maxHeight: 180, overflow: "auto" }}>
-          <table className="tbl" aria-label={t("persons.report_rows")}>
-            <thead>
-              <tr>
+          <Table className="tbl" aria-label={t("persons.report_rows")}>
+            <TableHeader>
+              <TableRow>
                 <th style={{ width: 70 }}>{t("persons.report_row")}</th>
                 <th>{t("common.nom")}</th>
                 <th>{t("persons.report_action")}</th>
-              </tr>
-            </thead>
-            <tbody>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {r.rows.map((row) => (
-                <tr key={row.row}>
+                <TableRow key={row.row}>
                   <td>{row.row}</td>
                   <td>
                     {row.name} <span className="small l2 mono">{row.person_id}</span>
                   </td>
                   <td>{row.action === "create" ? t("persons.action_create") : row.action === "update" ? t("persons.action_update") : t("persons.action_unchanged")}</td>
-                </tr>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </div>
       )}
     </div>

@@ -1,3 +1,4 @@
+import {Table, TableHeader, TableBody, TableRow} from '@/components/ui/table'
 // Keyword table across the highlights: one row per stem group, with its
 // frequency in the highlights against the corpus, its keyness score and the
 // interviews concerned. Terms can be selected to create a code from them.
@@ -69,9 +70,9 @@ export function KeywordTable({ filter, compact = false }: { filter?: LexFilter; 
   const headers = compact ? HEADERS.filter((h) => h.key !== "share" && h.key !== "keyness") : HEADERS
   return (
     <div className="flex flex-col gap-2" data-testid="keyword-table">
-      <table className="kw tbl" style={{ fontSize: compact ? 12.5 : undefined }}>
-        <thead>
-          <tr>
+      <Table className="kw tbl" style={{ fontSize: compact ? 12.5 : undefined }}>
+        <TableHeader>
+          <TableRow>
             <th style={{ width: 22 }}>
               <input type="checkbox" checked={allOn} onChange={() => setSelected(toggleAll(selected, rows))} aria-label={t("lexicon.keyword_table.tout_selectionner")} style={{ accentColor: "var(--accent-fill)" }} />
             </th>
@@ -84,14 +85,14 @@ export function KeywordTable({ filter, compact = false }: { filter?: LexFilter; 
               </th>
             ))}
             <th>{t("lexicon.keyword_table.lesquels")}</th>
-          </tr>
-        </thead>
-        <tbody>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
           {rows.map((r) => (
             <KeywordRowView key={r.stem} row={r} checked={selected.has(r.stem)} compact={compact} onToggle={() => setSelected(toggleStem(selected, r.stem))} />
           ))}
-        </tbody>
-      </table>
+        </TableBody>
+      </Table>
       <p className="small l2" style={{ margin: 0 }}>
         {t("lexicon.keyword_table.n_surlignages", { n: q.data!.n_passages })}, {t("lexicon.keyword_table.n_mots", { n: q.data!.n_rows })}
         {q.data!.n_rows > rows.length ? t("lexicon.keyword_table.les_length_premiers_sont_affiches", { length: rows.length }) : ""}{t("lexicon.keyword_table.un_comptage_de_mots_jamais")}
@@ -106,7 +107,7 @@ export function KeywordTable({ filter, compact = false }: { filter?: LexFilter; 
 
 function KeywordRowView({ row, checked, compact, onToggle }: { row: KeywordRow; checked: boolean; compact: boolean; onToggle: () => void }) {
   return (
-    <tr data-stem={row.stem}>
+    <TableRow data-stem={row.stem}>
       <td className="c">
         <input type="checkbox" checked={checked} onChange={onToggle} aria-label={mainForm(row)} data-no-i18n style={{ accentColor: "var(--accent-fill)" }} />
       </td>
@@ -129,6 +130,6 @@ function KeywordRowView({ row, checked, compact, onToggle }: { row: KeywordRow; 
           </span>
         ))}
       </td>
-    </tr>
+    </TableRow>
   )
 }

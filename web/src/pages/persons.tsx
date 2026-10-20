@@ -1,3 +1,4 @@
+import {Table, TableHeader, TableBody, TableRow} from '@/components/ui/table'
 // Personnes (Corpus, under Bibliothèque): the register of the people
 // interviewed. Left, the tree of groups with its counts; in the middle, the
 // persons and organisations of the selected group and its sub-groups, filtered
@@ -186,21 +187,21 @@ export function PersonsPage({ initialId = null }: { initialId?: string | null })
           ) : shown.length === 0 ? (
             <EmptyState title={t("persons.none_match")}>{t("persons.none_match_text")}</EmptyState>
           ) : (
-            <table className="tbl" aria-label={t("persons.list")}>
-              <thead>
-                <tr>
+            <Table className="tbl" aria-label={t("persons.list")}>
+              <TableHeader>
+                <TableRow>
                   <th>{t("common.nom")}</th>
                   <th>{t("persons.pseudonym_column")}</th>
                   <th style={{ textAlign: "right" }}>{t("common.entretiens")}</th>
                   <th>{t("persons.consent")}</th>
-                </tr>
-              </thead>
-              <tbody>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {shown.map((p) => {
                   const on = p.person_id === selectedId
                   const context = [p.kind === "organisation" ? kindLabel(p.kind) : p.organisation, p.function, ...p.group_ids.map((g) => groupNames.get(g) ?? g)].filter(Boolean).join(" · ")
                   return (
-                    <tr
+                    <TableRow
                       key={p.person_id}
                       className={cn("row-click", on && "sel")}
                       data-state={on ? "selected" : undefined}
@@ -225,11 +226,11 @@ export function PersonsPage({ initialId = null }: { initialId?: string | null })
                       </td>
                       <td style={{ textAlign: "right" }}>{p.n_interviews}</td>
                       <td className="l2">{p.consent_status ? consentLabel(p.consent_status) : t("persons.consent_none")}</td>
-                    </tr>
+                    </TableRow>
                   )
                 })}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           )}
           {list.data && shown.length > 0 && (
             <p className="small l2" style={{ margin: "10px 10px 0" }}>

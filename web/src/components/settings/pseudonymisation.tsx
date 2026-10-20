@@ -1,3 +1,4 @@
+import {Table, TableHeader, TableBody, TableRow} from '@/components/ui/table'
 // Pseudonymisation of what is sent to a model (docs/guide/fr/01_preparer.md,
 // action 11): the switch and the list of names with their pseudonym, one list
 // for the whole project. It is applied to every prompt and to every send to a
@@ -96,20 +97,20 @@ function Editor({ saved }: { saved: Pseudonymisation }) {
 
       {(derived.length > 0 || rows.length > 0) && <h3 className="text-sm font-semibold">{t("persons.manual_entries")}</h3>}
       {rows.length > 0 && (
-        <table className="tbl" aria-label={t("settings.pseudonymisation.liste_des_noms")}>
-          <thead>
-            <tr>
+        <Table className="tbl" aria-label={t("settings.pseudonymisation.liste_des_noms")}>
+          <TableHeader>
+            <TableRow>
               <th style={{ width: 150 }}>{t("common.type")}</th>
               <th>{t("settings.pseudonymisation.nom_reel")}</th>
               <th>{t("settings.pseudonymisation.pseudonyme")}</th>
               <th style={{ width: 80 }}>
                 <span className="sr-only">{t("common.actions")}</span>
               </th>
-            </tr>
-          </thead>
-          <tbody>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {rows.map((r, i) => (
-              <tr key={i}>
+              <TableRow key={i}>
                 <td>
                   <NativeSelect aria-label={t("settings.pseudonymisation.type_du_nom_v", { v: i + 1 })} value={r.kind} onChange={(e) => set(i, { kind: e.target.value as PseudonymKind })}>
                     <option value="person">{KIND_LABEL.person}</option>
@@ -127,10 +128,10 @@ function Editor({ saved }: { saved: Pseudonymisation }) {
                     {t("common.retirer")}
                   </Button>
                 </td>
-              </tr>
+              </TableRow>
             ))}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       )}
       {rows.length === 0 && (
         <p className="text-muted-foreground text-sm">{derived.length > 0 ? t("persons.manual_entries_empty") : t("settings.pseudonymisation.la_liste_est_vide_ajoutez")}</p>
@@ -173,18 +174,18 @@ function DerivedEntries({ entries, shadowed }: { entries: PseudonymEntry[]; shad
       <h3 className="text-sm font-semibold">{t("persons.derived_entries")}</h3>
       <p className="text-muted-foreground text-xs">{t("persons.derived_help")}</p>
       {entries.length > 0 && (
-        <table className="tbl" aria-label={t("persons.derived_table")}>
-          <thead>
-            <tr>
+        <Table className="tbl" aria-label={t("persons.derived_table")}>
+          <TableHeader>
+            <TableRow>
               <th style={{ width: 150 }}>{t("common.type")}</th>
               <th>{t("settings.pseudonymisation.nom_reel")}</th>
               <th>{t("settings.pseudonymisation.pseudonyme")}</th>
               <th style={{ width: 150 }}>{t("persons.source_record")}</th>
-            </tr>
-          </thead>
-          <tbody>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {entries.map((e) => (
-              <tr key={`${e.person_id}:${e.original}`}>
+              <TableRow key={`${e.person_id}:${e.original}`}>
                 <td>{KIND_LABEL[e.kind]}</td>
                 <td>{e.original}</td>
                 <td>{e.pseudonym}</td>
@@ -197,10 +198,10 @@ function DerivedEntries({ entries, shadowed }: { entries: PseudonymEntry[]; shad
                     ""
                   )}
                 </td>
-              </tr>
+              </TableRow>
             ))}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       )}
       {shadowed.length > 0 && (
         <div className="flex flex-col gap-1">

@@ -101,3 +101,9 @@ La liste des natures de preuve est modifiable dans les Réglages, avec ces valeu
 - Un codebook qui s'enrichit, avec des définitions, une version et des mémos de code datés.
 - Un mémo de familiarisation et un mémo de fin d'entretien.
 - Une liste de contrôle cochée, des surlignages utilisables comme exemples.
+
+## Trier, filtrer et organiser les tableaux
+
+Chaque colonne des tableaux propose deux commandes de tri (A-Z et Z-A) et un filtre. Les nombres et les dates sont comparés selon leur valeur. Plusieurs filtres de colonnes se combinent ; « Réinitialiser tri et filtres » rétablit la vue de départ. Le filtre accepte du texte, `=valeur` pour une correspondance exacte, des comparaisons numériques (`>=5`, `<10`) et `∅` pour les cellules vides. Les filtres portent sur les lignes chargées dans le tableau.
+
+Dans le codebook et les groupes de personnes, le tri conserve l’arborescence. Un parent reste visible lorsqu’un de ses enfants correspond aux filtres, même si la branche était repliée. Pour déplacer un code, glissez sa ligne sur le code qui doit devenir son parent ; la zone au-dessus de l’arbre permet de le ramener à la racine. Les codes système et les déplacements qui créeraient une boucle sont refusés. Le champ « Parent » de la fiche du code reste disponible comme alternative au glisser-déposer. Les groupes de personnes se déplacent aussi sur leur futur parent ou sur « Toutes les personnes » pour revenir à la racine.

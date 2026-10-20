@@ -1,3 +1,4 @@
+import {Table, TableHeader, TableBody, TableRow} from '@/components/ui/table'
 // The tree of groups of the register (left of Personnes), laid out as the tree
 // of the Codebook: one row per group with its count (distinct persons of the
 // group and of everything below it), a group is moved by dragging it onto its
@@ -26,6 +27,7 @@ export function GroupTree({
   /** Moves `groupId` under `parentId` (null: to the root). */
   onMove: (groupId: string, parentId: string | null) => void
 }) {
+  const [columnFiltering,setColumnFiltering]=useState(false)
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set())
   const [dragId, setDragId] = useState<string | null>(null)
   const [dropId, setDropId] = useState<string | null>(null)
@@ -37,7 +39,7 @@ export function GroupTree({
   const walk = (list: GroupNode[]) => {
     for (const n of list) {
       rows.push(n)
-      if (!collapsed.has(n.group_id)) walk(n.children)
+      if (columnFiltering||!collapsed.has(n.group_id)) walk(n.children)
     }
   }
   walk(groups)
@@ -72,15 +74,16 @@ export function GroupTree({
   }
 
   return (
-    <table className="tbl ol nostripe" aria-label={t("persons.group_tree")}>
-      <thead>
-        <tr>
+    <Table onFiltersActiveChange={setColumnFiltering} className="tbl ol nostripe" aria-label={t("persons.group_tree")}>
+      <TableHeader>
+        <TableRow>
           <th>{t("persons.groups")}</th>
           <th style={{ textAlign: "right" }}>{t("persons.count_header")}</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        <TableRow
+          data-table-fixed="top"
           className={cn("row-click", sameSelection(selection, ALL) && "sel", dropId === "root" && "drop")}
           data-state={sameSelection(selection, ALL) ? "selected" : undefined}
           aria-selected={sameSelection(selection, ALL)}
@@ -96,14 +99,16 @@ export function GroupTree({
         >
           <td>{t("persons.all_persons")}</td>
           <td style={{ textAlign: "right" }}>{nPersons}</td>
-        </tr>
+        </TableRow>
         {rows.map((g) => {
           const on = selection.kind === "group" && selection.id === g.group_id
           const open = !collapsed.has(g.group_id)
           const hasChildren = g.children.length > 0
           return (
-            <tr
+            <TableRow
               key={g.group_id}
+              data-tree-id={g.group_id}
+              data-tree-parent={g.parent_id??undefined}
               className={cn("row-click", on && "sel", dropId === g.group_id && "drop", g.depth > 0 && "child")}
               data-state={on ? "selected" : undefined}
               aria-selected={on}
@@ -111,6 +116,7 @@ export function GroupTree({
               draggable
               onDragStart={(e) => {
                 e.dataTransfer.setData("text/plain", g.group_id)
+                e.dataTransfer.effectAllowed="move"
                 setDragId(g.group_id)
               }}
               onDragEnd={() => {
@@ -126,7 +132,7 @@ export function GroupTree({
               onClick={() => onSelect({ kind: "group", id: g.group_id })}
               onKeyDown={(e) => e.key === "Enter" && onSelect({ kind: "group", id: g.group_id })}
             >
-              <td>
+              <td data-sort-value={g.name}>
                 <span className="nm" style={{ paddingLeft: g.depth * 16 }}>
                   <button
                     type="button"
@@ -149,14 +155,15 @@ export function GroupTree({
                   <span style={{ minWidth: 0, overflowWrap: "anywhere" }}>{g.name}</span>
                 </span>
               </td>
-              <td style={{ textAlign: "right" }} title={g.n_persons_total !== g.n_persons ? t("persons.count_direct", { n: g.n_persons, total: g.n_persons_total }) : undefined}>
+              <td data-sort-value={g.n_persons_total} style={{ textAlign: "right" }} title={g.n_persons_total !== g.n_persons ? t("persons.count_direct", { n: g.n_persons, total: g.n_persons_total }) : undefined}>
                 {g.n_persons_total}
                 {g.n_persons_total !== g.n_persons && <span className="small l2"> ({g.n_persons})</span>}
               </td>
-            </tr>
+            </TableRow>
           )
         })}
-        <tr
+        <TableRow
+          data-table-fixed="bottom"
           className={cn("row-click", selection.kind === "none" && "sel")}
           data-state={selection.kind === "none" ? "selected" : undefined}
           aria-selected={selection.kind === "none"}
@@ -166,8 +173,8 @@ export function GroupTree({
         >
           <td>{t("persons.no_group")}</td>
           <td style={{ textAlign: "right" }}>{nUngrouped}</td>
-        </tr>
-      </tbody>
-    </table>
+        </TableRow>
+      </TableBody>
+    </Table>
   )
 }

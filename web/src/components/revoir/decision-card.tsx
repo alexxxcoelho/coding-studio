@@ -1,3 +1,4 @@
+import {Table, TableHeader, TableBody, TableRow} from '@/components/ui/table'
 // One card of the arbitration (design/macos/Revoir.dc.html, SPEC F-69, F-70):
 // the unit with the question before it, the frozen human codes against those of
 // the model, four choices on the keys 1 to 4, a reason, and Enter to save.
@@ -178,9 +179,9 @@ export function DecisionCard({
       )}
       <p className="rv-quote verbatim">{item.unit.text}</p>
 
-      <table className="tbl rv-cmp">
-        <thead>
-          <tr>
+      <Table className="tbl rv-cmp">
+        <TableHeader>
+          <TableRow>
             <th>{t("common.code")}</th>
             <th className="c">{t("revoir.decision_card.vous_fige")}</th>
             {runs.map((r) => (
@@ -189,18 +190,18 @@ export function DecisionCard({
               </th>
             ))}
             <th />
-          </tr>
-        </thead>
-        <tbody>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
           {rows.length === 0 && (
-            <tr>
+            <TableRow>
               <td colSpan={runs.length + 3} className="l2 small">
                 {t("revoir.decision_card.ni_vous_ni_le_modele")}
               </td>
-            </tr>
+            </TableRow>
           )}
           {rows.map((r) => (
-            <tr key={r.code}>
+            <TableRow key={r.code}>
               <td>
                 <CodeChip code={r.code} family={familyOf(r.code, book)} />
               </td>
@@ -211,10 +212,10 @@ export function DecisionCard({
                 </td>
               ))}
               <td className="l2 small">{r.status === "both" ? AGREEMENT_LABEL.both : <span className="badge">{AGREEMENT_LABEL[r.status]}</span>}</td>
-            </tr>
+            </TableRow>
           ))}
-        </tbody>
-      </table>
+        </TableBody>
+      </Table>
       {view.revised && (
         <p className="small l2" style={{ margin: 0 }}>
           {t("revoir.decision_card.votre_codage_a_change_depuis")} <ChipList codes={view.current} empty={t("common.aucun_code")} />{t("revoir.decision_card.la_comparaison_porte_sur_le")}

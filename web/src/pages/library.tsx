@@ -1,3 +1,4 @@
+import {Table, TableHeader, TableBody, TableRow} from '@/components/ui/table'
 import {LibraryPreparation} from "@/components/library/local-preparation"
 import { ReviewerExport } from "@/components/reviewer-export"
 // Bibliothèque (design/macos/Main.dc.html): the interviews with their four
@@ -196,23 +197,23 @@ export function LibraryPage() {
           ) : shown.length === 0 ? (
             <EmptyState title={t("library.aucun_entretien_dans_ce_filtre")}>{t("library.changez_de_filtre_ou_de")}</EmptyState>
           ) : (
-            <table className="tbl">
-              <thead>
-                <tr>
+            <Table className="tbl">
+              <TableHeader>
+                <TableRow>
                   <th>{t("common.entretien")}</th>
                   <th>{t("library.unites")}</th>
                   <th>{t("library.avancement")}</th>
                   <th style={{ textAlign: "right" }}>{t("library.prochaine_etape")}</th>
-                </tr>
-              </thead>
-              <tbody>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {shown.map((s) => {
                   const p = progress.get(s.interview_id) ?? null
                   const review = reviews.get(s.interview_id)
                   const next = nextAction(s, p, review)
                   const on = s.interview_id === selectedId
                   return (
-                    <tr
+                    <TableRow
                       key={s.interview_id}
                       className={cn("row-click", on && "sel")}
                       data-state={on ? "selected" : undefined}
@@ -229,7 +230,7 @@ export function LibraryPage() {
                           {s.n_warnings > 0 && t("library.n_avertissements", { n: s.n_warnings })}
                         </div>
                       </td>
-                      <td>
+                      <td data-sort-value={s.n_units}>
                         {s.n_units > 0 ? (
                           <>
                             {s.n_units}
@@ -276,11 +277,11 @@ export function LibraryPage() {
                           </Button>
                         )}
                       </td>
-                    </tr>
+                    </TableRow>
                   )
                 })}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           )}
           {state.data && (
             <p className="small l2" style={{ margin: "12px 10px 0" }}>

@@ -1,3 +1,4 @@
+import {Table, TableHeader, TableBody, TableRow} from '@/components/ui/table'
 // Explorer tab of Analyser (guide, "Explorer les données"): keyword in context
 // and similar passages (the Lexique), passages by code, and codes by attribute.
 // These tools explore, they do not conclude; a click on a result opens the
@@ -91,18 +92,18 @@ function CodesByAttribute({ project }: { project: ProjectConfig | undefined }) {
       {def && loading && <Skeleton className="h-24 w-full" />}
       {def && !loading && (
         <div className="overflow-x-auto">
-          <table className="tbl" aria-label={t("analysis.explorer.codes_par_attribut")}>
-            <thead>
-              <tr>
+          <Table className="tbl" aria-label={t("analysis.explorer.codes_par_attribut")}>
+            <TableHeader>
+              <TableRow>
                 <th>{t("common.code")}</th>
                 {def.choices.map((v) => (
                   <th key={v}>{v}</th>
                 ))}
-              </tr>
-            </thead>
-            <tbody>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {rows.map(({ node, depth }) => (
-                <tr key={node.code_id}>
+                <TableRow key={node.code_id} data-tree-id={node.code_id} data-tree-parent={node.parent_id??undefined}>
                   <td style={{ paddingLeft: 10 + depth * 14 }}>{node.name}</td>
                   {results.map((r, i) => {
                     const c = r.data?.codes.find((x) => x.code_id === node.code_id)
@@ -119,10 +120,10 @@ function CodesByAttribute({ project }: { project: ProjectConfig | undefined }) {
                       </td>
                     )
                   })}
-                </tr>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </div>
       )}
     </Tool>

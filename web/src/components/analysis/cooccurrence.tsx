@@ -1,3 +1,4 @@
+import {Table, TableHeader, TableBody, TableRow} from '@/components/ui/table'
 // Co-occurrence of codes: for each pair of codes, the number of units where both
 // are found, by one of three relations, for all the interviews or grouped by
 // interview or by an attribute. Cells are tinted with one accent in five
@@ -154,20 +155,20 @@ export function CooccurrenceTab() {
       {data && shown.length === 0 && <EmptyState title={t("analysis.cooccurrence.aucune_co_occurrence")}>{t("analysis.cooccurrence.aucun_couple_de_codes_n")}</EmptyState>}
       {group && shown.length > 0 && (
         <div style={{ overflowX: "auto" }}>
-          <table className="tbl" aria-label={t("analysis.cooccurrence.co_occurrences_nombre_de_tours")} style={{ width: "auto" }}>
-            <thead>
-              <tr>
+          <Table className="tbl" aria-label={t("analysis.cooccurrence.co_occurrences_nombre_de_tours")} style={{ width: "auto" }}>
+            <TableHeader>
+              <TableRow>
                 <th scope="col">{t("common.code")}</th>
                 {shown.map((c) => (
                   <th key={c.code_id} scope="col" style={{ textAlign: "center", maxWidth: 110, whiteSpace: "normal" }}>
                     {c.name}
                   </th>
                 ))}
-              </tr>
-            </thead>
-            <tbody>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {shown.map((r) => (
-                <tr key={r.code_id}>
+                <TableRow key={r.code_id}>
                   <th scope="row" style={{ whiteSpace: "normal", maxWidth: 190, fontSize: 13, fontWeight: 500, color: "var(--label)" }}>
                     {r.name}
                   </th>
@@ -208,10 +209,10 @@ export function CooccurrenceTab() {
                       </td>
                     )
                   })}
-                </tr>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </div>
       )}
       {data && (
