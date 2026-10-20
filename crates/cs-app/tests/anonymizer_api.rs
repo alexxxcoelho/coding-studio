@@ -107,7 +107,7 @@ async fn approval_is_invalidated_by_rule_or_source_change_and_stale_approval_fai
     assert_eq!(ok(&c.app, "GET", path, None).await["reviewed"], false);
 }
 #[tokio::test]
-async fn reviewer_export_refuses_originals_and_unreviewed_corpus() {
+async fn pseudonymised_reviewer_export_requires_review_and_the_matching_catalogue() {
     let c = setup().await;
     let (s, _) = call(
         &c.app,
@@ -116,7 +116,9 @@ async fn reviewer_export_refuses_originals_and_unreviewed_corpus() {
         None,
     )
     .await;
-    assert_ne!(s, StatusCode::OK);
+    // Identified catalogues are allowed for the password-protected reviewer
+    // package. reviewer_api tests its encryption and minimum password length.
+    assert_eq!(s, StatusCode::OK);
     let cat = ok(&c.app, "GET", "/api/export/reviewer/catalogue", None).await;
     assert_eq!(cat["file_ids"], json!({}));
     assert!(cat["fields"]
