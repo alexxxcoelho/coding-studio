@@ -707,3 +707,10 @@ metadata are not part of this editable exchange; they remain in the database.
 Both importers accept either strict JSON or one `json` Markdown fence. Editing
 pasted content invalidates its UI preview. Validation or storage failure leaves
 the entire batch unapplied, including its history records.
+
+`PUT /api/interviews/{id}/harmonisation/confirm` takes
+`{items:[{item_id, note?}]}` and returns `{confirmed}`. It confirms only the
+specified open work items, preserving current codings and existing resolutions.
+Items outside the interview, duplicate ids, or already resolved items reject the
+entire request. Resolutions and audit records commit together in one transaction.
+Work items created after the client loaded its list are not implicitly included.

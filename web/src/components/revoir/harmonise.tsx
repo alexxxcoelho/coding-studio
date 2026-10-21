@@ -45,8 +45,19 @@ const FILTERS: { key: Filter; label: string }[] = [
 const shortUnit = (unitId: string) => `U${unitId.split("-U").pop()}`
 
 export function Harmonise({ id }: { id: string }) {
+  const qc = useQueryClient()
+  const [notes, setNotes] = useState<Record<number,string>>({})
   const [filter, setFilter] = useState<Filter>("open")
   const list = useQuery({ queryKey: keys.harmonisation(id), queryFn: () => reviewApi.harmonisation(id) })
+  const confirmAll = useMutation({
+    mutationFn: () => reviewApi.confirmHarmonisation(id, (list.data?.items ?? []).filter(i=>i.status==="open").map(i=>({item_id:i.item_id,note:notes[i.item_id]?.trim()||undefined}))),
+    onSuccess: async result => {
+      setNotes({})
+      toast.success(t("revoir.harmonise.bulk_done",{n:result.confirmed}))
+      await invalidateInterview(qc,id)
+    },
+    onError: e => {reportError(e,t("revoir.harmonise.unite_non_traitee"));void invalidateInterview(qc,id)},
+  })
   if (list.isLoading) return <Skeleton className="h-40 w-full" />
   if (list.isError) return <p role="alert" className="note-err">{list.error.message}</p>
   const w = list.data!
@@ -73,6 +84,7 @@ export function Harmonise({ id }: { id: string }) {
                   </button>
                 ))}
               </div>
+              <Button disabled={w.n_open===0||confirmAll.isPending} title={t("revoir.harmonise.bulk_help")} onClick={()=>confirmAll.mutate()}>{t("revoir.harmonise.confirm_all")} ({w.n_open})</Button>
               <span className="small l2" role="status">
                 {w.n_open === 0 ? t("revoir.harmonise.toute_la_liste_est_traitee") : t("revoir.harmonise.items_a_relire", { items: t("common.n_unites", { n: w.n_open }) })}, {t("revoir.harmonise.n_traitees", { n: w.n_done })}.
               </span>
@@ -80,7 +92,7 @@ export function Harmonise({ id }: { id: string }) {
             {shown.length === 0 ? (
               <p className="gf">{filter === "open" ? t("revoir.harmonise.rien_a_relire") : t("common.rien_a_afficher")}</p>
             ) : (
-              shown.map((it) => <Item key={it.item_id} id={id} item={it} />)
+              shown.map((it) => <Item key={it.item_id} id={id} item={it} note={notes[it.item_id]??""} onNote={note=>setNotes(old=>({...old,[it.item_id]:note}))} batchPending={confirmAll.isPending} />)
             )}
           </>
         )}
@@ -89,15 +101,14 @@ export function Harmonise({ id }: { id: string }) {
   )
 }
 
-function Item({ id, item }: { id: string; item: HarmonisationItem }) {
+function Item({ id, item, note, onNote, batchPending }: { id: string; item: HarmonisationItem; note:string; onNote:(note:string)=>void; batchPending:boolean }) {
   const qc = useQueryClient()
-  const [note, setNote] = useState("")
   const open = item.status === "open"
   const save = useMutation({
     mutationFn: (resolution: HarmonisationResolution) => reviewApi.resolveHarmonisation(id, item.item_id, { resolution, note: note.trim() || undefined }),
     onSuccess: (_r, resolution) => {
       toast.success(`${shortUnit(item.unit_id)} : ${RESOLUTION[resolution].toLowerCase()}`)
-      setNote("")
+      onNote("")
       void invalidateInterview(qc, id)
     },
     onError: (e) => reportError(e, t("revoir.harmonise.unite_non_traitee")),
@@ -132,15 +143,15 @@ function Item({ id, item }: { id: string; item: HarmonisationItem }) {
           <label className="hs" htmlFor={`rv-hn-${item.item_id}`}>
             {t("revoir.harmonise.note_facultative")}
           </label>
-          <Textarea id={`rv-hn-${item.item_id}`} rows={2} placeholder={t("revoir.harmonise.ce_que_vous_avez_constate")} value={note} onChange={(e) => setNote(e.target.value)} />
+          <Textarea id={`rv-hn-${item.item_id}`} rows={2} placeholder={t("revoir.harmonise.ce_que_vous_avez_constate")} value={note} disabled={batchPending} onChange={(e) => onNote(e.target.value)} />
           <div className="r8">
-            <Button variant="default" disabled={save.isPending} onClick={() => save.mutate("confirmed")}>
+            <Button variant="default" disabled={save.isPending||batchPending} onClick={() => save.mutate("confirmed")}>
               {t("revoir.harmonise.confirmer_le_codage")}
             </Button>
             <Button variant="outline" asChild>
               <a href={unitHref(item.unit_id, 2)}>{t("revoir.harmonise.corriger_dans_coder")}</a>
             </Button>
-            <Button variant="outline" disabled={save.isPending} onClick={() => save.mutate("corrected")}>
+            <Button variant="outline" disabled={save.isPending||batchPending} onClick={() => save.mutate("corrected")}>
               {t("revoir.harmonise.j_ai_corrige_le_codage")}
             </Button>
           </div>

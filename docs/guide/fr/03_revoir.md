@@ -98,3 +98,8 @@ Les `final_codes` sont les codes retenus. Un choix qui ne correspond pas exactem
 au codage du chercheur figé ou à celui d'une passe IA est enregistré comme une
 décision personnalisée. `merge` est une combinaison de codes pour le passage ;
 il ne fusionne pas les codes dans le codebook.
+
+Dans **Harmoniser**, **Confirmer tous** confirme en une fois tous les éléments
+encore à relire de l'entretien, en gardant leurs codes actuels et les notes
+saisies. Les éléments déjà traités restent inchangés. Le nombre affiché sur le
+bouton indique la portée du lot ; il ne concerne pas les autres entretiens.

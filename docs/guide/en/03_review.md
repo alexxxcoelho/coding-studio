@@ -88,3 +88,8 @@ Previous decisions remain in history; frozen human references and AI answers
 remain unchanged. Final codes are authoritative: choices differing from the
 frozen human coding or an AI run are recorded as custom decisions. `merge` combines
 codes for a passage; it does not merge codes in the codebook.
+
+In **Harmonise**, **Confirm all** confirms all pending items of this interview
+in one batch, retaining their current codes and any notes you entered. Completed
+items stay unchanged. The button count states the batch scope; other interviews
+are unaffected.

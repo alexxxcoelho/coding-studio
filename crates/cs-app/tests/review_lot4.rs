@@ -578,3 +578,35 @@ async fn pasted_arbitrations_roll_back_the_whole_batch_on_storage_failure() {
         ok(&ctx.app, "GET", &format!("{I}/review"), None).await
     );
 }
+
+#[tokio::test]
+async fn confirm_all_harmonisation_is_atomic_scoped_and_preserves_coding() {
+    let ctx=setup().await;
+    code_respondent_units(&ctx).await;
+    let adv=code_id(&ctx.app,"TECH-ADV").await;
+    let cost=code_id(&ctx.app,"TECH-COST").await;
+    ok(&ctx.app,"PUT",&format!("/api/codes/{adv}"),Some(json!({"definition":"Updated advantage definition"}))).await;
+    let base=format!("{I}/harmonisation");
+    let w=ok(&ctx.app,"GET",&base,None).await;
+    assert_eq!(w["n_open"],2);
+    let items:Vec<Value>=w["items"].as_array().unwrap().iter().map(|r|json!({"item_id":r["item_id"],"note":"Still valid"})).collect();
+    // A work item created after the list was read must not be silently confirmed.
+    ok(&ctx.app,"PUT",&format!("/api/codes/{cost}"),Some(json!({"definition":"Updated cost definition"}))).await;
+    let coding=ok(&ctx.app,"GET",&format!("{I}/phases/2/units"),None).await;
+    let (st,_)=call(&ctx.app,"PUT",&format!("{base}/confirm"),Some(json!({"items":[items[0],{"item_id":-1}]}))).await;
+    assert_eq!(st,StatusCode::NOT_FOUND);
+    assert_eq!(ok(&ctx.app,"GET",&base,None).await["n_open"],3);
+    let conn=rusqlite::Connection::open(&ctx.db).unwrap();
+    let second=items[1]["item_id"].as_i64().unwrap();
+    conn.execute_batch(&format!("CREATE TRIGGER test_confirm_failure BEFORE UPDATE ON harmonisation_items WHEN NEW.item_id={second} BEGIN SELECT RAISE(ABORT,'test failure'); END;")).unwrap();
+    assert_eq!(call(&ctx.app,"PUT",&format!("{base}/confirm"),Some(json!({"items":items}))).await.0,StatusCode::INTERNAL_SERVER_ERROR);
+    assert_eq!(ok(&ctx.app,"GET",&base,None).await["n_open"],3);
+    conn.execute_batch("DROP TRIGGER test_confirm_failure").unwrap();
+    assert_eq!(ok(&ctx.app,"PUT",&format!("{base}/confirm"),Some(json!({"items":items}))).await["confirmed"],2);
+    let after=ok(&ctx.app,"GET",&base,None).await;
+    assert_eq!(after["n_open"],1);assert_eq!(after["n_done"],2);
+    assert!(after["items"].as_array().unwrap().iter().filter(|r|r["status"]=="done").all(|r|r["resolution"]=="confirmed"&&r["note"]=="Still valid"));
+    assert_eq!(coding,ok(&ctx.app,"GET",&format!("{I}/phases/2/units"),None).await);
+    assert_eq!(call(&ctx.app,"PUT",&format!("{base}/confirm"),Some(json!({"items":items}))).await.0,StatusCode::CONFLICT);
+    assert_eq!(after,ok(&ctx.app,"GET",&base,None).await);
+}

@@ -881,6 +881,60 @@ impl Store {
         Ok((open as usize, done as usize))
     }
 
+    /// Confirms exactly the open items displayed by the caller, atomically.
+    /// Existing resolutions and all coding assignments are left unchanged.
+    pub fn confirm_harmonisation_batch(
+        &self,
+        interview_id: &str,
+        items: &[(i64, Option<String>)],
+        actor: &str,
+    ) -> Result<usize> {
+        self.require_interview(interview_id)?;
+        if items.is_empty() {
+            return Err(validation("no harmonisation items supplied"));
+        }
+        let current = self.harmonisation(Some(interview_id))?;
+        let mut seen = BTreeSet::new();
+        let mut prepared = Vec::new();
+        for (id, note) in items {
+            if !seen.insert(*id) {
+                return Err(validation("duplicate harmonisation item"));
+            }
+            let row = current
+                .iter()
+                .find(|r| r.item_id == *id)
+                .ok_or_else(|| not_found(format!("harmonisation item {id} of {interview_id}")))?;
+            if row.status != "open" {
+                return Err(guard_err(format!(
+                    "harmonisation item {id} is already done; refresh the list"
+                )));
+            }
+            let note = note.as_deref().map(str::trim).filter(|n| !n.is_empty());
+            if note.is_some_and(|n| n.chars().count() > MAX_REASON) {
+                return Err(validation("harmonisation note is too long"));
+            }
+            prepared.push((row, note));
+        }
+        let tx = self.conn.unchecked_transaction()?;
+        let at = now();
+        for (row, note) in prepared {
+            let n=tx.execute("UPDATE harmonisation_items SET resolved_at=?2,resolved_by=?3,resolution='confirmed',note=?4 WHERE item_id=?1 AND resolved_at IS NULL",params![row.item_id,at,actor,note])?;
+            if n != 1 {
+                return Err(guard_err("harmonisation list changed; refresh it"));
+            }
+            append_event(
+                &tx,
+                actor,
+                "harmonisation.resolve",
+                Some(interview_id),
+                Some(&row.unit_id),
+                json!({"item_id":row.item_id,"unit_id":row.unit_id,"resolution":"confirmed","note":note,"batch":true}),
+            )?;
+        }
+        tx.commit()?;
+        Ok(items.len())
+    }
+
     /// Closes an item: the researcher reread the unit and `confirmed` its
     /// coding or `corrected` it.
     pub fn resolve_harmonisation(

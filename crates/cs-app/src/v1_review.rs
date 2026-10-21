@@ -44,6 +44,10 @@ pub(crate) fn routes() -> Router<AppState> {
             get(list_harmonisation),
         )
         .route(
+            "/api/interviews/{id}/harmonisation/confirm",
+            put(confirm_harmonisation_batch),
+        )
+        .route(
             "/api/interviews/{id}/harmonisation/{item}",
             put(resolve_harmonisation),
         )
@@ -451,6 +455,34 @@ async fn list_harmonisation(State(st): State<AppState>, UrlPath(id): UrlPath<Str
 
 async fn all_harmonisation(State(st): State<AppState>) -> ApiResult {
     Ok(Json(worklist(st.store().harmonisation(None)?)))
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ConfirmItem {
+    item_id: i64,
+    #[serde(default)]
+    note: Option<String>,
+}
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ConfirmBody {
+    items: Vec<ConfirmItem>,
+}
+async fn confirm_harmonisation_batch(
+    State(st): State<AppState>,
+    UrlPath(id): UrlPath<String>,
+    Json(body): Json<ConfirmBody>,
+) -> ApiResult {
+    let items = body
+        .items
+        .into_iter()
+        .map(|r| (r.item_id, r.note))
+        .collect::<Vec<_>>();
+    let n = st
+        .store()
+        .confirm_harmonisation_batch(&id, &items, &st.actor)?;
+    Ok(Json(json!({"confirmed":n})))
 }
 
 #[derive(Deserialize)]

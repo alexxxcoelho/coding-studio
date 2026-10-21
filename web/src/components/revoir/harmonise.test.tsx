@@ -35,6 +35,24 @@ beforeEach(() => {
 afterEach(cleanup)
 
 describe("Harmoniser", () => {
+  it("confirms only pending items in one request and preserves typed notes", async () => {
+    let done=false
+    const pending=[item(2),item(4)]
+    const previous=item(6,{status:"done",resolution:"corrected",note:"already corrected"})
+    mock.on("GET",W,()=>({body:{n_open:done?0:2,n_done:done?3:1,items:[...pending.map(i=>done?{...i,status:"done",resolution:"confirmed"}:i),previous]}}))
+    mock.on("PUT",`${W}/confirm`,()=>{done=true;return {body:{confirmed:2}}})
+    renderWithClient(<Harmonise id={ID}/>)
+    const first=within(await screen.findByRole("article",{name:/Unité U002/}))
+    fireEvent.change(first.getByLabelText("Note, facultative"),{target:{value:"Still valid"}})
+    fireEvent.click(screen.getByRole("button",{name:"Confirmer tous (2)"}))
+    await waitFor(()=>expect(mock.to("PUT",`${W}/confirm`)).toHaveLength(1))
+    expect(mock.to("PUT",`${W}/confirm`)[0].body).toEqual({items:[{item_id:2,note:"Still valid"},{item_id:4}]})
+    expect(await screen.findByRole("button",{name:"Confirmer tous (0)"})).toBeDisabled()
+    fireEvent.click(screen.getByRole("button",{name:"Traitées"}))
+    expect(screen.getByText(/already corrected/)).toBeInTheDocument()
+  })
+
+
   it("explains an empty list", async () => {
     mock.on("GET", W, { body: { n_open: 0, n_done: 0, items: [] } })
     renderWithClient(<Harmonise id={ID} />)

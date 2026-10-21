@@ -182,6 +182,8 @@ export const reviewApi = {
 
   harmonisation: (id: string) => request<Worklist>("GET", `${iv(id)}/harmonisation`),
   allHarmonisation: () => request<Worklist>("GET", "/api/harmonisation"),
+  confirmHarmonisation: (id: string, items: {item_id: number; note?: string}[]) =>
+    request<{confirmed: number}>("PUT", `${iv(id)}/harmonisation/confirm`, {items}),
   resolveHarmonisation: (id: string, item: number, body: { resolution: HarmonisationResolution; note?: string }) =>
     request<HarmonisationItem>("PUT", `${iv(id)}/harmonisation/${item}`, body),
 

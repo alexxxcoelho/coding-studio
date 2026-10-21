@@ -1,4 +1,7 @@
 {
+  "revoir.harmonise.confirm_all": "Confirmer tous",
+  "revoir.harmonise.bulk_help": "Confirmer tous les éléments à relire de cet entretien, en conservant leur codage actuel.",
+  "revoir.harmonise.bulk_done": "{n} élément(s) d’harmonisation confirmé(s).",
   "json_import.source": "Coller le JSON",
   "json_import.file": "Ou ouvrir un fichier JSON",
   "json_import.preview": "Aperçu des changements",

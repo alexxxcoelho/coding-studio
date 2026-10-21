@@ -1,4 +1,7 @@
 {
+  "revoir.harmonise.confirm_all": "Confirm all",
+  "revoir.harmonise.bulk_help": "Confirm all pending items in this interview while keeping their current coding.",
+  "revoir.harmonise.bulk_done": "{n} harmonisation item(s) confirmed.",
   "json_import.source": "Paste JSON",
   "json_import.file": "Or open a JSON file",
   "json_import.preview": "Change preview",
