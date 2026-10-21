@@ -661,3 +661,49 @@ Local preparation and model discovery accept optional `bearer_token` (with or wi
 ### Manual transcript preparation (copy/paste)
 
 The library defaults to manual preparation. POST local-preparation with the usual operations, an explicit `stage` and `prompt_only:true` returns `{prompt,prompt_digest}`. It makes no model request, includes the whole interview and saves the private prompt receipt. Endpoint/model configuration is not required. Submit the same operations/stage with `pasted_response` and `prompt_digest` to create a private draft from the JSON response. The source, identity rules, stage and feedback must still match; invalid JSON, invented names, omitted/reordered turns and fidelity errors refuse without applying a transcript. The draft then follows the existing per-difference review and stage approval. Manual prompt/response exchanges are retained privately across revisions and stages; no claim is made about the external model used. Batch manual preparation generates all selected prompts before displaying their response fields and opens the grouped review after every response is imported.
+
+### JSON review decisions and editable codebook tree
+
+The review screen accepts a pasted JSON document (or a `.json` file):
+
+```json
+{"interview_id":"INT-01","decisions":[{"unit_id":"INT-01-U002","decision":"accept_reviewer","final_codes":["C-0001"],"comment":"Reason for this decision."}]}
+```
+
+`decision` accepts `keep_mine`, `accept_reviewer`, `merge`, or `custom`. Code
+identifiers may be stable ids or exact tokens; `NA` is used on its own. The final
+code list is authoritative. `keep_mine` is recorded as a human choice only if it
+matches the frozen human reference; `accept_reviewer` selects a matching complete
+AI run, otherwise the decision is stored as custom. Optional `run_label` makes
+that AI selection explicit and requires the final codes to match that run.
+Comments are required for disagreements. Duplicate units, missing units, inactive
+or merged codes, and a different interview id reject the complete batch.
+
+- `POST /api/interviews/{id}/review/import/preview` takes `{raw}` and returns
+  `{digest, count, replacements, changes}` without writing.
+- `POST /api/interviews/{id}/review/import` takes
+  `{raw, expected_digest, replace_existing}`. The digest must match the exact
+  reviewed state and input. Existing decisions require `replace_existing:true`.
+  Decisions and their audit/history rows are committed in one SQLite transaction.
+  Frozen human snapshots and AI answers are unchanged.
+
+The codebook toolbar exports `GET /api/codebook/json`, using schema
+`coding-studio.codebook.v1`. Each node has stable `code_id` and `token`, editable
+`name`, `label`, `definition`, `includes`, `excludes`, `toe`,
+`research_questions`, `active`, `in_prompt`, and a nested `children` array.
+Children arrays determine parentage and sibling order. `merged_into` is read-only;
+merges must use the merge operation. No aliases are introduced by this import.
+Existing ids/tokens remain unchanged; new nodes use a fresh `C-0001` style id as
+both id and token. Omitted codes are retained; this is not a deletion operation.
+Questions must already exist in the target study. Memos, counts and historical
+metadata are not part of this editable exchange; they remain in the database.
+
+- `POST /api/codebook/json/import/preview` takes `{raw}` and returns the same
+  preview envelope with before/after values and tree positions.
+- `POST /api/codebook/json/import` takes `{raw, expected_digest}` and commits the
+  validated tree changes together. Definition changes open the existing
+  harmonisation worklist. Passage coding and frozen evidence are retained.
+
+Both importers accept either strict JSON or one `json` Markdown fence. Editing
+pasted content invalidates its UI preview. Validation or storage failure leaves
+the entire batch unapplied, including its history records.

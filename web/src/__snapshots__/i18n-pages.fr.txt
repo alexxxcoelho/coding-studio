@@ -76,6 +76,8 @@ Ctrl+,
 Codebook
 [title] Version undefined · 0 codes actifs · 0 fusionné
 Version undefined · 0 codes actifs · 0 fusionné
+Exporter le codebook (JSON)
+Importer le codebook (JSON)
 Historique
 Importer CSV…
 [aria-label] Nouveau code

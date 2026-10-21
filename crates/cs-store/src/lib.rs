@@ -59,7 +59,8 @@ pub use codeops::{
 };
 pub use codesearch::{CodeHit, CodeMatch, CodeSearch, CodeSearchOptions};
 pub use codetree::{
-    CodeMemoVersion, CodeUpdate, NewCode, NewCodeFromPassage, ResolvedCode, Revision,
+    CodebookJson, CodebookJsonNode, CodebookJsonChange, CodeMemoVersion, CodeUpdate, NewCode,
+    NewCodeFromPassage, ResolvedCode, Revision,
     UndoCreateOutcome,
 };
 pub use coding::ResolveRequest;

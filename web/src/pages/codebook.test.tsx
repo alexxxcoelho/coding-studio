@@ -28,6 +28,14 @@ beforeEach(() => {
 afterEach(() => cleanup())
 
 describe("codebook page", () => {
+  it("offers JSON export and a paste/file import with a preview", async () => {
+    renderWithClient(<CodebookPage />)
+    expect(await screen.findByRole("button", {name:"Exporter le codebook (JSON)"})).toBeInTheDocument()
+    fireEvent.click(screen.getByRole("button", {name:"Importer le codebook (JSON)"}))
+    expect(screen.getByRole("textbox", {name:"Coller le JSON"})).toBeInTheDocument()
+    expect(screen.getByRole("button", {name:"Vérifier et prévisualiser"})).toBeInTheDocument()
+  })
+
   it("shows the tree with roll-up counts and the version", async () => {
     renderWithClient(<CodebookPage />)
     const row = (await screen.findByText("Partner demand")).closest("tr")!

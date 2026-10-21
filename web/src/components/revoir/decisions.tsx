@@ -10,6 +10,7 @@ import { toast } from "sonner"
 import { downloadText } from "@/lib/download"
 import { disagreementFilename, disagreementMarkdown } from "@/lib/review-markdown"
 
+import { JsonImportDialog } from "@/components/json-import-dialog"
 import { Banner, EmptyState } from "@/components/bits"
 import { ConceptCard } from "@/components/revoir/concept-card"
 import { DecisionCard } from "@/components/revoir/decision-card"
@@ -43,6 +44,7 @@ export function Decisions({ id, review, runList }: { id: string; review: ReviewA
   const codesQ = useCodes()
   const bookQ = useQuery({ queryKey: ["codebook"], queryFn: api.codebook })
   const conceptsQ = useQuery({ queryKey: ["concepts", id], queryFn: () => reviewApi.conceptCandidates(id) })
+  const [importOpen, setImportOpen] = useState(false)
   const [filter, setFilter] = useState<QueueFilter>("remaining")
   const [sel, setSel] = useState<Selection | null>(null)
 
@@ -82,6 +84,7 @@ export function Decisions({ id, review, runList }: { id: string; review: ReviewA
 
   return (
     <div className="content">
+      <JsonImportDialog open={importOpen} onOpenChange={setImportOpen} endpoint={`/api/interviews/${encodeURIComponent(id)}/review/import`} title={t("json_import.arbitrations")} description={t("json_import.arbitrations_help")} />
       <aside className="rv-queue" aria-label={t("revoir.decisions.file_d_arbitrage")}>
         <div>
           <div className="hs" style={{ padding: "0 2px 4px" }}>
@@ -94,6 +97,7 @@ export function Decisions({ id, review, runList }: { id: string; review: ReviewA
           <Step ok={prog.complete && prog.disagreements > 0} n={3} title={t("revoir.decisions.arbitrage")} sub={t("revoir.decisions.items_sur_disagreements", { items: t("revoir.decisions.n_decisions", { n: prog.disagreementsDecided }), disagreements: prog.disagreements })} />
         </div>
 
+        <Button variant="outline" onClick={() => setImportOpen(true)}>{t("json_import.arbitrations")}</Button>
         <Button variant="outline" onClick={() => {
           if (!downloadText(disagreementFilename(id), disagreementMarkdown(id, review, bookQ.data?.codes))) {
             toast.error(t("review_export.failed"))

@@ -109,3 +109,17 @@ La liste des natures de preuve est modifiable dans les Réglages, avec ces valeu
 Chaque colonne des tableaux propose deux commandes de tri (A-Z et Z-A) et un filtre. Les nombres et les dates sont comparés selon leur valeur. Plusieurs filtres de colonnes se combinent ; « Réinitialiser tri et filtres » rétablit la vue de départ. Le filtre accepte du texte, `=valeur` pour une correspondance exacte, des comparaisons numériques (`>=5`, `<10`) et `∅` pour les cellules vides. Les filtres portent sur les lignes chargées dans le tableau.
 
 Dans le codebook et les groupes de personnes, le tri conserve l’arborescence. Un parent reste visible lorsqu’un de ses enfants correspond aux filtres, même si la branche était repliée. Pour déplacer un code, glissez sa ligne sur le code qui doit devenir son parent ; la zone au-dessus de l’arbre permet de le ramener à la racine. Les codes système et les déplacements qui créeraient une boucle sont refusés. Le champ « Parent » de la fiche du code reste disponible comme alternative au glisser-déposer. Les groupes de personnes se déplacent aussi sur leur futur parent ou sur « Toutes les personnes » pour revenir à la racine.
+
+### Nettoyer et réorganiser le codebook en JSON
+
+Dans **Codebook**, cliquez sur **Exporter le codebook (JSON)**. Modifiez les noms,
+les définitions et l'arbre dans le fichier : le tableau `children` d'un code
+contient ses enfants, dans leur ordre d'affichage. Conservez `code_id` et `token`
+pour les codes existants. Les codes absents du fichier ne seront pas supprimés.
+
+Cliquez ensuite sur **Importer le codebook (JSON)**, ouvrez le fichier ou collez
+son contenu, puis **Vérifier et prévisualiser**. Relisez les valeurs avant/après
+et enregistrez le lot. L'ensemble est refusé si un identifiant est dupliqué ou si
+l'arbre est invalide. Les codages restent attachés aux mêmes codes. Les changements
+de définition alimentent la liste de relecture d'harmonisation. Utilisez l'outil
+de fusion pour fusionner des codes : modifier l'arbre ne réalise pas une fusion.

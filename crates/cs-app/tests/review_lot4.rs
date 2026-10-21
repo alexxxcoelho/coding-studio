@@ -406,3 +406,175 @@ async fn the_export_carries_the_review_without_any_name() {
     let state = std::fs::read_to_string(dir.join("state.json")).unwrap();
     assert!(state.contains("\"review\""));
 }
+
+#[tokio::test]
+async fn pasted_arbitrations_preview_atomic_import_and_replacement() {
+    let ctx = setup().await;
+    let units = code_respondent_units(&ctx).await;
+    let parts = prompts(&ctx).await;
+    let (st, v) = run_and_import(&ctx, &parts[0], json!([])).await;
+    assert_eq!(st, StatusCode::OK, "{v}");
+    let before = ok(&ctx.app, "GET", &format!("{I}/review"), None).await;
+    let snapshots = ok(&ctx.app, "GET", &format!("{I}/snapshots"), None).await;
+    let cid = code_id(&ctx.app, "TECH-COST").await;
+    let raw=json!({"interview_id":"INT-01","decisions":[
+        {"unit_id":units[1],"decision":"accept_reviewer","final_codes":[cid],"comment":"Cost applies."},
+        {"unit_id":units[3],"decision":"merge","final_codes":["TECH-COST","ORG-SKILLS"],"comment":"Both dimensions apply."}
+    ]}).to_string();
+    let base = format!("{I}/review/import");
+    let preview = ok(
+        &ctx.app,
+        "POST",
+        &format!("{base}/preview"),
+        Some(json!({"raw":raw})),
+    )
+    .await;
+    assert_eq!(preview["count"], 2);
+    assert_eq!(preview["changes"][0]["after"]["choice"]["type"], "ai");
+    assert_eq!(
+        before,
+        ok(&ctx.app, "GET", &format!("{I}/review"), None).await
+    );
+    let bad = raw.replace("ORG-SKILLS", "MISSING");
+    let (st, _) = call(
+        &ctx.app,
+        "POST",
+        &base,
+        Some(json!({"raw":bad,"expected_digest":preview["digest"]})),
+    )
+    .await;
+    assert_eq!(st, StatusCode::BAD_REQUEST);
+    assert_eq!(
+        before,
+        ok(&ctx.app, "GET", &format!("{I}/review"), None).await
+    );
+    let result = ok(
+        &ctx.app,
+        "POST",
+        &base,
+        Some(json!({"raw":raw,"expected_digest":preview["digest"]})),
+    )
+    .await;
+    assert_eq!(result["count"], 2);
+    assert_eq!(
+        snapshots,
+        ok(&ctx.app, "GET", &format!("{I}/snapshots"), None).await
+    );
+    let preview = ok(
+        &ctx.app,
+        "POST",
+        &format!("{base}/preview"),
+        Some(json!({"raw":raw})),
+    )
+    .await;
+    assert_eq!(preview["replacements"], 2);
+    let (st, _) = call(
+        &ctx.app,
+        "POST",
+        &base,
+        Some(json!({"raw":raw,"expected_digest":preview["digest"]})),
+    )
+    .await;
+    assert_eq!(st, StatusCode::BAD_REQUEST);
+    ok(
+        &ctx.app,
+        "POST",
+        &base,
+        Some(json!({"raw":raw,"expected_digest":preview["digest"],"replace_existing":true})),
+    )
+    .await;
+    let after = ok(&ctx.app, "GET", &format!("{I}/review"), None).await;
+    assert_eq!(after["items"][0]["history"].as_array().unwrap().len(), 2);
+}
+
+#[tokio::test]
+async fn pasted_arbitrations_reject_wrong_interview_duplicates_and_stale_preview() {
+    let ctx = setup().await;
+    let units = code_respondent_units(&ctx).await;
+    let parts = prompts(&ctx).await;
+    assert_eq!(
+        run_and_import(&ctx, &parts[0], json!([])).await.0,
+        StatusCode::OK
+    );
+    let row = json!({"unit_id":units[1],"decision":"keep_mine","final_codes":["TECH-ADV"],"comment":"Keep advantage."});
+    let base = format!("{I}/review/import");
+    for input in [
+        json!({"interview_id":"INT-02","decisions":[row]}),
+        json!({"interview_id":"INT-01","decisions":[row,row]}),
+        json!({"interview_id":"INT-01","decisions":[]}),
+    ] {
+        assert_eq!(
+            call(
+                &ctx.app,
+                "POST",
+                &format!("{base}/preview"),
+                Some(json!({"raw":input.to_string()}))
+            )
+            .await
+            .0,
+            StatusCode::BAD_REQUEST
+        );
+    }
+    let raw = json!({"interview_id":"INT-01","decisions":[row]}).to_string();
+    let p = ok(
+        &ctx.app,
+        "POST",
+        &format!("{base}/preview"),
+        Some(json!({"raw":raw})),
+    )
+    .await;
+    ok(&ctx.app,"PUT",&format!("{I}/review/{}",units[1]),Some(json!({"choice":{"type":"human"},"final_codes":["TECH-ADV"],"rationale":"Intervening decision"}))).await;
+    assert_eq!(
+        call(
+            &ctx.app,
+            "POST",
+            &base,
+            Some(json!({"raw":raw,"expected_digest":p["digest"],"replace_existing":true}))
+        )
+        .await
+        .0,
+        StatusCode::BAD_REQUEST
+    );
+}
+
+#[tokio::test]
+async fn pasted_arbitrations_roll_back_the_whole_batch_on_storage_failure() {
+    let ctx = setup().await;
+    let units = code_respondent_units(&ctx).await;
+    let parts = prompts(&ctx).await;
+    assert_eq!(
+        run_and_import(&ctx, &parts[0], json!([])).await.0,
+        StatusCode::OK
+    );
+    let before = ok(&ctx.app, "GET", &format!("{I}/review"), None).await;
+    let raw = json!({"interview_id":"INT-01","decisions":[
+        {"unit_id":units[1],"decision":"custom","final_codes":["NA"],"comment":"First decision"},
+        {"unit_id":units[3],"decision":"custom","final_codes":["NA"],"comment":"Second decision"}
+    ]})
+    .to_string();
+    let base = format!("{I}/review/import");
+    let p = ok(
+        &ctx.app,
+        "POST",
+        &format!("{base}/preview"),
+        Some(json!({"raw":raw})),
+    )
+    .await;
+    let conn = rusqlite::Connection::open(&ctx.db).unwrap();
+    conn.execute_batch("CREATE TRIGGER test_batch_failure BEFORE INSERT ON arbitrations WHEN NEW.unit_id='INT-01-U004' BEGIN SELECT RAISE(ABORT,'test failure'); END;").unwrap();
+    assert_eq!(
+        call(
+            &ctx.app,
+            "POST",
+            &base,
+            Some(json!({"raw":raw,"expected_digest":p["digest"]}))
+        )
+        .await
+        .0,
+        StatusCode::INTERNAL_SERVER_ERROR
+    );
+    assert_eq!(
+        before,
+        ok(&ctx.app, "GET", &format!("{I}/review"), None).await
+    );
+}

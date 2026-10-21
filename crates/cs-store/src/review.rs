@@ -837,6 +837,19 @@ impl Store {
         arb: &Arbitration,
         actor: &str,
     ) -> Result<Arbitration> {
+        Ok(self
+            .record_decisions(interview_id, std::slice::from_ref(arb), actor)?
+            .remove(0))
+    }
+
+    /// Validate a complete batch before writing any decision. Stable ids/tokens
+    /// are resolved by the API before calling this method.
+    fn prepare_decision(
+        &self,
+        interview_id: &str,
+        arb: &Arbitration,
+        actor: &str,
+    ) -> Result<(Arbitration, ReviewEntry)> {
         self.require_interview(interview_id)?;
         self.current_unit(interview_id, &arb.unit_id)?;
         let review = self.review(interview_id)?;
@@ -886,8 +899,44 @@ impl Store {
             decided_by,
             decided_at: now(),
         };
+        Ok((stored, item.clone()))
+    }
+
+    pub fn validate_decisions(
+        &self,
+        interview_id: &str,
+        decisions: &[Arbitration],
+        actor: &str,
+    ) -> Result<()> {
+        let mut seen = BTreeSet::new();
+        if decisions.is_empty() {
+            return Err(validation("no decisions supplied"));
+        }
+        for arb in decisions {
+            if !seen.insert(&arb.unit_id) {
+                return Err(validation(format!("duplicate unit {}", arb.unit_id)));
+            }
+            self.prepare_decision(interview_id, arb, actor)?;
+        }
+        Ok(())
+    }
+
+    /// One transaction for the decisions and their history/audit records.
+    pub fn record_decisions(
+        &self,
+        interview_id: &str,
+        decisions: &[Arbitration],
+        actor: &str,
+    ) -> Result<Vec<Arbitration>> {
+        self.validate_decisions(interview_id, decisions, actor)?;
+        let prepared = decisions
+            .iter()
+            .map(|arb| self.prepare_decision(interview_id, arb, actor))
+            .collect::<Result<Vec<_>>>()?;
         let tx = self.conn.unchecked_transaction()?;
-        tx.execute(
+        let mut result = Vec::new();
+        for (stored, item) in prepared {
+            tx.execute(
             "INSERT INTO arbitrations (interview_id, phase, unit_id, choice, final_codes, rationale, decided_by, decided_at)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
             params![
@@ -901,23 +950,25 @@ impl Store {
                 stored.decided_at
             ],
         )?;
-        append_event(
-            &tx,
-            actor,
-            "review.decide",
-            Some(interview_id),
-            Some(&stored.unit_id),
-            json!({
-                "phase": PHASE_2,
-                "kind": item.item.kind,
-                "human": item.item.human,
-                "ai": item.item.ai,
-                "decision": stored,
-                "previous": item.item.decision,
-            }),
-        )?;
+            append_event(
+                &tx,
+                actor,
+                "review.decide",
+                Some(interview_id),
+                Some(&stored.unit_id),
+                json!({
+                    "phase": PHASE_2,
+                    "kind": item.item.kind,
+                    "human": item.item.human,
+                    "ai": item.item.ai,
+                    "decision": stored,
+                    "previous": item.item.decision,
+                }),
+            )?;
+            result.push(stored);
+        }
         tx.commit()?;
-        Ok(stored)
+        Ok(result)
     }
 
     fn query_decisions(&self, sql: &str, interview_id: &str) -> Result<Vec<Arbitration>> {

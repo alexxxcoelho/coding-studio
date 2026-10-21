@@ -1425,3 +1425,341 @@ impl Store {
         })
     }
 }
+
+/// Editable exchange format: children arrays express both hierarchy and sibling order.
+/// Stable code ids and tokens must be retained when cleaning an existing codebook.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CodebookJson {
+    pub schema: String,
+    pub codes: Vec<CodebookJsonNode>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CodebookJsonNode {
+    pub code_id: String,
+    pub token: String,
+    pub name: String,
+    pub definition: String,
+    #[serde(default)]
+    pub label: String,
+    #[serde(default)]
+    pub includes: String,
+    #[serde(default)]
+    pub excludes: String,
+    #[serde(default)]
+    pub toe: Option<String>,
+    #[serde(default)]
+    pub research_questions: Vec<String>,
+    pub active: bool,
+    pub in_prompt: bool,
+    #[serde(default)]
+    pub merged_into: Option<String>,
+    #[serde(default)]
+    pub children: Vec<CodebookJsonNode>,
+}
+
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct CodebookJsonChange {
+    pub code_id: String,
+    pub before: serde_json::Value,
+    pub after: serde_json::Value,
+}
+
+impl Store {
+    pub fn export_codebook_json(&self) -> Result<CodebookJson> {
+        let nodes = self.raw_nodes()?;
+        fn tree(
+            nodes: &[CodeNode],
+            parent: Option<&str>,
+            depth: usize,
+        ) -> Result<Vec<CodebookJsonNode>> {
+            if depth > 100 {
+                return Err(validation("codebook tree is too deep"));
+            }
+            nodes
+                .iter()
+                .filter(|n| n.parent_id.as_deref() == parent)
+                .map(|n| {
+                    Ok(CodebookJsonNode {
+                        code_id: n.code_id.clone(),
+                        token: n.token.clone(),
+                        name: n.name.clone(),
+                        definition: n.definition.clone(),
+                        label: n.label.clone(),
+                        includes: n.includes.clone(),
+                        excludes: n.excludes.clone(),
+                        toe: n.toe.clone(),
+                        research_questions: n.research_questions.clone(),
+                        active: n.active,
+                        in_prompt: n.in_prompt,
+                        merged_into: n.merged_into.clone(),
+                        children: tree(nodes, Some(&n.code_id), depth + 1)?,
+                    })
+                })
+                .collect()
+        }
+        Ok(CodebookJson {
+            schema: "coding-studio.codebook.v1".into(),
+            codes: tree(&nodes, None, 0)?,
+        })
+    }
+
+    fn prepare_codebook_json(
+        &self,
+        doc: &CodebookJson,
+    ) -> Result<Vec<(CodebookJsonNode, Option<String>, usize)>> {
+        if doc.schema != "coding-studio.codebook.v1" {
+            return Err(validation("unsupported codebook JSON schema"));
+        }
+        fn flatten(
+            nodes: &[CodebookJsonNode],
+            parent: Option<&str>,
+            out: &mut Vec<(CodebookJsonNode, Option<String>, usize)>,
+            depth: usize,
+        ) -> Result<()> {
+            if depth > 100 {
+                return Err(validation("codebook tree is too deep"));
+            }
+            for node in nodes {
+                let mut flat = node.clone();
+                flat.children.clear();
+                let position = out.len();
+                out.push((flat, parent.map(str::to_string), position));
+                flatten(&node.children, Some(&node.code_id), out, depth + 1)?;
+            }
+            Ok(())
+        }
+        let old = self.raw_nodes()?;
+        let mut result = Vec::new();
+        flatten(&doc.codes, None, &mut result, 0)?;
+        if result.is_empty() {
+            return Err(validation("the imported codebook is empty"));
+        }
+        let mut ids = BTreeSet::new();
+        let mut tokens = BTreeSet::new();
+        for (node, _, _) in &mut result {
+            if !ids.insert(node.code_id.clone()) || !tokens.insert(node.token.clone()) {
+                return Err(validation(format!(
+                    "duplicate code id or token: {}",
+                    node.code_id
+                )));
+            }
+            if node.code_id == LATER_ID || node.token == NA || node.token == "LATER" {
+                return Err(validation("reserved system code"));
+            }
+            node.name = check_display_name(&node.name)?;
+            node.definition = node.definition.trim().to_string();
+            node.toe = crate::codebook::check_toe(&node.toe)?;
+            node.research_questions = self.check_questions(&node.research_questions)?;
+            if let Some(before) = old.iter().find(|n| n.code_id == node.code_id) {
+                if before.token != node.token {
+                    return Err(validation(format!(
+                        "the stable token of {} cannot change",
+                        node.code_id
+                    )));
+                }
+                if before.merged_into != node.merged_into {
+                    return Err(validation("use the merge tool to merge codes"));
+                }
+                if node.definition.is_empty() && before.definition != node.definition {
+                    return Err(validation("a code needs a definition"));
+                }
+            } else {
+                if node
+                    .code_id
+                    .strip_prefix("C-")
+                    .is_none_or(|v| v.len() < 4 || v.len() > 9 || !v.chars().all(|c| c.is_ascii_digit()))
+                {
+                    return Err(validation("new code ids must have the form C-0001"));
+                }
+                if old.iter().any(|n| n.token == node.token) || node.token != node.code_id {
+                    return Err(validation("a new code must use its stable id as its token"));
+                }
+                if node.definition.is_empty() {
+                    return Err(validation("a code needs a definition"));
+                }
+                if node.merged_into.is_some() {
+                    return Err(validation("a new code cannot be merged"));
+                }
+            }
+        }
+        let mut combined: BTreeMap<String, (String, String, Option<String>, Option<String>)> = old
+            .iter()
+            .map(|n| {
+                (
+                    n.code_id.clone(),
+                    (
+                        n.name.clone(),
+                        n.token.clone(),
+                        n.parent_id.clone(),
+                        n.merged_into.clone(),
+                    ),
+                )
+            })
+            .collect();
+        for (n, p, _) in &result {
+            combined.insert(
+                n.code_id.clone(),
+                (
+                    n.name.clone(),
+                    n.token.clone(),
+                    p.clone(),
+                    n.merged_into.clone(),
+                ),
+            );
+        }
+        for (node, parent, _) in &result {
+            let key = fold(&node.name);
+            if combined.iter().any(|(id, (name, token, _, _))| {
+                id != &node.code_id && (fold(name) == key || fold(token) == key)
+            }) {
+                return Err(validation(format!("duplicate code name: {}", node.name)));
+            }
+            if old
+                .iter()
+                .find(|n| n.code_id == node.code_id)
+                .is_some_and(|n| n.merged_into.is_some())
+            {
+                let prior = self.export_codebook_json()?;
+                let mut prior_flat = Vec::new();
+                flatten(&prior.codes, None, &mut prior_flat, 0)?;
+                let (before, p, _) = prior_flat
+                    .iter()
+                    .find(|(n, _, _)| n.code_id == node.code_id)
+                    .unwrap();
+                if node != before || parent != p {
+                    return Err(validation(format!(
+                        "merged code {} is read-only",
+                        node.code_id
+                    )));
+                }
+            }
+            let mut seen = BTreeSet::from([node.code_id.clone()]);
+            let mut p = parent.as_ref();
+            while let Some(id) = p {
+                if !seen.insert(id.clone()) {
+                    return Err(validation("cycle in codebook tree"));
+                }
+                let entry = combined
+                    .get(id)
+                    .ok_or_else(|| validation(format!("unknown parent {id}")))?;
+                if entry.3.is_some() {
+                    return Err(validation("a merged code cannot be a parent"));
+                }
+                p = entry.2.as_ref();
+            }
+        }
+        Ok(result)
+    }
+
+    pub fn preview_codebook_json(&self, doc: &CodebookJson) -> Result<Vec<CodebookJsonChange>> {
+        let next = self.prepare_codebook_json(doc)?;
+        let current = self.export_codebook_json()?;
+        fn flattened(
+            nodes: &[CodebookJsonNode],
+            parent: Option<&str>,
+            out: &mut BTreeMap<String, serde_json::Value>,
+        ) {
+            for (position, n) in nodes.iter().enumerate() {
+                let mut flat = n.clone();
+                flat.children.clear();
+                out.insert(
+                    n.code_id.clone(),
+                    json!({"code": flat, "parent_id": parent, "sibling_position": position}),
+                );
+                flattened(&n.children, Some(&n.code_id), out);
+            }
+        }
+        let mut old = BTreeMap::new();
+        flattened(&current.codes, None, &mut old);
+        let mut new = BTreeMap::new();
+        flattened(&doc.codes, None, &mut new);
+        Ok(next
+            .into_iter()
+            .filter_map(|(node, _, _)| {
+                let before = old
+                    .get(&node.code_id)
+                    .cloned()
+                    .unwrap_or(serde_json::Value::Null);
+                let after = new[&node.code_id].clone();
+                (before != after).then_some(CodebookJsonChange {
+                    code_id: node.code_id,
+                    before,
+                    after,
+                })
+            })
+            .collect())
+    }
+
+    /// Imports a tree in one transaction. Missing codes remain intact; identity,
+    /// passage codings, frozen snapshots and AI answers are never rewritten.
+    pub fn import_codebook_tree_json(
+        &self,
+        doc: &CodebookJson,
+        actor: &str,
+    ) -> Result<Vec<CodebookJsonChange>> {
+        let changes = self.preview_codebook_json(doc)?;
+        if changes.is_empty() {
+            return Ok(changes);
+        }
+        let next = self.prepare_codebook_json(doc)?;
+        let old = self.raw_nodes()?;
+        let tx = self.conn.unchecked_transaction()?;
+        for (node, parent, position) in &next {
+            if !changes.iter().any(|c| c.code_id == node.code_id) {
+                continue;
+            }
+            let before = old.iter().find(|n| n.code_id == node.code_id);
+            if before.is_none() {
+                tx.execute("INSERT INTO codes (code,code_id,name,family,label,definition,origin,active,in_prompt,research_questions,version,ord,local,created_at) VALUES (?1,?1,?2,'OTHER',?3,?4,'field',?5,?6,?7,1,?8,1,?9)", params![node.code_id,node.name,node.label,node.definition,node.active as i64,node.in_prompt as i64,crate::to_json(&node.research_questions),100000+*position as i64,now()])?;
+            }
+            tx.execute("UPDATE codes SET name=?2,label=?3,definition=?4,includes=?5,excludes=?6,toe=?7,family=?8,research_questions=?9,active=?10,in_prompt=?11,parent_id=?12,ord=?13,version=version+1,local=1 WHERE code_id=?1",params![node.code_id,node.name,node.label,node.definition,node.includes,node.excludes,node.toe,cs_model::family_for_toe(node.toe.as_deref()),crate::to_json(&node.research_questions),node.active as i64,node.in_prompt as i64,parent,100000+*position as i64])?;
+            let redefined = before.is_some_and(|b| {
+                b.definition != node.definition
+                    || b.includes != node.includes
+                    || b.excludes != node.excludes
+                    || b.active != node.active
+            });
+            if redefined {
+                self.open_harmonisation_for_code_in(
+                    &tx,
+                    &node.code_id,
+                    "redefine",
+                    "codebook JSON import",
+                    actor,
+                )?;
+            }
+            if before.is_none() || before.is_some_and(|b| b.parent_id != *parent) {
+                if let Some(p) = parent {
+                    self.open_harmonisation_for_code_in(
+                        &tx,
+                        p,
+                        "new_subcode",
+                        "codebook JSON import",
+                        actor,
+                    )?;
+                }
+            }
+        }
+        // Assign the complete submitted order, including unchanged siblings.
+        for (node, _, position) in &next {
+            tx.execute(
+                "UPDATE codes SET ord=?2 WHERE code_id=?1",
+                params![node.code_id, 100000 + *position as i64],
+            )?;
+        }
+        bump_revision(&tx, actor, "json_import", None)?;
+        append_event(
+            &tx,
+            actor,
+            "codebook.json_import",
+            None,
+            None,
+            json!({"changes":changes}),
+        )?;
+        tx.commit()?;
+        Ok(changes)
+    }
+}

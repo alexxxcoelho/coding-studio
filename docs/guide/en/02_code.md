@@ -101,3 +101,16 @@ The list of evidence types can be edited in Settings, with these default values.
 - A codebook that grows, with definitions, a version and dated code memos.
 - A familiarisation memo and an end-of-interview memo.
 - A checked checklist, and highlights usable as examples.
+
+### Clean and organise the codebook in JSON
+
+In **Codebook**, use **Export codebook (JSON)**. Edit names, definitions and the
+nested `children` arrays: they determine parentage and sibling order. Retain
+existing `code_id` and `token` values. Omitted codes are preserved.
+
+Choose **Import codebook (JSON)**, open the file or paste its contents, then
+**Validate and preview**. Review the before/after values and save the complete
+batch. Invalid trees or duplicate identifiers reject the whole import. Existing
+codings keep their code identities. Definition changes open the harmonisation
+worklist. Use the dedicated merge tool to merge codes; moving children does not
+merge their codings.

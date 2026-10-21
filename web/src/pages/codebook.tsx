@@ -10,6 +10,9 @@ import { useMemo, useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 
+import { JsonImportDialog } from "@/components/json-import-dialog"
+import { downloadText } from "@/lib/download"
+import { request } from "@/lib/api"
 import { CodeStats } from "@/components/codebook/code-stats"
 import { SplitDialog } from "@/components/codebook/split-dialog"
 import { WorklistDialog } from "@/components/codebook/worklist"
@@ -58,6 +61,7 @@ export function CodebookPage() {
   const codesQ = useCodes()
   const questionsQ = useQuery({ queryKey: ["questions"], queryFn: api.questions })
   const refresh = useInvalidateCodes()
+  const [jsonOpen, setJsonOpen] = useState(false)
   const [search, setSearch] = useState("")
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set())
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -106,7 +110,15 @@ export function CodebookPage() {
         title={t("common.codebook")}
         sub={codesQ.data ? t("codebook.version_codebook_version_nactive_cod", { n: nMerged, codebook_version: codesQ.data.codebook_version, nActive }) : " "}
       />
+      <JsonImportDialog open={jsonOpen} onOpenChange={setJsonOpen} endpoint="/api/codebook/json/import" title={t("json_import.codebook")} description={t("json_import.codebook_help")} />
       <ToolbarActions>
+        <Capsule>
+          <CapsuleItem onClick={async()=>{try {
+            const doc=await request<unknown>("GET","/api/codebook/json")
+            if(!downloadText("codebook.json",JSON.stringify(doc,null,2)+"\n","application/json;charset=utf-8"))throw new Error(t("json_import.export_failed"))
+          }catch(e){reportError(e,t("json_import.export_failed"))}}}>{t("json_import.export_codebook")}</CapsuleItem>
+          <CapsuleItem onClick={()=>setJsonOpen(true)}>{t("json_import.codebook")}</CapsuleItem>
+        </Capsule>
         <Capsule>
           <CapsuleItem onClick={() => setDialog("history")}>{t("codebook.historique")}</CapsuleItem>
           <span className="vs" />

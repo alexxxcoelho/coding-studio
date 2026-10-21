@@ -79,3 +79,22 @@ Les désaccords révèlent souvent un code mal défini.
 - Des codes créés, rattachés ou écartés à partir des concepts proposés.
 - Un codebook harmonisé, avec la liste des unités revérifiées.
 - Un journal qui prouve l'ordre des opérations : votre codage précède celui du modèle.
+
+### Coller plusieurs arbitrages en une fois
+
+Dans **Revoir → Décisions**, cliquez sur **Coller des arbitrages (JSON)**. Le
+format contient `interview_id` et un tableau `decisions`. Chaque décision indique
+`unit_id`, `decision`, `final_codes` et `comment`. Les choix sont `keep_mine`,
+`accept_reviewer`, `merge` ou `custom`. Les codes peuvent être leurs identifiants
+stables ou leurs jetons ; `NA` s'utilise seul.
+
+Après **Vérifier et prévisualiser**, relisez les extraits et les décisions. Si des
+arbitrages existent déjà, leur remplacement doit être coché. **Enregistrer le lot**
+enregistre toutes les décisions ensemble : aucune n'est enregistrée si une entrée
+est invalide ou si l'enregistrement échoue. Les anciennes décisions restent dans
+l'historique. Les références figées du chercheur et les réponses IA sont conservées.
+
+Les `final_codes` sont les codes retenus. Un choix qui ne correspond pas exactement
+au codage du chercheur figé ou à celui d'une passe IA est enregistré comme une
+décision personnalisée. `merge` est une combinaison de codes pour le passage ;
+il ne fusionne pas les codes dans le codebook.

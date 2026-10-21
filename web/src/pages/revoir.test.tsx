@@ -359,6 +359,12 @@ describe("Décisions", () => {
     })
   })
 
+  it("opens the batch arbitration JSON import", async () => {
+    renderWithClient(<RevoirPage id={ID} part="review" />)
+    fireEvent.click(await screen.findByRole("button", {name:"Coller des arbitrages (JSON)"}))
+    expect(screen.getByRole("textbox", {name:"Coller le JSON"})).toBeInTheDocument()
+  })
+
   const card = async (name = "Unité U002") => within(await screen.findByRole("article", { name }))
 
   it("exports every disagreement even when the queue hides decided items", async () => {

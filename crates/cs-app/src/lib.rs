@@ -17,6 +17,7 @@ mod export_v1;
 pub mod export_v2;
 mod export_verification;
 mod lexicon;
+mod json_exchange;
 mod local_preparation;
 mod participant_review;
 mod persons;
@@ -266,6 +267,7 @@ pub fn router(state: AppState) -> Router {
         .merge(v1_analysis::routes())
         .merge(v2::routes())
         .merge(v2_codes::routes())
+        .merge(json_exchange::routes())
         .merge(v2_transcripts::routes())
         .merge(v2_audio::routes())
         .fallback(static_file)

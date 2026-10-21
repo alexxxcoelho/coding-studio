@@ -73,3 +73,18 @@ Disagreements often reveal a poorly defined code.
 - Codes created, attached or dismissed from the concepts proposed.
 - A harmonised codebook, with the list of re-verified units.
 - A log that proves the order of operations: your coding comes before the model's.
+
+### Paste a batch of arbitrations
+
+Under **Review → Decisions**, choose **Paste arbitrations (JSON)**. Provide
+`interview_id` and a `decisions` array containing `unit_id`, `decision`,
+`final_codes` and `comment`. Supported choices are `keep_mine`, `accept_reviewer`,
+`merge` and `custom`. Codes may use stable ids or exact tokens; use `NA` alone.
+
+Select **Validate and preview**, review each excerpt and decision, then **Save
+batch**. Replacing existing decisions requires an explicit checkbox. The entire
+batch is saved together, or none of it is saved if validation or storage fails.
+Previous decisions remain in history; frozen human references and AI answers
+remain unchanged. Final codes are authoritative: choices differing from the
+frozen human coding or an AI run are recorded as custom decisions. `merge` combines
+codes for a passage; it does not merge codes in the codebook.
