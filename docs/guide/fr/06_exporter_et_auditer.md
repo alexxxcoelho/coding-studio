@@ -89,3 +89,9 @@ Utiliser des notes courtes, en puces si utile : idée, passage utile, contraste,
 ## Copie destinée aux correcteurs
 
 L’assistant **Export correcteurs** ne propose que la copie anonymisée. Tous les entretiens doivent avoir été relus dans **Anonymiser**. Relisez aussi les champs sélectionnés dans l’arbre, notamment notes, analyse, rapport et anciennes passes IA : des noms inconnus peuvent s’y trouver. Confirmez cette relecture avant de générer le dossier chiffré. Les fichiers originaux, coordonnées et documents de consentement sont exclus, ainsi que la table privée des identités. Un export ancien ne devient pas anonyme rétroactivement : régénérez-le après cette vérification.
+
+L'export Word destiné à un intervenant utilise des titres et consignes en anglais.
+Les codes retenus sont indiqués directement à la fin de chaque tour de parole ;
+leurs définitions sont regroupées en annexe. L'original reste fidèle à la source,
+et une traduction déjà acceptée est présentée séparément lorsqu'elle existe.
+L'export ne traduit pas automatiquement les verbatims ou les notes du chercheur.

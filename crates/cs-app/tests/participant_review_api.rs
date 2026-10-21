@@ -9,6 +9,7 @@ use tower::ServiceExt;
 async fn participant_word_contains_only_the_selected_interview_and_approved_translation() {
     let ctx = setup().await;
     let code = common::code_id(&ctx.app, "TECH-ADV").await;
+    ok(&ctx.app,"PUT",&format!("/api/codes/{code}"),Some(json!({"name":"Stock visibility"}))).await;
     ok(
         &ctx.app,
         "POST",
@@ -54,8 +55,42 @@ async fn participant_word_contains_only_the_selected_interview_and_approved_tran
         .unwrap()
         .read_to_string(&mut xml)
         .unwrap();
-    assert!(xml.contains("Relecture et validation de votre entretien INT-01"));
+    assert!(xml.contains("Interview review and validation — INT-01"));
     assert!(xml.contains("I run the logistics"));
+    let parsed = roxmltree::Document::parse(&xml).unwrap();
+    let paragraphs = parsed
+        .descendants()
+        .filter(|n| n.tag_name().name() == "p")
+        .map(|n| {
+            n.descendants()
+                .filter(|c| c.tag_name().name() == "t")
+                .filter_map(|c| c.text())
+                .collect::<String>()
+        })
+        .collect::<Vec<_>>();
+    let turn = paragraphs
+        .iter()
+        .position(|p| p.starts_with("I run the logistics"))
+        .unwrap();
+    assert!(
+        paragraphs[turn + 1].starts_with("Codes: Stock visibility [C-"),
+        "codes must immediately follow the turn: {:?}", &paragraphs[turn..turn+3]
+    );
+    assert_eq!(
+        paragraphs
+            .iter()
+            .filter(|p| p.starts_with("Codes: "))
+            .count(),
+        12,
+        "each original and translated turn has a code annotation"
+    );
+    let mut styles = String::new();
+    zip.by_name("word/styles.xml")
+        .unwrap()
+        .read_to_string(&mut styles)
+        .unwrap();
+    assert!(styles.contains("en-GB"));
+    assert!(!xml.contains("Relecture et validation"));
     assert!(xml.contains("Approved English translation marker"));
     assert!(xml.contains("Fictional relevant theme"));
     assert!(xml.contains("Perceived advantage over the status quo"));

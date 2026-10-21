@@ -68,3 +68,23 @@ Before submission, check that the statements are not unsupported.
 - An answer to each research question, with competing explanations and limits.
 - If you have a framework, a reading table by theme.
 - A final audit of three statements drawn at random, with its full trail.
+
+### Filter passages and edit the write-up in JSON
+
+Under **Theme passages**, combine text search with interview, code, citation use,
+verification and matrix-value filters. Citation use distinguishes unused passages,
+used passages and a specific writing part. The counter shows visible results
+against the full list. Reset restores the complete list; filtering does not edit
+passages or links, and drag-and-drop and keyboard linking remain available.
+
+**Export writing (JSON)** includes theme parts and order, citation links, question
+syntheses, framework readings, documented decisions and verdicts for existing
+audits. Retain identifiers and the read-only `references` section, including source
+quotations. Edit transcripts and theme definitions in their dedicated tools.
+
+Choose **Import writing (JSON)**, paste or open the file, then validate and preview.
+Review the changes and confirm replacement before saving. Omitted entries stay
+unchanged. Empty link arrays remove a part's links; empty text clears its text.
+Earlier versions remain available. Invalid references or a changed database reject
+the entire batch. Changed verdicts must match current evidence; imports do not
+recreate historical audit draws.

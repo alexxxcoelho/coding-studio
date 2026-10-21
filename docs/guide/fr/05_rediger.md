@@ -68,3 +68,29 @@ Avant la remise, vous vérifiez que les affirmations ne sont pas hors-sol.
 - Une réponse à chaque question de recherche, avec explications concurrentes et limites.
 - Si vous avez un cadre, un tableau de lecture par thème.
 - Un audit final de trois affirmations tirées au hasard, dont le chemin est complet.
+
+### Filtrer les passages et modifier la rédaction en JSON
+
+Dans **Passages du thème**, combinez la recherche de texte avec les filtres
+**entretien**, **code**, **utilisation**, **vérification** et **valeur de matrice**.
+L'utilisation distingue les passages déjà cités, ceux pas encore cités et ceux
+liés à une partie précise. Le compteur indique le nombre affiché sur le total.
+**Réinitialiser les filtres** réaffiche toute la liste. Les filtres ne changent ni
+les passages ni leurs liens ; le glisser-déposer et la sélection au clavier
+restent disponibles sur les résultats.
+
+**Exporter la rédaction (JSON)** produit un fichier éditable contenant les cinq
+parties de chaque thème, leur ordre, les liens de citations, les synthèses par
+question, la lecture par le cadre, les décisions documentées et les verdicts des
+audits existants. Les identifiants, le corpus d'origine et les citations sont
+conservés dans `references`, en lecture seule. Les textes de thèmes et les
+transcriptions se modifient dans leurs outils respectifs.
+
+Après modification, choisissez **Importer la rédaction (JSON)**, collez le JSON
+ou ouvrez le fichier, puis **Vérifier et prévisualiser**. Relisez les changements
+avant de confirmer leur enregistrement. Les éléments omis restent inchangés ;
+une liste `links` vide retire les liens de la partie concernée, et un texte vide
+remet cette partie à blanc. Les versions précédentes sont conservées. Le lot
+complet est refusé si une référence est invalide ou si la base a changé depuis
+l'aperçu. Un verdict modifié doit correspondre aux éléments de preuve actuels ;
+aucun ancien audit n'est recréé par l'import.

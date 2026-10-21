@@ -7,6 +7,8 @@ import { useState } from "react"
 import { useMutation } from "@tanstack/react-query"
 import { toast } from "sonner"
 
+import { JsonImportDialog } from "@/components/json-import-dialog"
+import { request } from "@/lib/api"
 import { DecisionsPanel } from "@/components/analysis/decisions"
 import { TabBar } from "@/components/analysis/tab-bar"
 import { PageTitle } from "@/components/bits"
@@ -30,6 +32,7 @@ export function RedigerPage() {
   const themesQ = useThemes()
   const project = projectQ.data
   const hasFramework = !!project?.interpretive_framework
+  const [importOpen,setImportOpen]=useState(false)
   const [picked, setPicked] = useState<Tab>("theme")
   // The framework tab does not exist without a framework.
   const tab: Tab = picked === "framework" && !hasFramework ? "theme" : picked
@@ -54,12 +57,15 @@ export function RedigerPage() {
   const themes = themesQ.data ?? []
   return (
     <>
+      <JsonImportDialog open={importOpen} onOpenChange={setImportOpen} endpoint="/api/writing/json/import" title={t("writing.json.import")} description={t("writing.json.help")} replacementLabel={n=>t("writing.json.replace",{n})}/>
       <PageTitle title={t("common.rediger")} sub={t("rediger.les_resultats_theme_par_theme")} />
       <ToolbarActions>
         <TabBar tabs={tabs} value={tab} onChange={setPicked} label={t("rediger.onglets_de_rediger")} />
       </ToolbarActions>
       <div className="flex justify-end">
         <Capsule>
+          <CapsuleItem onClick={async()=>{try{const doc=await request<unknown>("GET","/api/writing/json");if(!downloadText("writing.json",JSON.stringify(doc,null,2)+"\n","application/json;charset=utf-8"))throw new Error(t("rediger.export_impossible"))}catch(e){reportError(e,t("rediger.export_impossible"))}}}>{t("writing.json.export")}</CapsuleItem>
+          <CapsuleItem onClick={()=>setImportOpen(true)}>{t("writing.json.import")}</CapsuleItem>
           <CapsuleItem onClick={() => exportMd.mutate()} disabled={exportMd.isPending}>
             {t("rediger.exporter_en_markdown")}
           </CapsuleItem>

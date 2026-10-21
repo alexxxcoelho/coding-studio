@@ -2,7 +2,7 @@ import { act, cleanup, fireEvent, screen, waitFor, within } from "@testing-libra
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from "vitest"
 
 import { analysisApi } from "@/lib/analysis-api"
-import { audit, cases, decisions, claim, link, project, projectWithFramework, themePassages, themeSummaries, writing } from "@/lib/analysis-fixtures"
+import { audit, cases, decisions, claim, link, codes, project, projectWithFramework, themePassages, themeSummaries, writing } from "@/lib/analysis-fixtures"
 import { mockApi, renderWithClient } from "@/test-utils"
 
 import { RedigerPage } from "./rediger"
@@ -21,6 +21,7 @@ const questions = [
 
 function setup(projectConfig = project) {
   mockApi()
+    .on("GET", "/api/codes", {body:{codebook_version:1,codes}})
     .on("GET", "/api/project-config", { body: projectConfig })
     .on("GET", "/api/research-questions", { body: questions })
     .on("GET", "/api/cases", { body: cases })
@@ -66,6 +67,43 @@ describe("Rédiger, tabs", () => {
 })
 
 describe("Rédiger, par thème", () => {
+  it("combines passage text, interview, code, verification and matrix filters and can reset them",async()=>{
+    setup();renderWithClient(<RedigerPage />)
+    const pool=within(await screen.findByRole("region",{name:"Passages du thème"}))
+    await pool.findByText("Extrait numéro 61.")
+    fireEvent.change(pool.getByRole("textbox",{name:"Rechercher dans les passages…"}),{target:{value:"EXTRAIT numero"}})
+    fireEvent.change(pool.getByRole("combobox",{name:"Filtrer par entretien"}),{target:{value:"ECO-32"}})
+    fireEvent.change(pool.getByRole("combobox",{name:"Filtrer par code"}),{target:{value:"C-0002"}})
+    fireEvent.change(pool.getByRole("combobox",{name:"Filtrer par vérification"}),{target:{value:"unverified"}})
+    fireEvent.change(pool.getByRole("combobox",{name:"Filtrer par valeur de matrice"}),{target:{value:"contradicted"}})
+    expect(pool.getByText("Extrait numéro 61.")).toBeInTheDocument()
+    expect(pool.queryByText("Extrait numéro 18.")).toBeNull()
+    expect(pool.getByRole("status")).toHaveTextContent("1 / 2 passages affichés")
+    fireEvent.change(pool.getByRole("combobox",{name:"Filtrer par code"}),{target:{value:"C-0001"}})
+    expect(pool.getByText("Aucun passage ne correspond aux filtres.")).toBeInTheDocument()
+    fireEvent.click(pool.getByRole("button",{name:"Réinitialiser les filtres"}))
+    expect(pool.getByText("Extrait numéro 18.")).toBeInTheDocument()
+    expect(pool.getByText("Extrait numéro 61.")).toBeInTheDocument()
+  })
+  it("filters passages by citation use and the writing part, while keeping keyboard linking available",async()=>{
+    setup();renderWithClient(<RedigerPage />)
+    const pool=within(await screen.findByRole("region",{name:"Passages du thème"}))
+    await pool.findByText("Extrait numéro 61.")
+    fireEvent.change(pool.getByRole("combobox",{name:"Filtrer par utilisation"}),{target:{value:"used"}})
+    expect(pool.getByText("Extrait numéro 18.")).toBeInTheDocument();expect(pool.queryByText("Extrait numéro 61.")).toBeNull()
+    fireEvent.change(pool.getByRole("combobox",{name:"Filtrer par utilisation"}),{target:{value:"mechanism_evidence"}})
+    expect(pool.getByLabelText("Lier ECO-07 U018 à une partie")).toBeInTheDocument()
+    fireEvent.change(pool.getByRole("combobox",{name:"Filtrer par utilisation"}),{target:{value:"unused"}})
+    expect(pool.getByText("Extrait numéro 61.")).toBeInTheDocument();expect(pool.queryByText("Extrait numéro 18.")).toBeNull()
+  })
+  it("offers writing JSON export and opens its preview-based import",async()=>{
+    setup();renderWithClient(<RedigerPage />)
+    expect(await screen.findByRole("button",{name:"Exporter la rédaction (JSON)"})).toBeInTheDocument()
+    fireEvent.click(screen.getByRole("button",{name:"Importer la rédaction (JSON)"}))
+    expect(screen.getByRole("textbox",{name:"Coller le JSON"})).toBeInTheDocument()
+    expect(screen.getByRole("button",{name:"Enregistrer le lot"})).toBeDisabled()
+  })
+
   it("lists the retained themes only, in chapter order", async () => {
     setup()
     renderWithClient(<RedigerPage />)
@@ -85,8 +123,8 @@ describe("Rédiger, par thème", () => {
     }
     const list = screen.getByRole("region", { name: "Passages du thème" })
     expect(within(list).getByText("Extrait numéro 18.")).toBeInTheDocument()
-    expect(within(list).getByText("contredit")).toBeInTheDocument()
-    expect(within(list).getByText("Non vérifié à l'audio")).toBeInTheDocument()
+    expect(within(list).getByText("contredit",{selector:".badge"})).toBeInTheDocument()
+    expect(within(list).getByText("Non vérifié à l'audio",{selector:"span"})).toBeInTheDocument()
   })
 
   it("moves a theme down and sends the order of every theme", async () => {

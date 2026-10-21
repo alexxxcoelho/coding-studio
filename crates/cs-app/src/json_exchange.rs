@@ -14,6 +14,9 @@ use std::collections::BTreeSet;
 
 pub(crate) fn routes() -> Router<AppState> {
     Router::new()
+        .route("/api/writing/json", get(export_writing))
+        .route("/api/writing/json/import/preview", post(preview_writing))
+        .route("/api/writing/json/import", post(import_writing))
         .route("/api/codebook/json", get(export_codebook))
         .route("/api/codebook/json/import/preview", post(preview_codebook))
         .route("/api/codebook/json/import", post(import_codebook))
@@ -22,6 +25,7 @@ pub(crate) fn routes() -> Router<AppState> {
             post(preview_decisions),
         )
         .route("/api/interviews/{id}/review/import", post(import_decisions))
+        .layer(axum::extract::DefaultBodyLimit::max(32 * 1024 * 1024))
 }
 fn invalid(message: impl Into<String>) -> anyhow::Error {
     anyhow::Error::new(CsError::Validation(message.into()))
@@ -249,4 +253,22 @@ async fn import_decisions(
     }
     let result = store.record_decisions(&id, &rows, &st.actor)?;
     Ok(Json(json!({"count":result.len()})))
+}
+
+async fn export_writing(State(st): State<AppState>) -> ApiResult {
+    Ok(Json(json!(st.store().export_writing_json()?)))
+}
+async fn preview_writing(State(st): State<AppState>, Json(body): Json<ImportBody>) -> ApiResult {
+    let doc: cs_store::WritingJson = parse(&body.raw)?;
+    Ok(Json(st.store().preview_writing_json(&doc, &st.actor)?))
+}
+async fn import_writing(State(st): State<AppState>, Json(body): Json<ImportBody>) -> ApiResult {
+    let doc: cs_store::WritingJson = parse(&body.raw)?;
+    let n = st.store().import_writing_json(
+        &doc,
+        body.expected_digest.as_deref().unwrap_or(""),
+        body.replace_existing,
+        &st.actor,
+    )?;
+    Ok(Json(json!({"count":n})))
 }

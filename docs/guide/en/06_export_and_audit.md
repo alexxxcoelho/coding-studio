@@ -85,3 +85,9 @@ Pseudonymisation replaces only configured forms of names in the copy. Zero repla
 ## Notes style
 
 Use brief notes, with bullets when useful: main idea, useful passage, contrast, open question, limitation. Interview notes, theme sheets and writing areas serve as the researcher’s working notes. A code definition needs one simple sentence. A processing status or note does not replace checking a quotation against its recording.
+
+The participant review Word export uses English headings and instructions. Final
+codes appear directly after each turn, with definitions in an appendix. Original
+source wording is preserved and an approved translation is included separately
+when available. Export does not automatically translate quotations or researcher
+notes.

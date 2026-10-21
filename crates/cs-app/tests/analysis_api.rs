@@ -633,3 +633,248 @@ async fn the_writeup_export_carries_every_lot_5_file_under_the_manifest() {
         true
     );
 }
+
+#[tokio::test]
+async fn writing_json_roundtrip_and_atomic_edit_of_text_links_questions_and_cases() {
+    let (ctx, code, pid) = filled().await;
+    let t = make_theme(&ctx, &code).await;
+    let tid = t["theme_id"].as_str().unwrap();
+    let decision = ok(
+        &ctx.app,
+        "POST",
+        "/api/interviews/INT-01/decisions",
+        Some(json!({"name":"Original decision","outcome":"adopt"})),
+    )
+    .await;
+    let original = ok(&ctx.app, "GET", "/api/writing/json", None).await;
+    let preview = ok(
+        &ctx.app,
+        "POST",
+        "/api/writing/json/import/preview",
+        Some(json!({"raw":original.to_string()})),
+    )
+    .await;
+    assert_eq!(preview["count"], 0);
+    let mut edited = original.clone();
+    edited["themes"][0]["parts"]["analytical_statement"]["text"] =
+        json!("The retailer explains the benefit.");
+    edited["themes"][0]["parts"]["analytical_statement"]["links"] =
+        json!([{"passage_id":pid,"link_type":"supports","note":"Direct supporting evidence"}]);
+    edited["questions"][0]["answer"] = json!("An edited answer.");
+    edited["questions"][0]["limits"] = json!("A limited context.");
+    edited["decisions"][0]["label"] = json!("Edited decision");
+    let p = ok(
+        &ctx.app,
+        "POST",
+        "/api/writing/json/import/preview",
+        Some(json!({"raw":edited.to_string()})),
+    )
+    .await;
+    assert!(p["count"].as_u64().unwrap() >= 3);
+    assert_eq!(
+        original,
+        ok(&ctx.app, "GET", "/api/writing/json", None).await,
+        "preview must not change current writing"
+    );
+    let r = ok(
+        &ctx.app,
+        "POST",
+        "/api/writing/json/import",
+        Some(
+            json!({"raw":edited.to_string(),"expected_digest":p["digest"],"replace_existing":true}),
+        ),
+    )
+    .await;
+    assert!(r["count"].as_u64().unwrap() >= 3);
+    let theme = ok(&ctx.app, "GET", &format!("/api/writing/themes/{tid}"), None).await;
+    assert_eq!(
+        theme["parts"]["analytical_statement"]["text"],
+        "The retailer explains the benefit."
+    );
+    assert_eq!(
+        theme["parts"]["analytical_statement"]["links"]
+            .as_array()
+            .unwrap()
+            .len(),
+        1
+    );
+    let cases = ok(&ctx.app, "GET", "/api/decisions", None).await;
+    assert_eq!(cases[0]["name"], "Edited decision");
+    assert_eq!(cases[0]["decision_id"], decision["decision_id"]);
+    let store = cs_store::Store::open(&ctx.db).unwrap();
+    assert!(store.verify_chain().unwrap().ok);
+    assert_eq!(
+        store
+            .writing_versions("theme_part", tid, "analytical_statement")
+            .unwrap()
+            .len(),
+        1
+    );
+    let again = ok(&ctx.app, "GET", "/api/writing/json", None).await;
+    assert_eq!(
+        ok(
+            &ctx.app,
+            "POST",
+            "/api/writing/json/import/preview",
+            Some(json!({"raw":again.to_string()}))
+        )
+        .await["count"],
+        0
+    );
+}
+
+#[tokio::test]
+async fn writing_json_rejects_wrong_sources_late_bad_entries_and_stale_previews_without_partial_writes(
+) {
+    let (ctx, code, _) = filled().await;
+    let t = make_theme(&ctx, &code).await;
+    let tid = t["theme_id"].as_str().unwrap();
+    let original = ok(&ctx.app, "GET", "/api/writing/json", None).await;
+    let audit_before = cs_store::Store::open(&ctx.db)
+        .unwrap()
+        .audit_events(None)
+        .unwrap();
+    let mut invalid = original.clone();
+    invalid["themes"][0]["parts"]["analytical_statement"]["text"] =
+        json!("Must not save this partial change.");
+    invalid["questions"][0]["rq_id"] = json!("UNKNOWN");
+    assert_eq!(
+        call(
+            &ctx.app,
+            "POST",
+            "/api/writing/json/import/preview",
+            Some(json!({"raw":invalid.to_string()}))
+        )
+        .await
+        .0,
+        StatusCode::NOT_FOUND
+    );
+    assert_eq!(
+        original,
+        ok(&ctx.app, "GET", "/api/writing/json", None).await
+    );
+    assert_eq!(
+        audit_before,
+        cs_store::Store::open(&ctx.db)
+            .unwrap()
+            .audit_events(None)
+            .unwrap()
+    );
+    let mut invalid = original.clone();
+    invalid["source_fingerprint"] = json!("OTHER DATABASE");
+    assert_eq!(
+        call(
+            &ctx.app,
+            "POST",
+            "/api/writing/json/import/preview",
+            Some(json!({"raw":invalid.to_string()}))
+        )
+        .await
+        .0,
+        StatusCode::BAD_REQUEST
+    );
+    let mut invalid = original.clone();
+    invalid["references"]["passages"][0]["passages"][0]["text"] = json!("An invented quotation");
+    assert_eq!(
+        call(
+            &ctx.app,
+            "POST",
+            "/api/writing/json/import/preview",
+            Some(json!({"raw":invalid.to_string()}))
+        )
+        .await
+        .0,
+        StatusCode::BAD_REQUEST
+    );
+    let mut valid = original.clone();
+    valid["themes"][0]["parts"]["analytical_statement"]["text"] = json!("Desired text");
+    let preview = ok(
+        &ctx.app,
+        "POST",
+        "/api/writing/json/import/preview",
+        Some(json!({"raw":valid.to_string()})),
+    )
+    .await;
+    ok(
+        &ctx.app,
+        "PUT",
+        &format!("/api/writing/themes/{tid}/parts/analytical_statement"),
+        Some(json!({"text":"Concurrent edit"})),
+    )
+    .await;
+    assert_eq!(call(&ctx.app,"POST","/api/writing/json/import",Some(json!({"raw":valid.to_string(),"expected_digest":preview["digest"],"replace_existing":true}))).await.0,StatusCode::CONFLICT);
+    assert_eq!(
+        ok(&ctx.app, "GET", &format!("/api/writing/themes/{tid}"), None).await["parts"]
+            ["analytical_statement"]["text"],
+        "Concurrent edit"
+    );
+}
+
+#[tokio::test]
+async fn writing_json_covers_framework_and_current_audit_verdicts_without_inventing_a_draw() {
+    let (ctx, code, _) = filled().await;
+    let theme = make_theme(&ctx, &code).await;
+    let id = theme["theme_id"].as_str().unwrap();
+    let mut cfg = ok(&ctx.app, "GET", "/api/project-config", None).await;
+    cfg["interpretive_framework"] = json!({"preset":"custom","dimensions":[{"id":"tech","label":"Technology","definition":""}]});
+    ok(&ctx.app, "PUT", "/api/project-config", Some(cfg)).await;
+    ok(
+        &ctx.app,
+        "POST",
+        &format!("/api/themes/{id}/status"),
+        Some(json!({"status":"retained","override_reason":"fixture reviewed"})),
+    )
+    .await;
+    ok(
+        &ctx.app,
+        "PUT",
+        &format!("/api/writing/themes/{id}/parts/analytical_statement"),
+        Some(json!({"text":"An explicit claim."})),
+    )
+    .await;
+    ok(
+        &ctx.app,
+        "POST",
+        "/api/final-audit",
+        Some(json!({"n":1,"seed":"json-fixture"})),
+    )
+    .await;
+    let mut doc = ok(&ctx.app, "GET", "/api/writing/json", None).await;
+    assert_eq!(
+        doc["references"]["final_audits"].as_array().unwrap().len(),
+        1
+    );
+    doc["themes"][0]["framework"]["cells"]["tech"]["explains"] = json!(true);
+    doc["themes"][0]["framework"]["cells"]["tech"]["note"] = json!("A technical condition.");
+    doc["audit_verdicts"][0]["verdict"] = json!("to_nuance");
+    doc["audit_verdicts"][0]["note"] = json!("Needs a verified quotation.");
+    let p = ok(
+        &ctx.app,
+        "POST",
+        "/api/writing/json/import/preview",
+        Some(json!({"raw":doc.to_string()})),
+    )
+    .await;
+    ok(
+        &ctx.app,
+        "POST",
+        "/api/writing/json/import",
+        Some(json!({"raw":doc.to_string(),"expected_digest":p["digest"],"replace_existing":true})),
+    )
+    .await;
+    assert_eq!(
+        ok(
+            &ctx.app,
+            "GET",
+            &format!("/api/themes/{id}/framework"),
+            None
+        )
+        .await["cells"]["tech"]["note"],
+        "A technical condition."
+    );
+    let audit = ok(&ctx.app, "GET", "/api/final-audit/latest", None).await;
+    assert_eq!(audit["claims"][0]["verdict"]["verdict"], "to_nuance");
+    let store = cs_store::Store::open(&ctx.db).unwrap();
+    assert_eq!(store.final_audit_ids().unwrap().len(), 1);
+    assert!(store.verify_chain().unwrap().ok);
+}

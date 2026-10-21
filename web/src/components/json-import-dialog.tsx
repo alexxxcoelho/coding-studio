@@ -10,7 +10,7 @@ import { t } from "@/i18n"
 type Preview = {digest: string; count: number; replacements: number; changes: {code_id?:string; unit_id?:string; excerpt?:string; requested_decision?:string; before:unknown; after:unknown}[]}
 
 /** Shared local preview/commit flow. Editing the source invalidates the preview. */
-export function JsonImportDialog({open,onOpenChange,endpoint,title,description}:{open:boolean;onOpenChange:(v:boolean)=>void;endpoint:string;title:string;description:string}) {
+export function JsonImportDialog({open,onOpenChange,endpoint,title,description,replacementLabel}:{open:boolean;onOpenChange:(v:boolean)=>void;endpoint:string;title:string;description:string;replacementLabel?:(n:number)=>string}) {
   const qc=useQueryClient()
   const [raw,setRaw]=useState("")
   const [preview,setPreview]=useState<Preview|null>(null)
@@ -60,7 +60,7 @@ export function JsonImportDialog({open,onOpenChange,endpoint,title,description}:
             <div><h3>{t("json_import.after")}</h3><pre className="text-xs whitespace-pre-wrap break-words">{JSON.stringify(change.after,null,2)}</pre></div>
           </div>
         </article>)}
-        {preview.replacements>0&&<label className="flex gap-2 items-center"><input type="checkbox" checked={replace} onChange={e=>setReplace(e.target.checked)} disabled={busy}/>{t("json_import.replace",{n:preview.replacements})}</label>}
+        {preview.replacements>0&&<label className="flex gap-2 items-center"><input type="checkbox" checked={replace} onChange={e=>setReplace(e.target.checked)} disabled={busy}/>{(replacementLabel?replacementLabel(preview.replacements):t("json_import.replace",{n:preview.replacements}))}</label>}
       </section>}
       <DialogFooter>
         <Button variant="outline" disabled={busy} onClick={()=>onOpenChange(false)}>{t("common.annuler")}</Button>

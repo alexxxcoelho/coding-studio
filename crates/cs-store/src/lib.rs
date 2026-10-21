@@ -50,6 +50,8 @@ mod themes;
 mod transcripts;
 mod verification;
 mod writing;
+mod writing_exchange;
+pub use writing_exchange::WritingJson;
 
 pub use audio::{AudioOffset, MAX_AUDIO_OFFSET};
 pub use codebook::{CodePatch, ImportReport, MergeOutcome};

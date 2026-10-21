@@ -215,10 +215,10 @@ fn style(id: &str, name: &str, based: Option<&str>, ppr: &str, rpr: &str) -> Str
     )
 }
 
-fn styles_xml() -> String {
+fn styles_xml(language: &str) -> String {
     let mut x = format!(
         "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?><w:styles {NS}>\
-         <w:docDefaults><w:rPrDefault><w:rPr><w:rFonts w:ascii=\"Calibri\" w:hAnsi=\"Calibri\" w:cs=\"Calibri\"/><w:sz w:val=\"22\"/><w:lang w:val=\"fr-CH\"/></w:rPr></w:rPrDefault>\
+         <w:docDefaults><w:rPrDefault><w:rPr><w:rFonts w:ascii=\"Calibri\" w:hAnsi=\"Calibri\" w:cs=\"Calibri\"/><w:sz w:val=\"22\"/><w:lang w:val=\"{language}\"/></w:rPr></w:rPrDefault>\
          <w:pPrDefault><w:pPr><w:spacing w:after=\"120\" w:line=\"276\" w:lineRule=\"auto\"/></w:pPr></w:pPrDefault></w:docDefaults>\
          <w:style w:type=\"paragraph\" w:default=\"1\" w:styleId=\"Normal\"><w:name w:val=\"Normal\"/><w:qFormat/></w:style>"
     );
@@ -325,16 +325,20 @@ fn core_xml(title: &str) -> String {
 
 /// The write-up as a `.docx` archive.
 pub fn render(doc: &WriteupDoc) -> Result<Vec<u8>> {
-    render_options(doc, true)
+    render_options(doc, true, "fr-CH")
 }
 
 /// Analysis reports refer to shared numbered source quotations printed once
 /// in the reference appendix, rather than repeating them in each section.
 pub fn render_report(doc: &WriteupDoc) -> Result<Vec<u8>> {
-    render_options(doc, false)
+    render_options(doc, false, "fr-CH")
 }
 
-fn render_options(doc: &WriteupDoc, inline_quotes: bool) -> Result<Vec<u8>> {
+pub fn render_english(doc: &WriteupDoc) -> Result<Vec<u8>> {
+    render_options(doc, true, "en-GB")
+}
+
+fn render_options(doc: &WriteupDoc, inline_quotes: bool, language: &str) -> Result<Vec<u8>> {
     let title = doc
         .blocks
         .iter()
@@ -355,7 +359,7 @@ fn render_options(doc: &WriteupDoc, inline_quotes: bool) -> Result<Vec<u8>> {
         ("docProps/core.xml", core_xml(title)),
         ("word/document.xml", document),
         ("word/_rels/document.xml.rels", DOC_RELS.to_string()),
-        ("word/styles.xml", styles_xml()),
+        ("word/styles.xml", styles_xml(language)),
         ("word/settings.xml", settings_xml()),
         ("word/footnotes.xml", footnotes_xml(&notes)),
     ];

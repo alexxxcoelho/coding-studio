@@ -8,7 +8,7 @@ license.workspace = true
 cs-model.workspace = true
 cs-lex.workspace = true
 anyhow.workspace = true
-rusqlite.workspace = true
+rusqlite = { workspace = true, features = ["backup"] }
 serde.workspace = true
 serde_json.workspace = true
 chrono.workspace = true
